@@ -91,6 +91,16 @@ type ApplicationService struct {
 	// AuthToken is the authentication token for any external API service calls. It is
 	// used for example by the secrets proxy.
 	AuthToken string
+
+	// MutualTLSTrustedRoots is the CA that must be used for mutual TLS authentication.
+	MutualTLSTrustedRoots []byte
+
+	// PublicServiceCertificate is a publically signed certificate that can be used
+	// by the service to expose TLS to users without a Trireme client
+	PublicServiceCertificate []byte
+
+	// PublicServiceCertificateKey is the corresponding private key.
+	PublicServiceCertificateKey []byte
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule

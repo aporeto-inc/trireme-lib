@@ -23,7 +23,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -125,16 +124,24 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 				if !ok {
 					return config, nil
 				}
-				if service.UserAuthorizationHandler != nil && service.UserAuthorizationHandler.VerifierType() == common.PKI {
-					fmt.Println("Only requesting client certs now ")
+				if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
+					service.PublicNetworkInfo.Ports.Min == uint16(port) {
+					clientCAs := x509.NewCertPool()
+					if len(service.MutualTLSTrustedRoots) > 0 {
+						if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
+							return nil, fmt.Errorf("Cannot parse trusted roots")
+						}
+					} else {
+						clientCAs = p.ca
+					}
 					return &tls.Config{
 						GetCertificate: p.GetCertificateFunc(),
-						ClientAuth:     tls.RequestClientCert,
+						ClientAuth:     tls.VerifyClientCertIfGiven,
 						NextProtos:     []string{"h2"},
+						ClientCAs:      clientCAs,
 					}, nil
 				}
 			}
-			fmt.Println("Not a PKI connection - no requesting client auth ")
 			return config, nil
 		}
 		l = tls.NewListener(l, config)
@@ -265,6 +272,24 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
+		// First we check if this is a direct access to the public port. In this case
+		// we will use the service public certificate. Otherwise, we will return the
+		// enforcer certificate since this is internal access.
+		if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
+			_, port := mconn.GetOriginalDestination()
+			service, ok := p.portCache[port]
+			if !ok {
+
+				return nil, fmt.Errorf("service not available - cert is nil")
+			}
+			if service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
+				tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse server certificate: %s", err)
+				}
+				return &tlsCert, nil
+			}
+		}
 		if p.cert != nil {
 			return p.cert, nil
 		}
@@ -472,7 +497,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
 
-	if strings.HasPrefix(r.RequestURI, "/aporeto/authorization-code/callback") {
+	if strings.HasPrefix(r.RequestURI, "/aporeto/oidc/callback") {
 		authorizer.Callback(serviceID, w, r)
 		record.Action = policy.Accept
 		return

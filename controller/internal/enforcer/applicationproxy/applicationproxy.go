@@ -21,7 +21,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
 
 	"go.uber.org/zap"
 )
@@ -121,7 +120,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPoolPEM)
+		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPool)
 		if perr != nil {
 			zap.L().Error("Failed to update certificates and services", zap.Error(perr))
 			return perr
@@ -177,7 +176,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Unable to register services: %s ", err)
 	}
 
-	if _, err := p.processCertificateUpdates(puInfo, client, caPoolPEM); err != nil {
+	if _, err := p.processCertificateUpdates(puInfo, client, caPool); err != nil {
 		zap.L().Error("Failed to update certificates", zap.Error(err))
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
@@ -316,7 +315,7 @@ func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
-func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, externalCAs [][]byte) (bool, error) {
+func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, caPool *x509.CertPool) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
 	// services. If the certificates are nil, we ignore them.
@@ -326,16 +325,9 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	}
 
 	// Process any updates on the cert pool
-	var caPool *x509.CertPool
 	if caPEM != "" {
-		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
-	} else {
-		caPool = p.systemCAPool
-	}
-
-	for _, caCert := range externalCAs {
-		if !caPool.AppendCertsFromPEM(caCert) {
-			zap.L().Warn("Failed to add CA certificate to chain")
+		if !caPool.AppendCertsFromPEM([]byte(caPEM)) {
+			zap.L().Warn("Failed to add Services CA")
 		}
 	}
 
@@ -406,7 +398,7 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
 		usedServices[service.ID] = true
-		p.AddOrUpdateService(service.ID, ruleCache, service.UserAuthorizationHandler, service.UserTokenToHTTPMappings)
+		p.AddOrUpdateService(service.ID, ruleCache, service.UserAuthorizationType, service.UserAuthorizationHandler, service.UserTokenToHTTPMappings)
 	}
 	p.RemoveUnusedServices(usedServices)
 	return portCache, portMapping

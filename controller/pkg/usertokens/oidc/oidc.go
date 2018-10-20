@@ -34,10 +34,10 @@ type TokenVerifier struct {
 	ProviderURL    string
 	ClientID       string
 	ClientSecret   string
+	Scopes         []string
 	RedirectURL    string
 	NonceSize      int
 	CookieDuration time.Duration
-	Scopes         []string
 	provider       *oidc.Provider // nolint: structcheck
 	clientConfig   *oauth2.Config
 	oauthVerifier  *oidc.IDTokenVerifier
@@ -49,7 +49,6 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	if stateCache == nil {
 		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
 	}
-
 	if tokenCache == nil {
 		tokenCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
 	}
@@ -65,13 +64,19 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		ClientID: v.ClientID,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
+	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
+	for _, scope := range v.Scopes {
+		if scope != oidc.ScopeOpenID && scope != "profile" && scope != "email" {
+			scopes = append(scopes, scope)
+		}
+	}
 
 	v.clientConfig = &oauth2.Config{
 		ClientID:     v.ClientID,
 		ClientSecret: v.ClientSecret,
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  v.RedirectURL,
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       scopes,
 	}
 
 	return v, nil

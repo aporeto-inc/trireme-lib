@@ -63,8 +63,9 @@ func NewVerifier(v *PKIJWTVerifier) (*PKIJWTVerifier, error) {
 // Validate parses a generic JWT token and flattens the claims in a normalized form. It
 // assumes that the JWT signing certificate will validate the token.
 func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]string, bool, error) {
+	fmt.Prinln("Validating JWT")
 	if len(tokenString) == 0 {
-		return []string{}, true, fmt.Errorf("Empty token")
+		return []string{}, false, fmt.Errorf("Empty token")
 	}
 	claims := &jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -86,7 +87,7 @@ func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]st
 		return nil, fmt.Errorf("Signing method does not match certificate")
 	})
 	if err != nil || token == nil || !token.Valid {
-		return []string{}, true, fmt.Errorf("Invalid token")
+		return []string{}, false, fmt.Errorf("Invalid token")
 	}
 
 	attributes := []string{}

@@ -50,7 +50,7 @@ func (p *Processor) UpdateSecrets(s secrets.Secrets, trustedCertificate *x509.Ce
 }
 
 // AddOrUpdateService adds or replaces a service in the authorization db.
-func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, handler usertokens.Verifier, mappings map[string]string) {
+func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, serviceType policy.UserAuthorizationTypeValues, handler usertokens.Verifier, mappings map[string]string) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -58,13 +58,15 @@ func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, ha
 		service.apis = apis
 		service.userTokenMappings = mappings
 		service.userTokenHandler = handler
+		service.userAuthorizationType = serviceType
 		return
 	}
 
 	p.serviceMap[name] = &service{
-		apis:              apis,
-		userTokenHandler:  handler,
-		userTokenMappings: mappings,
+		apis:                  apis,
+		userTokenHandler:      handler,
+		userTokenMappings:     mappings,
+		userAuthorizationType: serviceType,
 	}
 }
 
