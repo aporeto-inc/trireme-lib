@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+
 	"go.aporeto.io/trireme-lib/policy"
 )
 
