@@ -21,7 +21,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-
 	"go.uber.org/zap"
 )
 

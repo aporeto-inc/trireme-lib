@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
-
 	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 )

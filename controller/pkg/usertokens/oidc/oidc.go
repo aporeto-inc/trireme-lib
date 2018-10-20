@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	"github.com/rs/xid"
-	"golang.org/x/oauth2"
-
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
-
 	oidc "github.com/coreos/go-oidc"
+	"github.com/rs/xid"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	"golang.org/x/oauth2"
 )
 
 var (
