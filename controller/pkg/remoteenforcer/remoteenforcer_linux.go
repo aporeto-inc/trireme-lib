@@ -343,7 +343,6 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	fmt.Println("I am in the remote enforce call")
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
 	puInfo := &policy.PUInfo{
