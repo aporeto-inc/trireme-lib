@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"go.aporeto.io/tg/tglib"
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.uber.org/zap"
 )
 
 // PUPolicy captures all policy information related ot the container
@@ -476,7 +475,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 	exposedServices := ApplicationServicesList{}
 	for _, e := range p.ExposedServices {
 		if convert {
-			e.JWTTokenHandler = usertokens.NewVerifier(e.JWTTokenHandler)
+			e.UserAuthorizationHandler = usertokens.NewVerifier(e.UserAuthorizationHandler)
 		}
 		exposedServices = append(exposedServices, e)
 	}

@@ -7,7 +7,6 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
-
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 )
 

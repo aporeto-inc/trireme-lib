@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
 

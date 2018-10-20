@@ -123,3 +123,8 @@ func String2CompressionType(s string) CompressionType {
 	}
 	return CompressionTypeNone
 }
+
+// API service related constants
+const (
+	CallbackURIExtension = "/aporeto/oidc/callback"
+)
