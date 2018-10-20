@@ -113,6 +113,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.commandArg,
 		s.statsServerSecret,
 		s.procMountPoint,
+		puInfo.Runtime.Options().ProxyPort,
 	)
 	if err != nil {
 		return err
