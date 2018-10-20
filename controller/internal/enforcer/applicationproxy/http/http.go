@@ -279,10 +279,9 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 			_, port := mconn.GetOriginalDestination()
 			service, ok := p.portCache[port]
 			if !ok {
-
 				return nil, fmt.Errorf("service not available - cert is nil")
 			}
-			if service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
+			if service.PublicNetworkInfo != nil && service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
 				tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
 				if err != nil {
 					return nil, fmt.Errorf("failed to parse server certificate: %s", err)
