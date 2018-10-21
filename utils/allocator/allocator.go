@@ -28,5 +28,11 @@ func (p *allocator) Allocate() string {
 
 // Release releases an item
 func (p *allocator) Release(item string) {
+
+	// Do not release when the channel is full. These can happen when we resync
+	// stopped containers.
+	if len(p.allocate) == cap(p.allocate) {
+		return
+	}
 	p.allocate <- item
 }
