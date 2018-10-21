@@ -80,6 +80,11 @@ type ApplicationService struct {
 	// applications can understand.
 	UserTokenToHTTPMappings map[string]string
 
+	// UserRedirectOnAuthorizationFail is the URL that the user can be redirected
+	// if there is an authorization failure. This allows the display of a custom
+	// message.
+	UserRedirectOnAuthorizationFail string
+
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.
 	External bool
