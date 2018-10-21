@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 // ForwardingPolicy is an instance of the forwarding policy

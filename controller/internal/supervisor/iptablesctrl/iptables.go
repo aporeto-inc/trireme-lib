@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
@@ -16,8 +17,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-
-	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 
@@ -39,8 +38,7 @@ const (
 	proxyOutputChain         = "Proxy-App"
 	proxyInputChain          = "Proxy-Net"
 	proxyMark                = "0x40"
-	// ProxyPort DefaultProxyPort
-	ProxyPort = "5000"
+
 	// TriremeInput represent the chain that contains pu input rules.
 	TriremeInput = "Trireme-Input"
 	// TriremeOutput represent the chain that contains pu output rules.
