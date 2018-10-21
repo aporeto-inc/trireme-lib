@@ -80,6 +80,11 @@ type ApplicationService struct {
 	// applications can understand.
 	UserTokenToHTTPMappings map[string]string
 
+	// UserRedirectOnAuthorizationFail is the URL that the user can be redirected
+	// if there is an authorization failure. This allows the display of a custom
+	// message.
+	UserRedirectOnAuthorizationFail string
+
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.
 	External bool
@@ -101,6 +106,10 @@ type ApplicationService struct {
 
 	// PublicServiceCertificateKey is the corresponding private key.
 	PublicServiceCertificateKey []byte
+
+	// PublicServiceNoTLS indicates that TLS will not be enabled in the public application
+	// ports. This is useful for health checks. It should not be used for API access.
+	PublicServiceNoTLS bool
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
