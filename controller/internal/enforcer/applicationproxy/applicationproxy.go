@@ -153,10 +153,17 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPApplication, err)
 	}
 
-	// Listen to HTTPS requests only on the network side.
+	// Listen to HTTPS requests on the network side.
 	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, caPool, portCache, portMapping, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPSNetwork, err)
+	}
+
+	// Listen to HTTP requests on the network side - mainly used for health probes - completely insecure for
+	// anything else.
+	client.netserver[protomux.HTTPNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPNetwork, client.protomux, caPool, portCache, portMapping, false)
+	if err != nil {
+		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPNetwork, err)
 	}
 
 	// TCP Requests for clients
@@ -253,12 +260,13 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
-		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
+		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type, false), true); err != nil {
 			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
 		}
 		if service.PublicNetworkInfo != nil {
 			// We also need to listen on the public ports in this case.
-			if err := register.Add(service.PublicNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
+			fmt.Println("Registering service with", service.PublicServiceNoTLS)
+			if err := register.Add(service.PublicNetworkInfo, serviceTypeToNetworkListenerType(service.Type, service.PublicServiceNoTLS), true); err != nil {
 				return fmt.Errorf("Public network information overlaps with exposed services or other definitions: %s", err)
 			}
 		}
@@ -342,9 +350,12 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	return true, nil
 }
 
-func serviceTypeToNetworkListenerType(serviceType policy.ServiceType) protomux.ListenerType {
+func serviceTypeToNetworkListenerType(serviceType policy.ServiceType, noTLS bool) protomux.ListenerType {
 	switch serviceType {
 	case policy.ServiceHTTP:
+		if noTLS {
+			return protomux.HTTPNetwork
+		}
 		return protomux.HTTPSNetwork
 	default:
 		return protomux.TCPNetwork

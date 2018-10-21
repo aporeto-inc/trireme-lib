@@ -106,6 +106,10 @@ type ApplicationService struct {
 
 	// PublicServiceCertificateKey is the corresponding private key.
 	PublicServiceCertificateKey []byte
+
+	// PublicServiceNoTLS indicates that TLS will not be enabled in the public application
+	// ports. This is useful for health checks. It should not be used for API access.
+	PublicServiceNoTLS bool
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule

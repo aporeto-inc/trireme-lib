@@ -697,6 +697,9 @@ func appendDefaultPort(address string) string {
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.
 func userCredentials(r *http.Request) (string, []*x509.Certificate) {
+	if r.TLS == nil {
+		return "", nil
+	}
 
 	certs := r.TLS.PeerCertificates
 
