@@ -13,12 +13,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 type service struct {
-	apis                 *urisearch.APICache
-	userJWThandler       usertokens.Verifier
-	userJWTClaimMappings map[string]string
+	apis                  *urisearch.APICache
+	userTokenHandler      usertokens.Verifier
+	userTokenMappings     map[string]string
+	userAuthorizationType policy.UserAuthorizationTypeValues
 }
 
 // Processor holds all the local data of the authorization engine. A processor
@@ -48,21 +50,23 @@ func (p *Processor) UpdateSecrets(s secrets.Secrets, trustedCertificate *x509.Ce
 }
 
 // AddOrUpdateService adds or replaces a service in the authorization db.
-func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, handler usertokens.Verifier, mappings map[string]string) {
+func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, serviceType policy.UserAuthorizationTypeValues, handler usertokens.Verifier, mappings map[string]string) {
 	p.Lock()
 	defer p.Unlock()
 
 	if service, ok := p.serviceMap[name]; ok {
 		service.apis = apis
-		service.userJWTClaimMappings = mappings
-		service.userJWThandler = handler
+		service.userTokenMappings = mappings
+		service.userTokenHandler = handler
+		service.userAuthorizationType = serviceType
 		return
 	}
 
 	p.serviceMap[name] = &service{
-		apis:                 apis,
-		userJWThandler:       handler,
-		userJWTClaimMappings: mappings,
+		apis:                  apis,
+		userTokenHandler:      handler,
+		userTokenMappings:     mappings,
+		userAuthorizationType: serviceType,
 	}
 }
 
@@ -101,40 +105,39 @@ func (p *Processor) UpdateServiceAPIs(name string, apis *urisearch.APICache) err
 
 // DecodeUserClaims decodes the user claims with the user authorization method.
 func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, error) {
-	attributes := []string{}
 
 	srv, ok := p.serviceMap[name]
 	if !ok {
-		return attributes, false, nil
+		return []string{}, false, nil
 	}
 
-	// First parse any incoming certificates and retrieve attributes from them.
-	// This is used in case of client authorization with certificates.
-	for _, cert := range certs {
-		attributes = append(attributes, "user="+cert.Subject.CommonName)
-		for _, email := range cert.EmailAddresses {
-			attributes = append(attributes, "email="+email)
-		}
-		for _, org := range cert.Subject.Organization {
-			attributes = append(attributes, "organization=", org)
-		}
-		for _, org := range cert.Subject.OrganizationalUnit {
-			attributes = append(attributes, "ou=", org)
-		}
-	}
-	// Now we can parse the user claims.
-	if srv.userJWThandler == nil {
-		return attributes, false, nil
-	}
-	claims, redirect, err := srv.userJWThandler.Validate(r.Context(), userToken)
-	if err != nil {
-		if len(attributes) == 0 {
-			return attributes, redirect, err
+	switch srv.userAuthorizationType {
+	case policy.UserAuthorizationMutualTLS:
+		// First parse any incoming certificates and retrieve attributes from them.
+		// This is used in case of client authorization with certificates.
+		attributes := []string{}
+		for _, cert := range certs {
+			attributes = append(attributes, "user="+cert.Subject.CommonName)
+			for _, email := range cert.EmailAddresses {
+				attributes = append(attributes, "email="+email)
+			}
+			for _, org := range cert.Subject.Organization {
+				attributes = append(attributes, "organization=", org)
+			}
+			for _, org := range cert.Subject.OrganizationalUnit {
+				attributes = append(attributes, "ou=", org)
+			}
 		}
 		return attributes, false, nil
+	case policy.UserAuthorizationOIDC, policy.UserAuthorizationJWT:
+		// Now we can parse the user claims.
+		if srv.userTokenHandler == nil {
+			return []string{}, false, nil
+		}
+		return srv.userTokenHandler.Validate(r.Context(), userToken)
+	default:
+		return []string{}, false, nil
 	}
-
-	return append(attributes, claims...), false, nil
 }
 
 // DecodeAporetoClaims decodes the Aporeto claims
@@ -166,7 +169,7 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 	}
 
 	// Validate the JWT token through the handler.
-	token, originURL, status, err := srv.userJWThandler.Callback(r)
+	token, originURL, status, err := srv.userTokenHandler.Callback(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid code %s:", err), http.StatusInternalServerError)
 		return
@@ -224,7 +227,7 @@ func (p *Processor) RedirectURI(name string, originURL string) string {
 		return ""
 	}
 	//TODO: erropr hanmdlign
-	return srv.userJWThandler.IssueRedirect(originURL)
+	return srv.userTokenHandler.IssueRedirect(originURL)
 }
 
 // UpdateRequestHeaders will update the request headers based on the user claims
@@ -238,14 +241,22 @@ func (p *Processor) UpdateRequestHeaders(name string, r *http.Request, claims []
 		return
 	}
 
-	if len(srv.userJWTClaimMappings) == 0 {
+	if len(srv.userTokenMappings) == 0 {
 		return
 	}
 
 	for _, claim := range claims {
 		parts := strings.SplitN(claim, "=", 2)
-		if header, ok := srv.userJWTClaimMappings[parts[0]]; ok && len(parts) == 2 {
+		if header, ok := srv.userTokenMappings[parts[0]]; ok && len(parts) == 2 {
 			r.Header.Add(header, parts[1])
 		}
 	}
+}
+
+// RetrieveServiceHandler will retrieve the service that is stored in the serviceMap
+func (p *Processor) RetrieveServiceHandler(name string) (usertokens.Verifier, error) {
+	if s, ok := p.serviceMap[name]; ok {
+		return s.userTokenHandler, nil
+	}
+	return nil, fmt.Errorf("Service not found")
 }

@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	"github.com/rs/xid"
-	"golang.org/x/oauth2"
-
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
-
 	oidc "github.com/coreos/go-oidc"
+	"github.com/rs/xid"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -31,18 +29,16 @@ var (
 
 // TokenVerifier is an OIDC validator.
 type TokenVerifier struct {
-	ProviderURL       string
-	ClientID          string
-	ClientSecret      string
-	RedirectURL       string
-	RedirectOnFail    bool
-	RedirectOnNoToken bool
-	NonceSize         int
-	CookieDuration    time.Duration
-	Scopes            []string
-	provider          *oidc.Provider // nolint: structcheck
-	clientConfig      *oauth2.Config
-	oauthVerifier     *oidc.IDTokenVerifier
+	ProviderURL    string
+	ClientID       string
+	ClientSecret   string
+	Scopes         []string
+	RedirectURL    string
+	NonceSize      int
+	CookieDuration time.Duration
+	provider       *oidc.Provider // nolint: structcheck
+	clientConfig   *oauth2.Config
+	oauthVerifier  *oidc.IDTokenVerifier
 }
 
 // NewClient creates a new validator client
@@ -51,7 +47,6 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	if stateCache == nil {
 		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
 	}
-
 	if tokenCache == nil {
 		tokenCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
 	}
@@ -67,24 +62,20 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		ClientID: v.ClientID,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
+	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
+	for _, scope := range v.Scopes {
+		if scope != oidc.ScopeOpenID && scope != "profile" && scope != "email" {
+			scopes = append(scopes, scope)
+		}
+	}
 
 	v.clientConfig = &oauth2.Config{
 		ClientID:     v.ClientID,
 		ClientSecret: v.ClientSecret,
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  v.RedirectURL,
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       scopes,
 	}
-
-	// We maintain two caches. The first maintains the set of states that
-	// we issue the redirect requests with. This helps us validate the
-	// callbacks and verify the state to avoid any cross-origin violations.
-	// Currently providing 60 seconds for the user to authenticate.
-	stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
-
-	// The second cache will maintain the validations of the tokens so that
-	// we don't go to the authorizer for every request.
-	tokenCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
 
 	return v, nil
 }
@@ -146,8 +137,8 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 // token is not in the cache, it will validate it with the central authorizer.
 func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, bool, error) {
 
-	if len(token) == 0 && v.RedirectOnNoToken {
-		return []string{}, v.RedirectOnNoToken, fmt.Errorf("Invalid token presented")
+	if len(token) == 0 {
+		return []string{}, true, fmt.Errorf("Invalid token presented")
 	}
 
 	if data, err := tokenCache.Get(token); err == nil {
@@ -156,7 +147,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 
 	idToken, err := v.oauthVerifier.Verify(ctx, token)
 	if err != nil {
-		return []string{}, v.RedirectOnFail, fmt.Errorf("Token validation failed: %s", err)
+		return []string{}, true, fmt.Errorf("Token validation failed: %s", err)
 	}
 
 	// Get the claims out of the token. Use the standard data structure for
@@ -165,7 +156,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		IDTokenClaims map[string]interface{} // ID Token payload is just JSON.
 	}{map[string]interface{}{}}
 	if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
-		return []string{}, v.RedirectOnFail, fmt.Errorf("Unable to process claims: %s", err)
+		return []string{}, true, fmt.Errorf("Unable to process claims: %s", err)
 	}
 
 	// Flatten the claims in a generic format.

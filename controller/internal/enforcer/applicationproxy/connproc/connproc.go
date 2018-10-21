@@ -11,10 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/sys/unix"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 // GetInterfaces retrieves all the local interfaces.

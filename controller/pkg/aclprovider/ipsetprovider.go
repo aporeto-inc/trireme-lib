@@ -1,6 +1,6 @@
 package provider
 
-import "github.com/bvandewalle/go-ipset/ipset"
+import "github.com/aporeto-inc/go-ipset/ipset"
 
 // IpsetProvider returns a fabric for Ipset.
 type IpsetProvider interface {
