@@ -16,7 +16,6 @@ import (
 	"syscall"
 
 	"github.com/kardianos/osext"
-
 	"go.uber.org/zap"
 )
 

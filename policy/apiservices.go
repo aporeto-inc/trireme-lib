@@ -16,6 +16,18 @@ const (
 	ServiceSecretsProxy
 )
 
+// UserAuthorizationTypeValues is the types of user authorization methods that
+// are supported.
+type UserAuthorizationTypeValues int
+
+// Values of UserAuthorizationTypeValues
+const (
+	UserAuthorizationNone UserAuthorizationTypeValues = iota
+	UserAuthorizationMutualTLS
+	UserAuthorizationJWT
+	UserAuthorizationOIDC
+)
+
 // ApplicationServicesList is a list of ApplicationServices.
 type ApplicationServicesList []*ApplicationService
 
@@ -56,14 +68,17 @@ type ApplicationService struct {
 	// Tags are the tags of the service.
 	Tags *TagStore
 
-	// JWTTokenHandler is the token handler for validating user JWT tokens.
-	JWTTokenHandler usertokens.Verifier
+	// UserAuthorizationType is the type of user authorization that must be used.
+	UserAuthorizationType UserAuthorizationTypeValues
 
-	// JWTClaimMappings is a map of mappings between JWT claims arriving in
+	// UserAuthorizationHandler is the token handler for validating user tokens.
+	UserAuthorizationHandler usertokens.Verifier
+
+	// UserTokenToHTTPMappings is a map of mappings between JWT claims arriving in
 	// a user request and outgoing HTTP headers towards an application. It
 	// is used to allow operators to map claims to HTTP headers that downstream
 	// applications can understand.
-	JWTClaimMappings map[string]string
+	UserTokenToHTTPMappings map[string]string
 
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.
@@ -76,6 +91,16 @@ type ApplicationService struct {
 	// AuthToken is the authentication token for any external API service calls. It is
 	// used for example by the secrets proxy.
 	AuthToken string
+
+	// MutualTLSTrustedRoots is the CA that must be used for mutual TLS authentication.
+	MutualTLSTrustedRoots []byte
+
+	// PublicServiceCertificate is a publically signed certificate that can be used
+	// by the service to expose TLS to users without a Trireme client
+	PublicServiceCertificate []byte
+
+	// PublicServiceCertificateKey is the corresponding private key.
+	PublicServiceCertificateKey []byte
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
