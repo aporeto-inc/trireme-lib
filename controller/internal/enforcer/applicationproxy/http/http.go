@@ -125,6 +125,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 					return config, nil
 				}
 				if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
+					service.PublicNetworkInfo != nil &&
 					service.PublicNetworkInfo.Ports.Min == uint16(port) {
 					clientCAs := x509.NewCertPool()
 					if len(service.MutualTLSTrustedRoots) > 0 {
