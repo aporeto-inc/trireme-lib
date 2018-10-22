@@ -9,6 +9,9 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+// ErrNoMatch is error returned when no match is found.
+var ErrNoMatch = errors.New("No Match")
+
 // portAction captures the minimum and maximum ports for an action
 type portAction struct {
 	min    uint16
@@ -70,14 +73,13 @@ func (p *portActionList) lookup(port uint16, preReported *policy.FlowPolicy) (re
 
 			// Check observed policies.
 			if pa.policy.ObserveAction.Observed() {
-				if report != nil {
-					continue
+				if report == nil {
+					report = pa.policy
 				}
-				report = pa.policy
 				if pa.policy.ObserveAction.ObserveContinue() {
 					continue
 				}
-				packet = report
+				packet = pa.policy
 				return report, packet, nil
 			}
 
@@ -89,5 +91,5 @@ func (p *portActionList) lookup(port uint16, preReported *policy.FlowPolicy) (re
 		}
 	}
 
-	return report, packet, errors.New("No match")
+	return report, packet, ErrNoMatch
 }

@@ -1,8 +1,8 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "sirupsen"
-  name = "github.com/aporeto-inc/oxy"
+  branch = "master"
+  name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
   branch = "master"
