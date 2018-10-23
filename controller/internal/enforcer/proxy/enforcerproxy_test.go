@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -16,10 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-
-	gomock "github.com/golang/mock/gomock"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 const procMountPoint = "/proc"
@@ -235,7 +233,7 @@ func TestEnforce(t *testing.T) {
 			})
 
 			Convey("When I try to call enforce method", func() {
-				prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+				prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 				rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 				err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
@@ -258,7 +256,7 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to call enforce method without enforcer running", func() {
-			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
@@ -294,7 +292,7 @@ func TestSetTargetNetworks(t *testing.T) {
 			})
 
 			Convey("When I try to call enforce method", func() {
-				prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+				prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 				rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 				err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
@@ -343,7 +341,7 @@ func TestUnenforce(t *testing.T) {
 		})
 
 		Convey("When I try to call enforce method", func() {
-			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())

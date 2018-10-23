@@ -6,9 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.uber.org/zap"
 )
 
 // PKISecrets holds all PKI information

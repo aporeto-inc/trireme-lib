@@ -64,6 +64,9 @@ const (
 
 	// EnvCompressedTags stores whether we should be using compressed tags.
 	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
+
+	// EnvApplicationProxyPort store the application proxy port
+	EnvApplicationProxyPort = "TRIREME_ENV_PROXY_PORT"
 )
 
 // ModeType defines the mode of the enforcement and supervisor.
@@ -123,3 +126,8 @@ func String2CompressionType(s string) CompressionType {
 	}
 	return CompressionTypeNone
 }
+
+// API service related constants
+const (
+	CallbackURIExtension = "/aporeto/oidc/callback"
+)
