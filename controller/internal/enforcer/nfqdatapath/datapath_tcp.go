@@ -294,6 +294,25 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		return policy, nil
 	}
 
+	// If the packet is an external service, then we check if db has 0.0.0.0
+	// If yes, we continue with the usual flow (add tokens, authdata)
+	// If no, we skip adding our auth data, tokens and return nil
+	_, policy, err := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+	if err == nil && policy.Action.Accepted() {
+		if !context.IPFoundInApplicationACL("0.0.0.0") {
+
+			// Set the state indicating that we send out a Syn packet
+			conn.SetState(connection.TCPSynSend)
+
+			// Poplate the caches to track the connection
+			hash := tcpPacket.L4FlowHash()
+			d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
+			d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+
+			return nil, nil
+		}
+	}
+
 	// We are now processing as a Trireme packet that needs authorization headers
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
@@ -610,7 +629,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
-
+		zap.L().Debug("REPORT FLOW",
+			zap.String("destAddr", tcpPacket.DestinationAddress.String()),
+			zap.Uint16("destPort", tcpPacket.DestinationPort),
+		)
 		d.releaseFlow(context, report, pkt, tcpPacket)
 
 		return pkt, nil, nil

@@ -65,6 +65,89 @@ func TestRejectPrioritizedOverAcceptCacheLookup(t *testing.T) {
 	})
 }
 
+func TestMatchingIPFoundInACL(t *testing.T) {
+
+	rules = policy.IPRuleList{
+		policy.IPRule{
+			Address:  "172.0.0.0/8",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "tcp172/8"},
+		},
+	}
+
+	rules1 = policy.IPRuleList{
+		policy.IPRule{
+			Address:  "172.0.0.0/8",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Reject,
+				PolicyID: "tcp172/8"},
+		},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "catchAll"},
+		},
+	}
+
+	Convey("Given an ACL Cache without 0.0.0.0 rule", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules)
+		So(err, ShouldBeNil)
+
+		Convey("When I retrieve ip in db, I should get true", func() {
+			found := c.MatchingIPFound("172.1.1.1")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I retrieve ip not in db, I should get false", func() {
+			found := c.MatchingIPFound("178.1.1.1")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeFalse)
+		})
+
+		Convey("When I retrieve 0.0.0.0 in db, I should get false", func() {
+			found := c.MatchingIPFound("0.0.0.0")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeFalse)
+		})
+	})
+
+	Convey("Given an ACL Cache with 0.0.0.0 rule", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules1)
+		So(err, ShouldBeNil)
+
+		Convey("When I retrieve ip in db, I should get true", func() {
+			found := c.MatchingIPFound("172.1.1.1")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I retrieve different ip in db, I should get true", func() {
+			found := c.MatchingIPFound("182.1.1.1")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I retrieve ip in db, I should get false", func() {
+			found := c.MatchingIPFound("0.0.0.0")
+			So(err, ShouldBeNil)
+			So(found, ShouldBeTrue)
+		})
+	})
+}
+
 func TestEmptyACLWithObserveContinueCacheLookup(t *testing.T) {
 
 	rules = policy.IPRuleList{
@@ -184,7 +267,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
 			So(a.PolicyID, ShouldEqual, "observeRejectContinue-172.1/16")
-			// So(p.Action, ShouldEqual, policy.Accept)
+			So(p.Action, ShouldEqual, policy.Accept)
 			So(p.PolicyID, ShouldEqual, "tcp172/8")
 		})
 
