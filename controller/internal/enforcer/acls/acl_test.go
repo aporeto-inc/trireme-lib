@@ -285,7 +285,7 @@ func TestObservedLookup(t *testing.T) {
 			r, p, err := a.getMatchingAction(ip.To4(), port, preReported)
 			So(err, ShouldBeNil)
 			So(p.Action, ShouldEqual, policy.Accept)
-			//	So(p.PolicyID, ShouldEqual, "tcp200/9")
+			So(p.PolicyID, ShouldEqual, "tcp200/9")
 			So(r.Action, ShouldEqual, policy.Reject)
 			So(r.PolicyID, ShouldEqual, "preReportedPolicyID")
 		})
