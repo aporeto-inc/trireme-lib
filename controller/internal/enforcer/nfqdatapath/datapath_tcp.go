@@ -296,7 +296,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// If the packet is an external service, then we check if db has 0.0.0.0
 	// If yes, we continue with the usual flow (add tokens, authdata)
-	// If no, we skip adding our auth data, tokens and return nil
+	// If no, we skip adding our auth data, tok©ens and return nil
 	_, policy, err := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 	if err == nil && policy.Action.Accepted() {
 		if !context.IPFoundInApplicationACL("0.0.0.0") {
@@ -629,10 +629,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
-		zap.L().Debug("REPORT FLOW",
-			zap.String("destAddr", tcpPacket.DestinationAddress.String()),
-			zap.Uint16("destPort", tcpPacket.DestinationPort),
-		)
+
 		d.releaseFlow(context, report, pkt, tcpPacket)
 
 		return pkt, nil, nil
