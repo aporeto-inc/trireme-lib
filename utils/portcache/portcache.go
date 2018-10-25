@@ -30,10 +30,21 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 	if s.Min == s.Max {
 		p.ports.AddOrUpdate(s.Min, s)
 	} else {
+		// Insert the portspec
 		p.Lock()
-		p.ranges = append(p.ranges, s)
+		p.ranges = append([]*portspec.PortSpec{s}, p.ranges...)
 		p.Unlock()
 	}
+}
+
+// AddPortSpecToEnd adds a range at the end of the cache
+func (p *PortCache) AddPortSpecToEnd(s *portspec.PortSpec) {
+
+	// Append the portspec
+	p.Lock()
+	p.ranges = append(p.ranges, s)
+	p.Unlock()
+
 }
 
 // AddUnique adds a port spec into the cache and makes sure its unique
