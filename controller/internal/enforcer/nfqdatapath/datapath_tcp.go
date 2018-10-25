@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -292,6 +293,26 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 		return policy, nil
+	}
+
+	// If the packet is an external service, then we check if db has 0.0.0.0
+	// If yes, we continue with the usual flow (add tokens, options)
+	// If no, we skip adding our auth data, options and return nil
+	_, policy, err := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+	if err == nil {
+		_, matchingPolicy, nerr := context.ApplicationACLPolicyFromAddr(net.ParseIP("0.0.0.0").To4(), tcpPacket.DestinationPort)
+		if nerr != nil || (nerr == nil && matchingPolicy.PolicyID != policy.PolicyID) {
+
+			// Set the state indicating that we send out a Syn packet
+			conn.SetState(connection.TCPSynSend)
+
+			// Poplate the caches to track the connection
+			hash := tcpPacket.L4FlowHash()
+			d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
+			d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+
+			return nil, nil
+		}
 	}
 
 	// We are now processing as a Trireme packet that needs authorization headers
