@@ -257,13 +257,6 @@ func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (repo
 	return p.ApplicationACLs.GetMatchingAction(addr, port)
 }
 
-// IPFoundInApplicationACL checks if the ip is in application acl.
-func (p *PUContext) IPFoundInApplicationACL(ip string) (found bool) {
-	defer p.RUnlock()
-	p.RLock()
-	return p.ApplicationACLs.MatchingIPFound(ip)
-}
-
 // UpdateApplicationACLs updates the application ACL policy
 func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
 	defer p.Unlock()

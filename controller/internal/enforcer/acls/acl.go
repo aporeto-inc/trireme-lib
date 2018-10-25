@@ -120,35 +120,3 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 
 	return report, packet, errors.New("No match")
 }
-
-// ipFoundInACL does ip lookup in acl in a common way for accept/reject rules.
-func (a *acl) ipFoundInACL(ipStr string) bool {
-
-	// if no ip is given return
-	if ipStr == "" {
-		return false
-	}
-
-	// parse ip string
-	ip := net.ParseIP(ipStr)
-	addr := binary.BigEndian.Uint32(ip.To4())
-
-	// Iterate over all the bitmasks we have
-	for _, len := range a.sortedPrefixLens {
-
-		rules, ok := a.prefixLenMap[len]
-		if !ok {
-			continue
-		}
-
-		// Do a lookup as a hash to see if we have a match
-		_, ok = rules.rules[addr&rules.mask]
-		if !ok {
-			continue
-		}
-
-		return true
-	}
-
-	return false
-}

@@ -87,24 +87,3 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.Flo
 
 	return report, packet, errors.New("no match")
 }
-
-// MatchingIPFound returns true if given ip is found in db
-func (c *ACLCache) MatchingIPFound(ip string) (found bool) {
-
-	found = c.reject.ipFoundInACL(ip)
-	if found {
-		return
-	}
-
-	found = c.accept.ipFoundInACL(ip)
-	if found {
-		return
-	}
-
-	found = c.observe.ipFoundInACL(ip)
-	if found {
-		return
-	}
-
-	return false
-}
