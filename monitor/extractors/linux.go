@@ -15,25 +15,9 @@ import (
 
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	portspec "go.aporeto.io/trireme-lib/utils/portspec"
-	"go.uber.org/zap"
-)
-
-const (
-
-	// PuType is the type of host svc (network only or otherwise)
-	PuType = "$PuType"
-	// LinuxPU represents the PU type
-	LinuxPU = "LinuxPU"
-
-	// HostModeNetworkPU represents host pu in network only mode.
-	HostModeNetworkPU = "HostNetworkPU"
-
-	// HostPU represent host pu in true sense (both incoming and outgoing)
-	HostPU = "HostPU"
 )
 
 // LinuxMetadataExtractorType is a type of Linux metadata extractors
@@ -238,50 +222,4 @@ func libs(binpath string) []string {
 	}
 	libraries, _ := f.ImportedLibraries()
 	return libraries
-}
-
-// policyExtensions retrieves policy extensions. Moving this function from extractor package.
-func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedMap) {
-
-	if runtime == nil {
-		return nil
-	}
-
-	if runtime.Options().PolicyExtensions == nil {
-		return nil
-	}
-
-	if extensions, ok := runtime.Options().PolicyExtensions.(policy.ExtendedMap); ok {
-		return extensions
-	}
-	return nil
-}
-
-// GetPuType returns puType stored by policy extensions.
-func GetPuType(runtime policy.RuntimeReader) string {
-
-	if e := policyExtensions(runtime); e != nil {
-		if putype, ok := e.Get(PuType); ok {
-			zap.L().Debug("extracted PuType as", zap.String("puType", putype))
-			return putype
-		}
-		return ""
-	}
-	return ""
-}
-
-// IsHostmodePU returns true if puType stored by policy extensions is hostmode PU
-func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
-
-	if mode != constants.LocalServer {
-		return false
-	}
-
-	if e := policyExtensions(runtime); e != nil {
-		putype, ok := e.Get(PuType)
-		zap.L().Debug("extracted PuType as", zap.String("puType", putype))
-		return ok && (putype == HostModeNetworkPU || putype == HostPU)
-
-	}
-	return false
 }

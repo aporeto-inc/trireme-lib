@@ -84,7 +84,7 @@ func TestAddChainRules(t *testing.T) {
 				return nil
 			})
 
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 		})
 
@@ -95,7 +95,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -107,7 +107,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -123,15 +123,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
-			So(err, ShouldBeNil)
-		})
-
-		Convey("When I add the chain rules for hostmode and they succeed", func() {
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 		})
 
@@ -142,18 +134,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
-			So(err, ShouldNotBeNil)
-		})
-
-		Convey("When I add the chain rules and the appPacketIPTableContext fails in hostmode ", func() {
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if table == i.appPacketIPTableContext {
-					return errors.New("error")
-				}
-				return nil
-			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 		})
 
@@ -164,40 +145,27 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 		})
-
-		Convey("When I add the chain rules and the netPacketIPtableContext fails in hostmode ", func() {
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if table == i.netPacketIPTableContext {
-					return errors.New("error")
-				}
-				return nil
-			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
-			So(err, ShouldNotBeNil)
-		})
-
 		Convey("When i add chain rules with non-zero uid and port 0", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "0", "0", "1001", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "0", "0", "0", "1001", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 
 		})
 
 		Convey("When i add chain rules with non-zero uid and port 0 rules are added to the UID Chain", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == "RedirProxy-Net" || chain == "RedirProxy-App" || chain == "Proxy-Net" || chain == "Proxy-App" ||
-					chain == TriremeInput || chain == TriremeOutput {
+				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == "RedirProxy-Net" || chain == "RedirProxy-App" || chain == "Proxy-Net" || chain == "Proxy-App" {
 					return nil
 				}
 
 				return fmt.Errorf("added to different chain: %s", chain)
 			})
-			err := i.addChainRules("appchain", "netchain", "80", "0", "0", "1001", "", "5000", "proxyPortSet", false)
+			err := i.addChainRules("appchain", "netchain", "80", "0", "0", "1001", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 
 		})
@@ -659,7 +627,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", false)
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName")
 			So(err, ShouldBeNil)
 		})
 
@@ -667,26 +635,9 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", false)
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName")
 			So(err, ShouldBeNil)
 
-		})
-
-		Convey("When I delete the chain rules and it fails in hostmode in hostmode", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", true)
-			So(err, ShouldBeNil)
-
-		})
-
-		Convey("When I delete the chain rules and it succeeds in hostmode", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", true)
-			So(err, ShouldBeNil)
 		})
 
 	})

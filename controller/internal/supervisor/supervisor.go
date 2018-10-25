@@ -15,7 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
@@ -123,10 +122,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	cfg := data.(*cacheData)
 	port := cfg.containerInfo.Runtime.Options().ProxyPort
 
-	// If local server, delete pu specific chains in Trireme/Hostmode chains.
-	isHostmode := extractors.IsHostmodePU(cfg.containerInfo.Runtime, s.mode)
-
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port, isHostmode); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
