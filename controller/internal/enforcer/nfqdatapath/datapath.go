@@ -272,6 +272,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range tcpPorts {
+
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
 				continue
@@ -280,6 +281,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		}
 
 		for _, port := range udpPorts {
+
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
 				continue

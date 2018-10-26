@@ -155,7 +155,15 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 
 	l.Lock()
 	defer l.Unlock()
+
 	if eventInfo.HostService {
+		// For network only pus, we do not program cgroups and hence should not clean it.
+		// Cleaning this could result in removal of root cgroup that was configured for
+		// true host mode pu.
+		if eventInfo.NetworkOnlyTraffic {
+			return nil
+		}
+
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
 			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
 		}
