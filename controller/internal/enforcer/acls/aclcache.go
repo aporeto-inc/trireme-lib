@@ -60,19 +60,19 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 }
 
 // GetMatchingAction gets the matching action
-func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+func (c *ACLCache) GetMatchingAction(ip []byte, port uint16, defaultIP bool) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
-	report, packet, err = c.reject.getMatchingAction(ip, port, report)
+	report, packet, err = c.reject.getMatchingAction(ip, port, report, defaultIP)
 	if err == nil {
 		return
 	}
 
-	report, packet, err = c.accept.getMatchingAction(ip, port, report)
+	report, packet, err = c.accept.getMatchingAction(ip, port, report, defaultIP)
 	if err == nil {
 		return
 	}
 
-	report, packet, err = c.observe.getMatchingAction(ip, port, report)
+	report, packet, err = c.observe.getMatchingAction(ip, port, report, defaultIP)
 	if err == nil {
 		return
 	}

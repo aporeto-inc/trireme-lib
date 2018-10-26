@@ -92,18 +92,36 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 }
 
 // getMatchingAction does lookup in acl in a common way for accept/reject rules.
-func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPolicy, isDefaultIP bool) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
 	report = preReport
 
 	addr := binary.BigEndian.Uint32(ip)
+	// To keep state of default ip if found
+	defaultIPFound := false
+	// To skip overriding matching action if found already
+	done := false
+	// To hold matching policies
+	var matchingPacket *policy.FlowPolicy
+	var matchingReport *policy.FlowPolicy
+	// Default ip and addr
+	defaultIP := net.ParseIP("0.0.0.0").To4()
+	defaultAddr := binary.BigEndian.Uint32(defaultIP)
 
+	count := 0
 	// Iterate over all the bitmasks we have
-	for _, len := range a.sortedPrefixLens {
+	for _, plen := range a.sortedPrefixLens {
+		count++
 
-		rules, ok := a.prefixLenMap[len]
+		rules, ok := a.prefixLenMap[plen]
 		if !ok {
 			continue
+		}
+
+		// If default ip is found then update flag
+		_, ok = rules.rules[defaultAddr&rules.mask]
+		if ok {
+			defaultIPFound = true
 		}
 
 		// Do a lookup as a hash to see if we have a match
@@ -113,9 +131,39 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 		}
 
 		report, packet, err = actionList.lookup(port, report)
-		if err == nil {
-			return
+		// This is run only If isDefaultIP is set
+		if isDefaultIP {
+			// If defaultIP and a match for current ip and port is found then return err
+			if defaultIPFound && matchingReport != nil && matchingPacket != nil {
+				return nil, nil, errors.New("found 0.0.0.0 in cache")
+			}
 		}
+
+		// If matching action found, we have two options
+		// If isDefaultIP NOT set then return the first matching policy
+		// If isDefaultIP is set then record the policies to check if defaultIP is found and return error
+		if err == nil {
+			if !isDefaultIP {
+				return
+			}
+			if !done {
+				matchingPacket = packet
+				matchingReport = report
+				done = true
+			}
+			// If current is the last element return error if defaultIP is found
+			if count == len(a.sortedPrefixLens) {
+				if defaultIPFound && matchingReport != nil && matchingPacket != nil {
+					return nil, nil, errors.New("found 0.0.0.0 in cache")
+				}
+			}
+			continue
+		}
+	}
+
+	// If defaultIP NOT found then return the recorded policies
+	if matchingReport != nil && matchingPacket != nil {
+		return matchingReport, matchingPacket, nil
 	}
 
 	return report, packet, errors.New("No match")

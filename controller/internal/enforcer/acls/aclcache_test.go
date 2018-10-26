@@ -1,6 +1,7 @@
 package acls
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -15,8 +16,105 @@ func TestEmptyACLCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address but failed port, I should get reject", func() {
 			ip := net.ParseIP("192.168.100.1")
 			port := uint16(600)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldNotBeNil)
+			So(a.Action, ShouldEqual, policy.Reject)
+			So(a.PolicyID, ShouldEqual, "default")
+			So(p.Action, ShouldEqual, policy.Reject)
+			So(p.PolicyID, ShouldEqual, "default")
+		})
+	})
+}
+
+func TestMatchingActionWithDefaultIP(t *testing.T) {
+
+	rules = policy.IPRuleList{
+		policy.IPRule{
+			Address:  "172.0.0.0/8",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "tcp172/8"},
+		},
+	}
+	rules1 := policy.IPRuleList{
+		policy.IPRule{
+			Address:  "172.0.0.0/8",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "tcp172/8"},
+		},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "catchAll"},
+		},
+	}
+
+	rules3 := policy.IPRuleList{
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "1",
+			Protocol: "tcp",
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "catchAll"},
+		},
+	}
+
+	Convey("Given an ACL Cache with accept and reject rules with 0.0.0.0", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules1)
+		So(err, ShouldBeNil)
+
+		Convey("When I lookup for a matching address ", func() {
+			ip := net.ParseIP("172.1.1.1")
+			port := uint16(1)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, true)
+			So(err, ShouldResemble, fmt.Errorf("no match"))
+			So(a.Action, ShouldEqual, policy.Reject)
+			So(a.PolicyID, ShouldEqual, "default")
+			So(p.Action, ShouldEqual, policy.Reject)
+			So(p.PolicyID, ShouldEqual, "default")
+		})
+	})
+
+	Convey("Given an ACL Cache with accept and reject rules without 0.0.0.0", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules)
+		So(err, ShouldBeNil)
+
+		Convey("When I lookup for a matching address ", func() {
+			ip := net.ParseIP("172.1.1.1")
+			port := uint16(1)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, true)
+			So(err, ShouldBeNil)
+			So(a.Action, ShouldEqual, policy.Accept)
+			So(a.PolicyID, ShouldEqual, "tcp172/8")
+			So(p.Action, ShouldEqual, policy.Accept)
+			So(p.PolicyID, ShouldEqual, "tcp172/8")
+		})
+	})
+
+	Convey("Given an ACL Cache with accept and reject rules with only 0.0.0.0 ", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules3)
+		So(err, ShouldBeNil)
+
+		Convey("When I lookup for a matching address ", func() {
+			ip := net.ParseIP("172.1.1.2")
+			port := uint16(1)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, true)
+			So(err, ShouldResemble, fmt.Errorf("no match"))
 			So(a.Action, ShouldEqual, policy.Reject)
 			So(a.PolicyID, ShouldEqual, "default")
 			So(p.Action, ShouldEqual, policy.Reject)
@@ -55,7 +153,7 @@ func TestRejectPrioritizedOverAcceptCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address to both accept and reject rule, I should get reject", func() {
 			ip := net.ParseIP("172.1.1.1")
 			port := uint16(1)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
 			So(a.PolicyID, ShouldEqual, "catchAllDrop")
@@ -88,7 +186,7 @@ func TestEmptyACLWithObserveContinueCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address, I should get accept", func() {
 			ip := net.ParseIP("192.168.100.1")
 			port := uint16(1)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldNotBeNil)
 			So(a.Action, ShouldEqual, policy.Accept)
 			So(a.PolicyID, ShouldEqual, "ObserveAcceptContinue")
@@ -121,7 +219,7 @@ func TestEmptyACLWithObserveApplyCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address, I should get accept", func() {
 			ip := net.ParseIP("192.168.100.1")
 			port := uint16(1)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Accept)
 			So(a.PolicyID, ShouldEqual, "observeAcceptApply")
@@ -180,7 +278,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address to /16, I should get report reject and packet accept and ignore observe-apply rule", func() {
 			ip := net.ParseIP("172.1.1.1")
 			port := uint16(1)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
 			So(a.PolicyID, ShouldEqual, "observeRejectContinue-172.1/16")
@@ -191,7 +289,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		Convey("When I lookup for a matching address to /8, I should get report reject and packet accept and ignore observe-apply rule", func() {
 			ip := net.ParseIP("172.2.1.1")
 			port := uint16(1)
-			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			a, p, err := c.GetMatchingAction(ip.To4(), port, false)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
 			So(a.PolicyID, ShouldEqual, "observeRejectContinue")

@@ -4,7 +4,6 @@ package nfqdatapath
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -276,7 +275,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort, false)
 
 	if perr != nil {
 		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
@@ -298,21 +297,18 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is an external service, then we check if db has 0.0.0.0
 	// If yes, we continue with the usual flow (add tokens, options)
 	// If no, we skip adding our auth data, options and return nil
-	_, policy, err := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+	_, _, err := context.ApplicationACLPolicyErrorOnDefaultIP(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 	if err == nil {
-		_, matchingPolicy, nerr := context.ApplicationACLPolicyFromAddr(net.ParseIP("0.0.0.0").To4(), tcpPacket.DestinationPort)
-		if nerr != nil || (nerr == nil && matchingPolicy.PolicyID != policy.PolicyID) {
 
-			// Set the state indicating that we send out a Syn packet
-			conn.SetState(connection.TCPSynSend)
+		// Set the state indicating that we send out a Syn packet
+		conn.SetState(connection.TCPSynSend)
 
-			// Poplate the caches to track the connection
-			hash := tcpPacket.L4FlowHash()
-			d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
-			d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+		// Poplate the caches to track the connection
+		hash := tcpPacket.L4FlowHash()
+		d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
+		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
-			return nil, nil
-		}
+		return nil, nil
 	}
 
 	// We are now processing as a Trireme packet that needs authorization headers

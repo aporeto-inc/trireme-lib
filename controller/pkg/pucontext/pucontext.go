@@ -239,7 +239,7 @@ func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.Flow
 	defer p.RUnlock()
 	p.RLock()
 
-	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
+	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort, false)
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
@@ -247,14 +247,21 @@ func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *
 	defer p.RUnlock()
 	p.RLock()
 
-	return p.networkACLs.GetMatchingAction(addr, port)
+	return p.networkACLs.GetMatchingAction(addr, port, false)
 }
 
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
 	defer p.RUnlock()
 	p.RLock()
-	return p.ApplicationACLs.GetMatchingAction(addr, port)
+	return p.ApplicationACLs.GetMatchingAction(addr, port, false)
+}
+
+// ApplicationACLPolicyErrorOnDefaultIP retrieve the policy given an address and port and returns error if defaultIP (0.0.0.0) is found
+func (p *PUContext) ApplicationACLPolicyErrorOnDefaultIP(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
+	defer p.RUnlock()
+	p.RLock()
+	return p.ApplicationACLs.GetMatchingAction(addr, port, true)
 }
 
 // UpdateApplicationACLs updates the application ACL policy
