@@ -109,7 +109,9 @@ func findgroupname(gid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	bs := bufio.NewScanner(f)
 	for bs.Scan() {
 		line := bs.Text()
