@@ -99,8 +99,6 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 	addr := binary.BigEndian.Uint32(ip)
 	// To keep state of default ip if found
 	defaultIPFound := false
-	// To skip overriding matching action if found already
-	done := false
 	// To hold matching policies
 	var matchingPacket *policy.FlowPolicy
 	var matchingReport *policy.FlowPolicy
@@ -146,10 +144,9 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 			if !isDefaultIP {
 				return
 			}
-			if !done {
+			if matchingPacket == nil && matchingReport == nil {
 				matchingPacket = packet
 				matchingReport = report
-				done = true
 			}
 			// If current is the last element return error if defaultIP is found
 			if count == len(a.sortedPrefixLens) {
