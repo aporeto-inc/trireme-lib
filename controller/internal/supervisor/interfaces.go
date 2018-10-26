@@ -36,7 +36,7 @@ type Implementor interface {
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, isHostMode bool) error
+	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
 	SetTargetNetworks([]string, []string) error
