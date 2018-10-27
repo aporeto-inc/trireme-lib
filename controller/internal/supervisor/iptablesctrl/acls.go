@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
@@ -253,14 +254,14 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string) [][]string {
+func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
 
 	rules := [][]string{}
 
-	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// If enforcer is in sidecar mode or host pu mode, we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -298,7 +299,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
@@ -329,20 +330,6 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	})
 
 	return rules
-}
-
-// addTriremeChains adds Trireme-Input and Trireme-Output chains.
-func (i *Instance) addTriremeChains(appChain string, netChain string) error {
-
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
-	}
-
-	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
-	}
-
-	return nil
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -414,7 +401,7 @@ func (i *Instance) getUDPNatRule(udpPorts string) [][]string {
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, isHostMode bool) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 	if i.mode == constants.LocalServer {
 		if tcpPorts != "0" || udpPorts != "0" || uid == "" {
 			if udpPorts != "0" {
@@ -425,12 +412,22 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 				}
 			}
 
-			appSection := TriremeOutput
-			netSection := TriremeInput
-			// Add app section
-			if isHostMode {
-				appSection = HostmodeOutput
-				netSection = HostmodeInput
+			// choose correct chains based on puType
+			appSection := ""
+			netSection := ""
+			switch puType {
+			case extractors.LinuxPU:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			case extractors.HostModeNetworkPU:
+				appSection = NetworkSvcOutput
+				netSection = NetworkSvcInput
+			case extractors.HostPU:
+				appSection = HostModeOutput
+				netSection = HostModeInput
+			default:
+				appSection = TriremeOutput
+				netSection = TriremeInput
 			}
 
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
@@ -445,9 +442,9 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain), "Append")
+	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
 
 }
 
@@ -1289,7 +1286,7 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, isHostMode bool) error {
+func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
@@ -1301,13 +1298,22 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 				}
 			}
 
-			// Delete the old pu chains at the correct sections.
-			appSection := TriremeOutput
-			netSection := TriremeInput
-
-			if isHostMode {
-				appSection = HostmodeOutput
-				netSection = HostmodeInput
+			// choose correct chains based on puType
+			appSection := ""
+			netSection := ""
+			switch puType {
+			case extractors.LinuxPU:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			case extractors.HostModeNetworkPU:
+				appSection = NetworkSvcOutput
+				netSection = NetworkSvcInput
+			case extractors.HostPU:
+				appSection = HostModeOutput
+				netSection = HostModeInput
+			default:
+				appSection = TriremeOutput
+				netSection = TriremeInput
 			}
 
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Delete")
@@ -1366,9 +1372,17 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		err := i.ipt.Insert(
 			i.appPacketIPTableContext,
 			appChain, 1,
-			"-j", HostmodeOutput)
+			"-j", HostModeOutput)
 		if err != nil {
-			return fmt.Errorf("unable to add default trireme-output app chain: %s", err)
+			return fmt.Errorf("unable to add default Hostmode-output app chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", NetworkSvcOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default networksvc-output app chain: %s", err)
 		}
 
 		err = i.ipt.Insert(
@@ -1443,12 +1457,21 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	// Add Trireme/Hostmode Input chains
 	if i.mode == constants.LocalServer {
 		// create a new chain and hang pus out of chain
+
 		err = i.ipt.Insert(
 			i.appPacketIPTableContext,
 			netChain, 1,
-			"-j", HostmodeInput)
+			"-j", HostModeInput)
 		if err != nil {
 			return fmt.Errorf("unable to add default hostmode-input net chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", NetworkSvcInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default networkSvc-input net chain: %s", err)
 		}
 
 		err = i.ipt.Insert(
@@ -1763,35 +1786,67 @@ func (i *Instance) cleanACLs() error {
 // cleanTriremeChains clear the trireme/hostmode chains.
 func (i *Instance) cleanTriremeChains(context string) error {
 
-	// clear Trireme-Input/Trireme-Output/Hostmode-Input/Hostmode-Output
-	if err := i.ipt.ClearChain(context, HostmodeOutput); err != nil {
+	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
+	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
-			zap.String("section", HostmodeOutput),
+			zap.String("section", HostModeOutput),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, HostmodeOutput); err != nil {
+	if err := i.ipt.DeleteChain(context, HostModeOutput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
-			zap.String("section", HostmodeOutput),
+			zap.String("section", HostModeOutput),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, HostmodeInput); err != nil {
+	if err := i.ipt.ClearChain(context, HostModeInput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
-			zap.String("section", HostmodeInput),
+			zap.String("section", HostModeInput),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, HostmodeInput); err != nil {
+	if err := i.ipt.DeleteChain(context, HostModeInput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
-			zap.String("section", HostmodeInput),
+			zap.String("section", HostModeInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, NetworkSvcOutput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, NetworkSvcOutput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, NetworkSvcInput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, NetworkSvcInput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcInput),
 			zap.Error(err),
 		)
 	}

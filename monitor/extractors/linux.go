@@ -285,3 +285,19 @@ func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
 	}
 	return false
 }
+
+// IsHostPU returns true if puType stored by policy extensions is host PU
+func IsHostPU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
+
+	if mode != constants.LocalServer {
+		return false
+	}
+
+	if e := policyExtensions(runtime); e != nil {
+		putype, ok := e.Get(PuType)
+		zap.L().Debug("extracted PuType as", zap.String("puType", putype))
+		return ok && putype == HostPU
+
+	}
+	return false
+}

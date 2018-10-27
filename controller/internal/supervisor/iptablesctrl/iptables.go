@@ -44,11 +44,17 @@ const (
 	// TriremeOutput represent the chain that contains pu output rules.
 	TriremeOutput = "Trireme-Output"
 
-	// HostmodeInput represent the chain that contains hostmode input rules.
-	HostmodeInput = "Hostmode-Input"
+	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
+	NetworkSvcInput = "NetworkSvc-Input"
 
-	// HostmodeOutput represent the chain that contains hostmode output rules.
-	HostmodeOutput = "Hostmode-Output"
+	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
+	NetworkSvcOutput = "NetworkSvc-Output"
+
+	// HostModeInput represent the chain that contains Hostmode input rules.
+	HostModeInput = "Hostmode-Input"
+
+	// HostModeOutput represent the chain that contains Hostmode output rules.
+	HostModeOutput = "Hostmode-Output"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -173,7 +179,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, isHostmode bool) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string) error {
 
 	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
 	appChain, netChain, err := i.chainName(contextID, version)
@@ -182,7 +188,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, isHostmode); derr != nil {
+	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -230,7 +236,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// If local server, install pu specific chains in Trireme/Hostmode chains.
-	isHostmode := extractors.IsHostmodePU(containerInfo.Runtime, i.mode)
+	puType := extractors.GetPuType(containerInfo.Runtime)
 
 	// Install the new rules
 	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
@@ -239,7 +245,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, isHostmode); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	} else {
@@ -247,7 +253,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName, isHostmode); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	}
@@ -337,8 +343,13 @@ func (i *Instance) InitializeChains() error {
 			return fmt.Errorf("Unable to create trireme input/output chains:%s", err)
 		}
 
-		// add Hostmode-Input and Hostmode-output chains
-		if err := i.addContainerChain(HostmodeOutput, HostmodeInput); err != nil {
+		// add NetworkSvc-Input and NetworkSvc-output chains
+		if err := i.addContainerChain(NetworkSvcOutput, NetworkSvcInput); err != nil {
+			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
+		}
+
+		// add HostMode-Input and HostMode-output chains
+		if err := i.addContainerChain(HostModeOutput, HostModeInput); err != nil {
 			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
 		}
 
@@ -373,7 +384,7 @@ func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyP
 
 	proxyPort := puInfo.Runtime.Options().ProxyPort
 
-	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, false)
+	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
@@ -386,7 +397,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		return errors.New("no mark value found")
 	}
 
-	isHostmode := extractors.IsHostmodePU(puInfo.Runtime, i.mode)
+	puType := extractors.GetPuType(puInfo.Runtime)
 
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
 
@@ -403,7 +414,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		}
 	}
 
-	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, isHostmode)
+	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType)
 }
 
 func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
@@ -475,7 +486,9 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		}
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
+	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
+
+	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks(), isHostPU); err != nil {
 		return err
 	}
 
