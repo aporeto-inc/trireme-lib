@@ -64,56 +64,6 @@ var (
 func TestGetMatchingActionWithDefaultIP(t *testing.T) {
 
 	var (
-		rules = policy.IPRuleList{
-			policy.IPRule{
-				Address:  "172.0.0.0/8",
-				Port:     "400:500",
-				Protocol: "tcp",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp172/8"},
-			},
-			policy.IPRule{
-				Address:  "172.17.0.0/16",
-				Port:     "400:500",
-				Protocol: "tcp",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp172.17/16"},
-			},
-			policy.IPRule{
-				Address:  "192.168.100.0/24",
-				Protocol: "tcp",
-				Port:     "80",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp192.168.100/24"},
-			},
-			policy.IPRule{
-				Address:  "0.0.0.0/0",
-				Protocol: "tcp",
-				Port:     "443",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp0/0"}},
-			policy.IPRule{
-				Address:  "10.1.1.1",
-				Protocol: "tcp",
-				Port:     "80",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp10.1.1.1"}},
-			policy.IPRule{
-				Address:  "0.0.0.0/0",
-				Protocol: "udp",
-				Port:     "443",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "udp0/0"}},
-		}
-	)
-
-	var (
 		rules3 = policy.IPRuleList{
 			policy.IPRule{
 				Address:  "0.0.0.0/0",
@@ -174,7 +124,7 @@ func TestGetMatchingActionWithDefaultIP(t *testing.T) {
 
 		Convey("When I get matching action when defaultIP is true ", func() {
 			ip := net.ParseIP("172.17.0.1")
-			port := uint16(401)
+			port := uint16(443)
 			r, p, err := a.getMatchingAction(ip.To4(), port, nil, true)
 			So(err, ShouldResemble, fmt.Errorf("found 0.0.0.0 in cache"))
 			So(p, ShouldBeNil)

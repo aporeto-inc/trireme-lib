@@ -117,9 +117,12 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 		}
 
 		// If default ip is found then update flag
-		_, ok = rules.rules[defaultAddr&rules.mask]
+		defaultActionList, ok := rules.rules[defaultAddr&rules.mask]
 		if ok {
-			defaultIPFound = true
+			_, _, err = defaultActionList.lookup(port, report)
+			if err == nil {
+				defaultIPFound = true
+			}
 		}
 
 		// Do a lookup as a hash to see if we have a match
