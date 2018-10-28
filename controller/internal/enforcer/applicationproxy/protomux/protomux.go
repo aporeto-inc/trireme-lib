@@ -201,10 +201,16 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	c, ok := conn.(*markedconn.ProxiedConnection)
 	if !ok {
 		zap.L().Error("Wrong connection type")
+		return
 	}
 
 	defer m.wg.Done()
 	ip, port := c.GetOriginalDestination()
+	if c.RemoteAddr() == nil {
+		zap.L().Error("Connection remote address cannot be found. Abort")
+		return
+	}
+
 	local := false
 	if _, ok = m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
 		local = true
