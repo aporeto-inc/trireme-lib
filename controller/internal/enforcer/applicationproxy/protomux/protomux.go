@@ -224,7 +224,14 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	if entry == nil {
 		// Let's see if we can match the source address.
 		// Compatibility with deprecated model. TODO: Remove
-		ip = remoteAddr.(*net.TCPAddr).IP
+		var tcpAddr *net.TCPAddr
+		var ok bool
+		if tcpAddr, ok = remoteAddr.(*net.TCPAddr); !ok {
+			c.Close()
+			return
+		}
+		ip = tcpAddr.IP
+
 		entry = servicecache.Find(ip, port, !local)
 		if entry == nil {
 			// Failed with source as well.
