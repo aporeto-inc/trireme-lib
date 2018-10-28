@@ -206,13 +206,14 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	defer m.wg.Done()
 	ip, port := c.GetOriginalDestination()
-	if c.RemoteAddr() == nil {
+	remoteAddr := c.RemoteAddr()
+	if remoteAddr == nil {
 		zap.L().Error("Connection remote address cannot be found. Abort")
 		return
 	}
 
 	local := false
-	if _, ok = m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
+	if _, ok = m.localIPs[networkOfAddress(remoteAddr.String())]; ok {
 		local = true
 	}
 
@@ -223,7 +224,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	if entry == nil {
 		// Let's see if we can match the source address.
 		// Compatibility with deprecated model. TODO: Remove
-		ip = c.RemoteAddr().(*net.TCPAddr).IP
+		ip = remoteAddr.(*net.TCPAddr).IP
 		entry = servicecache.Find(ip, port, !local)
 		if entry == nil {
 			// Failed with source as well.
