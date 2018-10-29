@@ -268,14 +268,6 @@ func TestObservedLookup(t *testing.T) {
 	var (
 		rulesWithObservation = policy.IPRuleList{
 			policy.IPRule{
-				Address:  "200.0.0.0/9",
-				Port:     "401",
-				Protocol: "tcp",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp200/9"},
-			},
-			policy.IPRule{
 				Address:  "200.17.0.0/17",
 				Port:     "401",
 				Protocol: "tcp",
@@ -292,6 +284,14 @@ func TestObservedLookup(t *testing.T) {
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveApply,
 					PolicyID:      "observed-applied-tcp200.18/17"},
+			},
+			policy.IPRule{
+				Address:  "200.0.0.0/9",
+				Port:     "401",
+				Protocol: "tcp",
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "tcp200/9"},
 			},
 		}
 		// rulesWithObservationPrefixLens holds unique prefix lens in rules above.
@@ -340,7 +340,7 @@ func TestObservedLookup(t *testing.T) {
 			r, p, err := a.getMatchingAction(ip.To4(), port, preReported, false)
 			So(err, ShouldBeNil)
 			So(p.Action, ShouldEqual, policy.Accept)
-			//So(p.PolicyID, ShouldEqual, "tcp200/9")
+			So(p.PolicyID, ShouldEqual, "observed-applied-tcp200.18/17")
 			So(r.Action, ShouldEqual, policy.Reject)
 			So(r.PolicyID, ShouldEqual, "preReportedPolicyID")
 		})
