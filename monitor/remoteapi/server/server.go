@@ -12,9 +12,8 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 )
 
 // EventServer is a new event server
@@ -224,7 +223,6 @@ func validateEvent(event *common.EventInfo) error {
 				if event.Name == "" {
 					return fmt.Errorf("Service name must be provided and must not be default")
 				}
-				event.PUID = event.Name
 			}
 		} else {
 			if event.PUID == "" {

@@ -5,14 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.uber.org/zap"
 )
 
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
@@ -278,7 +277,6 @@ type UDPConnection struct {
 	Writer      afinetrawsocket.SocketWriter
 	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool
-	reported          bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 

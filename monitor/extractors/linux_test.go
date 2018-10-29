@@ -5,13 +5,15 @@ package extractors
 import (
 	"encoding/hex"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/policy"
+	portspec "go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 func TestComputeFileMd5(t *testing.T) {
@@ -149,4 +151,336 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 			})
 		})
 	})
+}
+
+func Test_policyExtensions(t *testing.T) {
+	type args struct {
+		runtime policy.RuntimeReader
+	}
+
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em1 := policy.ExtendedMap{
+		PuType: HostPU,
+	}
+	options := pur1.Options()
+	options.PolicyExtensions = em1
+	pur1.SetOptions(options)
+
+	// 2nd Runtime
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	options = pur2.Options()
+	pur2.SetOptions(options)
+
+	// 3rd runtime
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	options = pur3.Options()
+	options.PolicyExtensions = nil
+	pur3.SetOptions(options)
+
+	tests := []struct {
+		name           string
+		args           args
+		wantExtensions policy.ExtendedMap
+	}{
+		// TODO: Add test cases.
+		{
+			name: "Test if runtime is nil",
+			args: args{
+				runtime: nil,
+			},
+			wantExtensions: nil,
+		},
+		{
+			name: "Test if policy extensions are nil",
+			args: args{
+				runtime: pur3,
+			},
+			wantExtensions: nil,
+		},
+		{
+			name: "Test if policy extensions are defined",
+			args: args{
+				runtime: pur1,
+			},
+			wantExtensions: em1,
+		},
+		{
+			name: "Test if policy extensions are not defined",
+			args: args{
+				runtime: pur2,
+			},
+			wantExtensions: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotExtensions := policyExtensions(tt.args.runtime); !reflect.DeepEqual(gotExtensions, tt.wantExtensions) {
+				t.Errorf("policyExtensions() = %v, want %v", gotExtensions, tt.wantExtensions)
+			}
+		})
+	}
+}
+
+func TestGetPuType(t *testing.T) {
+	type args struct {
+		runtime policy.RuntimeReader
+	}
+
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em := policy.ExtendedMap{
+		PuType: HostPU,
+	}
+	options := pur1.Options()
+	options.PolicyExtensions = em
+	pur1.SetOptions(options)
+
+	// 2nd Runtime
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: HostModeNetworkPU,
+	}
+	options = pur2.Options()
+	options.PolicyExtensions = em
+	pur2.SetOptions(options)
+
+	// 3rd runtime
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: LinuxPU,
+	}
+	options = pur3.Options()
+	options.PolicyExtensions = em
+	pur3.SetOptions(options)
+
+	// 4th runtime
+	pur4 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: "",
+	}
+	options = pur4.Options()
+	options.PolicyExtensions = em
+	pur4.SetOptions(options)
+
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		// TODO: Add test cases.
+		{
+			name: "Test if putype is hostpu",
+			args: args{
+				runtime: pur1,
+			},
+			want: HostPU,
+		},
+		{
+			name: "Test if putype is hostnetworkpu",
+			args: args{
+				runtime: pur2,
+			},
+			want: HostModeNetworkPU,
+		},
+		{
+			name: "Test if putype is LinuxPU",
+			args: args{
+				runtime: pur3,
+			},
+			want: LinuxPU,
+		},
+		{
+			name: "Test Invalid putype",
+			args: args{
+				runtime: pur4,
+			},
+			want: "",
+		},
+		{
+			name: "Test Invalid runtime",
+			args: args{
+				runtime: nil,
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetPuType(tt.args.runtime); got != tt.want {
+				t.Errorf("GetPuType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsHostmodePU(t *testing.T) {
+	type args struct {
+		runtime policy.RuntimeReader
+		mode    constants.ModeType
+	}
+
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em := policy.ExtendedMap{
+		PuType: HostPU,
+	}
+	options := pur1.Options()
+	options.PolicyExtensions = em
+	pur1.SetOptions(options)
+
+	// 2nd Runtime
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: HostModeNetworkPU,
+	}
+	options = pur2.Options()
+	options.PolicyExtensions = em
+	pur2.SetOptions(options)
+
+	// 3rd runtime
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: LinuxPU,
+	}
+	options = pur3.Options()
+	options.PolicyExtensions = em
+	pur3.SetOptions(options)
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Test if pu type is Container",
+			args: args{
+				runtime: nil,
+				mode:    constants.RemoteContainer,
+			},
+			want: false,
+		},
+		{
+			name: "Test if PU type is hostpu",
+			args: args{
+				runtime: pur1,
+				mode:    constants.LocalServer,
+			},
+			want: true,
+		},
+		{
+			name: "Test if pu type is hostnetworkmode pu",
+			args: args{
+				runtime: pur2,
+				mode:    constants.LocalServer,
+			},
+			want: true,
+		},
+		{
+			name: "Test if pu type is linux pu",
+			args: args{
+				runtime: pur3,
+				mode:    constants.LocalServer,
+			},
+			want: false,
+		},
+		{
+			name: "Test invalid runtime",
+			args: args{
+				runtime: nil,
+				mode:    constants.LocalServer,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsHostmodePU(tt.args.runtime, tt.args.mode); got != tt.want {
+				t.Errorf("IsHostmodePU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsHostPU(t *testing.T) {
+	type args struct {
+		runtime policy.RuntimeReader
+		mode    constants.ModeType
+	}
+
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em := policy.ExtendedMap{
+		PuType: HostPU,
+	}
+	options := pur1.Options()
+	options.PolicyExtensions = em
+	pur1.SetOptions(options)
+
+	// 2nd Runtime
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: HostModeNetworkPU,
+	}
+	options = pur2.Options()
+	options.PolicyExtensions = em
+	pur2.SetOptions(options)
+
+	// 3rd runtime
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	em = policy.ExtendedMap{
+		PuType: LinuxPU,
+	}
+	options = pur3.Options()
+	options.PolicyExtensions = em
+	pur3.SetOptions(options)
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		name: "Test if pu type is Container",
+		args: args{
+			runtime: nil,
+			mode:    constants.RemoteContainer,
+		},
+		want: false,
+	},
+		{
+			name: "Test if PU type is hostpu",
+			args: args{
+				runtime: pur1,
+				mode:    constants.LocalServer,
+			},
+			want: true,
+		},
+		{
+			name: "Test if pu type is hostnetworkmode pu",
+			args: args{
+				runtime: pur2,
+				mode:    constants.LocalServer,
+			},
+			want: false,
+		},
+		{
+			name: "Test if pu type is linux pu",
+			args: args{
+				runtime: pur3,
+				mode:    constants.LocalServer,
+			},
+			want: false,
+		},
+		{
+			name: "Test invalid runtime",
+			args: args{
+				runtime: nil,
+				mode:    constants.LocalServer,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsHostPU(tt.args.runtime, tt.args.mode); got != tt.want {
+				t.Errorf("IsHostPU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

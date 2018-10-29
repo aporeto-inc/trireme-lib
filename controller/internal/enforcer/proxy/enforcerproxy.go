@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -25,6 +23,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.uber.org/zap"
 )
 
 // ProxyInfo is the struct used to hold state about active enforcers in the system
@@ -113,6 +112,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.commandArg,
 		s.statsServerSecret,
 		s.procMountPoint,
+		puInfo.Runtime.Options().ProxyPort,
 	)
 	if err != nil {
 		return err

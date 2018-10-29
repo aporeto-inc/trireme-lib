@@ -6,11 +6,10 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.uber.org/zap"
 )
 
 const (

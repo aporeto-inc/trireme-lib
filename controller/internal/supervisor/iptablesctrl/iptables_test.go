@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -11,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -18,6 +20,18 @@ func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
 			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+			Convey("It should succeed", func() {
+				So(i, ShouldNotBeNil)
+				So(err, ShouldBeNil)
+				So(i.appPacketIPTableSection, ShouldResemble, "OUTPUT")
+				So(i.netPacketIPTableSection, ShouldResemble, "INPUT")
+			})
+		})
+	})
+
+	Convey("When I create a new iptables instance", t, func() {
+		Convey("If I create a Linux server implemenetation and iptables exists", func() {
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -46,7 +60,7 @@ func TestChainName(t *testing.T) {
 }
 
 func TestConfigureRules(t *testing.T) {
-	Convey("Given an iptables controllers", t, func() {
+	Convey("Given an iptables controllers for containers", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
@@ -99,6 +113,7 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			err := i.ConfigureRules(1, "Context", containerinfo)
+			fmt.Println("Error is ", err)
 			//This will fail for ipset since we need to run this as root for ipsets
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
@@ -217,6 +232,385 @@ func TestConfigureRules(t *testing.T) {
 		})
 
 	})
+
+	Convey("Given an iptables controllers for local server", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		rules := policy.IPRuleList{
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "80",
+				Protocol: "TCP",
+				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+			},
+
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "443",
+				Protocol: "TCP",
+				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+			},
+		}
+
+		Convey("With a set of policy rules and valid IP for local server", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{})
+
+			containerinfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+			containerinfo.Policy = policyrules
+			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			fmt.Println("Error is ", err)
+			//This will fail for ipset since we need to run this as root for ipsets
+			Convey("It should succeed", func() {
+				//This is erroring since ipset creation is not available to a unpriveleged user
+				So(err.Error(), ShouldContainSubstring, "Proxy")
+				//So(err, ShouldBeNil)
+			})
+
+		})
+
+		Convey("With a set of policy rules and invalid IP for local server", func() {
+			ipl := policy.ExtendedMap{}
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
+			containerinfo.Policy = policyrules
+			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should receive an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("With a set of policy rules and valid IP, where add process chain fails", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
+			containerinfo.Policy = policyrules
+			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return errors.New("unable to add container chain")
+			})
+
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+
+		})
+
+		Convey("With a set of policy rules and valid IP, where add ACLs for linuxprocesspu fails", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
+			containerinfo.Policy = policyrules
+			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return errors.New("unabke to add container chain")
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+
+	Convey("Given an iptables controllers for local server (host mode)", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		rules := policy.IPRuleList{
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "80",
+				Protocol: "TCP",
+				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+			},
+
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "443",
+				Protocol: "TCP",
+				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+			},
+		}
+
+		Convey("With a set of policy rules and valid IP for local server(host mode)", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{})
+
+			containerinfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+			containerinfo.Policy = policyrules
+
+			pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+			em := policy.ExtendedMap{
+				extractors.PuType: extractors.HostPU,
+			}
+			options := pur1.Options()
+			options.PolicyExtensions = em
+			pur1.SetOptions(options)
+
+			containerinfo.Runtime = pur1
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			fmt.Println("Error is ", err)
+			//This will fail for ipset since we need to run this as root for ipsets
+			Convey("It should succeed", func() {
+				//This is erroring since ipset creation is not available to a unpriveleged user
+				So(err.Error(), ShouldContainSubstring, "Proxy")
+				//So(err, ShouldBeNil)
+			})
+
+		})
+
+		Convey("With a set of policy rules and invalid IP for local server(host mode)", func() {
+			ipl := policy.ExtendedMap{}
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+			containerinfo.Policy = policyrules
+			pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+			em := policy.ExtendedMap{
+				extractors.PuType: extractors.HostPU,
+			}
+			options := pur1.Options()
+			options.PolicyExtensions = em
+			pur1.SetOptions(options)
+
+			containerinfo.Runtime = pur1
+
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should receive an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("With a set of policy rules and valid IP, where add process chain fails(host mode)", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+			containerinfo.Policy = policyrules
+			pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+			em := policy.ExtendedMap{
+				extractors.PuType: extractors.HostPU,
+			}
+			options := pur1.Options()
+			options.PolicyExtensions = em
+			pur1.SetOptions(options)
+
+			containerinfo.Runtime = pur1
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return errors.New("unable to add container chain")
+			})
+
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+
+		})
+
+		Convey("With a set of policy rules and valid IP, where add ACLs for linuxprocesspu fails(host mode)", func() {
+
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				[]string{},
+				nil,
+				nil,
+				[]string{},
+			)
+
+			containerinfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+			containerinfo.Policy = policyrules
+			pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+			em := policy.ExtendedMap{
+				extractors.PuType: extractors.HostPU,
+			}
+			options := pur1.Options()
+			options.PolicyExtensions = em
+			pur1.SetOptions(options)
+
+			containerinfo.Runtime = pur1
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return errors.New("unabke to add container chain")
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", containerinfo)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
 }
 
 func TestDeleteRules(t *testing.T) {
@@ -235,7 +629,21 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000")
+			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "")
+			So(err, ShouldBeNil)
+		})
+
+		Convey("I try to delete with a valid default IP address for hostmode", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockClearChain(t, func(table string, chain string) error {
+				return nil
+			})
+			iptables.MockDeleteChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "")
 			So(err, ShouldBeNil)
 		})
 

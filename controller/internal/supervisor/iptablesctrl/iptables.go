@@ -9,19 +9,20 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-
-	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 
 const (
 	uidchain         = "UIDCHAIN"
+	uidInput         = "UIDInput"
 	chainPrefix      = "TRIREME-"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
@@ -37,8 +38,23 @@ const (
 	proxyOutputChain         = "Proxy-App"
 	proxyInputChain          = "Proxy-Net"
 	proxyMark                = "0x40"
-	// ProxyPort DefaultProxyPort
-	ProxyPort = "5000"
+
+	// TriremeInput represent the chain that contains pu input rules.
+	TriremeInput = "Trireme-Input"
+	// TriremeOutput represent the chain that contains pu output rules.
+	TriremeOutput = "Trireme-Output"
+
+	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
+	NetworkSvcInput = "NetworkSvc-Input"
+
+	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
+	NetworkSvcOutput = "NetworkSvc-Output"
+
+	// HostModeInput represent the chain that contains Hostmode input rules.
+	HostModeInput = "Hostmode-Input"
+
+	// HostModeOutput represent the chain that contains Hostmode output rules.
+	HostModeOutput = "Hostmode-Output"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -52,6 +68,7 @@ type Instance struct {
 	appPacketIPTableSection string
 	netPacketIPTableContext string
 	netPacketIPTableSection string
+	netLinuxIPTableSection  string
 	appCgroupIPTableSection string
 	appSynAckIPTableSection string
 	mode                    constants.ModeType
@@ -72,16 +89,17 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 	}
 
 	i := &Instance{
-		fqc:   fqc,
-		ipt:   ipt,
-		ipset: ips,
+		fqc:                     fqc,
+		ipt:                     ipt,
+		ipset:                   ips,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
 		mode:                    mode,
 		portSetInstance:         portset,
 		appPacketIPTableSection: ipTableSectionOutput,
-		appCgroupIPTableSection: ipTableSectionOutput,
+		appCgroupIPTableSection: TriremeOutput,
+		netLinuxIPTableSection:  TriremeInput,
 		netPacketIPTableSection: ipTableSectionInput,
 		appSynAckIPTableSection: ipTableSectionOutput,
 	}
@@ -161,7 +179,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string) error {
 
 	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
 	appChain, netChain, err := i.chainName(contextID, version)
@@ -170,7 +188,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName); derr != nil {
+	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -217,6 +235,9 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
+	// If local server, install pu specific chains in Trireme/Hostmode chains.
+	puType := extractors.GetPuType(containerInfo.Runtime)
+
 	// Install the new rules
 	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 		return nil
@@ -224,7 +245,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	} else {
@@ -232,7 +253,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	}
@@ -308,9 +329,30 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 func (i *Instance) InitializeChains() error {
 
 	if i.mode == constants.LocalServer {
+
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
 			return err
 		}
+
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidInput); err != nil {
+			return err
+		}
+
+		// add Trireme-Input and Trireme-Output chains.
+		if err := i.addContainerChain(TriremeOutput, TriremeInput); err != nil {
+			return fmt.Errorf("Unable to create trireme input/output chains:%s", err)
+		}
+
+		// add NetworkSvc-Input and NetworkSvc-output chains
+		if err := i.addContainerChain(NetworkSvcOutput, NetworkSvcInput); err != nil {
+			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
+		}
+
+		// add HostMode-Input and HostMode-output chains
+		if err := i.addContainerChain(HostModeOutput, HostModeInput); err != nil {
+			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
+		}
+
 	}
 
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
@@ -329,12 +371,6 @@ func (i *Instance) InitializeChains() error {
 		return err
 	}
 
-	if i.mode == constants.LocalServer {
-		if err := i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -348,7 +384,7 @@ func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyP
 
 	proxyPort := puInfo.Runtime.Options().ProxyPort
 
-	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName)
+	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
@@ -360,6 +396,8 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	if mark == "" {
 		return errors.New("no mark value found")
 	}
+
+	puType := extractors.GetPuType(puInfo.Runtime)
 
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
 
@@ -376,7 +414,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		}
 	}
 
-	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName)
+	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType)
 }
 
 func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
@@ -448,7 +486,9 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		}
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
+	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
+
+	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks(), isHostPU); err != nil {
 		return err
 	}
 

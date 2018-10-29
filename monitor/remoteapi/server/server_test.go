@@ -10,12 +10,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/processor/mockprocessor"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
-
-	"github.com/golang/mock/gomock"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewEventServer(t *testing.T) {
@@ -251,7 +250,7 @@ func TestValidateEvent(t *testing.T) {
 
 			err := validateEvent(event)
 			So(err, ShouldBeNil)
-			So(event.PUID, ShouldResemble, "myservice")
+			So(event.PUID, ShouldResemble, "mypu")
 		})
 
 		Convey("If I get a Stop event and cgroup is in the right format, it should return nil.", func() {

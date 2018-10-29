@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/mitchellh/hashstructure"
-
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -28,9 +29,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-
-	"github.com/golang/mock/gomock"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 const (
@@ -234,12 +232,6 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 	}
 
 	return initPayload
-}
-
-func initTestSetTargetPayload() rpcwrapper.SetTargetNetworks {
-	var payload rpcwrapper.SetTargetNetworks
-	payload.TargetNetworks = []string{"128.0.0.0/1"}
-	return payload
 }
 
 func initTestUnEnfPayload() rpcwrapper.UnEnforcePayload {

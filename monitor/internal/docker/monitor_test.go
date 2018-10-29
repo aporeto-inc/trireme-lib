@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	tevents "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -20,8 +21,6 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
 	"go.aporeto.io/trireme-lib/policy/mockpolicy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (

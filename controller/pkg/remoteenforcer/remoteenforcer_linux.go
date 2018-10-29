@@ -19,10 +19,9 @@ import (
 	"sync"
 	"syscall"
 
-	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -30,7 +29,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
@@ -260,6 +258,12 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
 
+	// update proxy port.
+	proxyPort := os.Getenv(constants.EnvApplicationProxyPort)
+	puInfo.Runtime.SetOptions(policy.OptionsType{
+		ProxyPort: proxyPort,
+	})
+
 	err := s.supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
 		zap.L().Error("unable to initialize supervisor",
@@ -344,6 +348,12 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		Policy:    payload.Policy.ToPrivatePolicy(true),
 		Runtime:   policy.NewPURuntimeWithDefaults(),
 	}
+
+	// update proxy port.
+	proxyPort := os.Getenv(constants.EnvApplicationProxyPort)
+	puInfo.Runtime.SetOptions(policy.OptionsType{
+		ProxyPort: proxyPort,
+	})
 
 	if s.enforcer == nil {
 		resp.Status = "enforcer not initialized - cannot enforce"

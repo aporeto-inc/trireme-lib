@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.uber.org/zap"
 )
 
 const (
@@ -21,19 +21,22 @@ const (
 	udpProto    = "udp"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string, appSection, netSection string) [][]string {
+
+	iptableCgroupSection := appSection
+	iptableNetSection := netSection
 
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
+			iptableCgroupSection,
 			"-m", "cgroup", "--cgroup", mark,
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
 			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
+			iptableCgroupSection,
 			"-m", "cgroup", "--cgroup", mark,
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
@@ -43,7 +46,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	if tcpPorts != "0" {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			iptableNetSection,
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", tcpPorts,
@@ -55,7 +58,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	if udpPorts != "0" {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			iptableNetSection,
 			"-p", "udp",
 			"-m", "multiport",
 			"--destination-ports", udpPorts,
@@ -91,7 +94,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		},
 		{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			uidInput,
 			"-p", "tcp",
 			"-m", "mark",
 			"--mark", mark,
@@ -251,14 +254,14 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string) [][]string {
+func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
 
 	rules := [][]string{}
 
-	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// If enforcer is in sidecar mode or host pu mode, we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -296,7 +299,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
@@ -398,7 +401,7 @@ func (i *Instance) getUDPNatRule(udpPorts string) [][]string {
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 	if i.mode == constants.LocalServer {
 		if tcpPorts != "0" || udpPorts != "0" || uid == "" {
 			if udpPorts != "0" {
@@ -408,7 +411,26 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
 				}
 			}
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Append")
+
+			// choose correct chains based on puType
+			appSection := ""
+			netSection := ""
+			switch puType {
+			case extractors.LinuxPU:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			case extractors.HostModeNetworkPU:
+				appSection = NetworkSvcOutput
+				netSection = NetworkSvcInput
+			case extractors.HostPU:
+				appSection = HostModeOutput
+				netSection = HostModeInput
+			default:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			}
+
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
 		}
 
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Append")
@@ -420,9 +442,9 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain), "Append")
+	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
 
 }
 
@@ -1264,7 +1286,7 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
@@ -1275,7 +1297,26 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
 				}
 			}
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Delete")
+
+			// choose correct chains based on puType
+			appSection := ""
+			netSection := ""
+			switch puType {
+			case extractors.LinuxPU:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			case extractors.HostModeNetworkPU:
+				appSection = NetworkSvcOutput
+				netSection = NetworkSvcInput
+			case extractors.HostPU:
+				appSection = HostModeOutput
+				netSection = HostModeInput
+			default:
+				appSection = TriremeOutput
+				netSection = TriremeInput
+			}
+
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Delete")
@@ -1324,6 +1365,35 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
+
+	// Add Trireme/Hostmode OUTPUT chain
+	if i.mode == constants.LocalServer {
+
+		err := i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", HostModeOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default Hostmode-output app chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", NetworkSvcOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default networksvc-output app chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", TriremeOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default trireme-output app chain: %s", err)
+		}
+
+	}
 
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
@@ -1382,6 +1452,43 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
+	}
+
+	// Add Trireme/Hostmode Input chains
+	if i.mode == constants.LocalServer {
+		// create a new chain and hang pus out of chain
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", HostModeInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default hostmode-input net chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", NetworkSvcInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default networkSvc-input net chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", TriremeInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default trireme-input net chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", uidInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default uid-input net chain: %s", err)
+		}
 	}
 
 	err = i.ipt.Insert(
@@ -1569,6 +1676,13 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidchain); err != nil {
 			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
 		}
+
+		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidInput); err != nil {
+			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
+		}
+		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidInput); err != nil {
+			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+		}
 	}
 	return nil
 }
@@ -1645,6 +1759,7 @@ func (i *Instance) cleanACLs() error {
 		if err := i.CleanAllSynAckPacketCaptures(); err != nil {
 			zap.L().Warn("Can not clear the SynAck ACLs", zap.Error(err))
 		}
+
 	}
 
 	// Clean Application Rules/Chains
@@ -1668,6 +1783,109 @@ func (i *Instance) cleanACLs() error {
 	return nil
 }
 
+// cleanTriremeChains clear the trireme/hostmode chains.
+func (i *Instance) cleanTriremeChains(context string) error {
+
+	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
+	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", HostModeOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, HostModeOutput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", HostModeOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, HostModeInput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", HostModeInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, HostModeInput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", HostModeInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, NetworkSvcOutput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, NetworkSvcOutput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, NetworkSvcInput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, NetworkSvcInput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", NetworkSvcInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, TriremeOutput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", TriremeOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, TriremeOutput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", TriremeOutput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.ClearChain(context, TriremeInput); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", TriremeInput),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.ipt.DeleteChain(context, TriremeInput); err != nil {
+		zap.L().Warn("Can not delete the section in iptables",
+			zap.String("context", context),
+			zap.String("section", TriremeInput),
+			zap.Error(err),
+		)
+	}
+
+	return nil
+}
+
 func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSection, chainPrefix string) {
 
 	if err := i.ipt.ClearChain(context, appSection); err != nil {
@@ -1685,6 +1903,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 			zap.Error(err),
 		)
 	}
+
 	if err := i.ipt.ClearChain(context, preroutingSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
@@ -1692,6 +1911,16 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 			zap.Error(err),
 		)
 	}
+
+	// cleanup the Trireme/hostmode chains in server
+	if i.mode == constants.LocalServer {
+		if err := i.cleanTriremeChains(context); err != nil {
+			zap.L().Warn("Can not clear the Trireme/Hostmode chaines in iptables",
+				zap.Error(err),
+			)
+		}
+	}
+
 	rules, err := i.ipt.ListChains(context)
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
@@ -1739,10 +1968,9 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []stri
 		if err := i.ipt.Insert(
 			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
-			"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.appPacketIPTableContext, netChain, e, err)
+			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.netPacketIPTableContext, netChain, e, err)
 		}
 	}
 

@@ -56,9 +56,9 @@ type Config struct {
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
 	dependentAPICache  cache.DataStore
-	jwtCache           cache.DataStore
+	jwtCache           cache.DataStore // nolint: structcheck
 	portMapping        map[int]int
-	portCache          map[int]string
+	portCache          map[int]*policy.ApplicationService
 	applicationProxy   bool
 	mark               int
 	server             *http.Server
@@ -78,7 +78,7 @@ func NewHTTPProxy(
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
-	portCache map[int]string,
+	portCache map[int]*policy.ApplicationService,
 	portMapping map[int]int,
 ) *Config {
 
@@ -114,9 +114,36 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if encrypted {
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
-			ClientAuth:     tls.RequestClientCert,
 			NextProtos:     []string{"h2"},
 			CipherSuites:   []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+		}
+		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
+			if mconn, ok := helloMsg.Conn.(*markedconn.ProxiedConnection); ok {
+				_, port := mconn.GetOriginalDestination()
+				service, ok := p.portCache[port]
+				if !ok {
+					return config, nil
+				}
+				if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
+					service.PublicNetworkInfo != nil &&
+					service.PublicNetworkInfo.Ports.Min == uint16(port) {
+					clientCAs := x509.NewCertPool()
+					if len(service.MutualTLSTrustedRoots) > 0 {
+						if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
+							return nil, fmt.Errorf("Cannot parse trusted roots")
+						}
+					} else {
+						clientCAs = p.ca
+					}
+					return &tls.Config{
+						GetCertificate: p.GetCertificateFunc(),
+						ClientAuth:     tls.VerifyClientCertIfGiven,
+						NextProtos:     []string{"h2"},
+						ClientCAs:      clientCAs,
+					}, nil
+				}
+			}
+			return config, nil
 		}
 		l = tls.NewListener(l, config)
 	}
@@ -232,7 +259,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 }
 
 // UpdateCaches updates the port mapping caches.
-func (p *Config) UpdateCaches(portCache map[int]string, portMap map[int]int) {
+func (p *Config) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -246,6 +273,23 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
+		// First we check if this is a direct access to the public port. In this case
+		// we will use the service public certificate. Otherwise, we will return the
+		// enforcer certificate since this is internal access.
+		if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
+			_, port := mconn.GetOriginalDestination()
+			service, ok := p.portCache[port]
+			if !ok {
+				return nil, fmt.Errorf("service not available - cert is nil")
+			}
+			if service.PublicNetworkInfo != nil && service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
+				tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse server certificate: %s", err)
+				}
+				return &tlsCert, nil
+			}
+		}
 		if p.cert != nil {
 			return p.cert, nil
 		}
@@ -253,27 +297,27 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, string, error) {
+func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, *policy.ApplicationService, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 	puContext := pu.(*pucontext.PUContext)
 
-	serviceID, ok := p.portCache[port]
+	service, ok := p.portCache[port]
 	if !ok {
 		zap.L().Error("Uknown destination port", zap.Int("Port", port))
-		return nil, nil, "", fmt.Errorf("service not found")
+		return nil, nil, nil, fmt.Errorf("service not found")
 	}
 
 	authorizer, err := p.authProcessorCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Undefined context", zap.String("Context", p.puContext))
-		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
+		return nil, nil, nil, fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
 	}
 
-	return puContext, authorizer.(*auth.Processor), serviceID, nil
+	return puContext, authorizer.(*auth.Processor), service, nil
 }
 
 func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
@@ -435,24 +479,27 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
+		PolicyID:    "default",
 		Count:       1,
 	}
 
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
+	puContext, authorizer, service, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
+		p.collector.CollectFlowEvent(record)
 		return
 	}
-	record.ServiceID = serviceID
+	record.ServiceID = service.ID
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
 
-	if strings.HasPrefix(r.RequestURI, "/aporeto/authorization-code/callback") {
-		authorizer.Callback(serviceID, w, r)
+	if strings.HasPrefix(r.RequestURI, "/aporeto/oidc/callback") {
+		authorizer.Callback(service.ID, w, r)
+		record.Action = policy.Accept
 		return
 	}
 
@@ -461,7 +508,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.PolicyID = aclPolicy.PolicyID
 	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
-		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		http.Error(w, fmt.Sprintf("Access denied by network policy - Rejected"), http.StatusNetworkAuthenticationRequired)
 		record.DropReason = collector.PolicyDrop
 		return
 	}
@@ -481,17 +528,16 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Calculate the user attributes. User attributes can be derived either from a
 	// token or from a certificate. The authorizer library will parse them.
 	userToken, userCerts := userCredentials(r)
-	userAttributes, redirect, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
-	if err == nil && len(userAttributes) > 0 && !redirect {
+	userAttributes, redirect, err := authorizer.DecodeUserClaims(service.ID, userToken, userCerts, r)
+	if err == nil && len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID
-		record.Source.ID = userRecord.ID
 		record.Source.Type = collector.EndpointTypeClaims
 	}
 
 	// Calculate the Aporeto PU claims by parsing the token if it exists.
-	sourceID, aporetoClaims := authorizer.DecodeAporetoClaims(serviceID, token, key)
+	sourceID, aporetoClaims := authorizer.DecodeAporetoClaims(service.ID, token, key)
 	if len(aporetoClaims) > 0 {
 		record.Source.ID = sourceID
 		record.Source.Type = collector.EnpointTypePU
@@ -511,7 +557,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access denied by network policy - no policy found"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 	} else {
@@ -523,16 +569,22 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// We can now validate the API authorization. This is the final step
 	// before forwarding.
 	allClaims := append(aporetoClaims, userAttributes...)
-	accept, public := authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims)
+	accept, public := authorizer.Check(service.ID, r.Method, r.URL.Path, allClaims)
 	if !accept {
 		if !public {
-			if redirect && len(aporetoClaims) == 0 {
-				w.Header().Add("Location", authorizer.RedirectURI(serviceID, r.URL.String()))
-				http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
-				return
+			record.DropReason = collector.PolicyDrop
+			if record.Source.Type != collector.EnpointTypePU {
+				if redirect {
+					w.Header().Add("Location", authorizer.RedirectURI(service.ID, r.URL.String()))
+					http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
+					return
+				} else if len(service.UserRedirectOnAuthorizationFail) > 0 {
+					w.Header().Add("Location", service.UserRedirectOnAuthorizationFail+"?failure_message=authorization")
+					http.Error(w, "Authorization failed", http.StatusTemporaryRedirect)
+					return
+				}
 			}
 			http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
-			record.DropReason = collector.PolicyDrop
 			zap.L().Warn("No match found for the request or authorization Error",
 				zap.String("Request", r.Method+" "+r.RequestURI),
 				zap.Strings("User Attributes", userAttributes),
@@ -557,7 +609,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the request headers with the user attributes as defined by the mappings
-	authorizer.UpdateRequestHeaders(serviceID, r, userAttributes)
+	authorizer.UpdateRequestHeaders(service.ID, r, userAttributes)
 
 	// Update the statistics and forward the request. We always encrypt downstream
 	record.Action = policy.Accept | policy.Encrypt
@@ -571,7 +623,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
@@ -646,6 +698,9 @@ func appendDefaultPort(address string) string {
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.
 func userCredentials(r *http.Request) (string, []*x509.Certificate) {
+	if r.TLS == nil {
+		return "", nil
+	}
 
 	certs := r.TLS.PeerCertificates
 
