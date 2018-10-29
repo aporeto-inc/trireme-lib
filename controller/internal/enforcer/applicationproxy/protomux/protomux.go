@@ -227,7 +227,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		var tcpAddr *net.TCPAddr
 		var ok bool
 		if tcpAddr, ok = remoteAddr.(*net.TCPAddr); !ok {
-			c.Close()
+			c.Close() // nolint errcheck
 			return
 		}
 		ip = tcpAddr.IP
