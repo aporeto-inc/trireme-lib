@@ -39,6 +39,7 @@ type PUContext struct {
 	externalIPCache   cache.DataStore
 	udpNetworks       []*net.IPNet
 	mark              string
+	user              string
 	ProxyPort         string
 	tcpPorts          []string
 	udpPorts          []string
@@ -66,6 +67,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		applicationACLs: acls.NewACLCache(),
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
+		user:            puInfo.Runtime.Options().UserID,
 		scopes:          puInfo.Policy.Scopes(),
 	}
 
@@ -128,6 +130,11 @@ func (p *PUContext) Identity() *policy.TagStore {
 // Mark returns the PU mark
 func (p *PUContext) Mark() string {
 	return p.mark
+}
+
+// User returns the User associated with uid pam pu
+func (p *PUContext) User() string {
+	return p.user
 }
 
 // TCPPorts returns the PU TCP ports
