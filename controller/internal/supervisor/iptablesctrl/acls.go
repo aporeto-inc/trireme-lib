@@ -141,6 +141,14 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
+		{
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "src,src",
+			"-j", "ACCEPT",
+		},
 		{ // APIServices
 			i.appPacketIPTableContext,
 			proxyInputChain,
