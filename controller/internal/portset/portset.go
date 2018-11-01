@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -35,6 +37,7 @@ type portSetInstance struct {
 	userPortSet          cache.DataStore
 	userPortMap          cache.DataStore
 	markUserMap          cache.DataStore
+	puFromUser           cache.DataStore
 	contextIDFromTCPPort *portcache.PortCache
 }
 
@@ -69,13 +72,14 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 }
 
 // New creates an implementation portset interface.
-func New(contextIDFromTCPPort *portcache.PortCache) PortSet {
+func New(contextIDFromTCPPort *portcache.PortCache, puFromUser cache.DataStore) PortSet {
 
 	p := &portSetInstance{
 		userPortSet:          cache.NewCache("userPortSet"),
 		userPortMap:          cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
 		markUserMap:          cache.NewCache("markUserMap"),
 		contextIDFromTCPPort: contextIDFromTCPPort,
+		puFromUser:           puFromUser,
 	}
 
 	go startPortSetTask(p)
@@ -278,5 +282,26 @@ func (p *portSetInstance) updateIPPortSets() {
 		if err = p.addPortSet(userName, port); err != nil {
 			zap.L().Debug("Unable to add port to portset ", zap.Error(err))
 		}
+
+		// check if username corresponds to a valid uidloginpu
+		puctx, err := p.puFromUser.Get(userName)
+		if err != nil {
+			zap.L().Error("Unable to get pu context for uid pu", zap.String("uid", uid))
+		}
+
+		pctx, ok := puctx.(*pucontext.PUContext)
+		if !ok {
+			zap.L().Debug("pucontext not found")
+			continue
+		}
+
+		contextID := pctx.ID()
+		s, err := portspec.NewPortSpecFromString(port, contextID)
+		if err != nil {
+			zap.L().Debug("Cannot create portspec for port:", zap.Reflect("port", port))
+		}
+
+		p.contextIDFromTCPPort.AddPortSpec(s)
+
 	}
 }

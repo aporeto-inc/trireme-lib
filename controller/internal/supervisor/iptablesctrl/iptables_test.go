@@ -19,7 +19,7 @@ import (
 func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -31,7 +31,7 @@ func TestNewInstance(t *testing.T) {
 
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a Linux server implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil, nil))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -44,7 +44,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net, err := i.chainName("Context", 1)
 			So(err, ShouldBeNil)
@@ -61,7 +61,7 @@ func TestChainName(t *testing.T) {
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers for containers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -234,7 +234,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -407,7 +407,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server (host mode)", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -615,7 +615,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -652,7 +652,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -758,7 +758,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil, nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
