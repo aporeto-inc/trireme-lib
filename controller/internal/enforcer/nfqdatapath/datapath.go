@@ -49,8 +49,10 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
-	puFromContextID      cache.DataStore
-	puFromMark           cache.DataStore
+	puFromContextID cache.DataStore
+	puFromMark      cache.DataStore
+	puFromUser      cache.DataStore
+
 	contextIDFromTCPPort *portcache.PortCache
 	contextIDFromUDPPort *portcache.PortCache
 	// For remotes this is a reverse link to the context
@@ -155,10 +157,12 @@ func New(
 
 	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
 
+	puFromUser := cache.NewCache("puFromUser")
+
 	var portSetInstance portset.PortSet
 
 	if mode != constants.RemoteContainer {
-		portSetInstance = portset.New(contextIDFromTCPPort)
+		portSetInstance = portset.New(contextIDFromTCPPort, puFromUser)
 	}
 
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
@@ -168,6 +172,7 @@ func New(
 
 	d := &Datapath{
 		puFromMark:           cache.NewCache("puFromMark"),
+		puFromUser:           puFromUser,
 		contextIDFromTCPPort: contextIDFromTCPPort,
 		contextIDFromUDPPort: contextIDFromUDPPort,
 
@@ -271,6 +276,14 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
+		// Update the user cache.
+		if pu.Type() == common.UIDLoginPU {
+			user := puInfo.Runtime.Options().UserID
+			if user != "" {
+				d.puFromUser.AddOrUpdate(user, pu)
+			}
+		}
+
 		for _, port := range tcpPorts {
 
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
@@ -312,6 +325,14 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	// Cleanup the mark information
 	if err := d.puFromMark.Remove(pu.Mark()); err != nil {
+		zap.L().Debug("Unable to remove cache entry during unenforcement",
+			zap.String("Mark", pu.Mark()),
+			zap.Error(err),
+		)
+	}
+
+	// Cleanup the uid information
+	if err := d.puFromUser.Remove(pu.User()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("Mark", pu.Mark()),
 			zap.Error(err),
