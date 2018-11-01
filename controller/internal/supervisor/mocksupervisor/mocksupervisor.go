@@ -167,16 +167,16 @@ func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, container
 
 // DeleteRules mocks base method
 // nolint
-func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort string, isHostMode bool) error {
-	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, isHostMode)
+func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType string, exclusions []string) error {
+	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRules indicates an expected call of DeleteRules
 // nolint
-func (mr *MockImplementorMockRecorder) DeleteRules(version, context, tcpPorts, udpPorts, mark, uid, proxyPort, isHostMode interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, tcpPorts, udpPorts, mark, uid, proxyPort, isHostMode)
+func (mr *MockImplementorMockRecorder) DeleteRules(version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions)
 }
 
 // SetTargetNetworks mocks base method

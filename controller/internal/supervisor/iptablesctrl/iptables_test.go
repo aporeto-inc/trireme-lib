@@ -629,7 +629,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "")
+			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "", []string{})
 			So(err, ShouldBeNil)
 		})
 
@@ -643,7 +643,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "")
+			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "", []string{})
 			So(err, ShouldBeNil)
 		})
 

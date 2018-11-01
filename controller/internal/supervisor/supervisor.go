@@ -130,7 +130,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
 	puType := extractors.GetPuType(cfg.containerInfo.Runtime)
 
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port, puType); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port, puType, cfg.containerInfo.Policy.ExcludedNetworks()); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -243,6 +243,9 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		s.Unsupervise(contextID) // nolint
 		return err
 	}
+
+	// Updated the policy in the cached processing unit.
+	c.containerInfo.Policy = pu.Policy
 
 	return nil
 }
