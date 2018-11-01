@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -832,6 +833,126 @@ func TestAddExclusionACLs(t *testing.T) {
 				So(err, ShouldNotBeNil)
 			})
 		})
+	})
+}
+
+func TestAddNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the NAT exclusion rules and they succeed", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion rules for a PU with a cgroup mark", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad cgroup mark")
+			})
+			err := i.addNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestDeleteNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I delete the NAT exclusion rules and they succeed", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion rules for a PU with a cgroup mark", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad cgroup mark")
+			})
+			err := i.deleteNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
 	})
 }
 

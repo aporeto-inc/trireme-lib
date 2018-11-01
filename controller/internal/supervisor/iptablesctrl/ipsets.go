@@ -62,16 +62,11 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
 func (i *Instance) createProxySets(portSetName string) error {
-	destSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
+	destSetName, srvSetName := i.getSetNames(portSetName)
 
 	_, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
-	}
-
-	_, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
-	if err != nil {
-		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
 	}
 
 	err = i.createPUPortSet(srvSetName)
@@ -97,7 +92,7 @@ func (i *Instance) createUIDSets(contextID string, puInfo *policy.PUInfo) error 
 
 func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
 
-	dstSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
+	dstSetName, srvSetName := i.getSetNames(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
 	}
@@ -116,13 +111,6 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 				}
 			}
 		}
-	}
-
-	pipTargetSet := ipset.IPSet{
-		Name: srcSetName,
-	}
-	if ferr := pipTargetSet.Flush(); ferr != nil {
-		zap.L().Warn("Unable to flush the pip proxy set")
 	}
 
 	srvTargetSet := ipset.IPSet{
@@ -154,8 +142,8 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 }
 
 //getSetNamePair returns a pair of strings represent proxySetNames
-func (i *Instance) getSetNames(portSetName string) (string, string, string) {
-	return "dst-" + portSetName, "src-" + portSetName, "srv-" + portSetName
+func (i *Instance) getSetNames(portSetName string) (string, string) {
+	return "dst-" + portSetName, "srv-" + portSetName
 
 }
 
