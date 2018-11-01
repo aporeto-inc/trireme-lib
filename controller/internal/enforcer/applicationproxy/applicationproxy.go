@@ -265,7 +265,6 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		}
 		if service.PublicNetworkInfo != nil {
 			// We also need to listen on the public ports in this case.
-			fmt.Println("Registering service with", service.PublicServiceNoTLS)
 			if err := register.Add(service.PublicNetworkInfo, serviceTypeToNetworkListenerType(service.Type, service.PublicServiceNoTLS), true); err != nil {
 				return fmt.Errorf("Public network information overlaps with exposed services or other definitions: %s", err)
 			}

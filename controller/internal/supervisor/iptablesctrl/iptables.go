@@ -179,7 +179,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string, exclusions []string) error {
 
 	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
 	appChain, netChain, err := i.chainName(contextID, version)
@@ -188,8 +188,12 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType); derr != nil {
-		zap.L().Warn("Failed to clean rules", zap.Error(derr))
+	if err = i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType); err != nil {
+		zap.L().Warn("Failed to clean rules", zap.Error(err))
+	}
+
+	if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
+		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 	}
 
 	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
@@ -237,7 +241,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// If local server, install pu specific chains in Trireme/Hostmode chains.
 	puType := extractors.GetPuType(containerInfo.Runtime)
-
 	// Install the new rules
 	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 		return nil
@@ -256,6 +259,20 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
+	}
+
+	mark := ""
+	if containerInfo.Runtime != nil {
+		mark = containerInfo.Runtime.Options().CgroupMark
+	}
+
+	excludedNetworks := []string{}
+	if oldContainerInfo != nil && oldContainerInfo.Policy != nil {
+		excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
+	}
+
+	if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks); err != nil {
+		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 	}
 
 	// Delete the old chain to clean up
@@ -437,18 +454,12 @@ func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
 }
 
 func (i *Instance) deleteProxySets(proxyPortSetName string) error {
-	dstPortSetName, srcPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
+	dstPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
 	ips := ipset.IPSet{
 		Name: dstPortSetName,
 	}
 	if err := ips.Destroy(); err != nil {
 		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", dstPortSetName), zap.Error(err))
-	}
-	ips = ipset.IPSet{
-		Name: srcPortSetName,
-	}
-	if err := ips.Destroy(); err != nil {
-		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srcPortSetName), zap.Error(err))
 	}
 	ips = ipset.IPSet{
 		Name: srvPortSetName,
@@ -497,6 +508,10 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 	}
 
 	if err := i.addNetACLs(contextID, appChain, netChain, policyrules.NetworkACLs()); err != nil {
+		return err
+	}
+
+	if err := i.addNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
 		return err
 	}
 
