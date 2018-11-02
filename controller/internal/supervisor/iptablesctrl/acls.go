@@ -161,8 +161,6 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
 	legacyMode := buildflags.IsLegacyKernel()
 
-	// TODO remove after testing.
-	//egacyMode = true
 	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
 		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
