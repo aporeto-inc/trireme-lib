@@ -206,9 +206,9 @@ func New(
 		udpSocketWriter:        nil,
 	}
 
-	if err := d.SetTargetNetworks(targetNetworks); err != nil {
+	/*	if err := d.SetTargetNetworks(targetNetworks); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs")
-	}
+	}*/
 
 	packet.PacketLogLevel = packetLogs
 

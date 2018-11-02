@@ -91,7 +91,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		{
 			i.appPacketIPTableContext,
 			ipTableSectionPreRouting,
-			//"-m", "set", "--match-set", portSetName, "dst",
+			"-m", "set", "--set", portSetName, "dst",
 			"-m", "set", "--set", portSetName, "dst",
 			"-j", "MARK", "--set-mark", mark,
 		},
@@ -141,7 +141,6 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			//"--match-set", srcSetName, "src,dst",
 			"--set", srcSetName, "src,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
@@ -277,7 +276,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	// Application Packets - SYN
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
 		"--queue-num", "0",
@@ -286,7 +285,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		"--queue-num", "1",
@@ -294,7 +293,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		"--queue-num", "2",
@@ -302,7 +301,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 
 	// rules = append(rules, []string{
 	// 	i.appPacketIPTableContext, appChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-m", "set", "--set", targetNetworkSet, "dst",
 	// 	"-p", "udp",
 	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	// })
@@ -960,7 +959,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-s", rule.Address,
 							"--dport", rule.Port,
 
-							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
+							"-m", "set", "!", "--set", targetNetworkSet, "src",
 
 							"-m", "mark", "!", "--mark", observeMark,
 							"-j", "MARK", "--set-mark", observeMark,
@@ -1412,7 +1411,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		//"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", // "--queue-bypass",
 		// "--queue-balance", i.fqc.GetApplicationQueueSynAckStr()
@@ -1425,7 +1424,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		//"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
@@ -1435,7 +1434,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		//"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
@@ -1493,7 +1492,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		//"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-m", "set", "--set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
 		"34", "-j", "NFQUEUE", // "--queue-bypass",
 		// "--queue-balance", i.fqc.GetNetworkQueueSynStr()
@@ -1507,7 +1506,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-m", "set", "--set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", // "--queue-bypass",
 		// "--queue-balance", i.fqc.GetNetworkQueueSynAckStr()
@@ -1521,7 +1520,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
@@ -1635,7 +1634,7 @@ func (i *Instance) CleanGlobalRules() error {
 	if err := i.ipt.Delete(
 		i.appPacketIPTableContext,
 		i.appPacketIPTableSection,
-		//"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", // "--queue-bypass",
 		// "--queue-balance", i.fqc.GetApplicationQueueAckStr()
@@ -1647,7 +1646,7 @@ func (i *Instance) CleanGlobalRules() error {
 	if err := i.ipt.Delete(
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
-		//		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-m", "set", "--set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", // "--queue-bypass",
 		// "--queue-balance", i.fqc.GetNetworkQueueAckStr()
