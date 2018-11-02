@@ -116,10 +116,10 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 				clientCAs = p.ca
 			}
 			return &tls.Config{
-				GetCertificate:           p.GetCertificateFunc(),
 				ClientAuth:               tls.RequestClientCert,
 				ClientCAs:                clientCAs,
-				NextProtos:               []string{"h2"},
+				GetCertificate:           originalConfig.GetCertificate,
+				NextProtos:               originalConfig.NextProtos,
 				SessionTicketsDisabled:   originalConfig.SessionTicketsDisabled,
 				PreferServerCipherSuites: originalConfig.PreferServerCipherSuites,
 				CipherSuites:             originalConfig.CipherSuites,
