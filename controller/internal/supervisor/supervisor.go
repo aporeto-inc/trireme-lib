@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -18,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type cacheData struct {
@@ -102,6 +101,7 @@ func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 
 	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
+		zap.L().Error("Failed to supervise", zap.Error(err))
 		// ContextID is not found in Cache, New PU: Do create.
 		return s.doCreatePU(contextID, pu)
 	}
@@ -200,6 +200,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
+		zap.L().Error("Configure Rules failed", zap.Error(err))
 		s.Unsupervise(contextID) // nolint
 		return err
 	}

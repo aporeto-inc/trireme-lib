@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/bvandewalle/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
@@ -16,8 +17,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-
-	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 
@@ -151,6 +150,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
+		zap.L().Error("Chain Name")
 		return err
 	}
 
@@ -158,14 +158,16 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	// Create the proxy sets.
 	if err := i.createProxySets(proxySetName); err != nil {
+		zap.L().Error("Create Proxy Sets")
 		return err
 	}
 
 	// Optionally create the UID set
 	if err := i.createUIDSets(contextID, containerInfo); err != nil {
+		zap.L().Error("Create UID Sets")
 		return err
 	}
-
+	zap.L().Error("Calling Install Rules")
 	// Install all the rules
 	return i.installRules(contextID, appChain, netChain, proxySetName, containerInfo)
 }

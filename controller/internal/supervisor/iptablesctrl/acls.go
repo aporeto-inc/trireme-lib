@@ -92,7 +92,6 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			i.appPacketIPTableContext,
 			ipTableSectionPreRouting,
 			"-m", "set", "--set", portSetName, "dst",
-			"-m", "set", "--set", portSetName, "dst",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
@@ -1517,16 +1516,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
-		i.netPacketIPTableContext,
-		netChain, 1,
-		"-m", "set", "--set", targetNetworkSet, "dst",
-		"-p", "udp",
-		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
-	if err != nil {
-		return fmt.Errorf("unable to add capture udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-	}
+	// err = i.ipt.Insert(
+	// 	i.netPacketIPTableContext,
+	// 	netChain, 1,
+	// 	"-m", "set", "--set", targetNetworkSet, "dst",
+	// 	"-p", "udp",
+	// 	"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+	// 	"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+	// if err != nil {
+	// 	return fmt.Errorf("unable to add capture udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	// }
 
 	// err = i.ipt.Insert(
 	// 	i.netPacketIPTableContext,
