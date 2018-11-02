@@ -21,7 +21,8 @@ const (
 	udpProto    = "udp"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string, appSection, netSection string) [][]string {
+func (i *Instance) puChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
 
 	iptableCgroupSection := appSection
 	iptableNetSection := netSection
@@ -68,6 +69,95 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 
 	}
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+}
+
+// This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04.
+func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
+
+	iptableCgroupSection := appSection
+	iptableNetSection := netSection
+	rules := [][]string{}
+
+	if tcpPorts != "0" {
+		rules = append(rules, [][]string{
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", "MARK", "--set-mark", mark,
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", appChain,
+			},
+			{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--destination-ports", tcpPorts,
+				"-m", "comment", "--comment", "Container-specific-chain",
+				"-j", netChain,
+			}}...)
+	}
+
+	if udpPorts != "0" {
+		rules = append(rules, [][]string{
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--source-ports", udpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", "MARK", "--set-mark", mark,
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--source-ports", udpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", appChain,
+			},
+			{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--destination-ports", udpPorts,
+				"-m", "comment", "--comment", "Container-specific-chain",
+				"-j", netChain,
+			}}...)
+	}
+
+	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+}
+
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
+
+	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
+	// cgroup match modules, source are used  to trap outgoing traffic.
+	legacyMode := true
+	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostModeNetworkPU) {
+		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
+			appSection, netSection, puType)
+	}
+
+	return i.puChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
+		appSection, netSection, puType)
+
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
@@ -410,7 +500,7 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Append")
 	}
@@ -1294,7 +1384,7 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Delete")
