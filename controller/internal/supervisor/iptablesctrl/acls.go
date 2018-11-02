@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.aporeto.io/trireme-lib/buildflags"
+
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -148,8 +150,11 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	appSection, netSection string, puType string) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
-	// cgroup match modules, source are used  to trap outgoing traffic.
-	legacyMode := true
+	// cgroup match modules, source ports are used  to trap outgoing traffic.
+	legacyMode := buildflags.IsLegacyKernel()
+
+	// TODO remove after testing.
+	legacyMode = true
 	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostModeNetworkPU) {
 		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)

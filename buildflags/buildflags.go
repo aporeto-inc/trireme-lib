@@ -18,3 +18,8 @@ func IsRHEL6() bool {
 func IsRHEL5() bool {
 	return Distro == Rhel5
 }
+
+// IsLegacyKernel returns true if the build flag was set for rhel5/rhel6
+func IsLegacyKernel() bool {
+	return Distro == Rhel5 || Distro == Rhel6
+}
