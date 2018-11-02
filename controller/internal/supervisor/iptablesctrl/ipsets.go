@@ -1,6 +1,8 @@
 package iptablesctrl
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -44,18 +46,25 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 // createTargetSet creates a new target set
 func (i *Instance) createTargetSet(networks []string) error {
 
-	ips, err := i.ipset.NewIpset(targetNetworkSet, "hash:net", &ipset.Params{})
+	// _, err := i.ipset.NewIpset(targetNetworkSet, "hash:ip", &ipset.Params{})
+	// if err != nil {
+	// 	return fmt.Errorf("unable to create ipset for %s: %s", targetNetworkSet, err)
+	// }
+	path, err := exec.LookPath("ipset")
+
 	if err != nil {
-		return fmt.Errorf("unable to create ipset for %s: %s", targetNetworkSet, err)
+		return fmt.Errorf("Error not found ipset %s", err)
 	}
-
-	i.targetSet = ips
-
-	for _, net := range networks {
-		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
-		}
+	if out, err := exec.Command(path, "--create", targetNetworkSet, "nethash").CombinedOutput(); err != nil {
+		return fmt.Errorf("Unable to create targetnetset %s %s %s", targetNetworkSet, err, out)
 	}
+	// i.targetSet = ips
+
+	// for _, net := range networks {
+	// 	if err := i.targetSet.Add(net, 0); err != nil {
+	// 		return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
+	// 	}
+	// }
 
 	return nil
 }
@@ -64,15 +73,27 @@ func (i *Instance) createTargetSet(networks []string) error {
 func (i *Instance) createProxySets(portSetName string) error {
 	destSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
 
-	_, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
+	path, err := exec.LookPath("ipset")
+
 	if err != nil {
-		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
+		return fmt.Errorf("Error not found ipset %s", err)
+	}
+	if out, err := exec.Command(path, "--create", destSetName, "ipporthash", "--network", "10.1.0.0/16").CombinedOutput(); err != nil {
+		return fmt.Errorf("Unable to create proxy %s %s %s", destSetName, err, out)
 	}
 
-	_, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
-	if err != nil {
-		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
+	if out, err := exec.Command(path, "--create", srcSetName, "ipporthash", "--network", "10.1.0.0/16").CombinedOutput(); err != nil {
+		return fmt.Errorf("Unable to create srcSet %s %s %s", srcSetName, err, out)
 	}
+	// _, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
+	// if err != nil {
+	// 	return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
+	// }
+
+	// _, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
+	// if err != nil {
+	// 	return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
+	// }
 
 	err = i.createPUPortSet(srvSetName)
 	// _, err = i.ipset.NewIpset(srvSetName, "bitmap:port", &ipset.Params{})
@@ -164,7 +185,7 @@ func (i *Instance) createPUPortSet(setname string) error {
 	//Bitmap type is not supported by the ipset library
 	//_, err := i.ipset.NewIpset(setname, "hash:port", &ipset.Params{})
 	path, _ := exec.LookPath("ipset")
-	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
+	out, err := exec.Command(path, "--create", setname, "portmap", "--from", "0", "--to", "65535").CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "set with the same name already exists") {
 			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
@@ -178,4 +199,27 @@ func (i *Instance) createPUPortSet(setname string) error {
 	}
 	return err
 
+}
+
+func (i *Instance) destroyAllIPsets() error {
+	path, _ := exec.LookPath("ipset")
+	out, err := exec.Command(path, "-L").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Error listing ipsets %s %s", err, out)
+	}
+
+	scanner := bufio.NewScanner(bytes.NewBuffer(out))
+	for scanner.Scan() {
+		if strings.HasPrefix(strings.TrimSuffix(scanner.Text(), "\n"), "Name:") {
+			output := strings.Split(strings.TrimSuffix(scanner.Text(), "\n"), ":")
+			if len(output) < 2 {
+				continue
+			}
+			if out, err := exec.Command(path, "-X", strings.Trim(output[1], " ")).CombinedOutput(); err != nil {
+				return fmt.Errorf("Error destroying ipsets %s %s", err, out)
+			}
+
+		}
+	}
+	return nil
 }

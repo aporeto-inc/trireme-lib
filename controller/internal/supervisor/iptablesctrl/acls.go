@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -30,14 +31,16 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		{
 			i.appPacketIPTableContext,
 			iptableCgroupSection,
-			"-m", "cgroup", "--cgroup", mark,
+			//"-m", "cgroup", "--cgroup", mark,
+			"-p", "tcp", "-m", "multiport", "--sports", "1:65535",
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
 			i.appPacketIPTableContext,
 			iptableCgroupSection,
-			"-m", "cgroup", "--cgroup", mark,
+			//"-m", "cgroup", "--cgroup", mark,
+			"-p", "tcp", "-m", "multiport", "--sports", "1:65535",
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
@@ -55,18 +58,18 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		})
 	}
 
-	if udpPorts != "0" {
-		rules = append(rules, []string{
-			i.netPacketIPTableContext,
-			iptableNetSection,
-			"-p", "udp",
-			"-m", "multiport",
-			"--destination-ports", udpPorts,
-			"-m", "comment", "--comment", "Container-specific-chain",
-			"-j", netChain,
-		})
+	// if udpPorts != "0" {
+	// 	rules = append(rules, []string{
+	// 		i.netPacketIPTableContext,
+	// 		iptableNetSection,
+	// 		"-p", "udp",
+	// 		"-m", "multiport",
+	// 		"--destination-ports", udpPorts,
+	// 		"-m", "comment", "--comment", "Container-specific-chain",
+	// 		"-j", netChain,
+	// 	})
 
-	}
+	// }
 
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
@@ -89,7 +92,8 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		{
 			i.appPacketIPTableContext,
 			ipTableSectionPreRouting,
-			"-m", "set", "--match-set", portSetName, "dst",
+			//"-m", "set", "--match-set", portSetName, "dst",
+			"-m", "set", "--set", portSetName, "dst",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
@@ -138,7 +142,8 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", srcSetName, "src,dst",
+			//"--match-set", srcSetName, "src,dst",
+			"--set", srcSetName, "src,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -147,7 +152,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			natProxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--set", srvSetName, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -158,7 +163,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destSetName, "src,src",
+			"--set", destSetName, "src,src",
 			"-j", "ACCEPT",
 		},
 		{
@@ -166,7 +171,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srcSetName, "src,dst",
+			"--set", srcSetName, "src,dst",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -174,7 +179,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--set", srvSetName, "dst",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -182,7 +187,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--set", srvSetName, "src",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -204,7 +209,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--set", srvSetName, "src",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -212,7 +217,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--set", srvSetName, "dst",
 			"-j", "ACCEPT",
 		},
 		{
@@ -220,7 +225,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
+			"--set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -232,7 +237,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", "tcp",
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--set", destSetName, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
@@ -242,9 +247,10 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", "tcp",
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--set", destSetName, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
-			"-m", "cgroup", "--cgroup", cgroupMark,
+			//"-m", "cgroup", "--cgroup", cgroupMark,
+			"-m", "multiport", "--sports", "1:65535",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		})
@@ -273,28 +279,31 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
+		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
+		"--queue-num", "0",
 	})
 
 	// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		"--queue-num", "1",
 	})
 
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		"--queue-num", "2",
 	})
 
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-p", "udp",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+	// })
 
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
@@ -310,24 +319,26 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// Network Packets - SYN
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		//		"-m", "set", "--set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
+		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
+		"--queue-num", "4",
 	})
 	// Network Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		//		"-m", "set", "--set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+		"-j", "NFQUEUE", // "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+		"--queue-num", "5",
 	})
 
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.netPacketIPTableContext, netChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
+	// 	"-p", "udp",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+	// })
 
 	return rules
 }
@@ -486,8 +497,8 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, appChain %s: %s", i.appPacketIPTableContext, chain, err)
 						}
@@ -523,7 +534,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-j", "MARK", "--set-mark", observeMark,
 						); err != nil {
@@ -535,7 +546,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-j", "DROP",
 						); err != nil {
 							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
@@ -550,11 +561,11 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
 						}
@@ -607,8 +618,8 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 							"-d", rule.Address,
 							"-m", "state", "--state", "NEW",
 							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
@@ -666,8 +677,8 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 							"-d", rule.Address,
 							"-m", "state", "--state", "NEW",
 							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
@@ -746,8 +757,8 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
@@ -799,8 +810,8 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "10",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
@@ -847,8 +858,8 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 		appChain,
 		"-d", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", "10",
-		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
+		// "-j", "NFLOG", "--nflog-group", "10",
+		// "--nflog-prefix", policy.DefaultLogPrefix(contextID),
 	); err != nil {
 		return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 	}
@@ -904,8 +915,8 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -941,7 +952,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-j", "MARK", "--set-mark", observeMark,
 						); err != nil {
@@ -953,7 +964,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-j", "DROP",
 						); err != nil {
 							return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
@@ -968,11 +979,11 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
-							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
+							//							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -1063,8 +1074,8 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -1116,8 +1127,8 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 							"--dport", rule.Port,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -1170,8 +1181,8 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules policy.IPRu
 							"-s", rule.Address,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -1229,8 +1240,8 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules policy.IPRu
 							"-s", rule.Address,
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
-							"-j", "NFLOG", "--nflog-group", "11",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+							// "-j", "NFLOG", "--nflog-group", "11",
+							// "--nflog-prefix", rule.Policy.LogPrefix(contextID),
 						); err != nil {
 							return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
@@ -1266,8 +1277,8 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy
 		netChain,
 		"-s", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", "11",
-		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
+		// "-j", "NFLOG", "--nflog-group", "11",
+		// "--nflog-prefix", policy.DefaultLogPrefix(contextID),
 	); err != nil {
 		return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 	}
@@ -1407,9 +1418,12 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		//"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
+		"-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetApplicationQueueSynAckStr()
+		"--queue-num", "1",
+	)
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
@@ -1417,7 +1431,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		//"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
@@ -1427,7 +1441,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		//"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
@@ -1494,9 +1508,12 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		//"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
-		"34", "-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
+		"34", "-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetNetworkQueueSynStr()
+		"--queue-num", "4",
+	)
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
@@ -1506,7 +1523,10 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+		"-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetNetworkQueueSynAckStr()
+		"--queue-num", "5",
+	)
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
@@ -1524,10 +1544,13 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		//"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+		"-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetNetworkQueueSynAckStr()
+		"--queue-num", "6",
+	)
 	if err != nil {
 		return fmt.Errorf("unable to add capture udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
@@ -1619,18 +1642,24 @@ func (i *Instance) CleanGlobalRules() error {
 	if err := i.ipt.Delete(
 		i.appPacketIPTableContext,
 		i.appPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		//"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueAckStr()); err != nil {
+		"-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetApplicationQueueAckStr()
+		"--queue-num", "1",
+	); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
 	if err := i.ipt.Delete(
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		//		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr()); err != nil {
+		"-j", "NFQUEUE", // "--queue-bypass",
+		// "--queue-balance", i.fqc.GetNetworkQueueAckStr()
+		"--queue-num", "0",
+	); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 
@@ -1921,14 +1950,20 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 		}
 	}
 
-	rules, err := i.ipt.ListChains(context)
+	// rules, err := i.ipt.ListChains(context)
+	// if err != nil {
+	// 	zap.L().Warn("Failed to list chains",
+	// 		zap.String("context", context),
+	// 		zap.Error(err),
+	// 	)
+	// }
+	rules, err := listChains()
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
 			zap.String("context", context),
 			zap.Error(err),
 		)
 	}
-
 	for _, rule := range rules {
 
 		if strings.Contains(rule, chainPrefix) {
@@ -1950,6 +1985,26 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 			}
 		}
 	}
+}
+
+func listChains() ([]string, error) {
+	path, _ := exec.LookPath("iptables")
+	out, err := exec.Command(path, "-t", "mangle", "-L").CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("unable to listchain %s %s", string(out), err)
+	}
+	rules := strings.Split(strings.TrimSuffix(strings.Trim(string(out), " "), "\n"), "\n")
+	out, err = exec.Command(path, "-t", "nat", "-L").CombinedOutput()
+	rules = append(rules, strings.Split(strings.TrimSuffix(strings.Trim(string(out), " "), "\n"), "\n")...)
+	chains := []string{}
+	for _, rule := range rules {
+		if !strings.HasPrefix(rule, "Chain") {
+			continue
+		}
+
+		chains = append(chains, strings.Split(rule, " ")[1])
+	}
+	return chains, nil
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
