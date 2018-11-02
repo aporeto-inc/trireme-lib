@@ -155,7 +155,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 
 	// TODO remove after testing.
 	legacyMode = true
-	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostModeNetworkPU) {
+	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
 		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
 	}
