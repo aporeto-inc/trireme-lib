@@ -143,6 +143,14 @@ func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark str
 			}}...)
 	}
 
+	// Add a capture all traffic rule.
+	rules = append(rules, []string{
+		i.appPacketIPTableContext,
+		iptableCgroupSection,
+		"-m", "comment", "--comment", "capture all outgoing traffic",
+		"-j", appChain,
+	})
+
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
@@ -154,7 +162,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	legacyMode := buildflags.IsLegacyKernel()
 
 	// TODO remove after testing.
-	legacyMode = true
+	//egacyMode = true
 	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
 		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
