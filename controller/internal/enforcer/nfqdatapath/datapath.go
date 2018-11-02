@@ -4,10 +4,7 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
-
-	"go.uber.org/zap"
 
 	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/collector"
@@ -27,6 +24,7 @@ import (
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -132,22 +130,22 @@ func New(
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
 
-		sysctlCmd, err := exec.LookPath("sysctl")
-		if err != nil {
-			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
-		}
+		// sysctlCmd, err := exec.LookPath("sysctl")
+		// if err != nil {
+		// 	zap.L().Fatal("sysctl command must be installed", zap.Error(err))
+		// }
 
-		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
-			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
-		}
+		// cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
+		// if err := cmd.Run(); err != nil {
+		// 	zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
+		// }
 
-		if mode == constants.LocalServer {
-			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
-			}
-		}
+		// if mode == constants.LocalServer {
+		// 	cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+		// 	if err := cmd.Run(); err != nil {
+		// 		zap.L().Fatal("Failed to set early demux options", zap.Error(err))
+		// 	}
+		// }
 	}
 
 	// This cache is shared with portSetInstance. The portSetInstance
@@ -165,10 +163,10 @@ func New(
 		portSetInstance = portset.New(contextIDFromTCPPort, puFromUser)
 	}
 
-	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
-	if err != nil {
-		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
-	}
+	// udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	// if err != nil {
+	// 	zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+	// }
 
 	d := &Datapath{
 		puFromMark:           cache.NewCache("puFromMark"),
@@ -185,12 +183,12 @@ func New(
 		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
 
-		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
-		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
-		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
-		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
-		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
-		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
+		udpSourcePortConnectionCache: nil,
+		udpAppOrigConnectionTracker:  nil,
+		udpAppReplyConnectionTracker: nil,
+		udpNetOrigConnectionTracker:  nil,
+		udpNetReplyConnectionTracker: nil,
+		udpNatConnectionTracker:      nil,
 
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
@@ -205,7 +203,11 @@ func New(
 		conntrackHdl:           conntrack.NewHandle(),
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
-		udpSocketWriter:        udpSocketWriter,
+		udpSocketWriter:        nil,
+	}
+
+	if err := d.SetTargetNetworks(targetNetworks); err != nil {
+		zap.L().Error("Error adding target networks to the ACLs")
 	}
 
 	packet.PacketLogLevel = packetLogs
