@@ -113,10 +113,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
 		config := &tls.Config{
-			GetCertificate:           p.GetCertificateFunc(),
-			NextProtos:               []string{"h2"},
-			SessionTicketsDisabled:   true,
-			PreferServerCipherSuites: true,
+			GetCertificate: p.GetCertificateFunc(),
+			NextProtos:     []string{"h2"},
+			// SessionTicketsDisabled:   true,
+			// PreferServerCipherSuites: true,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
