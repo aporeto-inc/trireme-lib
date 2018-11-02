@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
@@ -180,7 +179,7 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 		Value:    token,
 		HttpOnly: true,
 		Path:     "/",
-		Expires:  time.Now().Add(1 * time.Minute),
+		// Expires:  time.Now().Add(1 * time.Minute),
 	}
 
 	http.SetCookie(w, cookie)
