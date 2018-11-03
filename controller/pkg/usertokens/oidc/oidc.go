@@ -48,7 +48,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
 	}
 	if tokenCache == nil {
-		tokenCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
+		tokenCache = gcache.New(2048).LRU().Expiration(20 * time.Minute).Build()
 	}
 
 	// Create a new generic OIDC provider based on the provider URL.

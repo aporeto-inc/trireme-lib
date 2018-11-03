@@ -104,29 +104,20 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		_, port := mconn.GetOriginalDestination()
 		service, ok := p.portCache[port]
 		if !ok {
-			return originalConfig, fmt.Errorf("Unknown service")
+			return nil, fmt.Errorf("Unknown service")
 		}
 		if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
 			clientCAs := x509.NewCertPool()
-			if len(service.MutualTLSTrustedRoots) > 0 {
-				if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
-					return nil, fmt.Errorf("Cannot parse trusted roots")
-				}
-			} else {
+			if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
 				clientCAs = p.ca
 			}
-			return &tls.Config{
-				ClientAuth:               tls.RequestClientCert,
-				ClientCAs:                clientCAs,
-				GetCertificate:           originalConfig.GetCertificate,
-				NextProtos:               originalConfig.NextProtos,
-				SessionTicketsDisabled:   originalConfig.SessionTicketsDisabled,
-				PreferServerCipherSuites: originalConfig.PreferServerCipherSuites,
-				CipherSuites:             originalConfig.CipherSuites,
-			}, nil
+			config := p.newBaseTLSConfig()
+			config.ClientAuth = tls.VerifyClientCertIfGiven
+			config.ClientCAs = clientCAs
+			return config, nil
 		}
 	}
-	return originalConfig, nil
+	return nil, fmt.Errorf("Invalid connection")
 }
 
 // newBaseTLSConfig creates the new basic TLS configuration for the server.
