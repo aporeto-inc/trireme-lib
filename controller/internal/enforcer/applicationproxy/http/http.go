@@ -116,6 +116,7 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 			config.ClientCAs = clientCAs
 			return config, nil
 		}
+		return originalConfig, nil
 	}
 	return nil, fmt.Errorf("Invalid connection")
 }
