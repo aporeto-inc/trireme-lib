@@ -116,15 +116,15 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 		// This is used in case of client authorization with certificates.
 		attributes := []string{}
 		for _, cert := range certs {
-			attributes = append(attributes, "user="+cert.Subject.CommonName)
+			attributes = append(attributes, "CN="+cert.Subject.CommonName)
 			for _, email := range cert.EmailAddresses {
-				attributes = append(attributes, "email="+email)
+				attributes = append(attributes, "Email="+email)
 			}
 			for _, org := range cert.Subject.Organization {
-				attributes = append(attributes, "organization=", org)
+				attributes = append(attributes, "O="+org)
 			}
 			for _, org := range cert.Subject.OrganizationalUnit {
-				attributes = append(attributes, "ou=", org)
+				attributes = append(attributes, "OU="+org)
 			}
 		}
 		return attributes, false, nil

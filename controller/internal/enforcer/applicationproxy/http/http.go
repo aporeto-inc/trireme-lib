@@ -98,6 +98,46 @@ func NewHTTPProxy(
 	}
 }
 
+// clientTLSConfiguration calculates the right certificates and requests to the clients.
+func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Config) (*tls.Config, error) {
+	if mconn, ok := conn.(*markedconn.ProxiedConnection); ok {
+		_, port := mconn.GetOriginalDestination()
+		service, ok := p.portCache[port]
+		if !ok {
+			return nil, fmt.Errorf("Unknown service")
+		}
+		if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
+			clientCAs := x509.NewCertPool()
+			if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
+				clientCAs = p.ca
+			}
+			config := p.newBaseTLSConfig()
+			config.ClientAuth = tls.VerifyClientCertIfGiven
+			config.ClientCAs = clientCAs
+			return config, nil
+		}
+		return originalConfig, nil
+	}
+	return nil, fmt.Errorf("Invalid connection")
+}
+
+// newBaseTLSConfig creates the new basic TLS configuration for the server.
+func (p *Config) newBaseTLSConfig() *tls.Config {
+	return &tls.Config{
+		GetCertificate:           p.GetCertificateFunc(),
+		NextProtos:               []string{"h2"},
+		PreferServerCipherSuites: true,
+		SessionTicketsDisabled:   true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		},
+	}
+}
+
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
 // listener should be already a TLS listener.
 func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error {
@@ -112,46 +152,9 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
-		config := &tls.Config{
-			GetCertificate: p.GetCertificateFunc(),
-			NextProtos:     []string{"h2"},
-			// SessionTicketsDisabled:   true,
-			// PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			},
-		}
+		config := p.newBaseTLSConfig()
 		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
-			if mconn, ok := helloMsg.Conn.(*markedconn.ProxiedConnection); ok {
-				_, port := mconn.GetOriginalDestination()
-				service, ok := p.portCache[port]
-				if !ok {
-					return config, nil
-				}
-				if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
-					service.PublicNetworkInfo != nil &&
-					service.PublicNetworkInfo.Ports.Min == uint16(port) {
-					clientCAs := x509.NewCertPool()
-					if len(service.MutualTLSTrustedRoots) > 0 {
-						if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
-							return nil, fmt.Errorf("Cannot parse trusted roots")
-						}
-					} else {
-						clientCAs = p.ca
-					}
-					return &tls.Config{
-						GetCertificate: p.GetCertificateFunc(),
-						ClientAuth:     tls.VerifyClientCertIfGiven,
-						NextProtos:     []string{"h2"},
-						ClientCAs:      clientCAs,
-					}, nil
-				}
-			}
-			return config, nil
+			return p.clientTLSConfiguration(helloMsg.Conn, config)
 		}
 		l = tls.NewListener(l, config)
 	}
