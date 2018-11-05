@@ -143,13 +143,17 @@ func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark str
 			}}...)
 	}
 
-	// Add a capture all traffic rule.
-	rules = append(rules, []string{
-		i.appPacketIPTableContext,
-		iptableCgroupSection,
-		"-m", "comment", "--comment", "capture all outgoing traffic",
-		"-j", appChain,
-	})
+	if puType == extractors.HostPU {
+		// Add a capture all traffic rule for host pu. This traps all traffic going out
+		// of the box.
+
+		rules = append(rules, []string{
+			i.appPacketIPTableContext,
+			iptableCgroupSection,
+			"-m", "comment", "--comment", "capture all outgoing traffic",
+			"-j", appChain,
+		})
+	}
 
 	return append(rules, i.legacyProxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
@@ -452,7 +456,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode or host pu mode, we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU {
+	if i.mode == constants.Sidecar || isHostPU || buildflags.IsLegacyKernel() {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -490,7 +494,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU {
+	if i.mode == constants.Sidecar || isHostPU || buildflags.IsLegacyKernel() {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
