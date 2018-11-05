@@ -8,27 +8,28 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
 const (
-	uidchain         = "UIDCHAIN"
-	uidInput         = "UIDInput"
-	chainPrefix      = "TRIREME-"
-	appChainPrefix   = chainPrefix + "App-"
-	netChainPrefix   = chainPrefix + "Net-"
-	targetNetworkSet = "TargetNetSet"
-	// PuPortSet The prefix for portset names
-	PuPortSet                = "PUPort-"
+	uidchain                 = "UIDCHAIN"
+	uidInput                 = "UIDInput"
+	chainPrefix              = "TRIREME-"
+	appChainPrefix           = chainPrefix + "App-"
+	netChainPrefix           = chainPrefix + "Net-"
+	targetNetworkSet         = "TargetNetSet"
+	uidPortSetPrefix         = "UIDPort-"
+	processPortSetPrefix     = "ProcessPort-"
 	proxyPortSetPrefix       = "Proxy-"
 	ipTableSectionOutput     = "OUTPUT"
 	ipTableSectionInput      = "INPUT"
@@ -72,11 +73,22 @@ type Instance struct {
 	appCgroupIPTableSection string
 	appSynAckIPTableSection string
 	mode                    constants.ModeType
-	portSetInstance         portset.PortSet
+	contextIDToPortSetMap   cache.DataStore
+	createPUPortSet         func(string) error
+}
+
+var instance *Instance
+var lock sync.RWMutex
+
+// GetInstance returns the instance of the iptables object
+func GetInstance() *Instance {
+	lock.Lock()
+	defer lock.Unlock()
+	return instance
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset portset.PortSet) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider([]string{"mangle"})
 	if err != nil {
@@ -96,16 +108,20 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
 		mode:                    mode,
-		portSetInstance:         portset,
 		appPacketIPTableSection: ipTableSectionOutput,
 		appCgroupIPTableSection: TriremeOutput,
 		netLinuxIPTableSection:  TriremeInput,
 		netPacketIPTableSection: ipTableSectionInput,
 		appSynAckIPTableSection: ipTableSectionOutput,
+		contextIDToPortSetMap:   cache.NewCache("contextIDToPortSetMap"),
+		createPUPortSet:         createPortSet,
 	}
 
-	return i, nil
+	lock.Lock()
+	instance = i
+	defer lock.Unlock()
 
+	return i, nil
 }
 
 // chainPrefix returns the chain name for the specific PU.
@@ -128,25 +144,6 @@ func (i *Instance) chainName(contextID string, version int) (app, net string, er
 	return app, net, nil
 }
 
-// puPortSetName returns the name of the pu portset.
-func puPortSetName(contextID string, prefix string) string {
-	hash := md5.New()
-
-	if _, err := io.WriteString(hash, contextID); err != nil {
-		return ""
-	}
-
-	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
-
-	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:4])
-	} else {
-		contextID = contextID + string(output[:4])
-	}
-
-	return (prefix + contextID)
-}
-
 // ConfigureRules implmenets the ConfigureRules interface. It will create the
 // port sets and then it will call install rules to create all the ACLs for
 // the given chains. PortSets are only created here. Updates will use the
@@ -165,8 +162,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	// Optionally create the UID set
-	if err := i.createUIDSets(contextID, containerInfo); err != nil {
+	if err := i.createPortSet(contextID, containerInfo); err != nil {
 		return err
 	}
 
@@ -179,16 +175,22 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string, exclusions []string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string, exclusions []string) error {
 
 	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
+	tcpPortSetName := i.getPortSet(contextID)
+
+	if tcpPortSetName == "" {
+		zap.L().Error("port set name can not be nil")
+	}
+
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		// Don't return here we can still try and reclaims portset and targetnetwork sets
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if err = i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType); err != nil {
+	if err := i.deleteChainRules(tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
@@ -204,10 +206,8 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
-	if uid != "" {
-		if err := i.deleteUIDSets(contextID, uid, mark); err != nil {
-			return err
-		}
+	if err := i.deletePortSet(contextID); err != nil {
+		zap.L().Warn("Failed to remove port set")
 	}
 
 	if err := i.deleteProxySets(proxyPortSetName); err != nil {
@@ -229,6 +229,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
 
+	portSetName := i.getPortSet(contextID)
+	if portSetName == "" {
+		zap.L().Error("port set name for contextID does not exist. This should not happen")
+	}
+
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		return err
@@ -248,15 +253,15 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		uid := containerInfo.Runtime.Options().UserID
+		username := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	}
@@ -410,6 +415,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	proxyPort := puInfo.Runtime.Options().ProxyPort
 
 	mark := puInfo.Runtime.Options().CgroupMark
+
 	if mark == "" {
 		return errors.New("no mark value found")
 	}
@@ -417,40 +423,14 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	puType := extractors.GetPuType(puInfo.Runtime)
 
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
+	tcpPortSetName := i.getPortSet(contextID)
 
-	uid := puInfo.Runtime.Options().UserID
-	portSetName := ""
-	if uid != "" {
-		portSetName = puPortSetName(contextID, PuPortSet)
-		// update the portset cache, so that it can program the portset
-		if i.portSetInstance == nil {
-			return errors.New("enforcer portset instance cannot be nil for host")
-		}
-		if err := i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
-			return err
-		}
+	if tcpPortSetName == "" {
+		return fmt.Errorf("port set was not found for the contextID. This should not happen")
 	}
 
-	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName, puType)
-}
-
-func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
-
-	portSetName := puPortSetName(contextID, PuPortSet)
-
-	ips := ipset.IPSet{
-		Name: portSetName,
-	}
-	if err := ips.Destroy(); err != nil {
-		zap.L().Warn("Failed to clear puport set", zap.Error(err))
-	}
-
-	// delete the entry in the portset cache
-	if i.portSetInstance == nil {
-		return errors.New("enforcer portset instance cannot be nil for host")
-	}
-
-	return i.portSetInstance.DelUserPortSet(uid, mark)
+	username := puInfo.Runtime.Options().UserID
+	return i.addChainRules(tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType)
 }
 
 func (i *Instance) deleteProxySets(proxyPortSetName string) error {
@@ -516,4 +496,23 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 	}
 
 	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
+}
+
+// puPortSetName returns the name of the pu portset.
+func puPortSetName(contextID string, prefix string) string {
+	hash := md5.New()
+
+	if _, err := io.WriteString(hash, contextID); err != nil {
+		return ""
+	}
+
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:4])
+	} else {
+		contextID = contextID + string(output[:4])
+	}
+
+	return (prefix + contextID)
 }

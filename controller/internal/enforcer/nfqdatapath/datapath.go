@@ -16,7 +16,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -51,8 +50,10 @@ type Datapath struct {
 	targetNetworks *acls.ACLCache
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
-	puFromContextID      cache.DataStore
-	puFromMark           cache.DataStore
+	puFromContextID cache.DataStore
+	puFromMark      cache.DataStore
+	puFromUser      cache.DataStore
+
 	contextIDFromTCPPort *portcache.PortCache
 	contextIDFromUDPPort *portcache.PortCache
 	// For remotes this is a reverse link to the context
@@ -97,9 +98,9 @@ type Datapath struct {
 	mutualAuthorization bool
 	packetLogs          bool
 
-	portSetInstance portset.PortSet
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
+	puToPortsMap    map[string]map[string]bool
 }
 
 func createPolicy(networks []string) policy.IPRuleList {
@@ -172,18 +173,8 @@ func New(
 		}
 	}
 
-	// This cache is shared with portSetInstance. The portSetInstance
-	// cleans up the entry corresponding to port when port is no longer
-	// part of ipset portset.
 	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
-
 	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
-
-	var portSetInstance portset.PortSet
-
-	if mode != constants.RemoteContainer {
-		portSetInstance = portset.New(contextIDFromTCPPort)
-	}
 
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 	if err != nil {
@@ -192,6 +183,7 @@ func New(
 
 	d := &Datapath{
 		puFromMark:           cache.NewCache("puFromMark"),
+		puFromUser:           cache.NewCache("puFromUser"),
 		contextIDFromTCPPort: contextIDFromTCPPort,
 		contextIDFromUDPPort: contextIDFromUDPPort,
 
@@ -223,9 +215,9 @@ func New(
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
 		conntrackHdl:           conntrack.NewHandle(),
-		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
+		puToPortsMap:           map[string]map[string]bool{},
 	}
 
 	if err = d.SetTargetNetworks(targetNetworks); err != nil {
@@ -235,6 +227,10 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+
+	if mode != constants.RemoteContainer {
+		go d.autoPortDiscovery()
+	}
 
 	return d
 }
@@ -302,7 +298,15 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
+		if pu.Type() == common.UIDLoginPU {
+			user := puInfo.Runtime.Options().UserID
+			d.puFromUser.AddOrUpdate(user, pu)
+		}
+
 		for _, port := range tcpPorts {
+			if port == "0" {
+				continue
+			}
 
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
@@ -310,6 +314,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			}
 			// check for host pu and add ports to the end.
 			puType := extractors.GetPuType(puInfo.Runtime)
+
 			if puType == extractors.HostPU {
 				d.contextIDFromTCPPort.AddPortSpecToEnd(portSpec)
 			} else {
@@ -352,6 +357,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce removes the configuration for the given PU
 func (d *Datapath) Unenforce(contextID string) error {
 
+	var err error
+
 	puContext, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
@@ -361,15 +368,25 @@ func (d *Datapath) Unenforce(contextID string) error {
 	pu := puContext.(*pucontext.PUContext)
 
 	// Cleanup the mark information
-	if err := d.puFromMark.Remove(pu.Mark()); err != nil {
+	if err = d.puFromMark.Remove(pu.Mark()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("Mark", pu.Mark()),
 			zap.Error(err),
 		)
 	}
 
+	// Cleanup the username
+	if pu.Type() == common.UIDLoginPU {
+		if err = d.puFromUser.Remove(pu.Username()); err != nil {
+			zap.L().Debug("PU not found for the username", zap.String("username", pu.Username()))
+		}
+	}
 	// Cleanup the port cache
 	for _, port := range pu.TCPPorts() {
+		if port == "0" {
+			continue
+		}
+
 		if err := d.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
 				zap.String("TCPPort", port),
@@ -413,12 +430,6 @@ func (d *Datapath) SetTargetNetworks(networks []string) error {
 func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 
 	return d.filterQueue
-}
-
-// GetPortSetInstance returns the portset instance used by data path
-func (d *Datapath) GetPortSetInstance() portset.PortSet {
-
-	return d.portSetInstance
 }
 
 // Run starts the application and network interceptors
@@ -507,6 +518,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 		return pu.(*pucontext.PUContext), nil
 	}
 
+	// Network packets for non container traffic
 	if protocol == packet.IPProtocolTCP {
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {

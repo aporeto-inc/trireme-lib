@@ -14,7 +14,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -236,11 +235,6 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 
 // GetFilterQueue is a stub for TCP proxy
 func (p *AppProxy) GetFilterQueue() *fqconfig.FilterQueue {
-	return nil
-}
-
-// GetPortSetInstance returns nil for the proxy
-func (p *AppProxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 

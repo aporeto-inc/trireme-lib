@@ -66,6 +66,7 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	// Normalize to a nativeID context. This will become key for any recoveries
 	// and it's an one way function.
 	nativeID, err := l.generateContextID(eventInfo)
+
 	if err != nil {
 		return err
 	}

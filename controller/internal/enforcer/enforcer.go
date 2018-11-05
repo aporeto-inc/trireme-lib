@@ -11,7 +11,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -32,9 +31,6 @@ type Enforcer interface {
 
 	// GetFilterQueue returns the current FilterQueueConfig.
 	GetFilterQueue() *fqconfig.FilterQueue
-
-	// GetPortSetInstance returns nil for the proxy
-	GetPortSetInstance() portset.PortSet
 
 	// Run starts the PolicyEnforcer.
 	Run(ctx context.Context) error
@@ -168,11 +164,6 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 // GetFilterQueue returns the current FilterQueueConfig of the transport path.
 func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
-}
-
-// GetPortSetInstance returns the port instance of the transport datapath
-func (e *enforcer) GetPortSetInstance() portset.PortSet {
-	return e.transport.GetPortSetInstance()
 }
 
 // New returns a new policy enforcer that implements both the data paths.

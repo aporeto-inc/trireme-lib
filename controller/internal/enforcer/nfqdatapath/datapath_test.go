@@ -3528,9 +3528,17 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								// The app synack packet will be considered as non PU traffic
+								So(err, ShouldBeNil)
+							}
 
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
+								s, _ := portspec.NewPortSpec(80, 80, "123456")
+								enforcer.contextIDFromTCPPort.AddPortSpec(s)
+
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								// The app synack packet will be considered as non PU traffic
 								So(err, ShouldNotBeNil)
-
 							}
 
 							if debug {
@@ -4934,4 +4942,65 @@ func TestDNS(t *testing.T) {
 		err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 		So(err1, ShouldBeNil)
 	})
+}
+
+func TestPUPortCreation(t *testing.T) {
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		lock.Lock()
+		readFiles = mockfiles
+		lock.Unlock()
+
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.mode = constants.LocalServer
+
+		enforcer.mode = constants.LocalServer
+		contextID := "1001"
+		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo.Runtime.SetOptions(policy.OptionsType{
+			CgroupMark: "100",
+		})
+
+		enforcer.Enforce(contextID, puInfo) // nolint
+
+	})
+}
+
+type testFiles struct{}
+
+var mockfiles *testFiles
+
+func (f *testFiles) readProcNetTCP() (inodeMap map[string]string, userMap map[string]map[string]bool, err error) {
+	inodeMap = map[string]string{}
+	userMap = map[string]map[string]bool{}
+
+	inodeMap["12345"] = "80"
+	return
+}
+
+func (f *testFiles) readOpenSockFD(pid string) []string {
+	if pid == "1002" {
+		return []string{"12345"}
+	}
+
+	return []string{}
+}
+
+func (f *testFiles) getCgroupList() []string {
+	return []string{"1001"}
+}
+
+func (f *testFiles) listCgroupProcesses(cgroupname string) ([]string, error) {
+	return []string{"1002", "1003"}, nil
 }

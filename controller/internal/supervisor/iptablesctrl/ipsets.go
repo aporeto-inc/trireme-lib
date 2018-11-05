@@ -70,23 +70,11 @@ func (i *Instance) createProxySets(portSetName string) error {
 	}
 
 	err = i.createPUPortSet(srvSetName)
-	// _, err = i.ipset.NewIpset(srvSetName, "bitmap:port", &ipset.Params{})
+
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srvSetName, err)
 	}
 
-	return nil
-}
-
-// createUIDSets creates the UID specific sets
-func (i *Instance) createUIDSets(contextID string, puInfo *policy.PUInfo) error {
-	if puInfo.Runtime.Options().UserID != "" {
-		portSetName := puPortSetName(contextID, PuPortSet)
-
-		if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
-			return puseterr
-		}
-	}
 	return nil
 }
 
@@ -144,13 +132,11 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 //getSetNamePair returns a pair of strings represent proxySetNames
 func (i *Instance) getSetNames(portSetName string) (string, string) {
 	return "dst-" + portSetName, "srv-" + portSetName
-
 }
 
 //Not using ipset from coreos library they don't support bitmap:port
-func (i *Instance) createPUPortSet(setname string) error {
+func createPortSet(setname string) error {
 	//Bitmap type is not supported by the ipset library
-	//_, err := i.ipset.NewIpset(setname, "hash:port", &ipset.Params{})
 	path, _ := exec.LookPath("ipset")
 	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
 	if err != nil {
@@ -165,5 +151,4 @@ func (i *Instance) createPUPortSet(setname string) error {
 		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
 	}
 	return err
-
 }

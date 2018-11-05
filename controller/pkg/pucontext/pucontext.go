@@ -33,6 +33,8 @@ var LookupHost = net.LookupHost
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
 	id                string
+	username          string
+	autoport          bool
 	managementID      string
 	identity          *policy.TagStore
 	annotations       *policy.TagStore
@@ -66,6 +68,8 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 
 	pu := &PUContext{
 		id:              contextID,
+		username:        puInfo.Runtime.Options().UserID,
+		autoport:        puInfo.Runtime.Options().AutoPort,
 		managementID:    puInfo.Policy.ManagementID(),
 		puType:          puInfo.Runtime.PUType(),
 		identity:        puInfo.Policy.Identity(),
@@ -107,7 +111,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 
 	dnsACL := puInfo.Policy.DNSNameACLs()
 	pu.startDNS(ctx, &dnsACL)
-
 	return pu, nil
 }
 
@@ -187,6 +190,16 @@ func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
 // ID returns the ID of the PU
 func (p *PUContext) ID() string {
 	return p.id
+}
+
+// Username returns the ID of the PU
+func (p *PUContext) Username() string {
+	return p.username
+}
+
+// Autoport returns if auto port feature is set on the PU
+func (p *PUContext) Autoport() bool {
+	return p.autoport
 }
 
 // ManagementID returns the management ID

@@ -9,13 +9,13 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
@@ -177,13 +177,19 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				)
 			}
 
-			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
-				//SYN ACK came through the global rule.
-				//This not from a process we are monitoring
-				//let his packet through
-				return nil
+			d.findPorts()
+			cid, err := d.contextIDFromTCPPort.GetSpecValueFromPort(p.SourcePort)
+
+			if err == nil {
+				// Drop this synack as it belongs to PU
+				// for which we didn't see syn
+
+				zap.L().Error("Syn was not seen, and we are monitoring this PU. Dropping the syn ack packet", zap.String("contextID", cid.(string)), zap.Uint16("port", p.SourcePort))
+				return errors.New("dropping packet as syn wasn't seen")
 			}
-			return err
+
+			// syn ack for non aporeto traffic can be let through
+			return nil
 		}
 	default:
 		conn, err = d.appRetrieveState(p)
@@ -427,7 +433,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	}
 
 	if conn.GetState() == connection.UnknownState {
-		// Check if the destination is in the external servicess approved cache
+		// Check if the destination is in the external services approved cache
 		// and if yes, allow the packet to go and release the flow.
 		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 
@@ -849,16 +855,21 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 
 	d.contextIDFromTCPPort.AddPortSpec(portSpec)
 	// Find the uid for which mark was asserted.
-	uid, err := d.portSetInstance.GetUserMark(p.Mark)
 	if err != nil {
 		// Every outgoing packet has a mark. We should never come here
-		return nil, fmt.Errorf("unable to find uid for the packet mark: %s", err)
+		return nil, fmt.Errorf("unable to find username for the packet mark: %s", err)
+	}
+
+	iptablesInstance := iptablesctrl.GetInstance()
+	if iptablesInstance == nil {
+		return nil, fmt.Errorf("iptables instance cannot be nil")
 	}
 
 	// Add port to the cache and program the portset
-	if _, err := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); err != nil {
+	if err := iptablesInstance.AddPortToPortSet(contextID, strconv.Itoa(int(p.SourcePort))); err != nil {
 		return nil, fmt.Errorf("unable to update portset cache: %s", err)
 	}
+
 	// syn ack for which there is no corresponding syn context, so drop it.
 	return nil, errors.New("dropped synack for an unknown syn")
 }
