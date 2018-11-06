@@ -26,5 +26,5 @@ type NFQLayout struct {
 //  String returns string representation of particular queue
 func (n *NFQLayout) String() string {
 
-	return fmt.Sprintf("%s", *n)
+	return fmt.Sprintf("%v", *n)
 }

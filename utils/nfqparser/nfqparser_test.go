@@ -141,7 +141,7 @@ func TestNFQParserString(t *testing.T) {
 					queueData := nfqParser.RetrieveByQueue("6")
 
 					Convey("Then queue data should match", func() {
-						So(queueData.String(), ShouldEqual, fmt.Sprintf("%s", testProperLayout()))
+						So(queueData.String(), ShouldEqual, fmt.Sprintf("%v", testProperLayout()))
 					})
 				})
 			})
