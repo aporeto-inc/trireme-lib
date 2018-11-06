@@ -144,6 +144,15 @@ func TestNFQParserString(t *testing.T) {
 						So(queueData.String(), ShouldEqual, fmt.Sprintf("%v", testProperLayout()))
 					})
 				})
+
+				Convey("Given I try to get string representaion of empty layout, it should not panic", func() {
+					nfqParser := NewNFQParser()
+					str := nfqParser.RetrieveByQueue("6").String()
+
+					Convey("Then queue data should match", func() {
+						So(str, ShouldEqual, "")
+					})
+				})
 			})
 		})
 	})
