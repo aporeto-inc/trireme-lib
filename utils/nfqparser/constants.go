@@ -4,7 +4,7 @@ const (
 	nfqFilePath = "/proc/net/netfilter/nfnetlink_queue"
 )
 
-// Field is to retireve based on field
+// Field is to retrieve based on field
 type Field int
 
 // Field types
