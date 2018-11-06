@@ -70,6 +70,7 @@ func (n *NFQParser) RetrieveByQueue(queueNum string) *NFQLayout {
 }
 
 // RetrieveByField returns layout in string representation
+// NOTE: This is basically to compare the columns, caller should maintain state
 func (n *NFQParser) RetrieveByField(field Field) string {
 
 	n.Lock()
