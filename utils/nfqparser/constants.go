@@ -4,21 +4,6 @@ const (
 	nfqFilePath = "/proc/net/netfilter/nfnetlink_queue"
 )
 
-// Field is to retrieve based on field
-type Field int
-
-// Field types
-const (
-	FieldQueueNum Field = iota
-	FieldPeerPortID
-	FieldQueueTotal
-	FieldCopyMode
-	FieldCopyRange
-	FieldQueueDropped
-	FieldUserDropped
-	FieldIDSequene
-)
-
 // NOTE: This is for unit test
 var testNFQData = `      0  13206     0 2 65531     0     0        0  1
     1 3333107750     0 2 65531     0     0        0  1
