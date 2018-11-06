@@ -2,10 +2,19 @@ package nfqparser
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+const (
+	testFilePath = "/tmp/nfqdrops"
+)
+
+func init() {
+	testCreateFile()
+}
 
 func testProperLayout() *NFQLayout {
 
@@ -21,11 +30,18 @@ func testProperLayout() *NFQLayout {
 	}
 }
 
+func testCreateFile() {
+
+	if err := ioutil.WriteFile(testFilePath, []byte(testNFQData), 0777); err != nil {
+		panic(err)
+	}
+}
+
 func TestNFQParserRetrieveByQueue(t *testing.T) {
 
 	Convey("Given I create a new nfqparser instance", t, func() {
 		nfqParser := NewNFQParser()
-		nfqParser.test = true
+		nfqParser.filePath = testFilePath
 
 		Convey("Given I try to synchronize data", func() {
 			err := nfqParser.Synchronize()
@@ -73,7 +89,7 @@ func TestNFQParserRetrieveByField(t *testing.T) {
 
 	Convey("Given I create a new nfqparser instance", t, func() {
 		nfqParser := NewNFQParser()
-		nfqParser.test = true
+		nfqParser.filePath = testFilePath
 
 		Convey("Given I try to synchronize data", func() {
 			err := nfqParser.Synchronize()
@@ -113,7 +129,7 @@ func TestNFQParserString(t *testing.T) {
 
 	Convey("Given I create a new nfqparser instance", t, func() {
 		nfqParser := NewNFQParser()
-		nfqParser.test = true
+		nfqParser.filePath = testFilePath
 
 		Convey("Given I try to synchronize data", func() {
 			err := nfqParser.Synchronize()

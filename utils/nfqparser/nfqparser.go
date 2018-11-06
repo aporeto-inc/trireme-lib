@@ -14,7 +14,7 @@ import (
 type NFQParser struct {
 	nfqStr string
 	// NOTE: For unit test
-	test     bool
+	filePath string
 	contents map[string]NFQLayout
 
 	sync.Mutex
@@ -25,6 +25,7 @@ func NewNFQParser() *NFQParser {
 
 	return &NFQParser{
 		contents: make(map[string]NFQLayout),
+		filePath: nfqFilePath,
 	}
 }
 
@@ -34,14 +35,9 @@ func (n *NFQParser) Synchronize() error {
 	n.Lock()
 	defer n.Unlock()
 
-	data := []byte(testNFQData)
-	var err error
-
-	if !n.test {
-		data, err = ioutil.ReadFile(nfqFilePath)
-		if err != nil {
-			return err
-		}
+	data, err := ioutil.ReadFile(n.filePath)
+	if err != nil {
+		return err
 	}
 
 	n.nfqStr = string(data)
