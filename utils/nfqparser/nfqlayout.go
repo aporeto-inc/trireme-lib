@@ -20,7 +20,7 @@ type NFQLayout struct {
 	// you will see gap in packet id if netlink message are lost.
 	UserDropped string
 	// packet id of last packet
-	IDSequene string
+	IDSequence string
 }
 
 //  String returns string representation of particular queue

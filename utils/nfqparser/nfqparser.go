@@ -106,7 +106,7 @@ func makeNFQLayout(data []string) NFQLayout {
 	newNFQ.CopyRange = data[4]
 	newNFQ.QueueDropped = data[5]
 	newNFQ.UserDropped = data[6]
-	newNFQ.IDSequene = data[7]
+	newNFQ.IDSequence = data[7]
 
 	return newNFQ
 }

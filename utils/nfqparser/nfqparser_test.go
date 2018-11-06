@@ -26,7 +26,7 @@ func testProperLayout() *NFQLayout {
 		CopyRange:    "65531",
 		QueueDropped: "0",
 		UserDropped:  "0",
-		IDSequene:    "3",
+		IDSequence:   "3",
 	}
 }
 
