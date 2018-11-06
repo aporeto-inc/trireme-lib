@@ -45,8 +45,7 @@ func (n *NFQParser) Synchronize() error {
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
-		lineParts := strings.Fields(trimmedLine)
+		lineParts := strings.Fields(line)
 		newNFQ := makeNFQLayout(lineParts)
 
 		n.contents[newNFQ.QueueNum] = newNFQ
