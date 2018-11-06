@@ -215,6 +215,112 @@ func TestAddChainRules(t *testing.T) {
 	})
 }
 
+// func TestCgroupChainRules(t *testing.T) {
+
+// 	Convey("Given an iptables controller for LocalServer", t, func() {
+// 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+// 		iptables := provider.NewTestIptablesProvider()
+// 		i.ipt = iptables
+
+// 		Convey("When I add the chain rules and they succeed for Linux PU", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "trireme-out", "trireme-in", extractors.LinuxPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules for hostmode network pu and they succeed", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "netsvc-out", "netsvc-in", extractors.HostModeNetworkPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules for hostmode  pu and they succeed", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "host-out", "host-in", extractors.HostPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and the appPacketIPTableContext fails in hostmode network pu ", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				if table == i.appPacketIPTableContext {
+// 					return errors.New("error")
+// 				}
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "Netsvc-output", "Netsvc-input", extractors.HostModeNetworkPU)
+// 			So(err, ShouldNotBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and the netPacketIPtableContext fails ", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				if table == i.netPacketIPTableContext {
+// 					return errors.New("error")
+// 				}
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "HostMode-Output", "HostMode-Input", extractors.HostPU)
+// 			So(err, ShouldNotBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and the netPacketIPtableContext fails in hostmode ", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				if table == i.netPacketIPTableContext {
+// 					return errors.New("error")
+// 				}
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "Trireme-Ouput", "Trireme-Input", extractors.LinuxPU)
+// 			So(err, ShouldNotBeNil)
+// 		})
+
+// 	})
+
+// 	Convey("Given an iptables controller for LocalServer on legacy kernels", t, func() {
+// 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+// 		iptables := provider.NewTestIptablesProvider()
+// 		i.ipt = iptables
+// 		i.isLegacyKernel = true
+
+// 		Convey("When I add the chain rules and they succeed for Host PU", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "host-out", "host-in", extractors.HostPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and they fail for Host PU", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return errors.New("error")
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "host-out", "host-in", extractors.HostPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and they succeed for Host Network PU", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return nil
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "netsvc-out", "netsvc-in", extractors.HostModeNetworkPU)
+// 			So(err, ShouldBeNil)
+// 		})
+
+// 		Convey("When I add the chain rules and they fail for Host Network PU", func() {
+// 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+// 				return errors.New("error")
+// 			})
+// 			err := i.cgroupChainRules("appchain", "netchain", "0", "100", "100", "", "5000", "proxyPortSet", "netsvc-out", "netsvc-in", extractors.HostModeNetworkPU)
+// 			So(err, ShouldBeNil)
+// 		})
+// 	})
+// }
+
 func TestAddPacketTrap(t *testing.T) {
 
 	Convey("Given an iptables controller, when I test addPacketTrap for Local Container", t, func() {
@@ -948,6 +1054,126 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				return errors.New("Bad cgroup mark")
 			})
 			err := i.deleteNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestAddLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the NAT exclusion rules and they succeed", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "1:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion rules for a PU with source ports", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8086" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I delete the NAT exclusion rules and they succeed", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "3:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion rules for a PU with a source port", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8085" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})

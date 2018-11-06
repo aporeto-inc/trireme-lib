@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/buildflags"
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -73,7 +71,8 @@ func (i *Instance) puChainRules(appChain string, netChain string, mark string, t
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
-// This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04.
+// This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
+// consider source ports to identify packets from the process.
 func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string, puType string) [][]string {
 
@@ -163,11 +162,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
-	legacyMode := buildflags.IsLegacyKernel()
-
-	fmt.Println("legacy", legacyMode)
-	zap.L().Info("mode is", zap.Reflect("legacy", legacyMode))
-	if legacyMode && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
+	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
 		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
 	}
@@ -456,7 +451,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode or host pu mode, we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU || buildflags.IsLegacyKernel() {
+	if i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -494,7 +489,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU || buildflags.IsLegacyKernel() {
+	if i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",

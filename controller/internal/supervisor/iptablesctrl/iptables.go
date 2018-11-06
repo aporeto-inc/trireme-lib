@@ -75,6 +75,7 @@ type Instance struct {
 	appSynAckIPTableSection string
 	mode                    constants.ModeType
 	portSetInstance         portset.PortSet
+	isLegacyKernel          bool
 }
 
 // NewInstance creates a new iptables controller instance
@@ -104,6 +105,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		netLinuxIPTableSection:  TriremeInput,
 		netPacketIPTableSection: ipTableSectionInput,
 		appSynAckIPTableSection: ipTableSectionOutput,
+		isLegacyKernel:          buildflags.IsLegacyKernel(),
 	}
 
 	return i, nil
@@ -194,13 +196,13 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
-	if buildflags.IsLegacyKernel() {
-		if err := i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+	if i.isLegacyKernel {
+		if err = i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
+		if err = i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
@@ -281,7 +283,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
 	}
 
-	if buildflags.IsLegacyKernel() {
+	if i.isLegacyKernel {
 		if err := i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
@@ -527,7 +529,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if buildflags.IsLegacyKernel() {
+	if i.isLegacyKernel {
 		// doesn't work for clients.
 		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 		if err := i.addLegacyNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
