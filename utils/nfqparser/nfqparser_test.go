@@ -85,7 +85,7 @@ func TestNFQParserRetrieveByQueue(t *testing.T) {
 	})
 }
 
-func TestNFQParserRetrieveByField(t *testing.T) {
+func TestNFQParserRetrieveAll(t *testing.T) {
 
 	Convey("Given I create a new nfqparser instance", t, func() {
 		nfqParser := NewNFQParser()
@@ -98,27 +98,11 @@ func TestNFQParserRetrieveByField(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
-			Convey("Given I try to retrieve data for a portid", func() {
-				portID := nfqParser.RetrieveByField(FieldPeerPortID)
+			Convey("Given I try to retrieve all", func() {
+				queueData := nfqParser.RetrieveAll()
 
-				Convey("Then portID should match", func() {
-					So(portID, ShouldEqual, "132063333107750388139856926337506853605545056347323018840254787762806986372")
-				})
-			})
-
-			Convey("Given I try to retrieve data for a id sequence", func() {
-				portID := nfqParser.RetrieveByField(FieldIDSequene)
-
-				Convey("Then id sequence should match", func() {
-					So(portID, ShouldEqual, "00100231")
-				})
-			})
-
-			Convey("Given I try to retrieve unknown field", func() {
-				unknown := nfqParser.RetrieveByField(Field(35))
-
-				Convey("Then queue data should match", func() {
-					So(unknown, ShouldEqual, "Unknown field")
+				Convey("Then length of queue data should be equal", func() {
+					So(len(queueData), ShouldEqual, 8)
 				})
 			})
 		})

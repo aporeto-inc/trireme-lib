@@ -3,7 +3,6 @@ package nfqparser
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"sort"
 	"strings"
@@ -68,37 +67,13 @@ func (n *NFQParser) RetrieveByQueue(queueNum string) *NFQLayout {
 	return nil
 }
 
-// RetrieveByField returns layout in string representation
-// NOTE: This is basically to compare the columns, caller should maintain state
-func (n *NFQParser) RetrieveByField(field Field) string {
+// RetrieveAll returns all layouts
+func (n *NFQParser) RetrieveAll() map[string]NFQLayout {
 
 	n.Lock()
 	defer n.Unlock()
 
-	var fieldStr string
-	for _, key := range n.sortedKeys() {
-		content := n.contents[key]
-		switch field {
-		case FieldPeerPortID:
-			fieldStr = fieldStr + content.PeerPortID
-		case FieldQueueTotal:
-			fieldStr = fieldStr + content.QueueTotal
-		case FieldCopyMode:
-			fieldStr = fieldStr + content.CopyMode
-		case FieldCopyRange:
-			fieldStr = fieldStr + content.CopyRange
-		case FieldQueueDropped:
-			fieldStr = fieldStr + content.QueueDropped
-		case FieldUserDropped:
-			fieldStr = fieldStr + content.UserDropped
-		case FieldIDSequene:
-			fieldStr = fieldStr + content.IDSequene
-		default:
-			return fmt.Sprintf("Unknown field")
-		}
-	}
-
-	return fieldStr
+	return n.contents
 }
 
 // String returns string renresentation of nfqueue data
