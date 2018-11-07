@@ -963,7 +963,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -1060,11 +1060,15 @@ func TestUpdateRules(t *testing.T) {
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
 			pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+
 			em := policy.ExtendedMap{
 				extractors.PuType: extractors.HostPU,
 			}
+
 			options := pur1.Options()
 			options.PolicyExtensions = em
+			options.CgroupMark = "0x102"
+			options.CgroupName = "3102"
 			pur1.SetOptions(options)
 
 			containerinfo.Runtime = pur1
@@ -1078,7 +1082,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host network pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -1180,6 +1184,8 @@ func TestUpdateRules(t *testing.T) {
 			}
 			options := pur1.Options()
 			options.PolicyExtensions = em
+			options.CgroupMark = "0x102"
+			options.CgroupName = "3102"
 			pur1.SetOptions(options)
 
 			containerinfo.Runtime = pur1
