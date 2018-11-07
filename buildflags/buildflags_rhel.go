@@ -1,4 +1,4 @@
-// +build rhel
+// +build rhel6
 
 package buildflags
 
