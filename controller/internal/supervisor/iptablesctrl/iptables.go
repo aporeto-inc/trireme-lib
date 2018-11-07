@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -75,6 +76,7 @@ type Instance struct {
 	mode                    constants.ModeType
 	contextIDToPortSetMap   cache.DataStore
 	createPUPortSet         func(string) error
+	isLegacyKernel          bool
 }
 
 var instance *Instance
@@ -115,6 +117,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appSynAckIPTableSection: ipTableSectionOutput,
 		contextIDToPortSetMap:   cache.NewCache("contextIDToPortSetMap"),
 		createPUPortSet:         createPortSet,
+		isLegacyKernel:          buildflags.IsLegacyKernel(),
 	}
 
 	lock.Lock()
@@ -194,8 +197,15 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
-	if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
-		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
+	if i.isLegacyKernel {
+		if err = i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
+		}
+
+	} else {
+		if err = i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
+			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
+		}
 	}
 
 	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
@@ -246,6 +256,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// If local server, install pu specific chains in Trireme/Hostmode chains.
 	puType := extractors.GetPuType(containerInfo.Runtime)
+	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 	// Install the new rules
 	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 		return nil
@@ -258,7 +269,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		}
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
-		tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 		username := containerInfo.Runtime.Options().UserID
 
 		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxySetName, puType); err != nil {
@@ -276,10 +286,16 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
 	}
 
-	if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks); err != nil {
-		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
-	}
+	if i.isLegacyKernel {
+		if err := i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
+			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
+		}
 
+	} else {
+		if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks); err != nil {
+			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
+		}
+	}
 	// Delete the old chain to clean up
 	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
 		return err
@@ -491,10 +507,18 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if err := i.addNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
-		return err
-	}
+	if i.isLegacyKernel {
+		// doesn't work for clients.
+		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
+		if err := i.addLegacyNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+			return err
+		}
 
+	} else {
+		if err := i.addNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+			return err
+		}
+	}
 	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
 }
 

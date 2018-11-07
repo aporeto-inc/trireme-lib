@@ -1,16 +1,16 @@
-// +build !rhel6
+// +build rhel6
 
 package buildflags
 
 // Distro constants
 const (
-	Rhel6 = ""
-	Rhel5 = ""
+	Rhel6 = "rhel6"
+	Rhel5 = "rhel5"
 )
 
 // IsRHEL6 returns true if the build flag was set for rhel6
 func IsRHEL6() bool {
-	return false
+	return true
 }
 
 // IsRHEL5 returns true if the build flag was set for rhel5
@@ -20,5 +20,5 @@ func IsRHEL5() bool {
 
 // IsLegacyKernel returns true if the build flag was set for rhel5/rhel6
 func IsLegacyKernel() bool {
-	return false
+	return true
 }

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	"go.aporeto.io/trireme-lib/buildflags"
+
 	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -165,7 +167,7 @@ func New(
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
 
-		if mode == constants.LocalServer {
+		if mode == constants.LocalServer && !buildflags.IsLegacyKernel() {
 			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
 			if err := cmd.Run(); err != nil {
 				zap.L().Fatal("Failed to set early demux options", zap.Error(err))

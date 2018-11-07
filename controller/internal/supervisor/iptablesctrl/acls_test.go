@@ -955,6 +955,126 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 	})
 }
 
+func TestAddLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the NAT exclusion rules and they succeed", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "1:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion rules for a PU with source ports", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8086" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I delete the NAT exclusion rules and they succeed", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "3:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion rules for a PU with a source port", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8085" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
 //
 // func TestSetGlobalRules(t *testing.T) {
 // 	Convey("Given an iptables controller", t, func() {
