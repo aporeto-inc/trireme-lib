@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.aporeto.io/trireme-lib/buildflags"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -321,7 +323,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 
 func (l *linuxProcessor) processHostServiceStart(event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	if event.NetworkOnlyTraffic {
+	if event.NetworkOnlyTraffic || buildflags.IsLegacyKernel() {
 		return nil
 	}
 

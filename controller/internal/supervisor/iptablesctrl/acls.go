@@ -21,7 +21,8 @@ const (
 	udpProto    = "udp"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string, appSection, netSection string) [][]string {
+func (i *Instance) puChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
 
 	iptableCgroupSection := appSection
 	iptableNetSection := netSection
@@ -68,6 +69,107 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 
 	}
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+}
+
+// This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
+// consider source ports to identify packets from the process.
+func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
+
+	iptableCgroupSection := appSection
+	iptableNetSection := netSection
+	rules := [][]string{}
+
+	if tcpPorts != "0" {
+		rules = append(rules, [][]string{
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", "MARK", "--set-mark", mark,
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", appChain,
+			},
+			{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-p", "tcp",
+				"-m", "multiport",
+				"--destination-ports", tcpPorts,
+				"-m", "comment", "--comment", "Container-specific-chain",
+				"-j", netChain,
+			}}...)
+	}
+
+	if udpPorts != "0" {
+		rules = append(rules, [][]string{
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--source-ports", udpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", "MARK", "--set-mark", mark,
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--source-ports", udpPorts,
+				"-m", "comment", "--comment", "Server-specific-chain",
+				"-j", appChain,
+			},
+			{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-p", "udp",
+				"-m", "multiport",
+				"--destination-ports", udpPorts,
+				"-m", "comment", "--comment", "Container-specific-chain",
+				"-j", netChain,
+			}}...)
+	}
+
+	if puType == extractors.HostPU {
+		// Add a capture all traffic rule for host pu. This traps all traffic going out
+		// of the box.
+
+		rules = append(rules, []string{
+			i.appPacketIPTableContext,
+			iptableCgroupSection,
+			"-m", "comment", "--comment", "capture all outgoing traffic",
+			"-j", appChain,
+		})
+	}
+
+	return append(rules, i.legacyProxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+}
+
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string,
+	appSection, netSection string, puType string) [][]string {
+
+	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
+	// cgroup match modules, source ports are used  to trap outgoing traffic.
+	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
+		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
+			appSection, netSection, puType)
+	}
+
+	return i.puChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
+		appSection, netSection, puType)
+
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
@@ -233,6 +335,114 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 	return proxyrules
 }
 
+// proxyRules creates all the proxy specific rules.
+func (i *Instance) legacyProxyRules(appChain string, netChain string, tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
+	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
+	proxyrules := [][]string{
+		{
+			i.appProxyIPTableContext,
+			natProxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srvSetName, "dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		},
+		{
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "src,src",
+			"-j", "ACCEPT",
+		},
+		{ // Needed for Web sockets
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srvSetName, "dst",
+			"-j", "ACCEPT",
+		},
+		{ // APIServices
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srvSetName, "src",
+			"-j", "ACCEPT",
+		},
+		{ // APIServices
+			i.appPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"--destination-port", proxyPort,
+			"-j", "ACCEPT",
+		},
+		{ // APIServices
+			i.appPacketIPTableContext,
+			proxyOutputChain,
+			"-p", "tcp",
+			"--source-port", proxyPort,
+			"-j", "ACCEPT",
+		},
+		{ // APIServices
+			i.appPacketIPTableContext,
+			proxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srvSetName, "src",
+			"-j", "ACCEPT",
+		},
+		{ // Needed for websocket support
+			i.appPacketIPTableContext,
+			proxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srvSetName, "dst",
+			"-j", "ACCEPT",
+		},
+		{
+			i.appPacketIPTableContext,
+			proxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+	}
+
+	if cgroupMark == "" {
+		proxyrules = append(proxyrules, []string{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!", "--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		})
+	} else {
+		proxyrules = append(proxyrules, []string{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!", "--mark", proxyMark,
+			"-m", "multiport",
+			"--source-ports", tcpPorts,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		})
+	}
+
+	return proxyrules
+}
+
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
 
@@ -241,7 +451,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode or host pu mode, we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU {
+	if i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -279,7 +489,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar || isHostPU {
+	if i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
@@ -410,7 +620,7 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Append")
 	}
@@ -1294,7 +1504,7 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Delete")
@@ -2036,6 +2246,100 @@ func (i *Instance) deleteNATExclusionACLs(appChain, netChain, cgroupMark, setNam
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "cgroup", "--cgroup", cgroupMark,
+				"-s", e,
+				"-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (i *Instance) addLegacyNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string, tcpPorts string) error {
+	destSetName, srvSetName := i.getSetNames(setName)
+	for _, e := range exclusions {
+
+		if err := i.ipt.Insert(
+			i.appProxyIPTableContext, natProxyInputChain, 1,
+			"-p", "tcp",
+			"-m", "set",
+			"-s", e,
+			"--match-set", srvSetName, "dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		); err != nil {
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
+		}
+
+		if cgroupMark == "" {
+			if err := i.ipt.Insert(
+				i.appProxyIPTableContext, natProxyOutputChain, 1,
+				"-p", "tcp",
+				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "mark", "!", "--mark", proxyMark,
+				"-s", e,
+				"-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+			}
+		} else {
+			if err := i.ipt.Insert(
+				i.appProxyIPTableContext, natProxyOutputChain, 1,
+				"-p", "tcp",
+				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "mark", "!", "--mark", proxyMark,
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
+				"-s", e,
+				"-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+			}
+		}
+	}
+
+	return nil
+}
+
+// addExclusionACLs adds the set of IP addresses that must be excluded
+func (i *Instance) deleteLegacyNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string, tcpPorts string) error {
+
+	destSetName, srvSetName := i.getSetNames(setName)
+	for _, e := range exclusions {
+		if err := i.ipt.Delete(
+			i.appProxyIPTableContext, natProxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"-s", e,
+			"--match-set", srvSetName, "dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		); err != nil {
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
+		}
+		if cgroupMark == "" {
+			if err := i.ipt.Delete(
+				i.appProxyIPTableContext, natProxyOutputChain,
+				"-p", "tcp",
+				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "mark", "!", "--mark", proxyMark,
+				"-s", e,
+				"-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+			}
+		} else {
+			if err := i.ipt.Delete(
+				i.appProxyIPTableContext, natProxyOutputChain,
+				"-p", "tcp",
+				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "mark", "!", "--mark", proxyMark,
+				"-m", "multiport",
+				"--source-ports", tcpPorts,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
