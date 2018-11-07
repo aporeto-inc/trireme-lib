@@ -611,7 +611,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server (host mode) in legacy mode", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -960,7 +960,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -1079,7 +1079,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host network pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true

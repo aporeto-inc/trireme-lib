@@ -170,7 +170,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
 	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
-		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName,
+		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
 	}
 

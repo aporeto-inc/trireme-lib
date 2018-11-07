@@ -957,7 +957,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 
 func TestAddLegacyNATExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -1017,7 +1017,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 
 func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

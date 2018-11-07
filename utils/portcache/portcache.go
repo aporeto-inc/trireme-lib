@@ -31,7 +31,7 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 		p.ports.AddOrUpdate(s.Min, s)
 	} else {
 		// Remove the range if it exists
-		p.Remove(s)
+		p.Remove(s) // nolint
 		// Insert the portspec
 		p.Lock()
 		p.ranges = append([]*portspec.PortSpec{s}, p.ranges...)
@@ -43,7 +43,7 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 func (p *PortCache) AddPortSpecToEnd(s *portspec.PortSpec) {
 
 	// Remove the range if it exists
-	p.Remove(s)
+	p.Remove(s) // nolint
 
 	p.Lock()
 	p.ranges = append(p.ranges, s)
