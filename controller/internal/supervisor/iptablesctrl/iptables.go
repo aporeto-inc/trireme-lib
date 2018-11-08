@@ -533,9 +533,9 @@ func puPortSetName(contextID string, prefix string) string {
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 
 	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:4])
+		contextID = contextID[:4] + output[:4]
 	} else {
-		contextID = contextID + string(output[:4])
+		contextID = contextID + output[:4]
 	}
 
 	return (prefix + contextID)
