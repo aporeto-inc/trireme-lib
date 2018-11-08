@@ -140,7 +140,7 @@ func (p *processMon) collectChildExitStatus() {
 				continue
 			}
 
-			p.activeProcesses.Remove(es.contextID)
+			p.activeProcesses.Remove(es.contextID) // nolint errcheck
 			procInfo, ok := data.(*processInfo)
 			if !ok {
 				zap.L().Error("Internal error - wrong data structure")
