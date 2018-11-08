@@ -17,7 +17,10 @@ type netCls struct {
 	TriremePath      string
 }
 
-var basePath = "/sys/fs/cgroup/net_cls"
+var (
+	basePath        = "/sys/fs/cgroup/net_cls"
+	markval  uint64 = Initialmarkval
+)
 
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {

@@ -26,7 +26,8 @@ before_install:
   - go get -u github.com/golang/dep/cmd/dep
 
 install:
-  - dep ensure -v
+  - dep ensure
+  - dep status
 
 script:
   - ./.test.sh

@@ -122,7 +122,7 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 			}
 			wg.Done()
 		}()
-		copyBytes(ctx, false, inFd, outFd, tcpIn, tcpOut)
+		copyBytes(ctx, false, inFd, outFd, tcpOut)
 	}()
 
 	go func() {
@@ -132,7 +132,7 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 			}
 			wg.Done()
 		}()
-		copyBytes(ctx, true, outFd, inFd, tcpOut, tcpIn)
+		copyBytes(ctx, true, outFd, inFd, tcpIn)
 	}()
 
 	wg.Wait()
@@ -151,7 +151,7 @@ func tcpConnection(c net.Conn) (*net.TCPConn, error) {
 	}
 }
 
-func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn, srcCon *net.TCPConn) {
+func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, srcCon *net.TCPConn) {
 	var total int64
 	var nwrote int64
 
