@@ -10,7 +10,6 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -27,7 +26,7 @@ type cacheData struct {
 	mark          string
 	tcpPorts      string
 	udpPorts      string
-	uid           string
+	username      string
 	containerInfo *policy.PUInfo
 }
 
@@ -39,8 +38,6 @@ type Config struct {
 	versionTracker cache.DataStore
 	// impl is the packet filter implementation
 	impl Implementor
-	// portSetInstance is the controller of the port set
-	portSetInstance portset.PortSet
 	// collector is the stats collector implementation
 	collector collector.EventCollector
 	// filterQueue is the filterqueue parameters
@@ -70,12 +67,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	portSetInstance := enforcerInstance.GetPortSetInstance()
-	if mode != constants.RemoteContainer && portSetInstance == nil {
-		return nil, errors.New("portSetInstance cannot be nil")
-	}
-
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
@@ -92,7 +84,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
-		portSetInstance: portSetInstance,
 		service:         p,
 	}, nil
 }
@@ -130,7 +121,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
 	puType := extractors.GetPuType(cfg.containerInfo.Runtime)
 
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port, puType, cfg.containerInfo.Policy.ExcludedNetworks()); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, port, puType, cfg.containerInfo.Policy.ExcludedNetworks()); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -208,7 +199,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 		mark:          pu.Runtime.Options().CgroupMark,
 		tcpPorts:      tcpPorts,
 		udpPorts:      udpPorts,
-		uid:           pu.Runtime.Options().UserID,
+		username:      pu.Runtime.Options().UserID,
 		containerInfo: pu,
 	}
 
