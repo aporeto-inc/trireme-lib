@@ -49,6 +49,7 @@ type PUContext struct {
 	ProxyPort         string
 	tcpPorts          []string
 	udpPorts          []string
+	excludedNetworks  []string
 	puType            common.PUType
 	synToken          []byte
 	synServiceContext []byte
@@ -67,19 +68,20 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
-		id:              contextID,
-		username:        puInfo.Runtime.Options().UserID,
-		autoport:        puInfo.Runtime.Options().AutoPort,
-		managementID:    puInfo.Policy.ManagementID(),
-		puType:          puInfo.Runtime.PUType(),
-		identity:        puInfo.Policy.Identity(),
-		annotations:     puInfo.Policy.Annotations(),
-		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
-		ApplicationACLs: acls.NewACLCache(),
-		networkACLs:     acls.NewACLCache(),
-		mark:            puInfo.Runtime.Options().CgroupMark,
-		scopes:          puInfo.Policy.Scopes(),
-		CancelFunc:      cancelFunc,
+		id:               contextID,
+		username:         puInfo.Runtime.Options().UserID,
+		autoport:         puInfo.Runtime.Options().AutoPort,
+		managementID:     puInfo.Policy.ManagementID(),
+		puType:           puInfo.Runtime.PUType(),
+		identity:         puInfo.Policy.Identity(),
+		annotations:      puInfo.Policy.Annotations(),
+		externalIPCache:  cache.NewCacheWithExpiration("External IP Cache", timeout),
+		ApplicationACLs:  acls.NewACLCache(),
+		networkACLs:      acls.NewACLCache(),
+		mark:             puInfo.Runtime.Options().CgroupMark,
+		scopes:           puInfo.Policy.Scopes(),
+		CancelFunc:       cancelFunc,
+		excludedNetworks: puInfo.Policy.ExcludedNetworks(),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -510,4 +512,17 @@ func (p *PUContext) SearchRcvRules(
 	tags *policy.TagStore,
 ) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.rcv, tags, false)
+}
+
+// IPinExcludedNetworks searches if the IP belongs to any of the configured excluded networks
+func (p *PUContext) IPinExcludedNetworks(ip net.IP) bool {
+	for _, network := range p.excludedNetworks {
+		if _, net, err := net.ParseCIDR(network); err == nil {
+			if net.Contains(ip) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

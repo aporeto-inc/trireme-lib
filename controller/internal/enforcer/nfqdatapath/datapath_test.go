@@ -3533,7 +3533,12 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							}
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
-								s, _ := portspec.NewPortSpec(80, 80, "123456")
+								contextID := "123456"
+								puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+								context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+								So(err, ShouldBeNil)
+								enforcer.puFromContextID.AddOrUpdate(contextID, context)
+								s, _ := portspec.NewPortSpec(80, 80, contextID)
 								enforcer.contextIDFromTCPPort.AddPortSpec(s)
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)

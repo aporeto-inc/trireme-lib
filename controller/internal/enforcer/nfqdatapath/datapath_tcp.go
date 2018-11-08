@@ -181,6 +181,17 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			cid, err := d.contextIDFromTCPPort.GetSpecValueFromPort(p.SourcePort)
 
 			if err == nil {
+				item, err := d.puFromContextID.Get(cid.(string))
+				if err != nil {
+					// Let the packet through if the context is not found
+					return nil
+				}
+
+				ctx := item.(*pucontext.PUContext)
+
+				if ctx.IPinExcludedNetworks(p.DestinationAddress) {
+					return nil
+				}
 				// Drop this synack as it belongs to PU
 				// for which we didn't see syn
 
