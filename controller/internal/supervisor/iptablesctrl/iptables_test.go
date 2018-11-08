@@ -9,7 +9,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -21,7 +20,7 @@ const testIP = "172.17.0.1"
 func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -33,7 +32,7 @@ func TestNewInstance(t *testing.T) {
 
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a Linux server implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -46,7 +45,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net, err := i.chainName("Context", 1)
 			So(err, ShouldBeNil)
@@ -63,7 +62,7 @@ func TestChainName(t *testing.T) {
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers for containers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -120,7 +119,6 @@ func TestConfigureRules(t *testing.T) {
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
 				So(err.Error(), ShouldContainSubstring, "Proxy")
-				//So(err, ShouldBeNil)
 			})
 
 		})
@@ -236,7 +234,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -409,7 +407,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server (host mode)", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -615,7 +613,7 @@ func TestConfigureRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers for local server (host mode) in legacy mode", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -824,7 +822,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -855,13 +853,12 @@ func TestDeleteRules(t *testing.T) {
 			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", "", []string{})
 			So(err, ShouldBeNil)
 		})
-
 	})
 }
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -965,7 +962,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -1084,7 +1081,7 @@ func TestUpdateRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controllers in legacy mode for host network pu", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		i.isLegacyKernel = true
@@ -1203,7 +1200,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

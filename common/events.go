@@ -67,6 +67,9 @@ type EventInfo struct {
 	// HostService indicates that the request is for the root namespace
 	HostService bool `json:"hostservice,omitempty"`
 
+	// AutoPort indicates that the PU will have auto port feature enabled
+	AutoPort bool `json:"autoport,omitempty"`
+
 	// NetworkOnlyTraffic indicates that traffic towards the applications must be controlled.
 	NetworkOnlyTraffic bool `json:"networktrafficonly,omitempty"`
 

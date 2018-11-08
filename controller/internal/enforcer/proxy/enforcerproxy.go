@@ -15,7 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -40,7 +39,6 @@ type ProxyInfo struct {
 	statsServerSecret      string
 	procMountPoint         string
 	ExternalIPCacheTimeout time.Duration
-	portSetInstance        portset.PortSet
 	collector              collector.EventCollector
 	targetNetworks         []string
 	sync.RWMutex
@@ -188,11 +186,6 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
-// GetPortSetInstance returns nil for the proxy
-func (s *ProxyInfo) GetPortSetInstance() portset.PortSet {
-	return s.portSetInstance
-}
-
 // Run starts the the remote enforcer proxy.
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
@@ -233,7 +226,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		nil,
 		procMountPoint,
 		ExternalIPCacheTimeout,
-		nil,
 		packetLogs,
 		targetNetworks,
 		runtimeError,
@@ -252,7 +244,6 @@ func newProxyEnforcer(mutualAuth bool,
 	processmonitor processmon.ProcessManager,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
-	portSetInstance portset.PortSet,
 	packetLogs bool,
 	targetNetworks []string,
 	runtimeError chan *policy.RuntimeError,
@@ -285,7 +276,6 @@ func newProxyEnforcer(mutualAuth bool,
 		procMountPoint:         procMountPoint,
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		PacketLogs:             packetLogs,
-		portSetInstance:        portSetInstance,
 		collector:              collector,
 		targetNetworks:         targetNetworks,
 	}

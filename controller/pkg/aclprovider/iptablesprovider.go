@@ -169,6 +169,7 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 			break
 		}
 	}
+
 	return nil
 }
 
