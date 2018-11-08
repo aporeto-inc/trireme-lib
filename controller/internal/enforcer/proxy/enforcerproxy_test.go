@@ -85,7 +85,7 @@ func secretGen(keyPEM, certPEM, caPool []byte) secrets.Secrets {
 		newSecret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		return newSecret
 	}
-	newSecret, _ := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), map[string]*ecdsa.PublicKey{})
+	newSecret, _ := secrets.NewPKISecrets(keyPEM, certPEM, caPool, map[string]*ecdsa.PublicKey{})
 	return newSecret
 }
 
@@ -128,7 +128,6 @@ func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessM
 		mutualAuthorization,
 		fqConfig,
 		eventCollector(),
-		nil,
 		secretGen(nil, nil, nil),
 		"testServerID",
 		validity,

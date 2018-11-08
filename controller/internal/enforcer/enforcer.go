@@ -92,7 +92,7 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if e.secrets != nil {
-		if err := e.secrets.Enforce(context.Background(), contextID, puInfo); err != nil {
+		if err := e.secrets.Enforce(puInfo); err != nil {
 			return fmt.Errorf("Failed to enforce in secrets proxy: %s", err)
 		}
 	}

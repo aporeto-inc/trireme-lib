@@ -56,7 +56,6 @@ type Config struct {
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
 	dependentAPICache  cache.DataStore
-	jwtCache           cache.DataStore // nolint: structcheck
 	portMapping        map[int]int
 	portCache          map[int]*policy.ApplicationService
 	applicationProxy   bool
@@ -308,7 +307,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, *policy.ApplicationService, error) {
+func (p *Config) retrieveNetworkContext(r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, *policy.ApplicationService, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -497,7 +496,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, authorizer, service, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
+	puContext, authorizer, service, err := p.retrieveNetworkContext(r, originalDestination.Port)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop

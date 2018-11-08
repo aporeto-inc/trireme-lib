@@ -30,11 +30,6 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		dockerRuntime     policy.RuntimeReader
 		kubernetesRuntime policy.RuntimeReader
 	}
-	type fieldsResult struct {
-		puidCache map[string]*puidCacheEntry // nolint: structcheck
-		podCache  map[string]*podCacheEntry  // nolint: structcheck
-		RWMutex   sync.RWMutex
-	}
 	tests := []struct {
 		name         string
 		fields       fields
@@ -263,8 +258,8 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 }
 
 func Test_cache_getPUIDsbyPod(t *testing.T) {
-	puid1 := "12345"
-	pod1 := "test/test"
+	puid1 := "12350"
+	pod1 := "test/test5"
 	puidEntry1 := &puidCacheEntry{
 		kubeIdentifier: pod1,
 	}
@@ -300,7 +295,7 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 				},
 			},
 			args: args{
-				podName:      "test",
+				podName:      "test5",
 				podNamespace: "test",
 			},
 			want: []string{puid1},
@@ -339,8 +334,8 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 
 func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 
-	puid1 := "12345"
-	pod1 := "test/test"
+	puid1 := "12346"
+	pod1 := "test/test1"
 	containerRuntime := policy.NewPURuntimeWithDefaults()
 	containerRuntime.SetPid(123)
 	puidEntry1 := &puidCacheEntry{
@@ -414,8 +409,8 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 
 func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 
-	puid1 := "12345"
-	pod1 := "test/test"
+	puid1 := "12347"
+	pod1 := "test/test2"
 	containerRuntime := policy.NewPURuntimeWithDefaults()
 	containerRuntime.SetPid(123)
 	puidEntry1 := &puidCacheEntry{
@@ -489,8 +484,8 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 
 func Test_cache_deletePodEntry(t *testing.T) {
 
-	puid1 := "12345"
-	pod1 := "test/test"
+	puid1 := "12348"
+	pod1 := "test/test3"
 	containerRuntime := policy.NewPURuntimeWithDefaults()
 	containerRuntime.SetPid(123)
 	puidEntry1 := &puidCacheEntry{
@@ -530,7 +525,7 @@ func Test_cache_deletePodEntry(t *testing.T) {
 				},
 			},
 			args: args{
-				podName:      "test",
+				podName:      "test3",
 				podNamespace: "test",
 			},
 			want1: map[string]*puidCacheEntry{
@@ -581,8 +576,8 @@ func Test_cache_deletePodEntry(t *testing.T) {
 
 func Test_cache_deletePUIDEntry(t *testing.T) {
 
-	puid1 := "12345"
-	pod1 := "test/test"
+	puid1 := "12349"
+	pod1 := "test/test4"
 	containerRuntime := policy.NewPURuntimeWithDefaults()
 	containerRuntime.SetPid(123)
 	puidEntry1 := &puidCacheEntry{

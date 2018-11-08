@@ -18,7 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -210,7 +209,6 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
@@ -227,7 +225,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		mutualAuth,
 		filterQueue,
 		collector,
-		service,
 		secrets,
 		serverID,
 		validity,
@@ -247,7 +244,6 @@ func NewProxyEnforcer(mutualAuth bool,
 func newProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
@@ -319,7 +315,6 @@ func NewDefaultProxyEnforcer(serverID string,
 		mutualAuthorization,
 		fqConfig,
 		collector,
-		nil,
 		secrets,
 		serverID,
 		validity,

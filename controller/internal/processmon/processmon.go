@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -54,8 +53,6 @@ type processMon struct {
 	// logLevel is the level of logs for remote command.
 	logLevel  string
 	logFormat string
-	// collector is the event collector to report failures.
-	collector collector.EventCollector // nolint: structcheck
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags constants.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
@@ -132,37 +129,33 @@ func GetProcessManagerHdl() ProcessManager {
 // collectChildExitStatus is an async function which collects status for all launched child processes
 func (p *processMon) collectChildExitStatus() {
 
-	for {
-		select {
-		case es := <-p.childExitStatus:
-			if es.exitStatus == nil {
-				continue
-			}
-			data, err := p.activeProcesses.Get(es.contextID)
-			if err == nil {
-				zap.L().Error("Remote enforcer exited, but container is running",
-					zap.String("nativeContextID", es.contextID),
-					zap.Int("pid", es.process),
-					zap.Error(es.exitStatus),
-				)
-				procInfo, ok := data.(*processInfo)
-				if ok {
-					procInfo.RPCHdl.DestroyRPCClient(es.contextID)
-				}
-				if p.runtimeErrorChannel != nil {
-					p.runtimeErrorChannel <- &policy.RuntimeError{
-						ContextID: es.contextID,
-						Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
-					}
-				}
-				continue
-			}
-			zap.L().Debug("Remote enforcer exited normally",
+	for es := range p.childExitStatus {
+		if es.exitStatus == nil {
+			continue
+		}
+		data, err := p.activeProcesses.Get(es.contextID)
+		if err == nil {
+			zap.L().Error("Remote enforcer exited, but container is running",
 				zap.String("nativeContextID", es.contextID),
 				zap.Int("pid", es.process),
+				zap.Error(es.exitStatus),
 			)
-
+			procInfo, ok := data.(*processInfo)
+			if ok {
+				procInfo.RPCHdl.DestroyRPCClient(es.contextID)
+			}
+			if p.runtimeErrorChannel != nil {
+				p.runtimeErrorChannel <- &policy.RuntimeError{
+					ContextID: es.contextID,
+					Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
+				}
+			}
+			continue
 		}
+		zap.L().Debug("Remote enforcer exited normally",
+			zap.String("nativeContextID", es.contextID),
+			zap.Int("pid", es.process),
+		)
 	}
 }
 
@@ -259,7 +252,7 @@ func (p *processMon) pollStdOutAndErr(
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) (*exec.Cmd, error) {
+func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) *exec.Cmd {
 
 	cmdName := filepath.Join(remoteEnforcerBuildPath, remoteEnforcerName)
 
@@ -269,7 +262,7 @@ func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcer
 		zap.Strings("args", cmdArgs),
 	)
 
-	return exec.Command(cmdName, cmdArgs...), nil
+	return exec.Command(cmdName, cmdArgs...)
 }
 
 // getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
@@ -382,10 +375,7 @@ func (p *processMon) LaunchProcess(
 		}
 	}
 
-	cmd, err := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
-	if err != nil {
-		return fmt.Errorf("enforcer binary not found: %s", err)
-	}
+	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 
 	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
 		return err

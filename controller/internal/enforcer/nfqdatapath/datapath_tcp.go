@@ -254,16 +254,13 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 	// State machine based on the flags
 	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
-		action, err := d.processApplicationSynPacket(tcpPacket, context, conn)
-		return action, err
+		return d.processApplicationSynPacket(tcpPacket, context, conn)
 
 	case packet.TCPAckMask:
-		action, err := d.processApplicationAckPacket(tcpPacket, context, conn)
-		return action, err
+		return nil, d.processApplicationAckPacket(tcpPacket, context, conn)
 
 	case packet.TCPSynAckMask:
-		action, err := d.processApplicationSynAckPacket(tcpPacket, context, conn)
-		return action, err
+		return nil, d.processApplicationSynAckPacket(tcpPacket, context, conn)
 	default:
 		return nil, nil
 	}
@@ -318,7 +315,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 }
 
 // processApplicationSynAckPacket processes an application SynAck packet
-func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) (interface{}, error) {
+func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) error {
 
 	// If we are already in the connection.TCPData, it means that this is an external flow
 	// At this point we can release the flow to the kernel by updating conntrack
@@ -347,7 +344,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			zap.L().Debug("Failed to remove cache entries")
 		}
 
-		return nil, nil
+		return nil
 	}
 
 	// We now process packets that need authorization options
@@ -358,18 +355,18 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Set the state for future reference
 	conn.SetState(connection.TCPSynAckSend)
 
 	// Attach the tags to the packet
-	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+	return tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 }
 
 // processApplicationAckPacket processes an application ack packet
-func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) (interface{}, error) {
+func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) error {
 
 	// Only process the first Ack of a connection. This means that we have received
 	// as SynAck packet and we can now process the ACK.
@@ -379,19 +376,19 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// connection minimizing the chances of a replay attack
 		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 		// Since we adjust sequence numbers let's make sure we haven't made a mistake
 		if len(token) != int(d.ackSize) {
-			return nil, fmt.Errorf("protocol error: tokenlen=%d acksize=%d", len(token), int(d.ackSize))
+			return fmt.Errorf("protocol error: tokenlen=%d acksize=%d", len(token), int(d.ackSize))
 		}
 
 		// Attach the tags to the packet
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
-			return nil, err
+			return err
 		}
 
 		conn.SetState(connection.TCPAckSend)
@@ -418,12 +415,12 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			}
 		}
 
-		return nil, nil
+		return nil
 	}
 
 	// If we are already in the connection.TCPData connection just forward the packet
 	if conn.GetState() == connection.TCPData {
-		return nil, nil
+		return nil
 	}
 
 	if conn.GetState() == connection.UnknownState {
@@ -433,11 +430,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		if perr != nil {
 			err := tcpPacket.ConvertAcktoFinAck()
-			return nil, err
+			return err
 		}
 
 		if policy.Action.Rejected() {
-			return nil, errors.New("Reject the packet")
+			return errors.New("Reject the packet")
 		}
 
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
@@ -454,7 +451,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
-		return nil, nil
+		return nil
 	}
 
 	// Here we capture the first data packet after an ACK packet by modyfing the
@@ -462,10 +459,10 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	// We will let the caches expire.
 	if conn.GetState() == connection.TCPAckSend {
 		conn.SetState(connection.TCPData)
-		return nil, nil
+		return nil
 	}
 
-	return nil, fmt.Errorf("received application ack packet in the wrong state: %d", conn.GetState())
+	return fmt.Errorf("received application ack packet in the wrong state: %d", conn.GetState())
 }
 
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
@@ -821,7 +818,7 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
+	context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
 	if err != nil {
 		return nil, errors.New("No context in app processing")
 	}
@@ -876,14 +873,14 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 			if d.mode != constants.RemoteContainer && p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 				// We see a syn ack for which we have not recorded a syn
 				// Update the port for the context matching the mark this packet has comes with
-				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
+				context, perr := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
 				if perr == nil {
 					return processSynAck(d, p, context)
 				}
 			}
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
+				context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
 				if err != nil {
 					return nil, errors.New("No context in app processing")
 				}
@@ -909,7 +906,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolTCP)
+	context, err := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolTCP)
 	if err != nil {
 		//This needs to hit only for local processes never for containers
 		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
@@ -976,7 +973,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if err != nil {
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, cerr := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolTCP)
+				context, cerr := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolTCP)
 				if cerr != nil {
 					return nil, errors.New("No context in app processing")
 				}

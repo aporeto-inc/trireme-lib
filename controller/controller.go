@@ -103,7 +103,7 @@ func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUP
 		t.locks.Delete(puID)
 		lock.(*sync.Mutex).Unlock()
 	}()
-	return t.doHandleDelete(puID, policy, runtime)
+	return t.doHandleDelete(puID, runtime)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
@@ -203,7 +203,7 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 }
 
 // doHandleDelete is the detailed implementation of the delete event.
-func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+func (t *trireme) doHandleDelete(contextID string, runtime *policy.PURuntime) error {
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,

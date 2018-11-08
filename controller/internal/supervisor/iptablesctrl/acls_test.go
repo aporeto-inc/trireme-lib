@@ -16,6 +16,12 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+const (
+	appChain = "appChain"
+	netChain = "netChain"
+	ruleType = "mark"
+)
+
 func matchSpec(term string, rulespec []string) error {
 
 	for _, rule := range rulespec {
@@ -39,7 +45,7 @@ func TestAddContainerChain(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addContainerChain("appChain", "netChain")
+			err := i.addContainerChain(appChain, netChain)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -52,7 +58,7 @@ func TestAddContainerChain(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addContainerChain("appChain", "netChain")
+			err := i.addContainerChain(appChain, netChain)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -65,7 +71,7 @@ func TestAddContainerChain(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addContainerChain("appChain", "netChain")
+			err := i.addContainerChain(appChain, netChain)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -200,7 +206,7 @@ func TestAddChainRules(t *testing.T) {
 
 		Convey("When i add chain rules with non-zero uid and port 0 rules are added to the UID Chain", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == "RedirProxy-Net" || chain == "RedirProxy-App" || chain == "Proxy-Net" || chain == "Proxy-App" ||
+				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == natProxyInputChain || chain == natProxyOutputChain || chain == proxyInputChain || chain == proxyOutputChain ||
 					chain == TriremeInput || chain == TriremeOutput {
 					return nil
 				}
@@ -226,7 +232,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -239,7 +245,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -252,7 +258,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -269,7 +275,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -282,7 +288,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -295,7 +301,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -312,7 +318,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -325,7 +331,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -338,7 +344,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
+			err := i.addPacketTrap("appchain", "netchain", false)
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -356,7 +362,7 @@ func TestAddAppACLs(t *testing.T) {
 
 		Convey("When I add app ACLs with no rules", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == "appChain" {
+				if table == i.appPacketIPTableContext && chain == appChain {
 					if err := matchSpec("DROP", rulespec); err == nil {
 						return nil
 					}
@@ -370,7 +376,7 @@ func TestAddAppACLs(t *testing.T) {
 				return errors.New("error")
 			})
 
-			err := i.addAppACLs("", "appChain", "netChain", policy.IPRuleList{})
+			err := i.addAppACLs("", appChain, netChain, policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -378,20 +384,20 @@ func TestAddAppACLs(t *testing.T) {
 
 		Convey("When I add app ACLs with no rules and it fails", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == "appChain" {
+				if table == i.appPacketIPTableContext && chain == appChain {
 					return errors.New("error")
 				}
 				return nil
 			})
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == "appChain" {
+				if table == i.appPacketIPTableContext && chain == appChain {
 					return errors.New("error")
 				}
 				return nil
 			})
 
-			err := i.addAppACLs("", "appChain", "netChain", policy.IPRuleList{})
+			err := i.addAppACLs("", appChain, netChain, policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -427,7 +433,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "appChain", "netChain", rules)
+			err := i.addAppACLs("chain", appChain, netChain, rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -460,7 +466,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "appChain", "netChain", rules)
+			err := i.addAppACLs("chain", appChain, netChain, rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -492,7 +498,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "appChain", "netChain", rules)
+			err := i.addAppACLs("chain", appChain, netChain, rules)
 			Convey("I should error for reject", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -846,7 +852,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -859,7 +865,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -872,7 +878,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -881,13 +887,13 @@ func TestAddNATExclusionACLs(t *testing.T) {
 		Convey("When I add the NAT exclusion rules for a PU with a cgroup mark", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				for _, rule := range rulespec {
-					if rule == "mark" {
+					if rule == ruleType {
 						return nil
 					}
 				}
 				return errors.New("Bad cgroup mark")
 			})
-			err := i.addNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -906,7 +912,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -919,7 +925,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -932,7 +938,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -941,13 +947,13 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 		Convey("When I delete the NAT exclusion rules for a PU with a cgroup mark", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				for _, rule := range rulespec {
-					if rule == "mark" {
+					if rule == ruleType {
 						return nil
 					}
 				}
 				return errors.New("Bad cgroup mark")
 			})
-			err := i.deleteNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -966,7 +972,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "1:56")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "1:56")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -979,7 +985,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -992,7 +998,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8086")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8086")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -1001,13 +1007,13 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 		Convey("When I add the NAT exclusion rules for a PU with source ports", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				for _, rule := range rulespec {
-					if rule == "8086" || rule == "mark" {
+					if rule == "8086" || rule == ruleType {
 						return nil
 					}
 				}
 				return errors.New("Bad source ports")
 			})
-			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"}, "8086")
+			err := i.addLegacyNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"}, "8086")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -1026,7 +1032,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "3:56")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "3:56")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -1039,7 +1045,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -1052,7 +1058,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -1061,13 +1067,13 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 		Convey("When I delete the NAT exclusion rules for a PU with a source port", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				for _, rule := range rulespec {
-					if rule == "8085" || rule == "mark" {
+					if rule == "8085" || rule == ruleType {
 						return nil
 					}
 				}
 				return errors.New("Bad source ports")
 			})
-			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})

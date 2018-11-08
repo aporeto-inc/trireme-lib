@@ -117,8 +117,7 @@ func createACLRules(rules *policy.IPRuleList, dnsrule *policy.DNSRule, ip string
 		return rules
 	}
 
-	var rulesAppend policy.IPRuleList
-	rulesAppend = append(*rules, policy.IPRule{
+	rulesAppend := append(*rules, policy.IPRule{
 		Address:  ip,
 		Port:     dnsrule.Port,
 		Protocol: "TCP",
@@ -130,13 +129,11 @@ func createACLRules(rules *policy.IPRuleList, dnsrule *policy.DNSRule, ip string
 
 func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bool) {
 
-	var rules *policy.IPRuleList
-
-	rules = new(policy.IPRuleList)
+	rules := new(policy.IPRuleList)
 	for _, dnsrule := range *dnsList {
 		if ips, err := LookupHost(dnsrule.Name); err == nil {
 			for _, ip := range ips {
-				if ipcache[ip] == false {
+				if !ipcache[ip] {
 					rules = createACLRules(rules, &dnsrule, ip)
 					ipcache[ip] = true
 				}
@@ -156,9 +153,8 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 }
 
 func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
-	var ipcache map[string]bool
 
-	ipcache = make(map[string]bool)
+	ipcache := make(map[string]bool)
 	p.dnsToACLs(dnsList, ipcache)
 
 	go func() {

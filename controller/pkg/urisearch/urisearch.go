@@ -104,7 +104,7 @@ func parse(s string) (string, string) {
 	}
 	for i := 1; i < len(s); i++ {
 		if s[i] == '/' {
-			return s[0:i], s[i:len(s)]
+			return s[0:i], s[i:]
 		}
 	}
 

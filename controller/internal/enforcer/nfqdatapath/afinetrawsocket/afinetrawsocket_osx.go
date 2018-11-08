@@ -19,8 +19,7 @@ type SocketWriter interface {
 	CloseSocket() error
 }
 
-type rawsocket struct {
-	fd int
+type rawsocket struct { // nolint
 }
 
 // CreateSocket returns a handle to SocketWriter interface

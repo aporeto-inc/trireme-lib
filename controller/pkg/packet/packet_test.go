@@ -164,7 +164,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 func TestLongerIPHeader(t *testing.T) {
 
 	t.Parallel()
-	err := getTestPacketWithError(t, synIHLTooBig)
+	err := getTestPacketWithError(synIHLTooBig)
 	t.Log(err)
 	if err == nil {
 		t.Error("Expected failure given too long IP header length")
@@ -174,7 +174,7 @@ func TestLongerIPHeader(t *testing.T) {
 func TestShortPacketLength(t *testing.T) {
 
 	t.Parallel()
-	err := getTestPacketWithError(t, synIPLenTooSmall)
+	err := getTestPacketWithError(synIPLenTooSmall)
 	t.Log(err)
 	if err == nil {
 		t.Error("Expected failure given too short IP header length")
@@ -184,7 +184,7 @@ func TestShortPacketLength(t *testing.T) {
 func TestShortBuffer(t *testing.T) {
 
 	t.Parallel()
-	err := getTestPacketWithError(t, synMissingBytes)
+	err := getTestPacketWithError(synMissingBytes)
 	t.Log(err)
 	if err == nil {
 		t.Error("Expected failure given short (truncated) packet")
@@ -367,7 +367,7 @@ func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
 	return pkt
 }
 
-func getTestPacketWithError(t *testing.T, id SamplePacketName) error {
+func getTestPacketWithError(id SamplePacketName) error {
 
 	tmp := make([]byte, len(testPackets[id]))
 	copy(tmp, testPackets[id])

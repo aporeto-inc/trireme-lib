@@ -80,6 +80,10 @@ BjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIQCkDmsb3XVAarvo
 rbC83pJYJv7xXgCOr8qHdL5KnSoCuwIgLt75v8+/p/qrniv4ob4rneyovT4G0FbO
 mGWH5/94d5k=
 -----END CERTIFICATE-----`
+	appQueueStr = "0:3"
+	netQueueStr = "4:7"
+	pcchan      = "/tmp/test.sock"
+	secret      = "mysecret"
 )
 
 var (
@@ -126,14 +130,14 @@ func filterQ() *fqconfig.FilterQueue {
 	initFilterQ.ApplicationQueue = 0
 	initFilterQ.ApplicationQueueSize = 500
 	initFilterQ.NetworkQueueSize = 500
-	initFilterQ.NetworkQueuesSynStr = "4:7"
-	initFilterQ.NetworkQueuesAckStr = "4:7"
-	initFilterQ.NetworkQueuesSynAckStr = "4:7"
-	initFilterQ.NetworkQueuesSvcStr = "4:7"
-	initFilterQ.ApplicationQueuesSynStr = "0:3"
-	initFilterQ.ApplicationQueuesAckStr = "0:3"
-	initFilterQ.ApplicationQueuesSvcStr = "0:3"
-	initFilterQ.ApplicationQueuesSynAckStr = "0:3"
+	initFilterQ.NetworkQueuesSynStr = netQueueStr
+	initFilterQ.NetworkQueuesAckStr = netQueueStr
+	initFilterQ.NetworkQueuesSynAckStr = netQueueStr
+	initFilterQ.NetworkQueuesSvcStr = netQueueStr
+	initFilterQ.ApplicationQueuesSynStr = appQueueStr
+	initFilterQ.ApplicationQueuesAckStr = appQueueStr
+	initFilterQ.ApplicationQueuesSvcStr = appQueueStr
+	initFilterQ.ApplicationQueuesSynAckStr = appQueueStr
 
 	return &initFilterQ
 }
@@ -267,8 +271,6 @@ func TestNewServer(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -279,9 +281,9 @@ func TestNewServer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "mysecret")
+			serr = os.Setenv(constants.EnvStatsSecret, secret)
 			So(serr, ShouldBeNil)
 			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.EnvStatsChannel)
@@ -316,7 +318,7 @@ func TestInitEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
 			So(serr, ShouldBeNil)
@@ -400,7 +402,7 @@ func TestInitSupervisor(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
 			So(serr, ShouldBeNil)
@@ -583,8 +585,6 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -595,9 +595,9 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "mysecret")
+			serr = os.Setenv(constants.EnvStatsSecret, secret)
 			So(serr, ShouldBeNil)
 			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.EnvStatsChannel)
@@ -613,7 +613,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to start the server", func() {
-				serr = os.Setenv(constants.EnvContextSocket, "/tmp/test.sock")
+				serr = os.Setenv(constants.EnvContextSocket, pcchan)
 				So(serr, ShouldBeNil)
 				envpipe := os.Getenv(constants.EnvContextSocket)
 				rpcHdl.EXPECT().StartServer(gomock.Any(), "unix", envpipe, server).Times(1).Return(nil)
@@ -680,8 +680,6 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -692,7 +690,7 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)
@@ -777,8 +775,6 @@ func TestEnforce(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -789,7 +785,7 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
@@ -909,8 +905,6 @@ func TestUnEnforce(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -921,7 +915,7 @@ func TestUnEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
@@ -1016,8 +1010,6 @@ func TestUnSupervise(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
 			ctx, cancel := context.WithCancel(context.Background())
 			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
 
@@ -1028,7 +1020,7 @@ func TestUnSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, "/tmp/test.sock")
+			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)

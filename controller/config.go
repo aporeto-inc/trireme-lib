@@ -155,7 +155,6 @@ func (t *trireme) newEnforcers() error {
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
-			t.config.service,
 			t.config.secret,
 			t.config.serverID,
 			t.config.validity,

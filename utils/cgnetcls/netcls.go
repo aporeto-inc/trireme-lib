@@ -15,7 +15,6 @@ type netCls struct {
 }
 
 var basePath = "/sys/fs/cgroup/net_cls"
-var markval uint64 = Initialmarkval
 
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {

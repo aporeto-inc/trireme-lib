@@ -120,7 +120,7 @@ func (p *PortCache) GetAllSpecValueFromPort(port uint16) ([]interface{}, error) 
 func (p *PortCache) Remove(s *portspec.PortSpec) error {
 
 	if s.Min == s.Max {
-		return p.ports.Remove(uint16(s.Min))
+		return p.ports.Remove(s.Min)
 	}
 
 	p.Lock()
