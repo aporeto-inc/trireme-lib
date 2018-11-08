@@ -70,6 +70,8 @@ type CLIRequest struct {
 	NetworkOnly bool
 	// UIDPOlicy indicates that the request is for a UID policy
 	UIDPolicy bool
+	// AutoPort indicates that auto port feature is enabled for the PU
+	AutoPort bool
 }
 
 // RequestProcessor is an instance of the processor
@@ -186,6 +188,10 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		c.Services = services
 	}
 
+	if value, ok := arguments["--autoport"]; ok && value != nil {
+		c.AutoPort = value.(bool)
+	}
+
 	if value, ok := arguments["--networkonly"]; ok && value != nil {
 		c.NetworkOnly = value.(bool)
 	}
@@ -224,6 +230,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		Services:           c.Services,
 		NetworkOnlyTraffic: c.NetworkOnly,
 		HostService:        c.HostPolicy,
+		AutoPort:           c.AutoPort,
 	}
 
 	if err := sendRequest(r.address, request); err != nil {

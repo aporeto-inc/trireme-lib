@@ -331,6 +331,9 @@ type OptionsType struct {
 	// UserID is the user ID if it exists
 	UserID string
 
+	// AutoPort option is set if auto port is enabled
+	AutoPort bool
+
 	// Services is the list of services of interest
 	Services []common.Service
 
