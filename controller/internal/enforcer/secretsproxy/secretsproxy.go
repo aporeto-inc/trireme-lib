@@ -15,7 +15,6 @@ import (
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -92,11 +91,6 @@ func (s *SecretsProxy) Unenforce(contextID string) error {
 
 // GetFilterQueue is a stub for TCP proxy
 func (s *SecretsProxy) GetFilterQueue() *fqconfig.FilterQueue {
-	return nil
-}
-
-// GetPortSetInstance returns nil for the proxy
-func (s *SecretsProxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -31,7 +30,7 @@ func matchSpec(term string, rulespec []string) error {
 func TestAddContainerChain(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -77,7 +76,7 @@ func TestAddContainerChain(t *testing.T) {
 func TestAddChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller for LocalContainer", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -117,7 +116,7 @@ func TestAddChainRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller for LocalServer", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -218,7 +217,7 @@ func TestAddChainRules(t *testing.T) {
 func TestAddPacketTrap(t *testing.T) {
 
 	Convey("Given an iptables controller, when I test addPacketTrap for Local Container", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -261,7 +260,7 @@ func TestAddPacketTrap(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller, when I test addPacketTrap for Local Server", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -304,7 +303,7 @@ func TestAddPacketTrap(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller, when I test addPacketTrap for sidecar container", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.Sidecar, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.Sidecar)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -350,7 +349,7 @@ func TestAddPacketTrap(t *testing.T) {
 func TestAddAppACLs(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -504,7 +503,7 @@ func TestAddAppACLs(t *testing.T) {
 func TestAddNetAcls(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -661,7 +660,7 @@ func TestAddNetAcls(t *testing.T) {
 func TestDeleteChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -706,7 +705,7 @@ func TestDeleteChainRules(t *testing.T) {
 func TestDeleteAllContainerChains(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -756,7 +755,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 func TestAcceptMarkedPackets(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -766,7 +765,7 @@ func TestAcceptMarkedPackets(t *testing.T) {
 func TestRemoveMarkRule(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -793,7 +792,7 @@ func TestRemoveMarkRule(t *testing.T) {
 
 func TestAddExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -838,7 +837,7 @@ func TestAddExclusionACLs(t *testing.T) {
 
 func TestAddNATExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -898,7 +897,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 
 func TestDeleteNATExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -948,6 +947,126 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				return errors.New("Bad cgroup mark")
 			})
 			err := i.deleteNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestAddLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the NAT exclusion rules and they succeed", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "1:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the NAT exclusion rules for a PU with source ports", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8086" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.addLegacyNATExclusionACLs("appchain", "netchain", "mark", "myset", []string{"10.1.1.3/32"}, "8086")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I delete the NAT exclusion rules and they succeed", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "3:56")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion chain rules and the appPacketIPTableContext fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the exclusion chain rules and the install in the output chain fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appProxyIPTableContext && strings.Contains(chain, natProxyOutputChain) {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I delete the NAT exclusion rules for a PU with a source port", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				for _, rule := range rulespec {
+					if rule == "8085" || rule == "mark" {
+						return nil
+					}
+				}
+				return errors.New("Bad source ports")
+			})
+			err := i.deleteLegacyNATExclusionACLs("appchain", "netchain", "", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -1057,7 +1176,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 
 func TestClearCaptureSynAckPackets(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -1083,7 +1202,7 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 
 func TestUpdateTargetNetworks(t *testing.T) {
 	Convey("Given an iptables controller,", t, func() {
-		i, _ := NewInstance(&fqconfig.FilterQueue{}, constants.RemoteContainer, portset.New(nil))
+		i, _ := NewInstance(&fqconfig.FilterQueue{}, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()

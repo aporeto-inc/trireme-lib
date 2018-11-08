@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.aporeto.io/trireme-lib/buildflags"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -66,6 +68,7 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	// Normalize to a nativeID context. This will become key for any recoveries
 	// and it's an one way function.
 	nativeID, err := l.generateContextID(eventInfo)
+
 	if err != nil {
 		return err
 	}
@@ -321,7 +324,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 
 func (l *linuxProcessor) processHostServiceStart(event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	if event.NetworkOnlyTraffic {
+	if event.NetworkOnlyTraffic || buildflags.IsLegacyKernel() {
 		return nil
 	}
 
