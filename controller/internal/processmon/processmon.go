@@ -135,33 +135,37 @@ func (p *processMon) collectChildExitStatus() {
 	for {
 		select {
 		case es := <-p.childExitStatus:
-			if es.exitStatus == nil {
-				continue
-			}
 			data, err := p.activeProcesses.Get(es.contextID)
-			if err == nil {
-				zap.L().Error("Remote enforcer exited, but container is running",
-					zap.String("nativeContextID", es.contextID),
-					zap.Int("pid", es.process),
-					zap.Error(es.exitStatus),
-				)
-				procInfo, ok := data.(*processInfo)
-				if ok {
-					procInfo.RPCHdl.DestroyRPCClient(es.contextID)
-				}
-				if p.runtimeErrorChannel != nil {
-					p.runtimeErrorChannel <- &policy.RuntimeError{
-						ContextID: es.contextID,
-						Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
-					}
-				}
+			if err != nil {
 				continue
 			}
-			zap.L().Debug("Remote enforcer exited normally",
-				zap.String("nativeContextID", es.contextID),
-				zap.Int("pid", es.process),
-			)
 
+			p.activeProcesses.Remove(es.contextID)
+			procInfo, ok := data.(*processInfo)
+			if !ok {
+				zap.L().Error("Internal error - wrong data structure")
+				continue
+			}
+			procInfo.RPCHdl.DestroyRPCClient(es.contextID)
+
+			if p.runtimeErrorChannel != nil {
+				if es.exitStatus != nil {
+					zap.L().Error("Remote enforcer exited with an error",
+						zap.String("nativeContextID", es.contextID),
+						zap.Int("pid", es.process),
+						zap.Error(es.exitStatus),
+					)
+				} else {
+					zap.L().Warn("Remote enforcer exited",
+						zap.String("nativeContextID", es.contextID),
+						zap.Int("pid", es.process),
+					)
+				}
+				p.runtimeErrorChannel <- &policy.RuntimeError{
+					ContextID: es.contextID,
+					Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
+				}
+			}
 		}
 	}
 }
@@ -181,10 +185,10 @@ func (p *processMon) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
 
 // KillProcess sends a rpc to the process to exit failing which it will kill the process
 func (p *processMon) KillProcess(contextID string) {
+
 	p.Lock()
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		zap.L().Error("Process already killed or never launched")
 		p.Unlock()
 		return
 	}
@@ -217,19 +221,13 @@ func (p *processMon) KillProcess(contextID string) {
 	select {
 	case err := <-c:
 		if err != nil {
-			zap.L().Debug("Failed to stop gracefully",
+			zap.L().Error("Failed to stop gracefully - forcing kill",
 				zap.String("Remote error", err.Error()))
 		}
-		if err := procInfo.process.Kill(); err != nil {
-			zap.L().Debug("Process is already dead",
-				zap.String("Kill error", err.Error()))
-		}
-
+		procInfo.process.Kill() // nolint
 	case <-time.After(5 * time.Second):
-		if err := procInfo.process.Kill(); err != nil {
-			zap.L().Info("Time out while killing process ",
-				zap.Error(err))
-		}
+		zap.L().Error("Time out on terminating remote enforcer - forcing kill")
+		procInfo.process.Kill() // nolint
 	}
 
 	procInfo.RPCHdl.DestroyRPCClient(contextID)
@@ -315,7 +313,9 @@ func (p *processMon) getLaunchProcessEnvVars(
 	return newEnvVars
 }
 
-// LaunchProcess prepares the environment and launches the process
+// LaunchProcess prepares the environment and launches the process. If the process
+// is already launched, it will notify the caller, so that it can avoid any
+// new initialization.
 func (p *processMon) LaunchProcess(
 	contextID string,
 	refPid int,
@@ -325,14 +325,14 @@ func (p *processMon) LaunchProcess(
 	statsServerSecret string,
 	procMountPoint string,
 	proxyPort string,
-) error {
+) (bool, error) {
 
 	// Locking here to get the procesinfo to avoid race conditions
 	// where multiple LaunchProcess happen for the same context.
 	p.Lock()
 	if _, err := p.activeProcesses.Get(contextID); err == nil {
 		p.Unlock()
-		return nil
+		return false, nil
 	}
 
 	procInfo := &processInfo{
@@ -355,16 +355,16 @@ func (p *processMon) LaunchProcess(
 
 	hoststat, err := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	pidstat, err := os.Stat(nsPath)
 	if err != nil {
-		return fmt.Errorf("container pid %d not found: %s", refPid, err)
+		return false, fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return fmt.Errorf("refused to launch a remote enforcer in host namespace")
+		return false, fmt.Errorf("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
@@ -376,25 +376,28 @@ func (p *processMon) LaunchProcess(
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
 	contextFile := filepath.Join(p.netNSPath, contextID)
-	if _, err = os.Stat(contextFile); err != nil {
-		if err = os.Symlink(nsPath, contextFile); err != nil {
-			zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
-		}
+	// Remove the context file if it already exists.
+	if removeErr := os.RemoveAll(contextFile); err != nil {
+		zap.L().Warn("Failed to remove namespace link",
+			zap.Error(removeErr))
+	}
+	if err = os.Symlink(nsPath, contextFile); err != nil {
+		zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
 	}
 
 	cmd, err := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 	if err != nil {
-		return fmt.Errorf("enforcer binary not found: %s", err)
+		return false, fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
 	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
-		return err
+		return false, err
 	}
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		// This is a more serious failure. We can't reliably control the remote enforcer
-		return fmt.Errorf("unable to generate secret: %s", err)
+		return false, fmt.Errorf("unable to generate secret: %s", err)
 	}
 
 	// Start command
@@ -413,13 +416,13 @@ func (p *processMon) LaunchProcess(
 		if err1 := os.Remove(contextFile); err1 != nil {
 			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
 		}
-		return fmt.Errorf("unable to start enforcer binary: %s", err)
+		return false, fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
 	procInfo.process = cmd.Process
 
 	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
-		return fmt.Errorf("failed to established rpc channel: %s", err)
+		return false, fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 
 	go func() {
@@ -431,5 +434,5 @@ func (p *processMon) LaunchProcess(
 		}
 	}()
 
-	return nil
+	return true, nil
 }

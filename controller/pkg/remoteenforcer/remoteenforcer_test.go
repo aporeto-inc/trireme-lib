@@ -310,6 +310,7 @@ func TestInitEnforcer(t *testing.T) {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
+		mocksupervisor := mocksupervisor.NewMockSupervisor(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -360,6 +361,8 @@ func TestInitEnforcer(t *testing.T) {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 				mockEnf.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
 				mockStats.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
+				server.supervisor = mocksupervisor
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
