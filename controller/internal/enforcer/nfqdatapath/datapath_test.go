@@ -40,6 +40,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			_, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
+
 			Convey("If I send a syn tcp packet from PU to an ip not in target networks", func() {
 				PacketFlow := packetgen.NewTemplateFlow()
 				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -56,6 +57,45 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 				err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 				So(err1, ShouldNotBeNil)
 			})
+
+		})
+		Convey("If I send synack to external network IP in non target network then it should be accepted", func() {
+			_, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+
+			iprules := policy.IPRuleList{policy.IPRule{
+				Address:  "10.1.10.76/32",
+				Port:     "80",
+				Protocol: "tcp",
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "tcp172/8"},
+			}}
+
+			contextID := "123456"
+			puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+			context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+			So(err, ShouldBeNil)
+			enforcer.puFromContextID.AddOrUpdate(contextID, context)
+			s, _ := portspec.NewPortSpec(80, 80, contextID)
+			enforcer.contextIDFromTCPPort.AddPortSpec(s)
+
+			err = context.UpdateNetworkACLs(iprules)
+			So(err, ShouldBeNil)
+
+			PacketFlow := packetgen.NewTemplateFlow()
+
+			_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+			So(err, ShouldBeNil)
+
+			synackPacket, err := PacketFlow.GetFirstSynAckPacket().ToBytes()
+			So(err, ShouldBeNil)
+
+			tcpPacket, _ := packet.New(0, synackPacket, "0", true)
+			fmt.Println(tcpPacket)
+			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+			So(err1, ShouldBeNil)
 		})
 	})
 }
