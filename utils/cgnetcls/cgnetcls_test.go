@@ -88,7 +88,6 @@ func TestCreategroup(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-	return
 }
 
 func TestAssignMark(t *testing.T) {

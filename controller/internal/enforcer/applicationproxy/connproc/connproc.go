@@ -122,7 +122,7 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 			}
 			wg.Done()
 		}()
-		copyBytes(ctx, false, inFd, outFd, tcpOut)
+		copyBytes(ctx, false, inFd, outFd)
 	}()
 
 	go func() {
@@ -132,7 +132,7 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 			}
 			wg.Done()
 		}()
-		copyBytes(ctx, true, outFd, inFd, tcpIn)
+		copyBytes(ctx, true, outFd, inFd)
 	}()
 
 	wg.Wait()
@@ -151,7 +151,7 @@ func tcpConnection(c net.Conn) (*net.TCPConn, error) {
 	}
 }
 
-func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, srcCon *net.TCPConn) {
+func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int) {
 	var total int64
 	var nwrote int64
 
@@ -183,7 +183,7 @@ func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, srcCon *
 	for {
 		select {
 		case <-ctx.Done():
-			break
+			return
 		default:
 			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 2*8192, unix.SPLICE_F_NONBLOCK)
 			if err != nil {
