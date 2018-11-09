@@ -189,6 +189,15 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
 				ctx := item.(*pucontext.PUContext)
 
+				// Syn was not seen and this synack packet is coming from a PU
+				// we monitor. This is possible only if IP is in the external
+				// networks or excluded networks. Let this packet go through
+				// for any of these cases. Drop for everything else.
+				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.DestinationAddress.To4(), p.SourcePort)
+				if perr == nil && policy.Action.Accepted() {
+					return nil
+				}
+
 				if ctx.IPinExcludedNetworks(p.DestinationAddress) {
 					return nil
 				}
