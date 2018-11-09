@@ -111,7 +111,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	if buf.Protocol == packet.IPProtocolUDP || buf.Protocol == packet.IPProtocolTCP {
 		destination = &collector.EndPoint{
 			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
+			Port: buf.DstPort,
 		}
 	} else {
 		destination = &collector.EndPoint{
