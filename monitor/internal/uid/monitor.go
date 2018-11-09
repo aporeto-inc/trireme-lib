@@ -33,11 +33,7 @@ func (u *UIDMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("uid: %s", err)
 	}
 
-	if err := u.Resync(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return u.Resync(ctx)
 }
 
 // SetupConfig provides a configuration to implmentations. Every implmentation

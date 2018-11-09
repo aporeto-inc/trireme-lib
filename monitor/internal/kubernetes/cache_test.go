@@ -32,21 +32,21 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 	}
 	tests := []struct {
 		name         string
-		fields       fields
-		fieldsResult fields
-		args         args
+		fields       *fields
+		fieldsResult *fields
+		args         *args
 	}{
 		{
 			name: "test empty all",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "",
 				podName:           "",
 				puID:              "",
@@ -56,15 +56,15 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test empty NS",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "",
 				podName:           "xcvxcv",
 				puID:              "xcvxcv",
@@ -74,15 +74,15 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test empty Name",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "xcvxcv",
 				podName:           "",
 				puID:              "xcvxcv",
@@ -92,15 +92,15 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test empty PUID",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "xcvxcv",
 				podName:           "xcvxcv",
 				puID:              "",
@@ -110,11 +110,11 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test normal behavior",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{},
 				podCache:  map[string]*podCacheEntry{},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					"123456": &puidCacheEntry{
 						kubeIdentifier:    "namespace/name",
@@ -130,7 +130,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 					},
 				},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "namespace",
 				podName:           "name",
 				puID:              "123456",
@@ -140,7 +140,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test additive behavior",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					"123456": &puidCacheEntry{
 						kubeIdentifier:    "namespace/name",
@@ -156,7 +156,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 					},
 				},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					"123456": &puidCacheEntry{
 						kubeIdentifier:    "namespace/name",
@@ -182,7 +182,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 					},
 				},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "namespace2",
 				podName:           "name2",
 				puID:              "abcdef",
@@ -192,7 +192,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		},
 		{
 			name: "test additive same pod",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					"123456": &puidCacheEntry{
 						kubeIdentifier:    "namespace/name",
@@ -208,7 +208,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 					},
 				},
 			},
-			fieldsResult: fields{
+			fieldsResult: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					"123456": &puidCacheEntry{
 						kubeIdentifier:    "namespace/name",
@@ -230,7 +230,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 					},
 				},
 			},
-			args: args{
+			args: &args{
 				podNamespace:      "namespace",
 				podName:           "name",
 				puID:              "abcdef",
@@ -239,13 +239,12 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			c.updatePUIDCache(tt.args.podNamespace, tt.args.podName, tt.args.puID, tt.args.dockerRuntime, tt.args.kubernetesRuntime)
 			if !reflect.DeepEqual(c.puidCache, tt.fieldsResult.puidCache) {
 				t.Errorf("updatePUIDCache() field. got %v, want %v", c.puidCache, tt.fieldsResult.puidCache)
@@ -280,13 +279,13 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		fields *fields
+		args   *args
 		want   []string
 	}{
 		{
 			name: "simple get",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -294,7 +293,7 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				podName:      "test5",
 				podNamespace: "test",
 			},
@@ -302,7 +301,7 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 		},
 		{
 			name: "non existing",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -310,7 +309,7 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				podName:      "test1",
 				podNamespace: "test",
 			},
@@ -318,13 +317,12 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			if got := c.getPUIDsbyPod(tt.args.podNamespace, tt.args.podName); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getPUIDsbyPod() = %v, want %v", got, tt.want)
 			}
@@ -358,13 +356,13 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		fields *fields
+		args   *args
 		want   policy.RuntimeReader
 	}{
 		{
 			name: "simple get",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -372,14 +370,14 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: puid1,
 			},
 			want: containerRuntime,
 		},
 		{
 			name: "empty get",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -387,19 +385,18 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: "123123",
 			},
 			want: nil,
 		},
 	}
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			if got := c.getDockerRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getDockerRuntimeByPUID() = %v, want %v", got, tt.want)
 			}
@@ -433,13 +430,13 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		fields *fields
+		args   *args
 		want   policy.RuntimeReader
 	}{
 		{
 			name: "simple get",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -447,14 +444,14 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: puid1,
 			},
 			want: containerRuntime,
 		},
 		{
 			name: "empty get",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -462,19 +459,18 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: "123123",
 			},
 			want: nil,
 		},
 	}
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			if got := c.getKubernetesRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getKubernetesRuntimeByPUID() = %v, want %v", got, tt.want)
 			}
@@ -509,14 +505,14 @@ func Test_cache_deletePodEntry(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		fields *fields
+		args   *args
 		want1  map[string]*puidCacheEntry
 		want2  map[string]*podCacheEntry
 	}{
 		{
 			name: "simple delete",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -524,7 +520,7 @@ func Test_cache_deletePodEntry(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				podName:      "test3",
 				podNamespace: "test",
 			},
@@ -535,7 +531,7 @@ func Test_cache_deletePodEntry(t *testing.T) {
 		},
 		{
 			name: "non mexisting delete",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -543,7 +539,7 @@ func Test_cache_deletePodEntry(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				podName:      "test2",
 				podNamespace: "test",
 			},
@@ -555,13 +551,12 @@ func Test_cache_deletePodEntry(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			c.deletePodEntry(tt.args.podNamespace, tt.args.podName)
 
 			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
@@ -600,14 +595,14 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		fields *fields
+		args   *args
 		want1  map[string]*puidCacheEntry
 		want2  map[string]*podCacheEntry
 	}{
 		{
 			name: "simple delete",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -615,7 +610,7 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: puid1,
 			},
 			want1: map[string]*puidCacheEntry{},
@@ -625,7 +620,7 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 		},
 		{
 			name: "non mexisting delete",
-			fields: fields{
+			fields: &fields{
 				puidCache: map[string]*puidCacheEntry{
 					puid1: puidEntry1,
 				},
@@ -633,7 +628,7 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 					pod1: podEntry1,
 				},
 			},
-			args: args{
+			args: &args{
 				puid: "123123",
 			},
 			want1: map[string]*puidCacheEntry{
@@ -644,13 +639,12 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) { // nolint
-			c := &cache{ // nolint
-				puidCache: tt.fields.puidCache, // nolint
-				podCache:  tt.fields.podCache,  // nolint
-				RWMutex:   tt.fields.RWMutex,   // nolint
-			} // nolint
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+			}
 			c.deletePUIDEntry(tt.args.puid)
 
 			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
