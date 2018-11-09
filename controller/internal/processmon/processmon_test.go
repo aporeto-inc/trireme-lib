@@ -93,7 +93,7 @@ func TestLaunchProcess(t *testing.T) {
 		t.SkipNow()
 	}
 
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992")
+	_, err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992")
 	if err == nil {
 		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", dir)
 		t.SkipNow()
@@ -101,13 +101,13 @@ func TestLaunchProcess(t *testing.T) {
 
 	refPid = LaunchContainer(testDirBase)
 	dir, _ = os.Getwd()
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20993")
+	_, err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20993")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
 	}
 	//Trying to launch in the same context should succeed
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992")
+	_, err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
@@ -118,7 +118,7 @@ func TestLaunchProcess(t *testing.T) {
 	p.KillProcess(contextID)
 	//Launch Process Should not fail if the /var/run/netns does not exist
 	os.Remove("/var/run/netns") // nolint
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20994")
+	_, err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20994")
 	if err != nil {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
@@ -128,7 +128,7 @@ func TestLaunchProcess(t *testing.T) {
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
 		return nil
 	})
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20995")
+	_, err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20995")
 	if err != nil {
 		t.Errorf("TEST:Failed to create RPC client %v", err)
 	}
@@ -160,7 +160,7 @@ func TestKillProcess(t *testing.T) {
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
 
-	if err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992"); err != nil {
+	if _, err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase, "20992"); err != nil {
 		t.Errorf("Failed to launch process  %s", err.Error())
 	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {

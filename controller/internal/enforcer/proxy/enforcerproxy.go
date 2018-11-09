@@ -33,7 +33,6 @@ type ProxyInfo struct {
 	validity               time.Duration
 	prochdl                processmon.ProcessManager
 	rpchdl                 rpcwrapper.RPCClient
-	initDone               map[string]bool
 	filterQueue            *fqconfig.FilterQueue
 	commandArg             string
 	statsServerSecret      string
@@ -70,10 +69,6 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 		zap.L().Error("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
 	}
 
-	s.Lock()
-	s.initDone[contextID] = true
-	s.Unlock()
-
 	return nil
 }
 
@@ -101,7 +96,7 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	err := s.prochdl.LaunchProcess(
+	initializeEnforcer, err := s.prochdl.LaunchProcess(
 		contextID,
 		puInfo.Runtime.Pid(),
 		puInfo.Runtime.NSPath(),
@@ -117,10 +112,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
-	s.Lock()
-	_, ok := s.initDone[contextID]
-	s.Unlock()
-	if !ok {
+	if initializeEnforcer {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
 			return err
 		}
@@ -141,10 +133,6 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})
 	if err != nil {
-		// We can't talk to the enforcer. Kill it and restart it
-		s.Lock()
-		delete(s.initDone, contextID)
-		s.Unlock()
 		s.prochdl.KillProcess(contextID)
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
@@ -154,11 +142,6 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // Unenforce stops enforcing policy for the given contextID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
-
-	s.Lock()
-	delete(s.initDone, contextID)
-	s.Unlock()
-
 	return nil
 }
 
@@ -269,7 +252,6 @@ func newProxyEnforcer(mutualAuth bool,
 		validity:               validity,
 		prochdl:                processmonitor,
 		rpchdl:                 rpchdl,
-		initDone:               make(map[string]bool),
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,
 		statsServerSecret:      statsServersecret,

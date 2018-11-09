@@ -190,6 +190,27 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
+	if s.supervisor == nil {
+		supervisorHandle, err := supervisor.NewSupervisor(
+			s.collector,
+			s.enforcer,
+			constants.RemoteContainer,
+			req.Payload.(rpcwrapper.InitRequestPayload).TargetNetworks,
+			s.service,
+		)
+		if err != nil {
+			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
+			return err
+		}
+		s.supervisor = supervisorHandle
+
+		if err := s.supervisor.Run(s.ctx); err != nil {
+			zap.L().Error("unable to start the supervisor", zap.Error(err))
+			resp.Status = err.Error()
+			return fmt.Errorf(resp.Status)
+		}
+	}
+
 	resp.Status = ""
 	return nil
 }
