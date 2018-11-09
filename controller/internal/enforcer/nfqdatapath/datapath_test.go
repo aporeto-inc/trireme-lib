@@ -93,7 +93,6 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			tcpPacket, _ := packet.New(0, synackPacket, "0", true)
-			fmt.Println(tcpPacket)
 			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 			So(err1, ShouldBeNil)
 		})
