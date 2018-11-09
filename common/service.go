@@ -36,7 +36,7 @@ func ConvertServicesToPortList(services []Service) string {
 	if len(portlist) == 0 {
 		portlist = "0"
 	} else {
-		portlist = string(portlist[:len(portlist)-1])
+		portlist = portlist[:len(portlist)-1]
 	}
 
 	return portlist
@@ -58,13 +58,13 @@ func ConvertServicesToProtocolPortList(services []Service) (string, string) {
 	if len(tcpPortlist) == 0 {
 		tcpPortlist = "0"
 	} else {
-		tcpPortlist = string(tcpPortlist[:len(tcpPortlist)-1])
+		tcpPortlist = tcpPortlist[:len(tcpPortlist)-1]
 	}
 
 	if len(udpPortlist) == 0 {
 		udpPortlist = "0"
 	} else {
-		udpPortlist = string(udpPortlist[:len(udpPortlist)-1])
+		udpPortlist = udpPortlist[:len(udpPortlist)-1]
 	}
 
 	return tcpPortlist, udpPortlist

@@ -15,11 +15,6 @@ func newServer(ctx context.Context, cancel context.CancelFunc, service packetpro
 	return nil, nil
 }
 
-// getCEnvVariable returns an environment variable set in the c context
-func getCEnvVariable(name string) string {
-	return ""
-}
-
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error { return nil }
 

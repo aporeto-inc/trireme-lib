@@ -577,7 +577,7 @@ func TestSyncContainers(t *testing.T) {
 		Convey("If I try to sync containers and docker list fails, I should get an error", func() {
 			dmi.syncAtStart = true
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, errors.New("error"))
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, errors.New("error"))
 
 			err := dmi.Resync(context.Background())
 			So(err, ShouldNotBeNil)
@@ -587,7 +587,7 @@ func TestSyncContainers(t *testing.T) {
 			dmi.syncAtStart = true
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, nil)
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
 				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
@@ -606,7 +606,7 @@ func TestSyncContainers(t *testing.T) {
 			dmi.syncAtStart = true
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, nil)
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
 				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)

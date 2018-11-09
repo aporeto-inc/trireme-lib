@@ -78,7 +78,7 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 		m := newPortMap[k]
 
 		for v := range vs {
-			if m == nil || m[v] == false {
+			if m == nil || !m[v] {
 				err := iptablesInstance.DeletePortFromPortSet(k, v)
 
 				if err != nil {
@@ -96,7 +96,7 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 	for k, vs := range newPortMap {
 		m := d.puToPortsMap[k]
 		for v := range vs {
-			if m == nil || m[v] == false {
+			if m == nil || !m[v] {
 				portSpec, err := portspec.NewPortSpecFromString(v, k)
 				if err != nil {
 					continue
@@ -143,7 +143,7 @@ func (d *Datapath) findPorts() {
 		// check if a PU exists with that contextID and is marked with auto port
 		pu, err := d.puFromContextID.Get(cgroup)
 
-		if err != nil || pu.(*pucontext.PUContext).Autoport() == false {
+		if err != nil || !pu.(*pucontext.PUContext).Autoport() {
 			continue
 		}
 

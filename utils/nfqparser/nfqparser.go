@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io/ioutil"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -83,17 +82,6 @@ func (n *NFQParser) String() string {
 	defer n.Unlock()
 
 	return n.nfqStr
-}
-
-func (n *NFQParser) sortedKeys() []string {
-
-	var keys []string
-	for key := range n.contents {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	return keys
 }
 
 func makeNFQLayout(data []string) NFQLayout {
