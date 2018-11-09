@@ -405,11 +405,7 @@ func (i *Instance) InitializeChains() error {
 		return err
 	}
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
-		return err
-	}
-
-	return nil
+	return i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain)
 }
 
 // ACLProvider returns the current ACL provider that can be re-used by other entities.

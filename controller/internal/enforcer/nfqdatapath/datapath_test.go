@@ -66,7 +66,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 
 		})
 		Convey("If I send synack to external network IP in non target network then it should be accepted", func() {
-			_, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
+			_, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 
