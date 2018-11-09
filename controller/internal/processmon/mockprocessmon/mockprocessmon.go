@@ -54,10 +54,11 @@ func (mr *MockProcessManagerMockRecorder) KillProcess(contextID interface{}) *go
 
 // LaunchProcess mocks base method
 // nolint
-func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPath string, rpchdl rpcwrapper.RPCClient, arg, statssecret, procMountPoint, proxyPort string) error {
+func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPath string, rpchdl rpcwrapper.RPCClient, arg, statssecret, procMountPoint, proxyPort string) (bool, error) {
 	ret := m.ctrl.Call(m, "LaunchProcess", contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint, proxyPort)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // LaunchProcess indicates an expected call of LaunchProcess
