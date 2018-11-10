@@ -191,9 +191,6 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string, r *http.Requ
 	if err != nil {
 		// Token is expired. Let's try to refresh it if we have something
 		// in the cache.'
-		if tokenData == nil {
-			return []string{}, true, token, fmt.Errorf("Token validation failed: %s", err)
-		}
 		refreshedToken, err := tokenData.tokenSource.Token()
 		if err != nil {
 			return []string{}, true, token, fmt.Errorf("Token validation failed and cannot refresh: %s", err)
