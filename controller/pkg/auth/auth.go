@@ -103,11 +103,11 @@ func (p *Processor) UpdateServiceAPIs(name string, apis *urisearch.APICache) err
 }
 
 // DecodeUserClaims decodes the user claims with the user authorization method.
-func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, error) {
+func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, string, error) {
 
 	srv, ok := p.serviceMap[name]
 	if !ok {
-		return []string{}, false, nil
+		return []string{}, false, userToken, nil
 	}
 
 	switch srv.userAuthorizationType {
@@ -127,15 +127,15 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 				attributes = append(attributes, "OU="+org)
 			}
 		}
-		return attributes, false, nil
+		return attributes, false, userToken, nil
 	case policy.UserAuthorizationOIDC, policy.UserAuthorizationJWT:
 		// Now we can parse the user claims.
 		if srv.userTokenHandler == nil {
-			return []string{}, false, nil
+			return []string{}, false, userToken, nil
 		}
-		return srv.userTokenHandler.Validate(r.Context(), userToken)
+		return srv.userTokenHandler.Validate(r.Context(), userToken, r)
 	default:
-		return []string{}, false, nil
+		return []string{}, false, userToken, nil
 	}
 }
 
@@ -178,8 +178,8 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 		Name:     "X-APORETO-AUTH",
 		Value:    token,
 		HttpOnly: true,
+		Secure:   true,
 		Path:     "/",
-		// Expires:  time.Now().Add(1 * time.Minute),
 	}
 
 	http.SetCookie(w, cookie)

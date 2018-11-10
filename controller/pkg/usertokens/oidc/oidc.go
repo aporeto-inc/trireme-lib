@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/bluele/gcache"
@@ -26,6 +27,15 @@ var (
 	// we don't go to the authorizer for every request.
 	tokenCache gcache.Cache
 )
+
+// clientData is the state maintained for a client to improve response
+// times and hold the refresh tokens.
+type clientData struct {
+	attributes  []string
+	tokenSource oauth2.TokenSource
+	expiry      time.Time
+	sync.Mutex
+}
 
 // TokenVerifier is an OIDC validator.
 type TokenVerifier struct {
@@ -48,7 +58,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
 	}
 	if tokenCache == nil {
-		tokenCache = gcache.New(2048).LRU().Expiration(20 * time.Minute).Build()
+		tokenCache = gcache.New(2048).LRU().Build()
 	}
 
 	// Create a new generic OIDC provider based on the provider URL.
@@ -62,7 +72,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		ClientID: v.ClientID,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
-	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
+	scopes := []string{oidc.ScopeOpenID, "profile", "email", "offline_access"}
 	for _, scope := range v.Scopes {
 		if scope != oidc.ScopeOpenID && scope != "profile" && scope != "email" {
 			scopes = append(scopes, scope)
@@ -118,7 +128,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
-	oauth2Token, err := v.clientConfig.Exchange(r.Context(), r.URL.Query().Get("code"))
+	oauth2Token, err := v.clientConfig.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
 	if err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Bad code: %s", err)
 	}
@@ -129,25 +139,74 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Bad ID")
 	}
 
+	if err := tokenCache.SetWithExpire(
+		rawIDToken,
+		&clientData{
+			tokenSource: v.clientConfig.TokenSource(r.Context(), oauth2Token),
+			expiry:      oauth2Token.Expiry,
+		},
+		oauth2Token.Expiry.Sub(time.Now())*2,
+	); err != nil {
+		return "", "", http.StatusInternalServerError, fmt.Errorf("Failed to insert token in the cache: %s", err)
+	}
+
 	return rawIDToken, originURL.(string), http.StatusTemporaryRedirect, nil
 }
 
 // Validate checks if the token is valid and returns the claims. The validator
 // maintains an internal cache with tokens to accelerate performance. If the
 // token is not in the cache, it will validate it with the central authorizer.
-func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, bool, error) {
+func (v *TokenVerifier) Validate(ctx context.Context, token string, r *http.Request) ([]string, bool, string, error) {
 
 	if len(token) == 0 {
-		return []string{}, true, fmt.Errorf("Invalid token presented")
+		return []string{}, true, token, fmt.Errorf("Invalid token presented")
 	}
 
-	if data, err := tokenCache.Get(token); err == nil {
-		return data.([]string), false, nil
+	// If it is not found in the cache initiate a call back process.
+	data, err := tokenCache.Get(token)
+	if err != nil {
+		// No token in the cache. Force authorization.
+		return []string{}, true, token, fmt.Errorf("No cached data - request authorization")
 	}
 
+	tokenData, ok := data.(*clientData)
+	if !ok {
+		return nil, true, token, fmt.Errorf("Internal server error")
+	}
+
+	// If the cached token hasn't expired yet, we can just accept it and not
+	// go through a whole verification process. Nothing new.
+	if tokenData.expiry.After(time.Now()) && len(tokenData.attributes) > 0 {
+		return tokenData.attributes, false, token, nil
+	}
+
+	// The token has expired. Let's try to refresh it.
+	tokenData.Lock()
+	defer tokenData.Unlock()
+
+	// If it is the first time we are verifying the token, let's do
+	// it now. This is possible if the token was created earlier
+	// but we never had a chance to verify it. In this case, the
+	// attributes were empty.
 	idToken, err := v.oauthVerifier.Verify(ctx, token)
 	if err != nil {
-		return []string{}, true, fmt.Errorf("Token validation failed: %s", err)
+		// Token is expired. Let's try to refresh it if we have something
+		// in the cache.'
+		if tokenData == nil {
+			return []string{}, true, token, fmt.Errorf("Token validation failed: %s", err)
+		}
+		refreshedToken, err := tokenData.tokenSource.Token()
+		if err != nil {
+			return []string{}, true, token, fmt.Errorf("Token validation failed and cannot refresh: %s", err)
+		}
+		token, ok = refreshedToken.Extra("id_token").(string)
+		if !ok {
+			return []string{}, true, token, fmt.Errorf("Failed to find id_token - initiate re-authorization")
+		}
+		idToken, err = v.oauthVerifier.Verify(ctx, token)
+		if err != nil {
+			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required")
+		}
 	}
 
 	// Get the claims out of the token. Use the standard data structure for
@@ -156,7 +215,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		IDTokenClaims map[string]interface{} // ID Token payload is just JSON.
 	}{map[string]interface{}{}}
 	if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
-		return []string{}, true, fmt.Errorf("Unable to process claims: %s", err)
+		return []string{}, true, token, fmt.Errorf("Unable to process claims: %s", err)
 	}
 
 	// Flatten the claims in a generic format.
@@ -165,12 +224,16 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		attributes = append(attributes, common.FlattenClaim(k, v)...)
 	}
 
-	// Cache the token and attributes to avoid multiple validations.
-	if err := tokenCache.Set(token, attributes); err != nil {
-		return []string{}, false, fmt.Errorf("Cannot cache token")
+	tokenData.attributes = attributes
+	tokenData.expiry = idToken.Expiry
+
+	// Cache the token and attributes to avoid multiple validations and update the
+	// expiration time.
+	if err := tokenCache.SetWithExpire(token, tokenData, idToken.Expiry.Sub(time.Now().Add(-1200*time.Second))); err != nil {
+		return []string{}, false, token, fmt.Errorf("Cannot cache token")
 	}
 
-	return attributes, false, nil
+	return attributes, false, token, nil
 }
 
 // VerifierType returns the type of the TokenVerifier.
