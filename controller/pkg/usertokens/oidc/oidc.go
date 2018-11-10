@@ -144,7 +144,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 			tokenSource: v.clientConfig.TokenSource(r.Context(), oauth2Token),
 			expiry:      oauth2Token.Expiry,
 		},
-		oauth2Token.Expiry.Sub(time.Now())*2,
+		time.Until(oauth2Token.Expiry)*2,
 	); err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Failed to insert token in the cache: %s", err)
 	}

@@ -18,7 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
@@ -381,36 +380,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
-
-	record := &collector.FlowRecord{
-		ContextID: p.puContext,
-		Destination: &collector.EndPoint{
-			URI:        r.Method + " " + r.RequestURI,
-			HTTPMethod: r.Method,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       uint16(originalDestination.Port),
-			IP:         originalDestination.IP.String(),
-			ID:         collector.DefaultEndPoint,
-		},
-		Source: &collector.EndPoint{
-			Type: collector.EnpointTypePU,
-			ID:   puContext.ManagementID(),
-			IP:   "0.0.0.0/0",
-		},
-		Action:      policy.Reject,
-		L4Protocol:  packet.IPProtocolTCP,
-		ServiceType: policy.ServiceHTTP,
-		ServiceID:   apiCache.ID,
-		Tags:        puContext.Annotations(),
-		Count:       1,
-	}
+	state := newAppConnectionState(p.puContext, apiCache.ID, puContext, r, originalDestination)
 
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
-		record.PolicyID = netaction.PolicyID
-		record.DropReason = collector.PolicyDrop
-		p.collector.CollectFlowEvent(record)
+		state.stats.PolicyID = netaction.PolicyID
+		state.stats.DropReason = collector.PolicyDrop
+		p.collector.CollectFlowEvent(state.stats)
 		return
 	}
 
@@ -441,10 +418,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			}
 			// All checks have passed. We can accept the request, log it, and create the
 			// right tokens. If it is not an external service, we do not log at the transmit side.
-			record.Action = policy.Encrypt
+			state.stats.Action = policy.Encrypt
 		}
-		record.Action = record.Action | policy.Accept
-		p.collector.CollectFlowEvent(record)
+		state.stats.Action = state.stats.Action | policy.Accept
+		p.collector.CollectFlowEvent(state.stats)
 	}
 
 	token, err := servicetokens.CreateAndSign(
@@ -472,7 +449,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
 	r.Header.Add("X-APORETO-AUTH", token)
 
-	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	// Forward the request.
 	p.fwdTLS.ServeHTTP(w, r.WithContext(contextWithStats))
 }

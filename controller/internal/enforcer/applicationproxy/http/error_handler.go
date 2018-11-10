@@ -40,7 +40,7 @@ func (e TriremeHTTPErrHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	w.WriteHeader(statusCode)
-	w.Write([]byte(statusText(statusCode)))
+	w.Write([]byte(statusText(statusCode))) // nolint errcheck
 }
 
 func statusText(statusCode int) string {
