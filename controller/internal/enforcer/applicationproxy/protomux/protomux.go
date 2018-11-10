@@ -220,7 +220,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	m.RLock()
 	servicecache := m.servicecache
 	m.RUnlock()
-	entry := servicecache.Find(ip, port, !local)
+	entry := servicecache.Find(ip, port, "", !local)
 	if entry == nil {
 		// Let's see if we can match the source address.
 		// Compatibility with deprecated model. TODO: Remove
@@ -232,7 +232,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		}
 		ip = tcpAddr.IP
 
-		entry = servicecache.Find(ip, port, !local)
+		entry = servicecache.Find(ip, port, "", !local)
 		if entry == nil {
 			// Failed with source as well.
 			c.Close() // nolint

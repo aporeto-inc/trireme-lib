@@ -76,26 +76,26 @@ func TestServiceCache(t *testing.T) {
 			})
 
 			Convey("When I search for valid entries, I should get the right responses", func() {
-				data := c.Find(net.ParseIP("10.1.1.1").To4(), 175, true)
+				data := c.Find(net.ParseIP("10.1.1.1").To4(), 175, "", true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "second data")
 
-				data = c.Find(net.ParseIP("192.168.1.1").To4(), 50, true)
+				data = c.Find(net.ParseIP("192.168.1.1").To4(), 50, "", true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "first data")
 
-				data = c.Find(net.ParseIP("50.50.50.50").To4(), 1001, true)
+				data = c.Find(net.ParseIP("50.50.50.50").To4(), 1001, "", true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "third data")
 			})
 
 			Convey("When I search for a good IP, but invalid port, I should get nil ", func() {
-				data := c.Find(net.ParseIP("10.1.1.1").To4(), 50, true)
+				data := c.Find(net.ParseIP("10.1.1.1").To4(), 50, "", true)
 				So(data, ShouldBeNil)
 			})
 
 			Convey("When I search for a good exact IP, and valid port, I should get the data ", func() {
-				data := c.Find(net.ParseIP("20.1.1.1").To4(), 50, true)
+				data := c.Find(net.ParseIP("20.1.1.1").To4(), 50, "", true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "first data")
 			})
