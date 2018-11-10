@@ -54,7 +54,7 @@ type TokenVerifier struct {
 func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	// Initialize caches only once if they are nil.
 	if stateCache == nil {
-		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
+		stateCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
 	}
 	if tokenCache == nil {
 		tokenCache = gcache.New(2048).LRU().Build()
@@ -144,7 +144,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 			tokenSource: v.clientConfig.TokenSource(r.Context(), oauth2Token),
 			expiry:      oauth2Token.Expiry,
 		},
-		time.Until(oauth2Token.Expiry)*2,
+		time.Until(oauth2Token.Expiry.Add(1200*time.Second)),
 	); err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Failed to insert token in the cache: %s", err)
 	}
@@ -225,7 +225,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string, r *http.Requ
 
 	// Cache the token and attributes to avoid multiple validations and update the
 	// expiration time.
-	if err := tokenCache.SetWithExpire(token, tokenData, idToken.Expiry.Sub(time.Now().Add(-1200*time.Second))); err != nil {
+	if err := tokenCache.SetWithExpire(token, tokenData, time.Until(idToken.Expiry.Add(1200*time.Second))); err != nil {
 		return []string{}, false, token, fmt.Errorf("Cannot cache token")
 	}
 
