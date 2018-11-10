@@ -184,7 +184,7 @@ func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	for _, line := range strings.Split(string(data), "\n") {
 		if len(line) > 0 {
-			procs = append(procs, string(line))
+			procs = append(procs, line)
 		}
 	}
 

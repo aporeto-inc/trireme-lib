@@ -75,7 +75,7 @@ func (i *Instance) puChainRules(appChain string, netChain string, mark string, t
 			"-j", netChain,
 		})
 	}
-	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
@@ -161,7 +161,7 @@ func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark str
 		})
 	}
 
-	return append(rules, i.legacyProxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -214,7 +214,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) chainRules(appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
@@ -230,11 +230,11 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 		},
 	}
 
-	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName, "")...)
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "")...)
 }
 
 // proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
+func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 	proxyrules := [][]string{
 		{
@@ -340,8 +340,8 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 	return proxyrules
 }
 
-// proxyRules creates all the proxy specific rules.
-func (i *Instance) legacyProxyRules(appChain string, netChain string, tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
+// legacyProxyRules creates all the proxy specific rules.
+func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 	proxyrules := [][]string{
 		{
@@ -631,11 +631,11 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, proxyPort, proxyPortSetName), "Append")
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string, isHostPU bool) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, isHostPU bool) error {
 
 	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
 
@@ -1515,7 +1515,7 @@ func (i *Instance) deleteChainRules(portSetName, appChain, netChain, tcpPorts, u
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, proxyPort, proxyPortSetName), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
@@ -2170,7 +2170,7 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []stri
 	return nil
 }
 
-func (i *Instance) addNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string) error {
+func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
 
@@ -2217,7 +2217,7 @@ func (i *Instance) addNATExclusionACLs(appChain, netChain, cgroupMark, setName s
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string) error {
+func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
@@ -2262,7 +2262,7 @@ func (i *Instance) deleteNATExclusionACLs(appChain, netChain, cgroupMark, setNam
 	return nil
 }
 
-func (i *Instance) addLegacyNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string, tcpPorts string) error {
+func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
 
@@ -2310,7 +2310,7 @@ func (i *Instance) addLegacyNATExclusionACLs(appChain, netChain, cgroupMark, set
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteLegacyNATExclusionACLs(appChain, netChain, cgroupMark, setName string, exclusions []string, tcpPorts string) error {
+func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {

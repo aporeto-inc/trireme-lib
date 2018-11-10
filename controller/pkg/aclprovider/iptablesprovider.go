@@ -308,7 +308,7 @@ func restoreHasWait() bool {
 		return false
 	}
 
-	versionMatcher := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
+	versionMatcher := regexp.MustCompile(`v([0-9]+(\.[0-9]+)+)`)
 	match := versionMatcher.FindStringSubmatch(string(bytes))
 	if match == nil || len(match) < 2 {
 		// Cannot match version - assume no wait.

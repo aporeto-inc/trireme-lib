@@ -15,6 +15,8 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+const testIP = "172.17.0.1"
+
 func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
@@ -83,7 +85,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -154,7 +156,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add container chain fails", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -194,7 +196,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add ACLs fails", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -255,7 +257,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP for local server", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -327,7 +329,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add process chain fails", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -367,7 +369,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add ACLs for linuxprocesspu fails", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -428,7 +430,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP for local server(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -517,7 +519,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add process chain fails(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -565,7 +567,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add ACLs for linuxprocesspu fails(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -635,7 +637,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP for local server(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -724,7 +726,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add process chain fails(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -772,7 +774,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("With a set of policy rules and valid IP, where add ACLs for linuxprocesspu fails(host mode)", func() {
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -904,8 +906,8 @@ func TestUpdateRules(t *testing.T) {
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 
-				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" ||
-					chain == "Proxy-Net" || chain == "Proxy-App" {
+				if chain == app1 || chain == net1 || chain == natProxyInputChain || chain == natProxyOutputChain ||
+					chain == proxyInputChain || chain == proxyOutputChain {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
@@ -928,7 +930,7 @@ func TestUpdateRules(t *testing.T) {
 			})
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -1009,8 +1011,8 @@ func TestUpdateRules(t *testing.T) {
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 
-				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" ||
-					chain == "Proxy-Net" || chain == "Proxy-App" {
+				if chain == app1 || chain == net1 || chain == natProxyInputChain || chain == natProxyOutputChain ||
+					chain == proxyInputChain || chain == proxyOutputChain {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
@@ -1033,7 +1035,7 @@ func TestUpdateRules(t *testing.T) {
 			})
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -1128,8 +1130,8 @@ func TestUpdateRules(t *testing.T) {
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 
-				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" ||
-					chain == "Proxy-Net" || chain == "Proxy-App" {
+				if chain == app1 || chain == net1 || chain == natProxyInputChain || chain == natProxyOutputChain ||
+					chain == proxyInputChain || chain == proxyOutputChain {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
@@ -1152,7 +1154,7 @@ func TestUpdateRules(t *testing.T) {
 			})
 
 			ipl := policy.ExtendedMap{}
-			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			ipl[policy.DefaultNamespace] = testIP
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,

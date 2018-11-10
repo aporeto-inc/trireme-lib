@@ -28,7 +28,6 @@ import (
 // in the secrets socket API.
 type SecretsProxy struct {
 	socketPath      string
-	forwarder       *forward.Forwarder // nolint: structcheck
 	apiCacheMapping cache.DataStore
 	drivers         cache.DataStore
 	cgroupCache     cache.DataStore
@@ -80,8 +79,8 @@ func (s *SecretsProxy) Run(ctx context.Context) error {
 }
 
 // Enforce implements the corresponding interface of enforcers.
-func (s *SecretsProxy) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
-	return s.updateService(ctx, puInfo)
+func (s *SecretsProxy) Enforce(puInfo *policy.PUInfo) error {
+	return s.updateService(puInfo)
 }
 
 // Unenforce implements the corresponding interface of the enforcers.
@@ -188,7 +187,7 @@ func (s *SecretsProxy) apiProcessor(w http.ResponseWriter, r *http.Request) {
 	forwarder.ServeHTTP(w, r)
 }
 
-func (s *SecretsProxy) updateService(ctx context.Context, puInfo *policy.PUInfo) error {
+func (s *SecretsProxy) updateService(puInfo *policy.PUInfo) error {
 	var cgroup string
 
 	// Only supporting secrets for containers PUs at this time.

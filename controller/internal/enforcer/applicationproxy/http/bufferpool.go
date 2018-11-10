@@ -28,5 +28,5 @@ func (b *BufferPool) Get() []byte {
 
 // Put returns the buffer to the pool.
 func (b *BufferPool) Put(buf []byte) {
-	b.s.Put(buf)
+	b.s.Put(buf) // nolint
 }

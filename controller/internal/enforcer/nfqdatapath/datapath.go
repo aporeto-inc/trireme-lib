@@ -506,7 +506,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 // packets are again special and the flow is reversed. If a container doesn't supply
 // its IP information, we use the default IP. This will only work with remotes
 // and Linux processes.
-func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16, protocol uint8) (*pucontext.PUContext, error) {
+func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol uint8) (*pucontext.PUContext, error) {
 
 	if d.puFromIP != nil {
 		return d.puFromIP, nil
@@ -543,7 +543,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
 		}
 		return pu.(*pucontext.PUContext), nil
-	} else {
-		return nil, fmt.Errorf("Invalid protocol:%d", protocol)
 	}
+
+	return nil, fmt.Errorf("Invalid protocol:%d", protocol)
 }

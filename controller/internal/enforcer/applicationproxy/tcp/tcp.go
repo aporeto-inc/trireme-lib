@@ -170,7 +170,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	}
 
 	if isEncrypted {
-		if err := p.handleEncryptedData(ctx, upConn, downConn, ip); err != nil {
+		if err := p.handleEncryptedData(ctx, upConn, downConn); err != nil {
 			zap.L().Error("Failed to process connection - aborting", zap.Error(err))
 		}
 		return
@@ -181,7 +181,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	}
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn, ip net.IP) error {
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
 	p.RLock()
 	ca := p.ca
@@ -261,10 +261,10 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 	}
 }
 
-func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
+func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
 	if p.isLocal(upConn) {
-		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
+		return p.startEncryptedClientDataPath(ctx, downConn, upConn)
 	}
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
 }
@@ -449,7 +449,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
-			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
+			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(backendport))
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)

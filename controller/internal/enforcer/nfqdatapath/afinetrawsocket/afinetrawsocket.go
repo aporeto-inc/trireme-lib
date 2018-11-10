@@ -47,7 +47,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 
 	// TODO: Make this a const
 	NfnlBuffSize := (75 * 1024)
-	sockrcvbuf := 500 * int(NfnlBuffSize)
+	sockrcvbuf := 500 * NfnlBuffSize
 	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, sockrcvbuf); err != nil {
 		syscall.Close(fd) // nolint
 		return nil, fmt.Errorf("Received error %s while setting socket Option SO_RCVBUF", err)

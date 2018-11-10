@@ -46,7 +46,6 @@ type TokenVerifier struct {
 	RedirectURL    string
 	NonceSize      int
 	CookieDuration time.Duration
-	provider       *oidc.Provider // nolint: structcheck
 	clientConfig   *oauth2.Config
 	oauthVerifier  *oidc.IDTokenVerifier
 }
