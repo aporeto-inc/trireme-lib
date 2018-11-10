@@ -26,12 +26,15 @@ func TestServiceCache(t *testing.T) {
 				},
 				Protocol:  6,
 				Addresses: []*net.IPNet{n1, n2, n3},
+				FQDNs:     []string{"host1", "host2", "host3"},
 			}
 
 			cerr := c.Add(s1, "first data", true)
 			So(cerr, ShouldBeNil)
 			So(c.local, ShouldNotBeNil)
 			So(len(c.local), ShouldEqual, 3)
+			So(c.localHosts, ShouldNotBeNil)
+			So(len(c.localHosts), ShouldEqual, 3)
 
 			_, n4, err4 := net.ParseCIDR("10.1.1.0/28")
 			So(err4, ShouldBeNil)
@@ -42,11 +45,14 @@ func TestServiceCache(t *testing.T) {
 				},
 				Protocol:  6,
 				Addresses: []*net.IPNet{n4},
+				FQDNs:     []string{"host4"},
 			}
 			cerr = c.Add(s2, "second data", true)
 			So(cerr, ShouldBeNil)
 			So(c.local, ShouldNotBeNil)
 			So(len(c.local), ShouldEqual, 4)
+			So(c.localHosts, ShouldNotBeNil)
+			So(len(c.localHosts), ShouldEqual, 4)
 
 			s3 := &common.Service{
 				Ports: &portspec.PortSpec{
@@ -59,6 +65,7 @@ func TestServiceCache(t *testing.T) {
 			cerr = c.Add(s3, "third data", true)
 			So(cerr, ShouldBeNil)
 			So(len(c.local), ShouldEqual, 5)
+			So(len(c.localHosts), ShouldEqual, 4)
 
 			Convey("If I try to add overlapping ports for a given prefix, I should get error", func() {
 				_, n5, err5 := net.ParseCIDR("10.1.1.0/28")
@@ -71,7 +78,21 @@ func TestServiceCache(t *testing.T) {
 					Protocol:  6,
 					Addresses: []*net.IPNet{n5},
 				}
-				cerr = c.Add(s3, "second data", true)
+				cerr = c.Add(s3, "failed data", true)
+				So(cerr, ShouldNotBeNil)
+			})
+
+			Convey("If I try to add overlapping ports for a given host, I should get error", func() {
+				s3 := &common.Service{
+					Ports: &portspec.PortSpec{
+						Min: uint16(100),
+						Max: uint16(300),
+					},
+					Protocol:  6,
+					Addresses: nil,
+					FQDNs:     []string{"host4"},
+				}
+				cerr = c.Add(s3, "failed data", true)
 				So(cerr, ShouldNotBeNil)
 			})
 
@@ -87,10 +108,28 @@ func TestServiceCache(t *testing.T) {
 				data = c.Find(net.ParseIP("50.50.50.50").To4(), 1001, "", true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "third data")
+
+				data = c.Find(nil, 50, "host2", true)
+				So(data, ShouldNotBeNil)
+				So(data.(string), ShouldResemble, "first data")
+
+				data = c.Find(nil, 150, "host4", true)
+				So(data, ShouldNotBeNil)
+				So(data.(string), ShouldResemble, "second data")
 			})
 
 			Convey("When I search for a good IP, but invalid port, I should get nil ", func() {
 				data := c.Find(net.ParseIP("10.1.1.1").To4(), 50, "", true)
+				So(data, ShouldBeNil)
+			})
+
+			Convey("When I search for a good IP, but uknown host, I should get nil ", func() {
+				data := c.Find(nil, 50, "uknown", true)
+				So(data, ShouldBeNil)
+			})
+
+			Convey("When I search for a good IP, but invalid host, I should get nil ", func() {
+				data := c.Find(nil, 50, "host4", true)
 				So(data, ShouldBeNil)
 			})
 

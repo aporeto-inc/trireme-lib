@@ -29,8 +29,10 @@ type ServiceCache struct {
 // NewTable creates a new table
 func NewTable() *ServiceCache {
 	return &ServiceCache{
-		local:  map[int]map[uint32][]*entry{},
-		remote: map[int]map[uint32][]*entry{},
+		local:       map[int]map[uint32][]*entry{},
+		remote:      map[int]map[uint32][]*entry{},
+		remoteHosts: map[string][]*entry{},
+		localHosts:  map[string][]*entry{},
 	}
 }
 
@@ -38,6 +40,10 @@ func NewTable() *ServiceCache {
 func (s *ServiceCache) Add(e *common.Service, data interface{}, local bool) error {
 	s.Lock()
 	defer s.Unlock()
+
+	if err := s.addHostService(e, data, local); err != nil {
+		return err
+	}
 
 	return s.addIPService(e, data, local)
 }
@@ -123,6 +129,10 @@ func (s *ServiceCache) findIP(ip net.IP, port int, local bool) interface{} {
 	prefixes := s.remote
 	if local {
 		prefixes = s.local
+	}
+
+	if ip == nil {
+		return nil
 	}
 
 	for len, prefix := range prefixes {
