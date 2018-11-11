@@ -315,11 +315,11 @@ func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregis
 		return nil, nil, fmt.Errorf("Failed to find API cache")
 	}
 
-	apiCache, ok := data.(*urisearch.APICache)
+	serviceData, ok := data.(*serviceregistry.DependentServiceData)
 	if !ok {
 		return nil, nil, fmt.Errorf("Internal error - wrong types")
 	}
-	return sctx, apiCache, nil
+	return sctx, serviceData.APICache, nil
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {

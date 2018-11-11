@@ -45,13 +45,11 @@ type clientData struct {
 type AppProxy struct {
 	cert *tls.Certificate
 
-	tokenaccessor      tokenaccessor.TokenAccessor
-	collector          collector.EventCollector
-	authProcessorCache cache.DataStore
-	puFromID           cache.DataStore
-	dependentAPICache  cache.DataStore
-	systemCAPool       *x509.CertPool
-	secrets            secrets.Secrets
+	tokenaccessor tokenaccessor.TokenAccessor
+	collector     collector.EventCollector
+	puFromID      cache.DataStore
+	systemCAPool  *x509.CertPool
+	secrets       secrets.Secrets
 
 	registry *serviceregistry.Registry
 
@@ -75,16 +73,14 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 	}
 
 	return &AppProxy{
-		collector:          c,
-		tokenaccessor:      tp,
-		secrets:            s,
-		puFromID:           puFromID,
-		cert:               certificate,
-		authProcessorCache: cache.NewCache("authprocessors"),
-		clients:            cache.NewCache("clients"),
-		dependentAPICache:  cache.NewCache("dependencies"),
-		systemCAPool:       systemPool,
-		registry:           serviceregistry.NewServiceRegistry(),
+		collector:     c,
+		tokenaccessor: tp,
+		secrets:       s,
+		puFromID:      puFromID,
+		cert:          certificate,
+		clients:       cache.NewCache("clients"),
+		systemCAPool:  systemPool,
+		registry:      serviceregistry.NewServiceRegistry(),
 	}, nil
 }
 
@@ -141,7 +137,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	client := &clientData{
 		netserver: map[common.ListenerType]ServerInterface{},
 	}
-	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt, p.registry)
+	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt, p.registry, puID)
 
 	// Listen to HTTP requests from the clients
 	client.netserver[common.HTTPApplication], err = p.registerAndRun(ctx, puID, common.HTTPApplication, client.protomux, caPool, true)
@@ -193,14 +189,6 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	p.Lock()
 	defer p.Unlock()
-
-	if err := p.authProcessorCache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the API cache")
-	}
-
-	if err := p.dependentAPICache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the Dependent API cache")
-	}
 
 	// Find the correct client.
 	c, err := p.clients.Get(puID)

@@ -46,6 +46,7 @@ type MultiplexedListener struct {
 	shutdown chan struct{}
 	wg       sync.WaitGroup
 	protomap map[common.ListenerType]*ProtoListener
+	puID     string
 
 	defaultListener *ProtoListener
 	localIPs        map[string]struct{}
@@ -56,7 +57,7 @@ type MultiplexedListener struct {
 
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
-func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry) *MultiplexedListener {
+func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry, puID string) *MultiplexedListener {
 
 	return &MultiplexedListener{
 		root:     l,
@@ -67,6 +68,7 @@ func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.
 		registry: registry,
 		localIPs: connproc.GetInterfaces(),
 		mark:     mark,
+		puID:     puID,
 	}
 }
 
@@ -194,11 +196,19 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	var listenerType common.ListenerType
 	if local {
-		pctx, err := m.registry.RetrieveServiceContextByPort(ip, port, "")
+		sctx, err := m.registry.RetrieveServiceByID(m.puID)
 		if err != nil {
+			zap.L().Error("Cannot discover target service", zap.String("ContextID", m.puID), zap.Int("port", port))
+		}
+		data := sctx.DependentServiceCache.Find(ip, port, "", false)
+		if data == nil {
 			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
 		}
-		listenerType = pctx.Type
+		serviceData, ok := data.(*serviceregistry.DependentServiceData)
+		if !ok {
+			zap.L().Error("Internal server error - invalid service data")
+		}
+		listenerType = serviceData.ServiceType
 	} else {
 		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {

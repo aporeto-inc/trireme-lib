@@ -17,7 +17,8 @@ import (
 
 // ServiceContext includes all the all the service related information
 // for dependent services. It is indexed by the PU ID and a PU can
-// easily retrieve all the state with a simple lookup.
+// easily retrieve all the state with a simple lookup. Note, that
+// there is one ServiceContext for every PU.
 type ServiceContext struct {
 	PU                    *policy.PUInfo
 	DependentServiceCache *servicecache.ServiceCache
@@ -25,11 +26,21 @@ type ServiceContext struct {
 	RootCA                [][]byte
 }
 
+// DependentServiceData are the data that are held for each service
+// in the DependentServiceCache.
+type DependentServiceData struct {
+	// Used for authorization
+	APICache *urisearch.APICache
+	// Used by the protomux to find the right service type.
+	ServiceType common.ListenerType
+}
+
 // PortContext includes all the needed associations to refer to a service by port.
 // For incoming connections the only available information is the IP/port
 // pair of the original request and we use this to map the connection and
 // request to a port. For network services we have additional state data
-// such as the authorizers.
+// such as the authorizers. Note that there is one PortContext for every
+// service of every PU.
 type PortContext struct {
 	ID                 string
 	Type               common.ListenerType
@@ -138,24 +149,6 @@ func (r *Registry) RetrieveExposedServiceContext(ip net.IP, port int, host strin
 	return portContext, nil
 }
 
-// RetrieveServiceContextByPort retrieves a service by the provided IP and or port.
-func (r *Registry) RetrieveServiceContextByPort(ip net.IP, port int, host string) (*PortContext, error) {
-	r.Lock()
-	defer r.Unlock()
-
-	data := r.indexByPort.Find(ip, port, host, false)
-	if data == nil {
-		return nil, fmt.Errorf("Service information not found: %s %d %s", ip.String(), port, host)
-	}
-
-	svcContext, ok := data.(*PortContext)
-	if !ok {
-		return nil, fmt.Errorf("Internal server error")
-	}
-
-	return svcContext, nil
-}
-
 // updateExposedPortAssociations will insert the association between a port
 // and a service in the global exposed service cache. This is  needed
 // for all incoming connections, so that can determine both the type
@@ -251,32 +244,21 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 
 	for _, service := range sctx.PU.Policy.DependentServices() {
 
-		if err := r.indexByPort.Add(
-			service.NetworkInfo,
-			sctx.PU.ContextID,
-			&PortContext{
-				ID:      sctx.PU.ContextID,
-				Type:    serviceTypeToApplicationListenerType(service.Type),
-				Service: service,
-			},
-			false,
-		); err != nil {
-			return fmt.Errorf("Possible overlap in the dependent global service registry: %s", err)
-		}
-
 		if len(service.CACert) != 0 {
 			sctx.RootCA = append(sctx.RootCA, service.CACert)
 		}
 
-		if service.Type != policy.ServiceHTTP {
-			continue
+		serviceData := &DependentServiceData{
+			ServiceType: serviceTypeToApplicationListenerType(service.Type),
+		}
+		if service.Type == policy.ServiceHTTP {
+			serviceData.APICache = urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
 		}
 
-		uricache := urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
 		if err := sctx.DependentServiceCache.Add(
 			service.NetworkInfo,
 			sctx.PU.ContextID,
-			uricache,
+			serviceData,
 			false,
 		); err != nil {
 			return fmt.Errorf("Possible overlap in dependent services: %s", err)

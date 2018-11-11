@@ -164,12 +164,6 @@ func TestRegister(t *testing.T) {
 				So(portContext.Service, ShouldResemble, puInfo.Policy.ExposedServices()[0])
 				So(portContext.Type, ShouldEqual, common.HTTPSNetwork)
 
-				appPortContext, aerr := r.RetrieveServiceContextByPort(net.ParseIP("50.1.1.1").To4(), 8080, "")
-				So(aerr, ShouldBeNil)
-				So(appPortContext, ShouldNotBeNil)
-				So(appPortContext.ID, ShouldResemble, "pu1")
-				So(appPortContext.Service, ShouldResemble, puInfo.Policy.DependentServices()[0])
-				So(appPortContext.Type, ShouldEqual, common.HTTPApplication)
 			})
 			Convey("But I should get errors for non existing ports or services", func() {
 				serviceContext, rerr := r.RetrieveServiceByID("badpu")
@@ -179,14 +173,6 @@ func TestRegister(t *testing.T) {
 				portContext, perr := r.RetrieveExposedServiceContext(net.ParseIP("100.1.1.1").To4(), 100, "")
 				So(perr, ShouldNotBeNil)
 				So(portContext, ShouldBeNil)
-
-				appPortContext, aerr := r.RetrieveServiceContextByPort(net.ParseIP("100.1.1.1").To4(), 8080, "")
-				So(aerr, ShouldNotBeNil)
-				So(appPortContext, ShouldBeNil)
-
-				appPortContext, aerr = r.RetrieveServiceContextByPort(net.ParseIP("50.1.1.1").To4(), 1, "")
-				So(aerr, ShouldNotBeNil)
-				So(appPortContext, ShouldBeNil)
 			})
 
 			Convey("When I register a second service with no overlaps", func() {
@@ -208,13 +194,6 @@ func TestRegister(t *testing.T) {
 					So(portContext.TargetPort, ShouldEqual, 8080)
 					So(portContext.Service, ShouldResemble, puInfo.Policy.ExposedServices()[0])
 					So(portContext.Type, ShouldEqual, common.HTTPSNetwork)
-
-					appPortContext, aerr := r.RetrieveServiceContextByPort(net.ParseIP("50.1.1.1").To4(), 10000, "")
-					So(aerr, ShouldBeNil)
-					So(appPortContext, ShouldNotBeNil)
-					So(appPortContext.ID, ShouldResemble, "pu2")
-					So(appPortContext.Service, ShouldResemble, puInfo.Policy.DependentServices()[0])
-					So(appPortContext.Type, ShouldEqual, common.HTTPApplication)
 				})
 			})
 
@@ -258,13 +237,6 @@ func TestRegister(t *testing.T) {
 					So(portContext.TargetPort, ShouldEqual, 8080)
 					So(portContext.Service, ShouldResemble, puInfo.Policy.ExposedServices()[0])
 					So(portContext.Type, ShouldEqual, common.HTTPSNetwork)
-
-					appPortContext, aerr := r.RetrieveServiceContextByPort(net.ParseIP("50.1.1.1").To4(), 10000, "")
-					So(aerr, ShouldBeNil)
-					So(appPortContext, ShouldNotBeNil)
-					So(appPortContext.ID, ShouldResemble, "pu1")
-					So(appPortContext.Service, ShouldResemble, puInfo.Policy.DependentServices()[0])
-					So(appPortContext.Type, ShouldEqual, common.HTTPApplication)
 				})
 			})
 
@@ -277,9 +249,6 @@ func TestRegister(t *testing.T) {
 				portContext, perr := r.RetrieveExposedServiceContext(net.ParseIP("10.1.1.1").To4(), 80, "")
 				So(perr, ShouldNotBeNil)
 				So(portContext, ShouldBeNil)
-				appPortContext, aerr := r.RetrieveServiceContextByPort(net.ParseIP("50.1.1.1").To4(), 8080, "")
-				So(aerr, ShouldNotBeNil)
-				So(appPortContext, ShouldBeNil)
 			})
 		})
 	})
