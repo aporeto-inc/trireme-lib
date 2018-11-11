@@ -269,11 +269,6 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.keyPEM = keyPEM
 }
 
-// UpdateCaches updates the port mapping caches.
-func (p *Config) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
-	return
-}
-
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
 func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {

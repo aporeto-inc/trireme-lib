@@ -122,11 +122,6 @@ func (p *Proxy) ShutDown() error {
 	return nil
 }
 
-// UpdateCaches updates the port cache only.
-func (p *Proxy) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
-	return
-}
-
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint

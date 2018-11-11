@@ -52,7 +52,6 @@ func (p *Processor) AddOrUpdateService(apis *urisearch.APICache, serviceType pol
 	p.userTokenMappings = mappings
 	p.userTokenHandler = handler
 	p.userAuthorizationType = serviceType
-	return
 }
 
 // UpdateServiceAPIs updates an existing service with a new API definition.

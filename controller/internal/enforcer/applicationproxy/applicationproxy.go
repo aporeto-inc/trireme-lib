@@ -33,7 +33,6 @@ const (
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
 	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string)
-	UpdateCaches(portCache map[int]*policy.ApplicationService, portMapping map[int]int)
 	ShutDown() error
 }
 
