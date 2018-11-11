@@ -147,7 +147,7 @@ func TestLaunchProcess(t *testing.T) {
 
 func TestKillProcess(t *testing.T) {
 
-	contextID := "12345"
+	contextID := "12346"
 	refPid := LaunchContainer(testDirBase)
 	refNSPath := ""
 	calledRemoteCall := false

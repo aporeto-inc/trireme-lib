@@ -79,6 +79,10 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 	var err error
 	for _, pk := range p.publicKeys {
 
+		if pk == nil {
+			continue
+		}
+
 		JWTToken, err = jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			return pk, nil
 		})

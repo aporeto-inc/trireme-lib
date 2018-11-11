@@ -145,8 +145,6 @@ func (p *Processor) Callback(w http.ResponseWriter, r *http.Request) {
 	// to access.
 	w.Header().Add("Location", originURL)
 	http.Error(w, string(data), status)
-
-	return
 }
 
 // Check is the main method that will search API cache and validate whether the call should

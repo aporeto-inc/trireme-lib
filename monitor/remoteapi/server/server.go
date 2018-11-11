@@ -124,11 +124,7 @@ func (e *EventServer) processEvent(ctx context.Context, eventInfo *common.EventI
 		return fmt.Errorf("Handler not found: %s", err)
 	}
 
-	if err := f(ctx, eventInfo); err != nil {
-		return err
-	}
-
-	return nil
+	return f(ctx, eventInfo)
 }
 
 // validateUser validates that the originating user is not sending a request

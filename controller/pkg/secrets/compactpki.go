@@ -28,7 +28,7 @@ type CompactPKI struct {
 func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Warn("DEPRECATED. secrets.NewCompactPKI is deprecated in favor of secrets.NewCompactPKIWithTokenCA")
-	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{[]byte(caPEM)}, txKey, compress)
+	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{caPEM}, txKey, compress)
 }
 
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
@@ -41,7 +41,7 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		return nil, err
 	}
 
-	var tokenKeys []*ecdsa.PublicKey
+	tokenKeys := make([]*ecdsa.PublicKey, len(tokenKeyPEMs))
 	for _, ca := range tokenKeyPEMs {
 		caCert, err := crypto.LoadCertificate(ca)
 		if err != nil {

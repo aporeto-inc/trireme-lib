@@ -137,7 +137,7 @@ func TestNFQParserString(t *testing.T) {
 					So(queueData, ShouldResemble, testProperLayout())
 				})
 
-				Convey("Given I try to get string representaion of particular queue number", func() {
+				Convey("Given I try to get string representation of particular queue number", func() {
 					queueData := nfqParser.RetrieveByQueue("6")
 
 					Convey("Then queue data should match", func() {
@@ -145,7 +145,7 @@ func TestNFQParserString(t *testing.T) {
 					})
 				})
 
-				Convey("Given I try to get string representaion of empty layout, it should not panic", func() {
+				Convey("Given I try to get string representation of empty layout, it should not panic", func() {
 					nfqParser := NewNFQParser()
 					str := nfqParser.RetrieveByQueue("6").String()
 
