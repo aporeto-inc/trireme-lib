@@ -669,13 +669,6 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func appendDefaultPort(address string) string {
-	if !strings.Contains(address, ":") {
-		return address + ":80"
-	}
-	return address
-}
-
 // userCredentials will find all the user credentials in the http request.
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.

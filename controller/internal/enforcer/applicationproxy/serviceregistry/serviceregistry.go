@@ -26,7 +26,7 @@ type ServiceContext struct {
 }
 
 // PortContext includes all the needed associations to refer to a service by port.
-// For incoming connections the only available infromation is the IP/port
+// For incoming connections the only available information is the IP/port
 // pair of the original request and we use this to map the connection and
 // request to a port. For network services we have additional state data
 // such as the authorizers.
