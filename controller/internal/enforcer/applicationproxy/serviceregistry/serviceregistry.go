@@ -261,7 +261,7 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 			},
 			false,
 		); err != nil {
-			return fmt.Errorf("Possible overlap in global service registry: %s", err)
+			return fmt.Errorf("Possible overlap in the dependent global service registry: %s", err)
 		}
 
 		if len(service.CACert) != 0 {
@@ -289,7 +289,7 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 
 func (r *Registry) createOrUpdateAuthProcessor(sctx *ServiceContext, service *policy.ApplicationService, secrets secrets.Secrets) (*auth.Processor, error) {
 
-	portContext, _ := r.indexByPort.FindExistingServices(sctx.PU.ContextID, true)
+	portContext, _ := r.indexByPort.FindListeningServicesForPU(sctx.PU.ContextID)
 	var authProcessor *auth.Processor
 	if portContext != nil {
 		existingPortCtx, ok := portContext.(*PortContext)

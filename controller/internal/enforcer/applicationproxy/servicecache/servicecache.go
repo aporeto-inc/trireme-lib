@@ -49,7 +49,7 @@ func NewTable() *ServiceCache {
 	}
 }
 
-// Add adds a service into the cache
+// Add adds a service into the cache. Returns error of if any overlap has been detected.
 func (s *ServiceCache) Add(e *common.Service, id string, data interface{}, local bool) error {
 	s.Lock()
 	defer s.Unlock()
@@ -70,7 +70,8 @@ func (s *ServiceCache) Add(e *common.Service, id string, data interface{}, local
 	return s.addIPService(e, record, local)
 }
 
-// Find searches for a matching service, given an IP and port
+// Find searches for a matching service, given an IP and port. Caller must specify
+// the local or remote context.
 func (s *ServiceCache) Find(ip net.IP, port int, host string, local bool) interface{} {
 	s.RLock()
 	defer s.RUnlock()
@@ -82,6 +83,68 @@ func (s *ServiceCache) Find(ip net.IP, port int, host string, local bool) interf
 	}
 
 	return s.findIP(ip, port, local)
+}
+
+// FindListeningServicesForPU returns a service that is found and the associated
+// portSpecifications that refer to this service.
+func (s *ServiceCache) FindListeningServicesForPU(id string) (interface{}, *portspec.PortSpec) {
+	s.RLock()
+	defer s.RUnlock()
+
+	for _, spec := range s.localPorts {
+		if spec.id == id {
+			return spec.data, spec.ports
+		}
+	}
+	return nil, nil
+}
+
+// DeleteByID will delete all entries related to this ID from all references.
+func (s *ServiceCache) DeleteByID(id string, local bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	hosts := s.remoteHosts
+	prefixes := s.remote
+	if local {
+		hosts = s.localHosts
+		prefixes = s.local
+	}
+
+	if local {
+		s.localPorts = deleteMatchingPorts(s.localPorts, id)
+	} else {
+		s.remotePorts = deleteMatchingPorts(s.remotePorts, id)
+	}
+
+	for host, ports := range hosts {
+		hosts[host] = deleteMatchingPorts(ports, id)
+		if len(hosts[host]) == 0 {
+			delete(hosts, host)
+		}
+	}
+
+	for l, prefix := range prefixes {
+		for ip, ports := range prefix {
+			prefix[ip] = deleteMatchingPorts(ports, id)
+			if len(prefix[ip]) == 0 {
+				delete(prefix, ip)
+			}
+		}
+		if len(prefix) == 0 {
+			delete(prefixes, l)
+		}
+	}
+}
+
+func deleteMatchingPorts(list entryList, id string) entryList {
+	remainingPorts := entryList{}
+	for _, spec := range list {
+		if spec.id != id {
+			remainingPorts = append(remainingPorts, spec)
+		}
+	}
+	return remainingPorts
 }
 
 func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool) error {
@@ -189,110 +252,19 @@ func (s *ServiceCache) findHost(host string, port int, local bool) interface{} {
 	return nil
 }
 
+// addPorts will only work for local ports.
 func (s *ServiceCache) addPorts(e *common.Service, record *entry, local bool) error {
-	ports := s.remotePorts
-	if local {
-		ports = s.localPorts
+	if !local {
+		return nil
 	}
 
-	for _, spec := range ports {
+	for _, spec := range s.localPorts {
 		if spec.ports.Overlaps(e.Ports) {
 			return fmt.Errorf("Service port overlap in the global port list: %+v %s", e.Addresses, e.Ports.String())
 		}
 	}
 
-	ports = append(ports, record)
-
-	if local {
-		s.localPorts = ports
-	} else {
-		s.remotePorts = ports
-	}
+	s.localPorts = append(s.localPorts, record)
 
 	return nil
-}
-
-// FindPort finds the data as indexed by a port number.
-func (s *ServiceCache) FindPort(port int, local bool) interface{} {
-	s.RLock()
-	defer s.RUnlock()
-
-	ports := s.remotePorts
-	if local {
-		ports = s.localPorts
-	}
-
-	for _, spec := range ports {
-		if spec.ports.IsIncluded(port) {
-			return spec.data
-		}
-	}
-	return nil
-}
-
-// FindExistingServices returns a service that is found and the associated
-// portSpecifications that refer to this service.
-func (s *ServiceCache) FindExistingServices(id string, local bool) (interface{}, *portspec.PortSpec) {
-	s.RLock()
-	defer s.RUnlock()
-
-	ports := s.remotePorts
-	if local {
-		ports = s.localPorts
-	}
-
-	for _, spec := range ports {
-		if spec.id == id {
-			return spec.data, spec.ports
-		}
-	}
-	return nil, nil
-}
-
-// DeleteByID will delete all entries related to this ID from all references.
-func (s *ServiceCache) DeleteByID(id string, local bool) {
-	s.Lock()
-	defer s.Unlock()
-
-	hosts := s.remoteHosts
-	prefixes := s.remote
-	if local {
-		hosts = s.localHosts
-		prefixes = s.local
-	}
-
-	if local {
-		s.localPorts = deleteMatchingPorts(s.localPorts, id)
-	} else {
-		s.remotePorts = deleteMatchingPorts(s.remotePorts, id)
-	}
-
-	for host, ports := range hosts {
-		hosts[host] = deleteMatchingPorts(ports, id)
-		if len(hosts[host]) == 0 {
-			delete(hosts, host)
-		}
-	}
-
-	for l, prefix := range prefixes {
-		for ip, ports := range prefix {
-			prefix[ip] = deleteMatchingPorts(ports, id)
-			if len(prefix[ip]) == 0 {
-				delete(prefix, ip)
-			}
-		}
-		if len(prefix) == 0 {
-			delete(prefixes, l)
-		}
-	}
-}
-
-func deleteMatchingPorts(list entryList, id string) entryList {
-	remainingPorts := entryList{}
-	for _, spec := range list {
-		if spec.id != id {
-			remainingPorts = append(remainingPorts, spec)
-		}
-	}
-	return remainingPorts
 }

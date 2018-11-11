@@ -290,16 +290,6 @@ func TestDelete(t *testing.T) {
 		c.DeleteByID("1", true)
 		data := c.Find(net.ParseIP("192.168.1.1").To4(), 50, "", true)
 		So(data, ShouldBeNil)
-		data = c.FindPort(150, true)
-		So(data, ShouldNotBeNil)
-		c.DeleteByID("2", true)
-		data = c.Find(net.ParseIP("10.1.1.1").To4(), 150, "", true)
-		So(data, ShouldBeNil)
-		data = c.FindPort(1500, false)
-		So(data, ShouldNotBeNil)
-		c.DeleteByID("3", false)
-		data = c.FindPort(1500, false)
-		So(data, ShouldBeNil)
 	})
 }
 
@@ -307,29 +297,18 @@ func TestFindExistingServices(t *testing.T) {
 	Convey("Given a table with entries", t, func() {
 		c := NewTable()
 		s1, s2, s3 := createServices()
-		cerr := c.Add(s1, "1", "first data", false)
+		cerr := c.Add(s1, "1", "first data", true)
 		So(cerr, ShouldBeNil)
-		cerr = c.Add(s2, "2", "second data", false)
+		cerr = c.Add(s2, "2", "second data", true)
 		So(cerr, ShouldBeNil)
 		cerr = c.Add(s3, "3", "third data", true)
 		So(cerr, ShouldBeNil)
 
-		Convey("When I retrieve the service list from the remote, it should be correct", func() {
-			data, spec := c.FindExistingServices("1", false)
-			So(data, ShouldNotBeNil)
-			So(data, ShouldResemble, "first data")
-			So(spec, ShouldNotBeNil)
-		})
 		Convey("When I retrieve the service list from the local, it should be correct", func() {
-			data, spec := c.FindExistingServices("3", true)
+			data, spec := c.FindListeningServicesForPU("3")
 			So(data, ShouldNotBeNil)
 			So(data, ShouldResemble, "third data")
 			So(spec, ShouldNotBeNil)
-		})
-		Convey("When I retrieve an unknown service, I should get nil", func() {
-			data, spec := c.FindExistingServices("foo", false)
-			So(data, ShouldBeNil)
-			So(spec, ShouldBeNil)
 		})
 	})
 }
