@@ -196,17 +196,14 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	var listenerType common.ListenerType
 	if local {
-		sctx, err := m.registry.RetrieveServiceByID(m.puID)
+		_, serviceData, err := m.registry.RetrieveServiceDataByIDAndNetwork(m.puID, ip, port, "")
 		if err != nil {
-			zap.L().Error("Cannot discover target service", zap.String("ContextID", m.puID), zap.Int("port", port))
-		}
-		data := sctx.DependentServiceCache.Find(ip, port, "", false)
-		if data == nil {
-			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
-		}
-		serviceData, ok := data.(*serviceregistry.DependentServiceData)
-		if !ok {
-			zap.L().Error("Internal server error - invalid service data")
+			zap.L().Error("Cannot discover target service",
+				zap.String("ContextID", m.puID),
+				zap.String("ip", ip.String()),
+				zap.Int("port", port),
+				zap.Error(err),
+			)
 		}
 		listenerType = serviceData.ServiceType
 	} else {

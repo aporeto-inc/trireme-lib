@@ -20,14 +20,17 @@ import (
 // easily retrieve all the state with a simple lookup. Note, that
 // there is one ServiceContext for every PU.
 type ServiceContext struct {
-	PU                    *policy.PUInfo
-	DependentServiceCache *servicecache.ServiceCache
-	PUContext             *pucontext.PUContext
-	RootCA                [][]byte
+	PU        *policy.PUInfo
+	PUContext *pucontext.PUContext
+	RootCA    [][]byte
+
+	// The dependent service cache is only accessible internally,
+	// so that all types are properly converted.
+	dependentServiceCache *servicecache.ServiceCache
 }
 
 // DependentServiceData are the data that are held for each service
-// in the DependentServiceCache.
+// in the dependentServiceCache.
 type DependentServiceData struct {
 	// Used for authorization
 	APICache *urisearch.APICache
@@ -84,7 +87,7 @@ func (r *Registry) Register(
 	sctx := &ServiceContext{
 		PU:                    pu,
 		PUContext:             puContext,
-		DependentServiceCache: servicecache.NewTable(),
+		dependentServiceCache: servicecache.NewTable(),
 		RootCA:                [][]byte{},
 	}
 
@@ -149,6 +152,24 @@ func (r *Registry) RetrieveExposedServiceContext(ip net.IP, port int, host strin
 	return portContext, nil
 }
 
+// RetrieveServiceDataByIDAndNetwork will return the service data that match the given
+// PU and the given IP/port information.
+func (r *Registry) RetrieveServiceDataByIDAndNetwork(id string, ip net.IP, port int, host string) (*ServiceContext, *DependentServiceData, error) {
+	sctx, err := r.RetrieveServiceByID(id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Services for PU %s not found: %s", id, err)
+	}
+	data := sctx.dependentServiceCache.Find(ip, port, "", false)
+	if data == nil {
+		return nil, nil, fmt.Errorf("Service not found for this PU: %s", id)
+	}
+	serviceData, ok := data.(*DependentServiceData)
+	if !ok {
+		return nil, nil, fmt.Errorf("Internal server error - bad data types")
+	}
+	return sctx, serviceData, nil
+}
+
 // updateExposedPortAssociations will insert the association between a port
 // and a service in the global exposed service cache. This is  needed
 // for all incoming connections, so that can determine both the type
@@ -203,21 +224,23 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 		return fmt.Errorf("Possible port overlap: %s", err)
 	}
 
-	if err := r.indexByPort.Add(
-		service.PublicNetworkInfo,
-		sctx.PU.ContextID,
-		&PortContext{
-			ID:                 sctx.PU.ContextID,
-			Service:            service,
-			TargetPort:         int(port),
-			Type:               serviceTypeToNetworkListenerType(service.Type, service.PublicServiceNoTLS),
-			Authorizer:         authProcessor,
-			ClientTrustedRoots: clientCAs,
-			PUContext:          sctx.PUContext,
-		},
-		true,
-	); err != nil {
-		return fmt.Errorf("Possible port overlap with public services: %s", err)
+	if service.Type == policy.ServiceHTTP && service.PublicNetworkInfo != nil {
+		if err := r.indexByPort.Add(
+			service.PublicNetworkInfo,
+			sctx.PU.ContextID,
+			&PortContext{
+				ID:                 sctx.PU.ContextID,
+				Service:            service,
+				TargetPort:         int(port),
+				Type:               serviceTypeToNetworkListenerType(service.Type, service.PublicServiceNoTLS),
+				Authorizer:         authProcessor,
+				ClientTrustedRoots: clientCAs,
+				PUContext:          sctx.PUContext,
+			},
+			true,
+		); err != nil {
+			return fmt.Errorf("Possible port overlap with public services: %s", err)
+		}
 	}
 
 	return nil
@@ -255,7 +278,7 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 			serviceData.APICache = urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
 		}
 
-		if err := sctx.DependentServiceCache.Add(
+		if err := sctx.dependentServiceCache.Add(
 			service.NetworkInfo,
 			sctx.PU.ContextID,
 			serviceData,

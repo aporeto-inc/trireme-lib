@@ -125,7 +125,6 @@ func (p *Proxy) ShutDown() error {
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
-
 	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
 
 	downConn, err := p.downConnection(ip, port)
@@ -381,17 +380,14 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
 
-	puContext, err := p.puContextFromContextID(p.puContext)
-	if err != nil {
-		return false, err
-	}
-	isEncrypted := false
-
-	pctx, err := p.registry.RetrieveExposedServiceContext(ip, backendport, "")
+	pctx, err := p.registry.RetrieveExposedServiceContext(ip.To4(), backendport, "")
 	if err != nil {
 		return false, fmt.Errorf("Service not found")
 	}
+
 	service := pctx.Service
+	puContext := pctx.PUContext
+	isEncrypted := false
 
 	flowProperties := &proxyFlowProperties{
 		DestIP:     ip.String(),

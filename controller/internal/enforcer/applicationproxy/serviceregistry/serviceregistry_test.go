@@ -148,7 +148,7 @@ func TestRegister(t *testing.T) {
 				So(sctx, ShouldNotBeNil)
 				So(sctx.PU, ShouldResemble, puInfo)
 				So(sctx.PUContext, ShouldResemble, pctx)
-				So(sctx.DependentServiceCache, ShouldNotBeNil)
+				So(sctx.dependentServiceCache, ShouldNotBeNil)
 			})
 			Convey("And I should be able to retrieve the services using the three provided methods", func() {
 				serviceContext, rerr := r.RetrieveServiceByID("pu1")

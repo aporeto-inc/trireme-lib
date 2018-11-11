@@ -306,18 +306,10 @@ func (p *Config) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregist
 }
 
 func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *urisearch.APICache, error) {
-	sctx, err := p.registry.RetrieveServiceByID(p.puContext)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Unknown service: %s", err)
-	}
-	data := sctx.DependentServiceCache.Find(address.IP.To4(), address.Port, "", false)
-	if data == nil {
-		return nil, nil, fmt.Errorf("Failed to find API cache")
-	}
 
-	serviceData, ok := data.(*serviceregistry.DependentServiceData)
-	if !ok {
-		return nil, nil, fmt.Errorf("Internal error - wrong types")
+	sctx, serviceData, err := p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP.To4(), address.Port, "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("Unable to discover service data: %s", err)
 	}
 	return sctx, serviceData.APICache, nil
 }
@@ -330,6 +322,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	sctx, apiCache, err := p.retrieveApplicationContext(originalDestination)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusBadGateway)
 		zap.L().Error("Cannot identify application context", zap.Error(err))
 		return
 	}
