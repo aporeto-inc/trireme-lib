@@ -18,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -25,7 +26,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -38,10 +38,8 @@ type Proxy struct {
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
 
-	puContext string
-	puFromID  cache.DataStore
-	portCache map[int]*policy.ApplicationService
-
+	puContext   string
+	registry    *serviceregistry.Registry
 	certificate *tls.Certificate
 	ca          *x509.CertPool
 
@@ -67,11 +65,10 @@ type proxyFlowProperties struct {
 func NewTCPProxy(
 	tp tokenaccessor.TokenAccessor,
 	c collector.EventCollector,
-	puFromID cache.DataStore,
 	puContext string,
+	registry *serviceregistry.Registry,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
-	portCache map[int]*policy.ApplicationService,
 ) *Proxy {
 
 	localIPs := connproc.GetInterfaces()
@@ -79,12 +76,11 @@ func NewTCPProxy(
 	return &Proxy{
 		collector:     c,
 		tokenaccessor: tp,
-		puFromID:      puFromID,
 		puContext:     puContext,
+		registry:      registry,
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
-		portCache:     portCache,
 	}
 }
 
@@ -128,9 +124,7 @@ func (p *Proxy) ShutDown() error {
 
 // UpdateCaches updates the port cache only.
 func (p *Proxy) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
-	p.Lock()
-	defer p.Unlock()
-	p.portCache = portCache
+	return
 }
 
 // handle handles a connection
@@ -271,17 +265,12 @@ func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downCo
 
 func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error) {
 
-	ctx, err := p.puFromID.Get(puID)
+	sctx, err := p.registry.RetrieveServiceByID(puID)
 	if err != nil {
 		return nil, fmt.Errorf("Context not found %s", puID)
 	}
 
-	puContext, ok := ctx.(*pucontext.PUContext)
-	if !ok {
-		return nil, fmt.Errorf("Context not converted %s", puID)
-	}
-
-	return puContext, nil
+	return sctx.PUContext, nil
 }
 
 // Initiate the downstream connection
@@ -395,7 +384,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, upConn net.Conn) (bool, error) {
+func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
 
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
@@ -403,10 +392,11 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 	isEncrypted := false
 
-	service, ok := p.portCache[backendport]
-	if !ok {
+	pctx, err := p.registry.RetrieveExposedServiceContext(ip, backendport, "")
+	if err != nil {
 		return false, fmt.Errorf("Service not found")
 	}
+	service := pctx.Service
 
 	flowProperties := &proxyFlowProperties{
 		DestIP:     ip.String(),

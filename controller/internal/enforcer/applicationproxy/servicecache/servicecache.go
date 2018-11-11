@@ -11,41 +11,63 @@ import (
 )
 
 type entry struct {
+	id    string
 	ports *portspec.PortSpec
 	data  interface{}
+}
+
+type entryList []*entry
+
+func (e entryList) Delete(i int) entryList {
+	if i >= len(e) || i < 0 {
+		return e
+	}
+	return append(e[:i], e[i+1:]...)
 }
 
 // ServiceCache is a new service cache
 type ServiceCache struct {
 	// ipcaches is map[prefixlength][prefix] -> array of entries indexed by port
-	local  map[int]map[uint32][]*entry
-	remote map[int]map[uint32][]*entry
+	local  map[int]map[uint32]entryList
+	remote map[int]map[uint32]entryList
 	// hostcaches is map[host] -> array of entries indexed by port.
-	remoteHosts map[string][]*entry
-	localHosts  map[string][]*entry
+	remoteHosts map[string]entryList
+	localHosts  map[string]entryList
+	// portCaches is list of all ports where we can retrieve a service based on the port.
+	remotePorts entryList
+	localPorts  entryList
 	sync.RWMutex
 }
 
 // NewTable creates a new table
 func NewTable() *ServiceCache {
 	return &ServiceCache{
-		local:       map[int]map[uint32][]*entry{},
-		remote:      map[int]map[uint32][]*entry{},
-		remoteHosts: map[string][]*entry{},
-		localHosts:  map[string][]*entry{},
+		local:       map[int]map[uint32]entryList{},
+		remote:      map[int]map[uint32]entryList{},
+		remoteHosts: map[string]entryList{},
+		localHosts:  map[string]entryList{},
 	}
 }
 
 // Add adds a service into the cache
-func (s *ServiceCache) Add(e *common.Service, data interface{}, local bool) error {
+func (s *ServiceCache) Add(e *common.Service, id string, data interface{}, local bool) error {
 	s.Lock()
 	defer s.Unlock()
 
-	if err := s.addHostService(e, data, local); err != nil {
+	record := &entry{
+		ports: e.Ports,
+		data:  data,
+		id:    id,
+	}
+	if err := s.addPorts(e, record, local); err != nil {
 		return err
 	}
 
-	return s.addIPService(e, data, local)
+	if err := s.addHostService(e, record, local); err != nil {
+		return err
+	}
+
+	return s.addIPService(e, record, local)
 }
 
 // Find searches for a matching service, given an IP and port
@@ -62,7 +84,18 @@ func (s *ServiceCache) Find(ip net.IP, port int, host string, local bool) interf
 	return s.findIP(ip, port, local)
 }
 
-func (s *ServiceCache) addIPService(e *common.Service, data interface{}, local bool) error {
+func (s *ServiceCache) ListPortServices() {
+	fmt.Println("Local Ports")
+	for _, spec := range s.localPorts {
+		fmt.Println("Port", spec.ports.String())
+	}
+	fmt.Println("Remote Ports")
+	for _, spec := range s.remotePorts {
+		fmt.Println("Port", spec.ports.String())
+	}
+}
+
+func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool) error {
 	prefixes := s.remote
 	if local {
 		prefixes = s.local
@@ -70,6 +103,7 @@ func (s *ServiceCache) addIPService(e *common.Service, data interface{}, local b
 
 	// If addresses are nil, I only care about ports.
 	if len(e.Addresses) == 0 {
+		fmt.Println("Converting to 0.0.0.0/0")
 		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
 		e.Addresses = []*net.IPNet{ip}
 	}
@@ -78,25 +112,22 @@ func (s *ServiceCache) addIPService(e *common.Service, data interface{}, local b
 		binPrefix := binary.BigEndian.Uint32(addr.IP) & binary.BigEndian.Uint32(addr.Mask)
 		len, _ := addr.Mask.Size()
 		if _, ok := prefixes[len]; !ok {
-			prefixes[len] = map[uint32][]*entry{}
+			prefixes[len] = map[uint32]entryList{}
 		}
 		if _, ok := prefixes[len][binPrefix]; !ok {
-			prefixes[len][binPrefix] = []*entry{}
+			prefixes[len][binPrefix] = entryList{}
 		}
 		for _, spec := range prefixes[len][binPrefix] {
 			if spec.ports.Overlaps(e.Ports) {
 				return fmt.Errorf("Service port overlap for a given IP not allowed")
 			}
 		}
-		prefixes[len][binPrefix] = append(prefixes[len][binPrefix], &entry{
-			ports: e.Ports,
-			data:  data,
-		})
+		prefixes[len][binPrefix] = append(prefixes[len][binPrefix], record)
 	}
 	return nil
 }
 
-func (s *ServiceCache) addHostService(e *common.Service, data interface{}, local bool) error {
+func (s *ServiceCache) addHostService(e *common.Service, record *entry, local bool) error {
 	hostCache := s.remoteHosts
 	if local {
 		hostCache = s.localHosts
@@ -109,23 +140,21 @@ func (s *ServiceCache) addHostService(e *common.Service, data interface{}, local
 
 	for _, host := range e.FQDNs {
 		if _, ok := hostCache[host]; !ok {
-			hostCache[host] = []*entry{}
+			hostCache[host] = entryList{}
 		}
 		for _, spec := range hostCache[host] {
 			if spec.ports.Overlaps(e.Ports) {
 				return fmt.Errorf("Service port overlap for a given host not allowed")
 			}
 		}
-		hostCache[host] = append(hostCache[host], &entry{
-			ports: e.Ports,
-			data:  data,
-		})
+		hostCache[host] = append(hostCache[host], record)
 	}
 	return nil
 }
 
 // findIP searches for a matching service, given an IP and port
 func (s *ServiceCache) findIP(ip net.IP, port int, local bool) interface{} {
+
 	prefixes := s.remote
 	if local {
 		prefixes = s.local
@@ -136,11 +165,13 @@ func (s *ServiceCache) findIP(ip net.IP, port int, local bool) interface{} {
 	}
 
 	for len, prefix := range prefixes {
-		binPrefix := binary.BigEndian.Uint32(ip) & binary.BigEndian.Uint32(net.CIDRMask(len, 32))
+
+		binPrefix := binary.BigEndian.Uint32(ip.To4()) & binary.BigEndian.Uint32(net.CIDRMask(len, 32))
 		entries, ok := prefix[binPrefix]
 		if !ok {
 			continue
 		}
+
 		for _, e := range entries {
 			if e.ports.IsIncluded(port) {
 				return e.data
@@ -168,4 +199,112 @@ func (s *ServiceCache) findHost(host string, port int, local bool) interface{} {
 	}
 
 	return nil
+}
+
+func (s *ServiceCache) addPorts(e *common.Service, record *entry, local bool) error {
+	ports := s.remotePorts
+	if local {
+		ports = s.localPorts
+	}
+
+	for _, spec := range ports {
+		if spec.ports.Overlaps(e.Ports) {
+			return fmt.Errorf("Service port overlap in the global port list: %+v %s", e.Addresses, e.Ports.String())
+		}
+	}
+
+	ports = append(ports, record)
+
+	if local {
+		s.localPorts = ports
+	} else {
+		s.remotePorts = ports
+	}
+
+	return nil
+}
+
+// FindPort finds the data as indexed by a port number.
+func (s *ServiceCache) FindPort(port int, local bool) interface{} {
+	s.RLock()
+	defer s.RUnlock()
+
+	ports := s.remotePorts
+	if local {
+		ports = s.localPorts
+	}
+
+	for _, spec := range ports {
+		if spec.ports.IsIncluded(port) {
+			return spec.data
+		}
+	}
+	return nil
+}
+
+// FindExistingServices returns a service that is found and the associated
+// portSpecifications that refer to this service.
+func (s *ServiceCache) FindExistingServices(id string, local bool) (interface{}, *portspec.PortSpec) {
+	s.RLock()
+	defer s.RUnlock()
+
+	ports := s.remotePorts
+	if local {
+		ports = s.localPorts
+	}
+
+	for _, spec := range ports {
+		if spec.id == id {
+			return spec.data, spec.ports
+		}
+	}
+	return nil, nil
+}
+
+// DeleteByID will delete all entries related to this ID from all references.
+func (s *ServiceCache) DeleteByID(id string, local bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	hosts := s.remoteHosts
+	prefixes := s.remote
+	if local {
+		hosts = s.localHosts
+		prefixes = s.local
+	}
+
+	if local {
+		s.localPorts = deleteMatchingPorts(s.localPorts, id)
+	} else {
+		s.remotePorts = deleteMatchingPorts(s.remotePorts, id)
+	}
+
+	for host, ports := range hosts {
+		hosts[host] = deleteMatchingPorts(ports, id)
+		if len(hosts[host]) == 0 {
+			delete(hosts, host)
+		}
+	}
+
+	for l, prefix := range prefixes {
+		for ip, ports := range prefix {
+			prefix[ip] = deleteMatchingPorts(ports, id)
+			if len(prefix[ip]) == 0 {
+				delete(prefix, ip)
+			}
+		}
+		if len(prefix) == 0 {
+			delete(prefixes, l)
+		}
+	}
+}
+
+func deleteMatchingPorts(list entryList, id string) entryList {
+	remainingPorts := entryList{}
+	for _, spec := range list {
+		if spec.id != id {
+			remainingPorts = append(remainingPorts, spec)
+		}
+	}
+	return remainingPorts
 }

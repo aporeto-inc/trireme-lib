@@ -17,14 +17,12 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -45,25 +43,20 @@ type JWTClaims struct {
 
 // Config maintains state for proxies connections from listen to backend.
 type Config struct {
-	cert               *tls.Certificate
-	ca                 *x509.CertPool
-	keyPEM             string
-	certPEM            string
-	secrets            secrets.Secrets
-	collector          collector.EventCollector
-	puContext          string
-	localIPs           map[string]struct{}
-	puFromIDCache      cache.DataStore
-	authProcessorCache cache.DataStore
-	dependentAPICache  cache.DataStore
-	jwtCache           cache.DataStore // nolint: structcheck
-	portMapping        map[int]int
-	portCache          map[int]*policy.ApplicationService
-	applicationProxy   bool
-	mark               int
-	server             *http.Server
-	fwd                *forward.Forwarder
-	fwdTLS             *forward.Forwarder
+	cert             *tls.Certificate
+	ca               *x509.CertPool
+	keyPEM           string
+	certPEM          string
+	secrets          secrets.Secrets
+	collector        collector.EventCollector
+	puContext        string
+	localIPs         map[string]struct{}
+	applicationProxy bool
+	mark             int
+	server           *http.Server
+	registry         *serviceregistry.Registry
+	fwd              *forward.Forwarder
+	fwdTLS           *forward.Forwarder
 	sync.RWMutex
 }
 
@@ -71,45 +64,37 @@ type Config struct {
 func NewHTTPProxy(
 	c collector.EventCollector,
 	puContext string,
-	puFromIDCache cache.DataStore,
 	caPool *x509.CertPool,
-	authProcessorCache cache.DataStore,
-	dependentAPICache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
-	portCache map[int]*policy.ApplicationService,
-	portMapping map[int]int,
+	registry *serviceregistry.Registry,
 ) *Config {
 
 	return &Config{
-		collector:          c,
-		puFromIDCache:      puFromIDCache,
-		puContext:          puContext,
-		ca:                 caPool,
-		authProcessorCache: authProcessorCache,
-		dependentAPICache:  dependentAPICache,
-		applicationProxy:   applicationProxy,
-		mark:               mark,
-		secrets:            secrets,
-		portCache:          portCache,
-		portMapping:        portMapping,
-		localIPs:           connproc.GetInterfaces(),
+		collector:        c,
+		puContext:        puContext,
+		ca:               caPool,
+		applicationProxy: applicationProxy,
+		mark:             mark,
+		secrets:          secrets,
+		localIPs:         connproc.GetInterfaces(),
+		registry:         registry,
 	}
 }
 
 // clientTLSConfiguration calculates the right certificates and requests to the clients.
 func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Config) (*tls.Config, error) {
 	if mconn, ok := conn.(*markedconn.ProxiedConnection); ok {
-		_, port := mconn.GetOriginalDestination()
-		service, ok := p.portCache[port]
-		if !ok {
-			return nil, fmt.Errorf("Unknown service")
+		ip, port := mconn.GetOriginalDestination()
+		portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+		if err != nil {
+			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
-		if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
-			clientCAs := x509.NewCertPool()
-			if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
-				clientCAs = p.ca
+		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
+			clientCAs := p.ca
+			if portContext.ClientTrustedRoots != nil {
+				clientCAs = portContext.ClientTrustedRoots
 			}
 			config := p.newBaseTLSConfig()
 			config.ClientAuth = tls.VerifyClientCertIfGiven
@@ -170,16 +155,31 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 	}
 
-	dialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+	networkDialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 		if err != nil {
 			reportStats(ctx)
 			return nil, err
 		}
-		targetPort, ok := p.portMapping[raddr.Port]
-		if ok {
-			raddr.Port = targetPort
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(ctx)
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
 		}
+		return conn, nil
+	}
+
+	appDialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
+		if err != nil {
+			reportStats(ctx)
+			return nil, err
+		}
+		pctx, err := p.registry.RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
+		if err != nil {
+			return nil, err
+		}
+		raddr.Port = pctx.TargetPort
 		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 		if err != nil {
 			reportStats(ctx)
@@ -194,14 +194,14 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-		DialContext:         dialerWithContext,
+		DialContext:         networkDialerWithContext,
 		MaxIdleConnsPerHost: 2000,
 		MaxIdleConns:        2000,
 	}
 
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
-		DialContext:         dialerWithContext,
+		DialContext:         appDialerWithContext,
 		MaxIdleConns:        2000,
 		MaxIdleConnsPerHost: 2000,
 	}
@@ -271,11 +271,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 
 // UpdateCaches updates the port mapping caches.
 func (p *Config) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
-	p.Lock()
-	defer p.Unlock()
-
-	p.portCache = portCache
-	p.portMapping = portMap
+	return
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
@@ -288,11 +284,12 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 		// we will use the service public certificate. Otherwise, we will return the
 		// enforcer certificate since this is internal access.
 		if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
-			_, port := mconn.GetOriginalDestination()
-			service, ok := p.portCache[port]
-			if !ok {
-				return nil, fmt.Errorf("service not available - cert is nil")
+			ip, port := mconn.GetOriginalDestination()
+			portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+			if err != nil {
+				return nil, fmt.Errorf("service not available: %s %d", ip.String(), port)
 			}
+			service := portContext.Service
 			if service.PublicNetworkInfo != nil && service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
 				tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
 				if err != nil {
@@ -308,65 +305,39 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, *policy.ApplicationService, error) {
-	pu, err := p.puFromIDCache.Get(p.puContext)
-	if err != nil {
-		zap.L().Error("Cannot find policy, dropping request")
-		return nil, nil, nil, err
-	}
-	puContext := pu.(*pucontext.PUContext)
+func (p *Config) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregistry.PortContext, error) {
 
-	service, ok := p.portCache[port]
-	if !ok {
-		zap.L().Error("Uknown destination port", zap.Int("Port", port))
-		return nil, nil, nil, fmt.Errorf("service not found")
-	}
-
-	authorizer, err := p.authProcessorCache.Get(p.puContext)
-	if err != nil {
-		zap.L().Error("Undefined context", zap.String("Context", p.puContext))
-		return nil, nil, nil, fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
-	}
-
-	return puContext, authorizer.(*auth.Processor), service, nil
+	return p.registry.RetrieveExposedServiceContext(originalIP.IP, originalIP.Port, "")
 }
 
-func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
-	pu, err := p.puFromIDCache.Get(p.puContext)
+func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *urisearch.APICache, error) {
+	sctx, err := p.registry.RetrieveServiceByID(p.puContext)
 	if err != nil {
-		zap.L().Error("Cannot find policy, dropping request")
-		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Unknown service: %s", err)
 	}
-	puContext := pu.(*pucontext.PUContext)
-
-	// Find the right API cache for this context and service. This is done in two steps.
-	// First lookup is to find the PU context. Second lookup is to find the cache based on
-	// the service.
-	data, err := p.dependentAPICache.Get(p.puContext)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
-		return nil, nil, err
+	data := sctx.DependentServiceCache.Find(address.IP.To4(), address.Port, "", false)
+	if data == nil {
+		return nil, nil, fmt.Errorf("Failed to find API cache")
 	}
 
-	apiCache, ok := data.(map[string]*urisearch.APICache)[appendDefaultPort(r.Host)]
+	apiCache, ok := data.(*urisearch.APICache)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown destination %s", r.Host), http.StatusForbidden)
-		return nil, nil, fmt.Errorf("Cannot handle request - unknown destination")
+		return nil, nil, fmt.Errorf("Internal error - wrong types")
 	}
-
-	return puContext, apiCache, nil
+	return sctx, apiCache, nil
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
-	puContext, apiCache, err := p.retrieveApplicationContext(w, r)
+	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
+
+	sctx, apiCache, err := p.retrieveApplicationContext(originalDestination)
 	if err != nil {
+		zap.L().Error("Cannot identify application context", zap.Error(err))
 		return
 	}
-
-	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
@@ -380,18 +351,18 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		},
 		Source: &collector.EndPoint{
 			Type: collector.EnpointTypePU,
-			ID:   puContext.ManagementID(),
+			ID:   sctx.PUContext.ManagementID(),
 			IP:   "0.0.0.0/0",
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 		ServiceID:   apiCache.ID,
-		Tags:        puContext.Annotations(),
+		Tags:        sctx.PUContext.Annotations(),
 		Count:       1,
 	}
 
-	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
 		record.PolicyID = netaction.PolicyID
@@ -420,7 +391,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		if !rule.Public {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
-			if err = p.verifyPolicy(rule.Scopes, puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+			if err = p.verifyPolicy(rule.Scopes, sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes(), []string{}); err != nil {
 				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 				return
@@ -435,9 +406,9 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	token, err := servicetokens.CreateAndSign(
 		p.server.Addr,
-		puContext.Identity().Tags,
-		puContext.Scopes(),
-		puContext.ManagementID(),
+		sctx.PUContext.Identity().Tags,
+		sctx.PUContext.Scopes(),
+		sctx.PUContext.ManagementID(),
 		defaultValidity,
 		p.secrets.EncodingKey(),
 	)
@@ -497,25 +468,25 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, authorizer, service, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
+	pctx, err := p.retrieveNetworkContext(originalDestination)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
 		p.collector.CollectFlowEvent(record)
 		return
 	}
-	record.ServiceID = service.ID
-	record.Tags = puContext.Annotations()
-	record.Destination.ID = puContext.ManagementID()
+	record.ServiceID = pctx.Service.ID
+	record.Tags = pctx.PUContext.Annotations()
+	record.Destination.ID = pctx.PUContext.ManagementID()
 
 	if strings.HasPrefix(r.RequestURI, "/aporeto/oidc/callback") {
-		authorizer.Callback(service.ID, w, r)
+		pctx.Authorizer.Callback(w, r)
 		record.Action = policy.Accept
 		return
 	}
 
 	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
+	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
 	record.PolicyID = aclPolicy.PolicyID
 	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
@@ -539,7 +510,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Calculate the user attributes. User attributes can be derived either from a
 	// token or from a certificate. The authorizer library will parse them.
 	userToken, userCerts := userCredentials(r)
-	userAttributes, redirect, err := authorizer.DecodeUserClaims(service.ID, userToken, userCerts, r)
+	userAttributes, redirect, err := pctx.Authorizer.DecodeUserClaims(pctx.Service.ID, userToken, userCerts, r)
 	if err == nil && len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
@@ -548,7 +519,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculate the Aporeto PU claims by parsing the token if it exists.
-	sourceID, aporetoClaims := authorizer.DecodeAporetoClaims(service.ID, token, key)
+	sourceID, aporetoClaims := pctx.Authorizer.DecodeAporetoClaims(token, key)
 	if len(aporetoClaims) > 0 {
 		record.Source.ID = sourceID
 		record.Source.Type = collector.EnpointTypePU
@@ -560,7 +531,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// policies with ACLs only, and we have to cover this case.
 	if noNetAccessPolicy != nil {
 		if len(aporetoClaims) > 0 {
-			_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
+			_, netPolicyAction := pctx.PUContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
 			record.PolicyID = netPolicyAction.PolicyID
 			if netPolicyAction.Action.Rejected() {
 				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
@@ -580,17 +551,17 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// We can now validate the API authorization. This is the final step
 	// before forwarding.
 	allClaims := append(aporetoClaims, userAttributes...)
-	accept, public := authorizer.Check(service.ID, r.Method, r.URL.Path, allClaims)
+	accept, public := pctx.Authorizer.Check(r.Method, r.URL.Path, allClaims)
 	if !accept {
 		if !public {
 			record.DropReason = collector.PolicyDrop
 			if record.Source.Type != collector.EnpointTypePU {
 				if redirect {
-					w.Header().Add("Location", authorizer.RedirectURI(service.ID, r.URL.String()))
+					w.Header().Add("Location", pctx.Authorizer.RedirectURI(r.URL.String()))
 					http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
 					return
-				} else if len(service.UserRedirectOnAuthorizationFail) > 0 {
-					w.Header().Add("Location", service.UserRedirectOnAuthorizationFail+"?failure_message=authorization")
+				} else if len(pctx.Service.UserRedirectOnAuthorizationFail) > 0 {
+					w.Header().Add("Location", pctx.Service.UserRedirectOnAuthorizationFail+"?failure_message=authorization")
 					http.Error(w, "Authorization failed", http.StatusTemporaryRedirect)
 					return
 				}
@@ -620,7 +591,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the request headers with the user attributes as defined by the mappings
-	authorizer.UpdateRequestHeaders(service.ID, r, userAttributes)
+	pctx.Authorizer.UpdateRequestHeaders(r, userAttributes)
 
 	// Update the statistics and forward the request. We always encrypt downstream
 	record.Action = policy.Accept | policy.Encrypt
@@ -631,7 +602,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// host. Check of network rules that allow this transfer and report the corresponding
 	// flows.
 	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
-		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
 			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)

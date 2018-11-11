@@ -7,23 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.uber.org/zap"
-)
-
-// ListenerType are the types of listeners that can be used.
-type ListenerType int
-
-// Values of ListenerType
-const (
-	TCPApplication ListenerType = iota
-	TCPNetwork
-	HTTPApplication
-	HTTPNetwork
-	HTTPSApplication
-	HTTPSNetwork
 )
 
 // ProtoListener is
@@ -53,31 +41,32 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 // MultiplexedListener is the root listener that will split
 // connections to different protocols.
 type MultiplexedListener struct {
-	root            net.Listener
-	done            chan struct{}
-	shutdown        chan struct{}
-	wg              sync.WaitGroup
-	protomap        map[ListenerType]*ProtoListener
-	servicecache    *servicecache.ServiceCache
+	root     net.Listener
+	done     chan struct{}
+	shutdown chan struct{}
+	wg       sync.WaitGroup
+	protomap map[common.ListenerType]*ProtoListener
+
 	defaultListener *ProtoListener
 	localIPs        map[string]struct{}
 	mark            int
+	registry        *serviceregistry.Registry
 	sync.RWMutex
 }
 
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
-func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
+func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry) *MultiplexedListener {
 
 	return &MultiplexedListener{
-		root:         l,
-		done:         make(chan struct{}),
-		shutdown:     make(chan struct{}),
-		wg:           sync.WaitGroup{},
-		protomap:     map[ListenerType]*ProtoListener{},
-		servicecache: servicecache.NewTable(),
-		localIPs:     connproc.GetInterfaces(),
-		mark:         mark,
+		root:     l,
+		done:     make(chan struct{}),
+		shutdown: make(chan struct{}),
+		wg:       sync.WaitGroup{},
+		protomap: map[common.ListenerType]*ProtoListener{},
+		registry: registry,
+		localIPs: connproc.GetInterfaces(),
+		mark:     mark,
 	}
 }
 
@@ -85,7 +74,7 @@ func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
 // protocol servers should use. If defaultListener is set, this will become
 // the default listener if no match is found. Obviously, there cannot be more
 // than one default.
-func (m *MultiplexedListener) RegisterListener(ltype ListenerType) (*ProtoListener, error) {
+func (m *MultiplexedListener) RegisterListener(ltype common.ListenerType) (*ProtoListener, error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -105,7 +94,7 @@ func (m *MultiplexedListener) RegisterListener(ltype ListenerType) (*ProtoListen
 
 // UnregisterListener unregisters a listener. It returns an error if there are services
 // associated with this listener.
-func (m *MultiplexedListener) UnregisterListener(ltype ListenerType) error {
+func (m *MultiplexedListener) UnregisterListener(ltype common.ListenerType) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -139,20 +128,6 @@ func (m *MultiplexedListener) UnregisterDefaultListener() error {
 	m.defaultListener = nil
 
 	return nil
-}
-
-// NewServiceRegistry creates a new service registry for updates. The caller must
-// call SetServiceRegistry to do an atomic update of the service registry.
-func (m *MultiplexedListener) NewServiceRegistry() *servicecache.ServiceCache {
-	return servicecache.NewTable()
-}
-
-// SetServiceRegistry updates the service registry for the caller.
-func (m *MultiplexedListener) SetServiceRegistry(s *servicecache.ServiceCache) {
-	m.Lock()
-	defer m.Unlock()
-
-	m.servicecache = s
 }
 
 // Close terminates the server without the context.
@@ -217,33 +192,23 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		local = true
 	}
 
-	m.RLock()
-	servicecache := m.servicecache
-	m.RUnlock()
-	entry := servicecache.Find(ip, port, "", !local)
-	if entry == nil {
-		// Let's see if we can match the source address.
-		// Compatibility with deprecated model. TODO: Remove
-		var tcpAddr *net.TCPAddr
-		var ok bool
-		if tcpAddr, ok = remoteAddr.(*net.TCPAddr); !ok {
-			c.Close() // nolint errcheck
-			return
+	var listenerType common.ListenerType
+	if local {
+		pctx, err := m.registry.RetrieveServiceContextByPort(ip, port, "")
+		if err != nil {
+			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
 		}
-		ip = tcpAddr.IP
-
-		entry = servicecache.Find(ip, port, "", !local)
-		if entry == nil {
-			// Failed with source as well.
-			c.Close() // nolint
-			return
+		listenerType = pctx.Type
+	} else {
+		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
+		if err != nil {
+			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
 		}
+		listenerType = pctx.Type
 	}
 
-	ltype := entry.(ListenerType)
-
 	m.RLock()
-	target, ok := m.protomap[ltype]
+	target, ok := m.protomap[listenerType]
 	m.RUnlock()
 	if !ok {
 		c.Close() // nolint
