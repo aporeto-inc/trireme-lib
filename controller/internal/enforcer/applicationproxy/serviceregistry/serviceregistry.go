@@ -143,8 +143,6 @@ func (r *Registry) RetrieveServiceContextByPort(ip net.IP, port int, host string
 	r.Lock()
 	defer r.Unlock()
 
-	r.indexByPort.ListPortServices()
-
 	data := r.indexByPort.Find(ip, port, host, false)
 	if data == nil {
 		return nil, fmt.Errorf("Service information not found: %s %d %s", ip.String(), port, host)
@@ -194,7 +192,6 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 		}
 	}
 
-	fmt.Println("Adding private", service.PrivateNetworkInfo.Addresses, service.PrivateNetworkInfo.Ports.String())
 	// Add the new references.
 	if err := r.indexByPort.Add(
 		service.PrivateNetworkInfo,
@@ -213,7 +210,6 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 		return fmt.Errorf("Possible port overlap: %s", err)
 	}
 
-	fmt.Println("Adding public", service.PublicNetworkInfo.Addresses, service.PublicNetworkInfo.Ports.String())
 	if err := r.indexByPort.Add(
 		service.PublicNetworkInfo,
 		sctx.PU.ContextID,
@@ -238,7 +234,6 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 func (r *Registry) updateExposedServices(sctx *ServiceContext, secrets secrets.Secrets) error {
 
 	for _, service := range sctx.PU.Policy.ExposedServices() {
-		fmt.Println("Processing exposed service", service.ID)
 		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
 			continue
 		}

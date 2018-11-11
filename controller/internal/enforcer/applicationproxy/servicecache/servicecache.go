@@ -84,17 +84,6 @@ func (s *ServiceCache) Find(ip net.IP, port int, host string, local bool) interf
 	return s.findIP(ip, port, local)
 }
 
-func (s *ServiceCache) ListPortServices() {
-	fmt.Println("Local Ports")
-	for _, spec := range s.localPorts {
-		fmt.Println("Port", spec.ports.String())
-	}
-	fmt.Println("Remote Ports")
-	for _, spec := range s.remotePorts {
-		fmt.Println("Port", spec.ports.String())
-	}
-}
-
 func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool) error {
 	prefixes := s.remote
 	if local {
@@ -103,7 +92,6 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 
 	// If addresses are nil, I only care about ports.
 	if len(e.Addresses) == 0 {
-		fmt.Println("Converting to 0.0.0.0/0")
 		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
 		e.Addresses = []*net.IPNet{ip}
 	}
