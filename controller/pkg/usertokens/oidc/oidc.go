@@ -155,7 +155,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 // Validate checks if the token is valid and returns the claims. The validator
 // maintains an internal cache with tokens to accelerate performance. If the
 // token is not in the cache, it will validate it with the central authorizer.
-func (v *TokenVerifier) Validate(ctx context.Context, token string, r *http.Request) ([]string, bool, string, error) {
+func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, bool, string, error) {
 
 	if len(token) == 0 {
 		return []string{}, true, token, fmt.Errorf("Invalid token presented")
