@@ -198,7 +198,7 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 		return err
 	}
 
-	clientCAs := &x509.CertPool{}
+	clientCAs := x509.NewCertPool()
 	if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
 		len(service.MutualTLSTrustedRoots) > 0 {
 		if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
