@@ -71,7 +71,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		ClientID: v.ClientID,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
-	scopes := []string{oidc.ScopeOpenID, "profile", "email", "offline_access"}
+	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
 	for _, scope := range v.Scopes {
 		if scope != oidc.ScopeOpenID && scope != "profile" && scope != "email" {
 			scopes = append(scopes, scope)
