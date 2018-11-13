@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "master"
+  branch = "release-3.4.0"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
