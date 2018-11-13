@@ -212,7 +212,6 @@ func isTemporary(err error) bool {
 	switch t := err.(type) {
 	case net.Error:
 		if t.Timeout() {
-			fmt.Println("Timeout error")
 			return true
 		}
 	case syscall.Errno:

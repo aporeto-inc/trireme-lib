@@ -15,19 +15,15 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
-type service struct {
-	apis                  *urisearch.APICache
-	userTokenHandler      usertokens.Verifier
-	userTokenMappings     map[string]string
-	userAuthorizationType policy.UserAuthorizationTypeValues
-}
-
 // Processor holds all the local data of the authorization engine. A processor
 // can handle authorization for multiple services. The goal is to authenticate
 // a request based on both service and user credentials.
 type Processor struct {
-	serviceMap map[string]*service
-	aporetoJWT *servicetokens.Verifier
+	apis                  *urisearch.APICache
+	userTokenHandler      usertokens.Verifier
+	userTokenMappings     map[string]string
+	userAuthorizationType policy.UserAuthorizationTypeValues
+	aporetoJWT            *servicetokens.Verifier
 	sync.RWMutex
 }
 
@@ -37,7 +33,6 @@ type Processor struct {
 // will be used for token validation.
 func NewProcessor(s secrets.Secrets, trustedCertificate *x509.Certificate) *Processor {
 	return &Processor{
-		serviceMap: map[string]*service{},
 		aporetoJWT: servicetokens.NewVerifier(s, trustedCertificate),
 	}
 }
@@ -49,68 +44,29 @@ func (p *Processor) UpdateSecrets(s secrets.Secrets, trustedCertificate *x509.Ce
 }
 
 // AddOrUpdateService adds or replaces a service in the authorization db.
-func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, serviceType policy.UserAuthorizationTypeValues, handler usertokens.Verifier, mappings map[string]string) {
+func (p *Processor) AddOrUpdateService(apis *urisearch.APICache, serviceType policy.UserAuthorizationTypeValues, handler usertokens.Verifier, mappings map[string]string) {
 	p.Lock()
 	defer p.Unlock()
 
-	if service, ok := p.serviceMap[name]; ok {
-		service.apis = apis
-		service.userTokenMappings = mappings
-		service.userTokenHandler = handler
-		service.userAuthorizationType = serviceType
-		return
-	}
-
-	p.serviceMap[name] = &service{
-		apis:                  apis,
-		userTokenHandler:      handler,
-		userTokenMappings:     mappings,
-		userAuthorizationType: serviceType,
-	}
-}
-
-// RemoveUnusedServices will remove from the cache any service that is not the
-// list of the validServices.
-func (p *Processor) RemoveUnusedServices(validServices map[string]bool) {
-	p.Lock()
-	defer p.Unlock()
-	for service := range p.serviceMap {
-		if _, ok := validServices[service]; !ok {
-			delete(p.serviceMap, service)
-		}
-	}
-}
-
-// RemoveService removes a service from the authorization db
-func (p *Processor) RemoveService(name string) {
-	p.Lock()
-	defer p.Unlock()
-
-	delete(p.serviceMap, name)
+	p.apis = apis
+	p.userTokenMappings = mappings
+	p.userTokenHandler = handler
+	p.userAuthorizationType = serviceType
 }
 
 // UpdateServiceAPIs updates an existing service with a new API definition.
-func (p *Processor) UpdateServiceAPIs(name string, apis *urisearch.APICache) error {
+func (p *Processor) UpdateServiceAPIs(apis *urisearch.APICache) error {
 	p.Lock()
 	defer p.Unlock()
 
-	if srv, ok := p.serviceMap[name]; ok {
-		srv.apis = apis
-		return nil
-	}
-
-	return fmt.Errorf("Service not found")
+	p.apis = apis
+	return nil
 }
 
 // DecodeUserClaims decodes the user claims with the user authorization method.
 func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, error) {
 
-	srv, ok := p.serviceMap[name]
-	if !ok {
-		return []string{}, false, nil
-	}
-
-	switch srv.userAuthorizationType {
+	switch p.userAuthorizationType {
 	case policy.UserAuthorizationMutualTLS:
 		// First parse any incoming certificates and retrieve attributes from them.
 		// This is used in case of client authorization with certificates.
@@ -130,17 +86,17 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 		return attributes, false, nil
 	case policy.UserAuthorizationOIDC, policy.UserAuthorizationJWT:
 		// Now we can parse the user claims.
-		if srv.userTokenHandler == nil {
+		if p.userTokenHandler == nil {
 			return []string{}, false, nil
 		}
-		return srv.userTokenHandler.Validate(r.Context(), userToken)
+		return p.userTokenHandler.Validate(r.Context(), userToken)
 	default:
 		return []string{}, false, nil
 	}
 }
 
 // DecodeAporetoClaims decodes the Aporeto claims
-func (p *Processor) DecodeAporetoClaims(name, aporetoToken string, publicKey string) (string, []string) {
+func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string) {
 	if len(aporetoToken) == 0 || p.aporetoJWT == nil {
 		return "", []string{}
 	}
@@ -155,20 +111,12 @@ func (p *Processor) DecodeAporetoClaims(name, aporetoToken string, publicKey str
 
 // Callback is function called by and IDP auth provider will exchange the provided
 // authorization code with a JWT token. This closes the Oauth loop.
-func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request) {
+func (p *Processor) Callback(w http.ResponseWriter, r *http.Request) {
 	p.RLock()
 	defer p.RUnlock()
 
-	// We first detect the service that is being called, in order to get the
-	// right OAUTH context.
-	srv, ok := p.serviceMap[name]
-	if !ok {
-		http.Error(w, "Unknown service", http.StatusInternalServerError)
-		return
-	}
-
 	// Validate the JWT token through the handler.
-	token, originURL, status, err := srv.userTokenHandler.Callback(r)
+	token, originURL, status, err := p.userTokenHandler.Callback(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid code %s:", err), http.StatusInternalServerError)
 		return
@@ -202,58 +150,40 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 // be allowed. It returns two values. If the access is allowed, and whether the access
 // public or not. This allows callers to decide what to do when there is a failure, and
 // potentially issue a redirect.
-func (p *Processor) Check(name, method, uri string, claims []string) (bool, bool) {
+func (p *Processor) Check(method, uri string, claims []string) (bool, bool) {
 	p.RLock()
 	defer p.RUnlock()
 
-	srv, ok := p.serviceMap[name]
-	if !ok {
-		return false, false
-	}
-
-	return srv.apis.FindAndMatchScope(method, uri, claims)
+	return p.apis.FindAndMatchScope(method, uri, claims)
 }
 
 // RedirectURI returns the redirect URI in order to start the authentication dance.
-func (p *Processor) RedirectURI(name string, originURL string) string {
+func (p *Processor) RedirectURI(originURL string) string {
 	p.RLock()
 	defer p.RUnlock()
 
-	srv, ok := p.serviceMap[name]
-	if !ok {
-		return ""
-	}
-	//TODO: erropr hanmdlign
-	return srv.userTokenHandler.IssueRedirect(originURL)
+	return p.userTokenHandler.IssueRedirect(originURL)
 }
 
 // UpdateRequestHeaders will update the request headers based on the user claims
 // and the corresponding mappings.
-func (p *Processor) UpdateRequestHeaders(name string, r *http.Request, claims []string) {
+func (p *Processor) UpdateRequestHeaders(r *http.Request, claims []string) {
 	p.RLock()
 	defer p.RUnlock()
 
-	srv, ok := p.serviceMap[name]
-	if !ok {
-		return
-	}
-
-	if len(srv.userTokenMappings) == 0 {
+	if len(p.userTokenMappings) == 0 {
 		return
 	}
 
 	for _, claim := range claims {
 		parts := strings.SplitN(claim, "=", 2)
-		if header, ok := srv.userTokenMappings[parts[0]]; ok && len(parts) == 2 {
+		if header, ok := p.userTokenMappings[parts[0]]; ok && len(parts) == 2 {
 			r.Header.Add(header, parts[1])
 		}
 	}
 }
 
 // RetrieveServiceHandler will retrieve the service that is stored in the serviceMap
-func (p *Processor) RetrieveServiceHandler(name string) (usertokens.Verifier, error) {
-	if s, ok := p.serviceMap[name]; ok {
-		return s.userTokenHandler, nil
-	}
-	return nil, fmt.Errorf("Service not found")
+func (p *Processor) RetrieveServiceHandler() (usertokens.Verifier, error) {
+	return p.userTokenHandler, nil
 }
