@@ -136,9 +136,9 @@ func (i *Instance) chainName(contextID string, version int) (app, net string, er
 	}
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:6])
+		contextID = contextID[:4] + output[:6]
 	} else {
-		contextID = contextID + string(output[:6])
+		contextID = contextID + output[:6]
 	}
 
 	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
@@ -198,12 +198,12 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	}
 
 	if i.isLegacyKernel {
-		if err = i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+		if err = i.deleteLegacyNATExclusionACLs(mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err = i.deleteNATExclusionACLs(appChain, netChain, mark, proxyPortSetName, exclusions); err != nil {
+		if err = i.deleteNATExclusionACLs(mark, proxyPortSetName, exclusions); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
@@ -287,12 +287,12 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	if i.isLegacyKernel {
-		if err := i.deleteLegacyNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
+		if err := i.deleteLegacyNATExclusionACLs(mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err := i.deleteNATExclusionACLs(appChain, netChain, mark, proxySetName, excludedNetworks); err != nil {
+		if err := i.deleteNATExclusionACLs(mark, proxySetName, excludedNetworks); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
@@ -405,11 +405,7 @@ func (i *Instance) InitializeChains() error {
 		return err
 	}
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
-		return err
-	}
-
-	return nil
+	return i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain)
 }
 
 // ACLProvider returns the current ACL provider that can be re-used by other entities.
@@ -417,8 +413,8 @@ func (i *Instance) ACLProvider() provider.IptablesProvider {
 	return i.ipt
 }
 
-// configureContainerRule adds the chain rules for a container.
-func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
+// configureContainerRules adds the chain rules for a container.
+func (i *Instance) configureContainerRules(appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
 	proxyPort := puInfo.Runtime.Options().ProxyPort
 
@@ -481,7 +477,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	// If its a remote and thus container, configure container rules.
 	if i.mode == constants.RemoteContainer || i.mode == constants.Sidecar {
-		if err := i.configureContainerRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+		if err := i.configureContainerRules(appChain, netChain, proxySetName, containerInfo); err != nil {
 			return err
 		}
 	}
@@ -495,7 +491,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks(), isHostPU); err != nil {
+	if err := i.addPacketTrap(appChain, netChain, isHostPU); err != nil {
 		return err
 	}
 
@@ -510,12 +506,12 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 	if i.isLegacyKernel {
 		// doesn't work for clients.
 		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
 			return err
 		}
 
 	} else {
-		if err := i.addNATExclusionACLs(appChain, netChain, containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
 			return err
 		}
 	}
@@ -533,9 +529,9 @@ func puPortSetName(contextID string, prefix string) string {
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 
 	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:4])
+		contextID = contextID[:4] + output[:4]
 	} else {
-		contextID = contextID + string(output[:4])
+		contextID = contextID + output[:4]
 	}
 
 	return (prefix + contextID)

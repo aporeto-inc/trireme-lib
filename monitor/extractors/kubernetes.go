@@ -47,12 +47,7 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 	}
 
 	// In this specific metadataExtractor we only want to activate the Infra Container for each pod.
-	process, err := isPodInfraContainer(runtime)
-	if err != nil {
-		return nil, false, fmt.Errorf("Error while processing Kubernetes pod %s", err)
-	}
-
-	if !process {
+	if !isPodInfraContainer(runtime) {
 		return nil, false, nil
 	}
 
@@ -80,12 +75,12 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 }
 
 // isPodInfraContainer returns true if the runtime represents the infra container for the POD
-func isPodInfraContainer(runtime policy.RuntimeReader) (bool, error) {
+func isPodInfraContainer(runtime policy.RuntimeReader) bool {
 	// The Infra container can be found by checking env. variable.
 	tagContent, ok := runtime.Tag(KubernetesContainerNameIdentifier)
 	if !ok || tagContent != KubernetesInfraContainerName {
-		return false, nil
+		return false
 	}
 
-	return true, nil
+	return true
 }

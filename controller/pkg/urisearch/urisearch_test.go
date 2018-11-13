@@ -10,7 +10,7 @@ import (
 func initTrieRules() []*policy.HTTPRule {
 
 	return []*policy.HTTPRule{
-		&policy.HTTPRule{
+		{
 			Methods: []string{"GET", "PUT"},
 			URIs: []string{
 				"/users/?/name",
@@ -18,7 +18,7 @@ func initTrieRules() []*policy.HTTPRule {
 			},
 			Scopes: []string{"policy1"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"PATCH"},
 			URIs: []string{
 				"/users/?/name",
@@ -26,7 +26,7 @@ func initTrieRules() []*policy.HTTPRule {
 			},
 			Scopes: []string{"policy2"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"POST"},
 			URIs: []string{
 				"/v1/users/?/name",
@@ -35,42 +35,42 @@ func initTrieRules() []*policy.HTTPRule {
 			Public: true,
 			Scopes: []string{"policy3"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"POST"},
 			URIs:    []string{"/"},
 			Scopes:  []string{"policy4"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"PATCH"},
 			URIs:    []string{"/?"},
 			Scopes:  []string{"policy5"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/*"},
 			Scopes:  []string{"policy7"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/?/c/d"},
 			Scopes:  []string{"policy8"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/b/?/e"},
 			Scopes:  []string{"policy9"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/*/c/x"},
 			Scopes:  []string{"policy10"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/b/?/w"},
 			Scopes:  []string{"policy11"},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/b/?/y/*"},
 			Scopes:  []string{"policy12"},

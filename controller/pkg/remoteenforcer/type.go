@@ -14,7 +14,7 @@ import (
 
 // RemoteEnforcer : This is the structure for maintaining state required by the
 // remote enforcer.
-// It is a cache of variables passed by th controller to the remote enforcer and
+// It is a cache of variables passed by the controller to the remote enforcer and
 // other handles required by the remote enforcer to talk to the external processes
 //
 // Why is this public when all members are private ? For golang RPC server requirements

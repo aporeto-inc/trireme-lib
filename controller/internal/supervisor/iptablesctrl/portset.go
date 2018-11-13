@@ -51,7 +51,7 @@ func (i *Instance) deletePortSet(contextID string) error {
 	}
 
 	if err := ips.Destroy(); err != nil {
-		return fmt.Errorf("Failed to delete pu port set "+fmt.Sprintf("%s", portSetName), zap.Error(err))
+		return fmt.Errorf("Failed to delete pu port set "+portSetName, zap.Error(err))
 	}
 
 	if err := i.contextIDToPortSetMap.Remove(contextID); err != nil {

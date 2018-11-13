@@ -156,7 +156,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
 	// Retrieve the context from the packet information.
-	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
+	context, err := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolUDP)
 	if err != nil {
 		return nil, err
 	}
@@ -226,15 +226,14 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 	case packet.UDPAckMask:
 
 		// Retrieve the header and parse the signatures.
-		action, claims, err = d.processNetworkUDPAckPacket(udpPacket, context, conn)
-		if err != nil {
+		if err = d.processNetworkUDPAckPacket(udpPacket, context, conn); err != nil {
 			zap.L().Error("Error during authorization", zap.Error(err))
-			return action, claims, err
+			return nil, nil, err
 		}
 
 		// Set the connection to
 		conn.SetState(connection.UDPReceiverProcessedAck)
-		return action, claims, nil
+		return nil, nil, nil
 
 	case packet.UDPSynAckMask:
 
@@ -320,7 +319,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	case connection.UDPReceiverProcessedAck, connection.UDPClientSendAck, connection.UDPData:
 		conn.SetState(connection.UDPData)
-		break
 
 	default:
 		zap.L().Debug("Packet is added to the queue", zap.String("flow", p.L4FlowHash()))
@@ -358,7 +356,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 		return conn.(*connection.UDPConnection), nil
 	}
 
-	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolUDP)
+	context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolUDP)
 	if err != nil {
 		return nil, fmt.Errorf("No context in app processing")
 	}
@@ -464,7 +462,7 @@ func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
 	return marker
 }
 
-// processApplicationSynAckPacket processes a UDP SynAck packet
+// sendUDPSynAckPacket processes a UDP SynAck packet
 func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create UDP Option
@@ -623,14 +621,14 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	return pkt, claims, nil
 }
 
-func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (action interface{}, claims *tokens.ConnectionClaims, err error) {
+func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	conn.SynAckStop()
 
 	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-		return nil, nil, fmt.Errorf("ack packet dropped because signature validation failed: %s", err)
+		return fmt.Errorf("ack packet dropped because signature validation failed: %s", err)
 	}
 
 	if !conn.ServiceConnection {
@@ -650,5 +648,5 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 
-	return nil, nil, nil
+	return nil
 }

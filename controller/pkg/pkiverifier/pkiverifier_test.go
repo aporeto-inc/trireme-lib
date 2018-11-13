@@ -115,6 +115,20 @@ func TestCreateAndVerify(t *testing.T) {
 			So(err2, ShouldNotBeNil)
 		})
 	})
+
+	Convey("Given an invalid verifier", t, func() {
+		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+		So(err, ShouldBeNil)
+		p := NewPKIIssuer(key)
+		v := NewPKIVerifier([]*ecdsa.PublicKey{nil}, -1)
+		So(p, ShouldNotBeNil)
+		Convey("When I a receive a valid token, I should get an error", func() {
+			token, err1 := p.CreateTokenFromCertificate(cert)
+			So(err1, ShouldBeNil)
+			_, err2 := v.Verify(token)
+			So(err2, ShouldNotBeNil)
+		})
+	})
 }
 
 func TestCaching(t *testing.T) {

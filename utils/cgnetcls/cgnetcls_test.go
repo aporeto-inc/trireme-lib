@@ -22,6 +22,7 @@ const (
 	testcgroupname       = "/test"
 	testcgroupnameformat = "test"
 	testmark             = 100
+	testRootUser         = "root"
 )
 
 func cleanupnetclsgroup() {
@@ -33,7 +34,7 @@ func cleanupnetclsgroup() {
 
 func TestCreategroup(t *testing.T) {
 
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 
@@ -87,12 +88,11 @@ func TestCreategroup(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-	return
 }
 
 func TestAssignMark(t *testing.T) {
 	cg := NewCgroupNetController("/tmp", "")
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	//Assigning mark before creating group
@@ -128,7 +128,7 @@ func TestAddProcess(t *testing.T) {
 	//hopefully this pid does not exist
 	pid := 1<<31 - 1
 	r := rand.New(rand.NewSource(23))
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	cg := NewCgroupNetController("/tmp", "")
@@ -171,7 +171,7 @@ func TestAddProcess(t *testing.T) {
 }
 
 func TestRemoveProcess(t *testing.T) {
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	cg := NewCgroupNetController("/tmp", "")
@@ -202,7 +202,7 @@ func TestRemoveProcess(t *testing.T) {
 }
 
 func TestDeleteCgroup(t *testing.T) {
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	cg := NewCgroupNetController("/tmp", "")
@@ -226,7 +226,7 @@ func TestDeleteCgroup(t *testing.T) {
 }
 
 func TestDeleteBasePath(t *testing.T) {
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	cg := NewCgroupNetController("/tmp", "")
@@ -248,7 +248,7 @@ func TestDeleteBasePath(t *testing.T) {
 func TestListCgroupProcesses(t *testing.T) {
 	pid := 1<<31 - 1
 	r := rand.New(rand.NewSource(23))
-	if os.Getenv("USER") != "root" {
+	if os.Getenv("USER") != testRootUser {
 		t.SkipNow()
 	}
 	cg := NewCgroupNetController("/tmp", "")

@@ -38,7 +38,6 @@ func LaunchContainer(path string) int {
 		if strings.Contains(scanner.Text(), "Pid") {
 			a := strings.Split(scanner.Text(), ":")[1]
 			pid, _ := strconv.Atoi(strings.TrimSpace(a[:len(a)-1]))
-			fmt.Println(pid)
 			if err := os.MkdirAll(filepath.Join(path, fmt.Sprintf("%d/ns/net", pid)), os.ModePerm); err != nil {
 				return 0
 			}
@@ -148,7 +147,7 @@ func TestLaunchProcess(t *testing.T) {
 
 func TestKillProcess(t *testing.T) {
 
-	contextID := "12345"
+	contextID := "12346"
 	refPid := LaunchContainer(testDirBase)
 	refNSPath := ""
 	calledRemoteCall := false

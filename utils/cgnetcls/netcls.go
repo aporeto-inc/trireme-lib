@@ -17,8 +17,10 @@ type netCls struct {
 	TriremePath      string
 }
 
-var basePath = "/sys/fs/cgroup/net_cls"
-var markval uint64 = Initialmarkval
+var (
+	basePath        = "/sys/fs/cgroup/net_cls"
+	markval  uint64 = Initialmarkval
+)
 
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {
@@ -52,7 +54,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	for _, line := range strings.Split(string(data), "\n") {
 		if len(line) > 0 {
-			procs = append(procs, string(line))
+			procs = append(procs, line)
 		}
 	}
 

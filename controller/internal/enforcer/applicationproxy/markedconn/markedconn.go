@@ -254,8 +254,7 @@ func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) { // n
 		return nil, []byte{}, 0, fmt.Errorf("invalid address family")
 	}
 
-	var ip net.IP
-	ip = addr.data[2:6]
+	ip := addr.data[2:6]
 	port := int(addr.data[0])<<8 + int(addr.data[1])
 
 	// Here we create a new connection object and return that one to avoid
@@ -270,7 +269,7 @@ func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) { // n
 }
 
 func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
+	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), val, uintptr(unsafe.Pointer(vallen)), 0)
 	if e1 != 0 {
 		err = e1
 	}

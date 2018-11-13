@@ -347,11 +347,7 @@ func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo *policy.PURuntime
 		return err
 	}
 
-	if err := d.netcls.AddProcess(puID, dockerInfo.State.Pid); err != nil {
-		return err
-	}
-
-	return nil
+	return d.netcls.AddProcess(puID, dockerInfo.State.Pid)
 }
 
 func (d *DockerMonitor) retrieveDockerInfo(ctx context.Context, event *events.Message) (*types.ContainerJSON, error) {

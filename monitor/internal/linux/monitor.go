@@ -32,11 +32,7 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
-	if err := l.Resync(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return l.Resync(ctx)
 }
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
