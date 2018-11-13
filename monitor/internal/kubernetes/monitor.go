@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
@@ -29,6 +30,7 @@ type KubernetesMonitor struct {
 	podStore          kubecache.Store
 	podController     kubecache.Controller
 	podControllerStop chan struct{}
+	netcls            cgnetcls.Cgroupnetcls
 
 	enableHostPods bool
 }
@@ -94,6 +96,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 		m.updatePod)
 
 	m.podControllerStop = make(chan struct{})
+	m.netcls = cgnetcls.NewDockerCgroupNetController()
 
 	zap.L().Debug("Pod Controller created")
 

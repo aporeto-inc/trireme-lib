@@ -301,8 +301,24 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 	return nil
 }
 
+// isKubernetesContainer
+func isKubernetesContainer(runtime policy.RuntimeReader) bool {
+
+	if _, ok := runtime.Tag(constants.KubernetesPodNamespaceIdentifier); ok {
+		return true
+	}
+
+	return false
+}
+
 // setupHostMode sets up the net_cls cgroup for the host mode
 func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) (err error) {
+
+	// if its a kubernetes container, do not setup host mode. It is set up by kubernetes monitor.
+	if isKubernetesContainer(runtimeInfo) {
+		zap.L().Debug("Kubernetes container is ignored", zap.String("puID", puID))
+		return nil
+	}
 
 	if err = d.netcls.Creategroup(puID); err != nil {
 		return err

@@ -6,6 +6,9 @@ const (
 
 	// DefaultDockerSocketType is unix
 	DefaultDockerSocketType = "unix"
+
+	// KubernetesPodNamespaceIdentifier is the label used by Docker for the K8S namespace.
+	KubernetesPodNamespaceIdentifier = "@usr:io.kubernetes.pod.namespace"
 )
 
 const (
