@@ -238,7 +238,7 @@ func (m *KubernetesMonitor) setupHostMode(puID string, runtimeInfo policy.Runtim
 	}
 
 	if err := m.netcls.AddProcess(puID, runtimeInfo.Pid()); err != nil {
-		return fmt.Errorf("Unable to add process %s to cgroup.PUID:%s", runtimeInfo.Pid(), puID)
+		return fmt.Errorf("Unable to add process %d to cgroup.PUID:%s", runtimeInfo.Pid(), puID)
 	}
 
 	return nil
