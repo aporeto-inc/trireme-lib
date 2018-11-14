@@ -639,6 +639,8 @@ func userCredentials(serviceID string, r *http.Request, authorizer *auth.Process
 		c.CollectUserEvent(userRecord)
 		state.stats.Source.UserID = userRecord.ID
 		state.stats.Source.Type = collector.EndpointTypeClaims
+	} else if err != nil {
+		zap.L().Error("Failed to decode user claims", zap.Error(err))
 	}
 
 	if refreshedToken != userToken {

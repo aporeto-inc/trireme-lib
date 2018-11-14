@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,7 @@ type TokenVerifier struct {
 	CookieDuration time.Duration
 	clientConfig   *oauth2.Config
 	oauthVerifier  *oidc.IDTokenVerifier
+	googleHack     bool
 }
 
 // NewClient creates a new validator client
@@ -86,6 +88,14 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		Scopes:       scopes,
 	}
 
+	// Google does not honor the OIDC standard to refresh tokens
+	// with a proper scope. Instead it requires a prompt parameter
+	// to be passed. In order to deal wit this, we will have to
+	// detect Google as the OIDC and pass the parameters.
+	if strings.Contains(v.ProviderURL, "accounts.google.com") {
+		v.googleHack = true
+	}
+
 	return v, nil
 }
 
@@ -105,7 +115,12 @@ func (v *TokenVerifier) IssueRedirect(originURL string) string {
 		return ""
 	}
 
-	return v.clientConfig.AuthCodeURL(state)
+	redirectURL := v.clientConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	if v.googleHack {
+		redirectURL = redirectURL + "&prompt=consent"
+	}
+
+	return redirectURL
 }
 
 // Callback is the function that is called back by the IDP to catch the token
@@ -141,10 +156,10 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 	if err := tokenCache.SetWithExpire(
 		rawIDToken,
 		&clientData{
-			tokenSource: v.clientConfig.TokenSource(r.Context(), oauth2Token),
+			tokenSource: v.clientConfig.TokenSource(context.Background(), oauth2Token),
 			expiry:      oauth2Token.Expiry,
 		},
-		time.Until(oauth2Token.Expiry.Add(1200*time.Second)),
+		time.Until(oauth2Token.Expiry.Add(3600*time.Second)),
 	); err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Failed to insert token in the cache: %s", err)
 	}
@@ -225,7 +240,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 
 	// Cache the token and attributes to avoid multiple validations and update the
 	// expiration time.
-	if err := tokenCache.SetWithExpire(token, tokenData, time.Until(idToken.Expiry.Add(1200*time.Second))); err != nil {
+	if err := tokenCache.SetWithExpire(token, tokenData, time.Until(idToken.Expiry.Add(3600*time.Second))); err != nil {
 		return []string{}, false, token, fmt.Errorf("Cannot cache token")
 	}
 
