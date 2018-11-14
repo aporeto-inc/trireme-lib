@@ -170,7 +170,7 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 		}
 		for _, spec := range prefixes[len][binPrefix] {
 			if spec.ports.Overlaps(e.Ports) {
-				return fmt.Errorf("Service port overlap for a given IP not allowed")
+				return fmt.Errorf("Service port overlap for a given IP not allowed: ip %s, port %s", addr.String(), e.Ports.String())
 			}
 		}
 		prefixes[len][binPrefix] = append(prefixes[len][binPrefix], record)
@@ -195,7 +195,7 @@ func (s *ServiceCache) addHostService(e *common.Service, record *entry, local bo
 		}
 		for _, spec := range hostCache[host] {
 			if spec.ports.Overlaps(e.Ports) {
-				return fmt.Errorf("Service port overlap for a given host not allowed")
+				return fmt.Errorf("Service port overlap for a given host not allowed: host %s, port %s", host, e.Ports.String())
 			}
 		}
 		hostCache[host] = append(hostCache[host], record)

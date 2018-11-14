@@ -15,7 +15,7 @@ import (
 // there is a verification error.
 type Verifier interface {
 	VerifierType() common.JWTType
-	Validate(ctx context.Context, token string) ([]string, bool, error)
+	Validate(ctx context.Context, token string) ([]string, bool, string, error)
 	Callback(r *http.Request) (string, string, int, error)
 	IssueRedirect(string) string
 }
