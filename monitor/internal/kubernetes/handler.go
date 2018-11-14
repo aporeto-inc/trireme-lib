@@ -80,6 +80,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	// The event is then sent to the upstream policyResolver
 	if err := m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime); err != nil {
 		zap.L().Error("Unable to resolve policy for puid", zap.String("puID", puID))
+		return fmt.Errorf("Unable to resolve policy for puid:%s", puID)
 	}
 
 	if dockerRuntime.PUType() == common.LinuxProcessPU {
@@ -205,14 +206,12 @@ func (m *KubernetesMonitor) setupHostMode(puID string, runtimeInfo policy.Runtim
 	if event != common.EventStart {
 		return nil
 	}
-
 	// For pause containers, create the cgroup. Add other containers
 	// to the same cgroup as the pause container.
 	if pause {
 		if err = m.netcls.Creategroup(puID); err != nil {
 			return err
 		}
-
 		// Clean the cgroup on exit, if we have failed to activate.
 		defer func() {
 			if err != nil {

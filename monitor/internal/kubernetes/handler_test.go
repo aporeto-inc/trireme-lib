@@ -2,18 +2,18 @@ package kubernetesmonitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
-
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
 	api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -125,6 +125,12 @@ type mockHandler struct{}
 
 func (m *mockHandler) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
 	return nil
+}
+
+type mockErrHandler struct{}
+
+func (m *mockErrHandler) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+	return errors.New("Dummy error")
 }
 
 func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
@@ -306,6 +312,40 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Non infra containers in a pod with host net",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorUnmanaged,
+				cache:               newCache(),
+				handlers: &config.ProcessorConfig{
+					Policy: &mockHandler{},
+				},
+				netcls: netcls,
+			},
+			args: args{
+				event:         common.EventStart,
+				dockerRuntime: pod1Runtime,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Activate host network pu and policy engine fails",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorManaged,
+				cache:               newCache(),
+				handlers: &config.ProcessorConfig{
+					Policy: &mockErrHandler{},
+				},
+				netcls: netcls,
+			},
+			args: args{
+				event:         common.EventStart,
+				dockerRuntime: hostContainerRuntime(),
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 
@@ -480,8 +520,6 @@ func TestKubernetesMonitor_setupHostMode(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-
-		// TODO: Add test cases.
 		{
 			name: "Test programming netcls for pause containers",
 			fields: fields{
@@ -564,49 +602,211 @@ func TestKubernetesMonitor_setupHostMode(t *testing.T) {
 	}
 }
 
-// func TestKubernetesMonitor_findPauseContainer(t *testing.T) {
-// 	type fields struct {
-// 		dockerMonitor       *dockermonitor.DockerMonitor
-// 		kubeClient          kubernetes.Interface
-// 		localNode           string
-// 		handlers            *config.ProcessorConfig
-// 		cache               *cache
-// 		kubernetesExtractor extractors.KubernetesMetadataExtractorType
-// 		podStore            kubecache.Store
-// 		podController       kubecache.Controller
-// 		podControllerStop   chan struct{}
-// 		netcls              cgnetcls.Cgroupnetcls
-// 		enableHostPods      bool
-// 	}
-// 	type args struct {
-// 		podName      string
-// 		podNamespace string
-// 		puID         chan string
-// 	}
-// 	tests := []struct {
-// 		name   string
-// 		fields fields
-// 		args   args
-// 	}{
-//
-// 		// TODO: Add test cases.
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			m := &KubernetesMonitor{
-// 				dockerMonitor:       tt.fields.dockerMonitor,
-// 				kubeClient:          tt.fields.kubeClient,
-// 				localNode:           tt.fields.localNode,
-// 				handlers:            tt.fields.handlers,
-// 				cache:               tt.fields.cache,
-// 				kubernetesExtractor: tt.fields.kubernetesExtractor,
-// 				podStore:            tt.fields.podStore,
-// 				podController:       tt.fields.podController,
-// 				podControllerStop:   tt.fields.podControllerStop,
-// 				netcls:              tt.fields.netcls,
-// 				enableHostPods:      tt.fields.enableHostPods,
-// 			}
-// 			m.findPauseContainer(tt.args.podName, tt.args.podNamespace, tt.args.puID)
-// 		})
-// 	}
-// }
+func TestKubernetesMonitor_findPauseContainer(t *testing.T) {
+
+	testCache := newCache()
+
+	pur1 := policy.NewPURuntime("", 1, "", nil, nil, common.LinuxProcessPU, nil)
+	pur1.SetTags(policy.NewTagStoreFromMap(map[string]string{
+		"@usr:io.kubernetes.container.name": "POD",
+	}))
+
+	pur2 := policy.NewPURuntime("", 1, "", nil, nil, common.ContainerPU, nil)
+	pur2.SetTags(policy.NewTagStoreFromMap(map[string]string{
+		"@usr:io.kubernetes.container.name": "POD",
+	}))
+
+	testCache.updatePUIDCache("abcd", "abcd", "1234", pur1, nil)
+	testCache.updatePUIDCache("abcde", "abcde", "12345", pur2, nil)
+
+	type fields struct {
+		dockerMonitor       *dockermonitor.DockerMonitor
+		kubeClient          kubernetes.Interface
+		localNode           string
+		handlers            *config.ProcessorConfig
+		cache               *cache
+		kubernetesExtractor extractors.KubernetesMetadataExtractorType
+		podStore            kubecache.Store
+		podController       kubecache.Controller
+		podControllerStop   chan struct{}
+		netcls              cgnetcls.Cgroupnetcls
+		enableHostPods      bool
+	}
+	type args struct {
+		podName      string
+		podNamespace string
+		puID         chan string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+
+		// TODO: Add test cases.
+		{
+			name: "Test for pause container activated as Linux PU",
+			fields: fields{
+				cache: testCache,
+			},
+			args: args{podName: "abcd",
+				podNamespace: "abcd",
+				puID:         make(chan string, 1),
+			},
+		},
+		{
+			name: "Test for pause container activated as container PU",
+			fields: fields{
+				cache: testCache,
+			},
+			args: args{podName: "abcde",
+				podNamespace: "abcde",
+				puID:         make(chan string, 1),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &KubernetesMonitor{
+				dockerMonitor:       tt.fields.dockerMonitor,
+				kubeClient:          tt.fields.kubeClient,
+				localNode:           tt.fields.localNode,
+				handlers:            tt.fields.handlers,
+				cache:               tt.fields.cache,
+				kubernetesExtractor: tt.fields.kubernetesExtractor,
+				podStore:            tt.fields.podStore,
+				podController:       tt.fields.podController,
+				podControllerStop:   tt.fields.podControllerStop,
+				netcls:              tt.fields.netcls,
+				enableHostPods:      tt.fields.enableHostPods,
+			}
+			m.findPauseContainer(tt.args.podName, tt.args.podNamespace, tt.args.puID)
+		})
+	}
+}
+
+func TestKubernetesMonitor_programCgroup(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	netcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
+
+	testCache := newCache()
+
+	pur1 := policy.NewPURuntime("", 1, "", nil, nil, common.LinuxProcessPU, nil)
+	pur1.SetTags(policy.NewTagStoreFromMap(map[string]string{
+		"@usr:io.kubernetes.container.name": "POD",
+	}))
+	pur1.SetOptions(policy.OptionsType{
+		CgroupMark: "100",
+	})
+
+	pur2 := policy.NewPURuntime("", 1, "", nil, nil, common.ContainerPU, nil)
+	pur2.SetTags(policy.NewTagStoreFromMap(map[string]string{
+		"@usr:io.kubernetes.container.name": "POD",
+	}))
+
+	testCache.updatePUIDCache("abcd", "abcd", "1234", pur1, nil)
+	testCache.updatePUIDCache("abcde", "abcde", "12345", pur2, nil)
+
+	type fields struct {
+		dockerMonitor       *dockermonitor.DockerMonitor
+		kubeClient          kubernetes.Interface
+		localNode           string
+		handlers            *config.ProcessorConfig
+		cache               *cache
+		kubernetesExtractor extractors.KubernetesMetadataExtractorType
+		podStore            kubecache.Store
+		podController       kubecache.Controller
+		podControllerStop   chan struct{}
+		netcls              cgnetcls.Cgroupnetcls
+		enableHostPods      bool
+	}
+	type args struct {
+		podName      string
+		podNamespace string
+		event        common.Event
+		runtimeInfo  policy.RuntimeReader
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{
+			name: "Find PUID of Pause container with host pod",
+			fields: fields{
+				cache:  testCache,
+				netcls: netcls,
+			},
+			args: args{
+				podName:      "abcd",
+				podNamespace: "abcd",
+				event:        common.EventStart,
+				runtimeInfo:  pur1,
+			},
+		},
+		{
+			name: "Find PUID of Pause container without host pod",
+			fields: fields{
+				cache:  testCache,
+				netcls: netcls,
+			},
+			args: args{
+				podName:      "abcde",
+				podNamespace: "abcde",
+				event:        common.EventStart,
+				runtimeInfo:  pur1,
+			},
+		},
+		{
+			name: "Simulate timeout for a pod not in cache",
+			fields: fields{
+				cache:  testCache,
+				netcls: netcls,
+			},
+			args: args{
+				podName:      "ab",
+				podNamespace: "ab",
+				event:        common.EventStart,
+				runtimeInfo:  pur1,
+			},
+		},
+		{
+			name: "Test no op for non-start events",
+			fields: fields{
+				cache:  testCache,
+				netcls: netcls,
+			},
+			args: args{
+				event: common.EventStop,
+			},
+		},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// only the first test case needs netcls to be mocked.
+			if i == 0 {
+				netcls.EXPECT().Creategroup("1234").Return(nil).MinTimes(0)
+				netcls.EXPECT().AssignMark("1234", gomock.Any()).Return(nil).MinTimes(0)
+				netcls.EXPECT().DeleteCgroup("1234").Return(nil).MinTimes(0)
+				netcls.EXPECT().AddProcess("1234", pur1.Pid()).Return(nil).MinTimes(0)
+			}
+			m := &KubernetesMonitor{
+				dockerMonitor:       tt.fields.dockerMonitor,
+				kubeClient:          tt.fields.kubeClient,
+				localNode:           tt.fields.localNode,
+				handlers:            tt.fields.handlers,
+				cache:               tt.fields.cache,
+				kubernetesExtractor: tt.fields.kubernetesExtractor,
+				podStore:            tt.fields.podStore,
+				podController:       tt.fields.podController,
+				podControllerStop:   tt.fields.podControllerStop,
+				netcls:              tt.fields.netcls,
+				enableHostPods:      tt.fields.enableHostPods,
+			}
+			m.programCgroup(tt.args.podName, tt.args.podNamespace, tt.args.event, tt.args.runtimeInfo)
+		})
+	}
+}
