@@ -129,6 +129,10 @@ func (m *mockHandler) HandlePUEvent(ctx context.Context, puID string, event comm
 
 func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	netcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
+
 	pod1 := &api.Pod{}
 	pod1.SetName("pod1")
 	pod1.SetNamespace("beer")
@@ -138,6 +142,19 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 		KubernetesPodNamespaceIdentifier: "beer",
 		KubernetesPodNameIdentifier:      "pod1",
 	}))
+
+	hostContainerRuntime := func() *policy.PURuntime {
+
+		pur := policy.NewPURuntime("", 1, "", nil, nil, common.LinuxProcessPU, nil)
+		pur.SetOptions(policy.OptionsType{
+			CgroupMark: "100",
+		})
+		pur.SetTags(policy.NewTagStoreFromMap(map[string]string{
+			KubernetesPodNamespaceIdentifier: "beer",
+			KubernetesPodNameIdentifier:      "pod1",
+		}))
+		return pur
+	}
 
 	kubernetesExtractorUnmanaged := func(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
 		originalRuntime, ok := runtime.(*policy.PURuntime)
@@ -182,6 +199,7 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 		podStore            kubecache.Store
 		podController       kubecache.Controller
 		podControllerStop   chan struct{}
+		netcls              cgnetcls.Cgroupnetcls
 		enableHostPods      bool
 	}
 	type args struct {
@@ -263,6 +281,7 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 				handlers: &config.ProcessorConfig{
 					Policy: &mockHandler{},
 				},
+				netcls: netcls,
 			},
 			args: args{
 				event:         common.EventDestroy,
@@ -270,8 +289,31 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Activate host network pu",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorManaged,
+				cache:               newCache(),
+				handlers: &config.ProcessorConfig{
+					Policy: &mockHandler{},
+				},
+				netcls: netcls,
+			},
+			args: args{
+				event:         common.EventStart,
+				dockerRuntime: hostContainerRuntime(),
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
+
+		netcls.EXPECT().Creategroup(tt.args.puID).Return(nil).MinTimes(0)
+		netcls.EXPECT().AssignMark(tt.args.puID, gomock.Any()).Return(nil).MinTimes(0)
+		netcls.EXPECT().DeleteCgroup(tt.args.puID).Return(nil).MinTimes(0)
+		netcls.EXPECT().AddProcess(tt.args.puID, tt.args.dockerRuntime.Pid()).Return(nil).MinTimes(0)
+
 		t.Run(tt.name, func(t *testing.T) {
 			m := &KubernetesMonitor{
 				dockerMonitor:       tt.fields.dockerMonitor,
@@ -284,6 +326,7 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 				podController:       tt.fields.podController,
 				podControllerStop:   tt.fields.podControllerStop,
 				enableHostPods:      tt.fields.enableHostPods,
+				netcls:              tt.fields.netcls,
 			}
 			if err := m.HandlePUEvent(tt.args.ctx, tt.args.puID, tt.args.event, tt.args.dockerRuntime); (err != nil) != tt.wantErr {
 				t.Errorf("KubernetesMonitor.HandlePUEvent() error = %v, wantErr %v", err, tt.wantErr)
