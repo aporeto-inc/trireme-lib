@@ -18,7 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -31,6 +31,10 @@ type statsContextKeyType string
 const (
 	defaultValidity = 60 * time.Second
 	statsContextKey = statsContextKeyType("statsContext")
+
+	// TriremeOIDCCallbackURI is the callback URI that must be presented by
+	// any OIDC provider.
+	TriremeOIDCCallbackURI = "/aporeto/oidc/callback"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -145,12 +149,12 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	}
 
 	reportStats := func(ctx context.Context) {
-		if statsRecord := ctx.Value(statsContextKey); statsRecord != nil {
-			if r, ok := statsRecord.(*collector.FlowRecord); ok {
-				r.Action = policy.Reject
-				r.DropReason = collector.UnableToDial
-				r.PolicyID = "default"
-				p.collector.CollectFlowEvent(r)
+		if state := ctx.Value(statsContextKey); state != nil {
+			if r, ok := state.(*connectionState); ok {
+				r.stats.Action = policy.Reject
+				r.stats.DropReason = collector.UnableToDial
+				r.stats.PolicyID = "default"
+				p.collector.CollectFlowEvent(r.stats)
 			}
 		}
 	}
@@ -216,18 +220,21 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	// Create the proxies dowards the network and the application.
 	var err error
-	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport),
+	p.fwdTLS, err = forward.New(
+		forward.RoundTripper(encryptedTransport),
 		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
 		forward.WebSocketNetDial(netDial),
 		forward.BufferPool(NewPool()),
+		forward.ErrorHandler(TriremeHTTPErrHandler{}),
 	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
 
 	p.fwd, err = forward.New(
-		forward.RoundTripper(transport),
+		forward.RoundTripper(NewTriremeRoundTripper(transport)),
 		forward.BufferPool(NewPool()),
+		forward.ErrorHandler(TriremeHTTPErrHandler{}),
 	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize unencrypted transport: %s", err)
@@ -327,35 +334,13 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: p.puContext,
-		Destination: &collector.EndPoint{
-			URI:        r.Method + " " + r.RequestURI,
-			HTTPMethod: r.Method,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       uint16(originalDestination.Port),
-			IP:         originalDestination.IP.String(),
-			ID:         collector.DefaultEndPoint,
-		},
-		Source: &collector.EndPoint{
-			Type: collector.EnpointTypePU,
-			ID:   sctx.PUContext.ManagementID(),
-			IP:   "0.0.0.0/0",
-		},
-		Action:      policy.Reject,
-		L4Protocol:  packet.IPProtocolTCP,
-		ServiceType: policy.ServiceHTTP,
-		ServiceID:   apiCache.ID,
-		Tags:        sctx.PUContext.Annotations(),
-		Count:       1,
-	}
+	state := newAppConnectionState(p.puContext, apiCache.ID, sctx.PUContext, r, originalDestination)
 
 	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+	state.stats.PolicyID = netaction.PolicyID
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
-		record.PolicyID = netaction.PolicyID
-		record.DropReason = collector.PolicyDrop
-		p.collector.CollectFlowEvent(record)
+		p.collector.CollectFlowEvent(state.stats)
 		return
 	}
 
@@ -366,6 +351,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		// Get the corresponding scopes
 		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 		if !found {
+			p.collector.CollectFlowEvent(state.stats)
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
 			return
@@ -380,16 +366,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
 			if err = p.verifyPolicy(rule.Scopes, sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes(), []string{}); err != nil {
+				p.collector.CollectFlowEvent(state.stats)
 				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 				return
 			}
-			// All checks have passed. We can accept the request, log it, and create the
-			// right tokens. If it is not an external service, we do not log at the transmit side.
-			record.Action = policy.Encrypt
 		}
-		record.Action = record.Action | policy.Accept
-		p.collector.CollectFlowEvent(record)
+		state.stats.Action = policy.Accept | policy.Encrypt
+		p.collector.CollectFlowEvent(state.stats)
 	}
 
 	token, err := servicetokens.CreateAndSign(
@@ -417,100 +401,69 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
 	r.Header.Add("X-APORETO-AUTH", token)
 
-	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	// Forward the request.
 	p.fwdTLS.ServeHTTP(w, r.WithContext(contextWithStats))
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 	if err != nil {
+		zap.L().Error("Internal server error - cannot determine source address information", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Invalid network information"), http.StatusForbidden)
 		return
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: p.puContext,
-		Destination: &collector.EndPoint{
-			URI:        r.Method + " " + r.RequestURI,
-			HTTPMethod: r.Method,
-			Type:       collector.EnpointTypePU,
-			IP:         originalDestination.IP.String(),
-			Port:       uint16(originalDestination.Port),
-		},
-		Source: &collector.EndPoint{
-			Type: collector.EndPointTypeExternalIP,
-			IP:   sourceAddress.IP.String(),
-			ID:   collector.DefaultEndPoint,
-		},
-		Action:      policy.Reject,
-		L4Protocol:  packet.IPProtocolTCP,
-		ServiceType: policy.ServiceHTTP,
-		PolicyID:    "default",
-		Count:       1,
-	}
-
-	defer p.collector.CollectFlowEvent(record)
-
 	// Retrieve the context and policy
 	pctx, err := p.retrieveNetworkContext(originalDestination)
 	if err != nil {
+		zap.L().Error("Internal server error - cannot determine destination policy", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
-		record.DropReason = collector.PolicyDrop
-		p.collector.CollectFlowEvent(record)
 		return
 	}
-	record.ServiceID = pctx.Service.ID
-	record.Tags = pctx.PUContext.Annotations()
-	record.Destination.ID = pctx.PUContext.ManagementID()
 
-	if strings.HasPrefix(r.RequestURI, "/aporeto/oidc/callback") {
+	// Create basic state information and associated record statistics.
+	state := newNetworkConnectionState(p.puContext, pctx, r, sourceAddress, originalDestination)
+	defer p.collector.CollectFlowEvent(state.stats)
+
+	// Process callbacks without any other policy check.
+	if strings.HasPrefix(r.RequestURI, TriremeOIDCCallbackURI) {
 		pctx.Authorizer.Callback(w, r)
-		record.Action = policy.Accept
+		state.stats.Action = policy.Accept
 		return
 	}
 
 	// Check for network access rules that might require a drop.
 	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
-	record.PolicyID = aclPolicy.PolicyID
-	record.Source.ID = aclPolicy.ServiceID
+	state.stats.PolicyID = aclPolicy.PolicyID
+	state.stats.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy - Rejected"), http.StatusNetworkAuthenticationRequired)
-		record.DropReason = collector.PolicyDrop
+		state.stats.DropReason = collector.PolicyDrop
 		return
 	}
 
 	// Retrieve the headers with the key and auth parameters. If the parameters do not
 	// exist, we will end up with empty values, but processing can continue. The authorizer
 	// will validate if they are needed or not.
-	token := r.Header.Get("X-APORETO-AUTH")
-	if token != "" {
-		r.Header.Del("X-APORETO-AUTH")
-	}
-	key := r.Header.Get("X-APORETO-KEY")
-	if key != "" {
-		r.Header.Del("X-APORETO-LEN")
-	}
+	token, key := processHeaders(r)
 
 	// Calculate the user attributes. User attributes can be derived either from a
-	// token or from a certificate. The authorizer library will parse them.
-	userToken, userCerts := userCredentials(r)
-	userAttributes, redirect, err := pctx.Authorizer.DecodeUserClaims(pctx.Service.ID, userToken, userCerts, r)
-	if err == nil && len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
-		p.collector.CollectUserEvent(userRecord)
-		record.Source.UserID = userRecord.ID
-		record.Source.Type = collector.EndpointTypeClaims
-	}
+	// token or from a certificate. The authorizer library will parse them. We don't
+	// care if there are no user credentials. It might be a request from a PU,
+	// or it might be a request to a public interface. Only if the service mandates
+	// user credentials, we get the redirect directive.
+	userAttributes, redirect := userCredentials(pctx.Service.ID, r, pctx.Authorizer, p.collector, state)
 
 	// Calculate the Aporeto PU claims by parsing the token if it exists.
 	sourceID, aporetoClaims := pctx.Authorizer.DecodeAporetoClaims(token, key)
 	if len(aporetoClaims) > 0 {
-		record.Source.ID = sourceID
-		record.Source.Type = collector.EnpointTypePU
+		state.stats.Source.ID = sourceID
+		state.stats.Source.Type = collector.EnpointTypePU
 	}
 
 	// We need to verify network policy, before validating the API policy. If a network
@@ -520,10 +473,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if noNetAccessPolicy != nil {
 		if len(aporetoClaims) > 0 {
 			_, netPolicyAction := pctx.PUContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
-			record.PolicyID = netPolicyAction.PolicyID
+			state.stats.PolicyID = netPolicyAction.PolicyID
 			if netPolicyAction.Action.Rejected() {
 				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
-				record.DropReason = collector.PolicyDrop
+				state.stats.DropReason = collector.PolicyDrop
 				return
 			}
 		} else {
@@ -542,8 +495,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	accept, public := pctx.Authorizer.Check(r.Method, r.URL.Path, allClaims)
 	if !accept {
 		if !public {
-			record.DropReason = collector.PolicyDrop
-			if record.Source.Type != collector.EnpointTypePU {
+			state.stats.DropReason = collector.PolicyDrop
+			if state.stats.Source.Type != collector.EnpointTypePU {
 				if redirect {
 					w.Header().Add("Location", pctx.Authorizer.RedirectURI(r.URL.String()))
 					http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
@@ -573,7 +526,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		record.DropReason = collector.InvalidFormat
+		state.stats.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}
@@ -582,9 +535,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	pctx.Authorizer.UpdateRequestHeaders(r, userAttributes)
 
 	// Update the statistics and forward the request. We always encrypt downstream
-	record.Action = policy.Accept | policy.Encrypt
-	record.Destination.IP = originalDestination.IP.String()
-	record.Destination.Port = uint16(originalDestination.Port)
+	state.stats.Action = policy.Accept | policy.Encrypt
+	state.stats.Destination.IP = originalDestination.IP.String()
+	state.stats.Destination.Port = uint16(originalDestination.Port)
 
 	// Treat the remote proxy scenario where the destination IPs are in a remote
 	// host. Check of network rules that allow this transfer and report the corresponding
@@ -592,15 +545,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
 		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
-			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
 			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
-			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
 		}
 	}
-	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
@@ -660,25 +613,47 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 // userCredentials will find all the user credentials in the http request.
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.
-func userCredentials(r *http.Request) (string, []*x509.Certificate) {
+// It will return the userAttributes and a boolean instructing whether a redirect
+// must be performed. If no user credentials are found, it will allow processing
+// to proceed. It might be a
+func userCredentials(serviceID string, r *http.Request, authorizer *auth.Processor, c collector.EventCollector, state *connectionState) ([]string, bool) {
 	if r.TLS == nil {
-		return "", nil
+		return []string{}, false
 	}
+	userCerts := r.TLS.PeerCertificates
 
-	certs := r.TLS.PeerCertificates
-
-	authorization := r.Header.Get("Authorization")
-	if len(authorization) < 7 {
+	var userToken string
+	authToken := r.Header.Get("Authorization")
+	if len(authToken) < 7 {
 		cookie, err := r.Cookie("X-APORETO-AUTH")
 		if err == nil {
-			return cookie.Value, certs
+			userToken = cookie.Value
 		}
-		return "", certs
+	} else {
+		userToken = strings.TrimPrefix(authToken, "Bearer ")
 	}
 
-	authorization = strings.TrimPrefix(authorization, "Bearer ")
+	userAttributes, redirect, refreshedToken, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	if err == nil && len(userAttributes) > 0 {
+		userRecord := &collector.UserRecord{Claims: userAttributes}
+		c.CollectUserEvent(userRecord)
+		state.stats.Source.UserID = userRecord.ID
+		state.stats.Source.Type = collector.EndpointTypeClaims
+	} else if err != nil {
+		zap.L().Error("Failed to decode user claims", zap.Error(err))
+	}
 
-	return authorization, certs
+	if refreshedToken != userToken {
+		state.cookie = &http.Cookie{
+			Name:     "X-APORETO-AUTH",
+			Value:    refreshedToken,
+			HttpOnly: true,
+			Secure:   true,
+			Path:     "/",
+		}
+	}
+
+	return userAttributes, redirect
 }
 
 func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
@@ -705,4 +680,16 @@ func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *
 		PolicyID:    action.PolicyID,
 		Count:       1,
 	}
+}
+
+func processHeaders(r *http.Request) (string, string) {
+	token := r.Header.Get("X-APORETO-AUTH")
+	if token != "" {
+		r.Header.Del("X-APORETO-AUTH")
+	}
+	key := r.Header.Get("X-APORETO-KEY")
+	if key != "" {
+		r.Header.Del("X-APORETO-LEN")
+	}
+	return token, key
 }
