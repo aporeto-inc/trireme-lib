@@ -123,10 +123,10 @@ func createACLRules(rules *policy.IPRuleList, dnsrule *policy.DNSRule, ip string
 	}
 
 	rulesAppend := append(*rules, policy.IPRule{
-		Address:  ip,
-		Port:     dnsrule.Port,
-		Protocol: "TCP",
-		Policy:   dnsrule.Policy,
+		Addresses: []string{ip},
+		Ports:     []string{dnsrule.Port},
+		Protocols: []string{"TCP"},
+		Policy:    dnsrule.Policy,
 	})
 
 	return &rulesAppend

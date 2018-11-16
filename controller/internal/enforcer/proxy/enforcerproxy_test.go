@@ -93,17 +93,17 @@ func createPUInfo() *policy.PUInfo {
 
 	rules := policy.IPRuleList{
 		policy.IPRule{
-			Address:  "192.30.253.0/24",
-			Port:     "80",
-			Protocol: "TCP",
-			Policy:   &policy.FlowPolicy{Action: policy.Reject},
+			Addresses: []string{"192.30.253.0/24"},
+			Ports:     []string{"80"},
+			Protocols: []string{"TCP"},
+			Policy:    &policy.FlowPolicy{Action: policy.Reject},
 		},
 
 		policy.IPRule{
-			Address:  "192.30.253.0/24",
-			Port:     "443",
-			Protocol: "TCP",
-			Policy:   &policy.FlowPolicy{Action: policy.Accept},
+			Addresses: []string{"192.30.253.0/24"},
+			Ports:     []string{"443"},
+			Protocols: []string{"TCP"},
+			Policy:    &policy.FlowPolicy{Action: policy.Accept},
 		},
 	}
 

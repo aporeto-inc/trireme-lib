@@ -35,59 +35,70 @@ func (a *acl) reverseSort() {
 }
 
 func (a *acl) addRule(rule policy.IPRule) (err error) {
+	ruleAdd := func(address, port string, policy *policy.FlowPolicy) error {
+		var subnet, mask uint32
 
-	var subnet, mask uint32
+		parts := strings.Split(address, "/")
 
-	if strings.ToLower(rule.Protocol) != "tcp" {
+		subnetSlice := net.ParseIP(parts[0])
+		if subnetSlice == nil {
+			return fmt.Errorf("invalid ip address: %s", parts[0])
+		}
+
+		subnet = binary.BigEndian.Uint32(subnetSlice.To4())
+
+		maskValue := 0
+
+		switch len(parts) {
+		case 1:
+			mask = 0xFFFFFFFF
+			maskValue = 32
+
+		case 2:
+			maskValue, err = strconv.Atoi(parts[1])
+			if err != nil {
+				return fmt.Errorf("invalid address: %s", err)
+			}
+
+			if mask > 32 {
+				return fmt.Errorf("invalid mask value: %d", mask)
+			}
+			mask = binary.BigEndian.Uint32(net.CIDRMask(maskValue, 32))
+
+		default:
+			return fmt.Errorf("invalid address: %s", address)
+		}
+		plenRules, ok := a.prefixLenMap[maskValue]
+		if !ok {
+			plenRules = &prefixRules{
+				mask:  mask,
+				rules: make(map[uint32]portActionList),
+			}
+			a.prefixLenMap[maskValue] = plenRules
+		}
+
+		r, err := newPortAction(port, policy)
+		if err != nil {
+			return fmt.Errorf("unable to create port action: %s", err)
+		}
+
+		subnet = subnet & mask
+		plenRules.rules[subnet] = append(plenRules.rules[subnet], r)
 		return nil
 	}
 
-	parts := strings.Split(rule.Address, "/")
-
-	subnetSlice := net.ParseIP(parts[0])
-	if subnetSlice == nil {
-		return fmt.Errorf("invalid ip address: %s", parts[0])
-	}
-
-	subnet = binary.BigEndian.Uint32(subnetSlice.To4())
-
-	maskValue := 0
-
-	switch len(parts) {
-	case 1:
-		mask = 0xFFFFFFFF
-		maskValue = 32
-
-	case 2:
-		maskValue, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return fmt.Errorf("invalid address: %s", err)
+	for _, proto := range rule.Protocols {
+		if strings.ToLower(proto) == "tcp" {
+			for _, address := range rule.Addresses {
+				for _, port := range rule.Ports {
+					if err := ruleAdd(address, port, rule.Policy); err != nil {
+						return err
+					}
+				}
+			}
 		}
-
-		if mask > 32 {
-			return fmt.Errorf("invalid mask value: %d", mask)
-		}
-		mask = binary.BigEndian.Uint32(net.CIDRMask(maskValue, 32))
-
-	default:
-		return fmt.Errorf("invalid address: %s", rule.Address)
-	}
-	plenRules, ok := a.prefixLenMap[maskValue]
-	if !ok {
-		plenRules = &prefixRules{
-			mask:  mask,
-			rules: make(map[uint32]portActionList),
-		}
-		a.prefixLenMap[maskValue] = plenRules
 	}
 
-	r, err := newPortAction(rule)
-	if err != nil {
-		return fmt.Errorf("unable to create port action: %s", err)
-	}
-
-	subnet = subnet & mask
-	plenRules.rules[subnet] = append(plenRules.rules[subnet], r)
 	return nil
 }
 

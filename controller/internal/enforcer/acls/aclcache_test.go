@@ -29,17 +29,17 @@ func TestRejectPrioritizedOverAcceptCacheLookup(t *testing.T) {
 
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
 		},
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"0.0.0.0/0"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Reject,
 				PolicyID: "catchAllDrop"},
@@ -69,9 +69,9 @@ func TestEmptyACLWithObserveContinueCacheLookup(t *testing.T) {
 
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"0.0.0.0/0"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveContinue,
@@ -102,9 +102,9 @@ func TestEmptyACLWithObserveApplyCacheLookup(t *testing.T) {
 
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"0.0.0.0/0"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveApply,
@@ -135,35 +135,35 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "172.1.0.0/16",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"172.1.0.0/16"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Reject,
 				ObserveAction: policy.ObserveContinue,
 				PolicyID:      "observeRejectContinue-172.1/16"},
 		},
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
 		},
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveApply,
 				PolicyID:      "observeRejectApply"},
 		},
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "1",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"1"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Reject,
 				ObserveAction: policy.ObserveContinue,

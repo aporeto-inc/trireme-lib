@@ -26,14 +26,14 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 			continue
 		}
 
-		if err := i.targetSet.Add(net, 0); err != nil {
+		if err := addToIPset(targetNetworkSet, net); err != nil {
 			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
-			if err := i.targetSet.Del(net); err != nil {
+			if err := delFromIPset(targetNetworkSet, net); err != nil {
 				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}
@@ -52,8 +52,9 @@ func (i *Instance) createTargetSet(networks []string) error {
 	i.targetSet = ips
 
 	for _, net := range networks {
-		if err := i.targetSet.Add(net, 0); err != nil {
+		if err := addToIPset(targetNetworkSet, net); err != nil {
 			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
+
 		}
 	}
 
@@ -135,7 +136,7 @@ func (i *Instance) getSetNames(portSetName string) (string, string) {
 }
 
 //Not using ipset from coreos library they don't support bitmap:port
-func createPortSet(setname string) error {
+func ipsetCreatePortset(setname string) error {
 	//Bitmap type is not supported by the ipset library
 	path, _ := exec.LookPath("ipset")
 	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()

@@ -109,6 +109,8 @@ func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
 func (s *Config) Unsupervise(contextID string) error {
+	s.Lock()
+	defer s.Unlock()
 
 	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
@@ -190,7 +192,6 @@ func (s *Config) ACLProvider() provider.IptablesProvider {
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
-	defer s.Unlock()
 
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(pu.Runtime.Options().Services)
 	c := &cacheData{
@@ -209,10 +210,12 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
+		s.Unlock()
 		s.Unsupervise(contextID) // nolint
 		return err
 	}
 
+	s.Unlock()
 	return nil
 }
 
@@ -221,7 +224,6 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
-	defer s.Unlock()
 
 	data, err := s.versionTracker.LockedModify(contextID, revert, 1)
 	if err != nil {
@@ -231,6 +233,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	c := data.(*cacheData)
 	if err := s.impl.UpdateRules(c.version, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
+		s.Unlock()
 		s.Unsupervise(contextID) // nolint
 		return err
 	}
@@ -238,6 +241,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
 
+	s.Unlock()
 	return nil
 }
 

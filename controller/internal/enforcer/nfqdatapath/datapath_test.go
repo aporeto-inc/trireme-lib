@@ -71,9 +71,9 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			So(err2, ShouldBeNil)
 
 			iprules := policy.IPRuleList{policy.IPRule{
-				Address:  "10.1.10.76/32",
-				Port:     "80",
-				Protocol: "tcp",
+				Addresses: []string{"10.1.10.76/32"},
+				Ports:     []string{"80"},
+				Protocols: []string{"tcp"},
 				Policy: &policy.FlowPolicy{
 					Action:   policy.Accept,
 					PolicyID: "tcp172/8"},

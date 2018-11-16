@@ -32,9 +32,9 @@ func TestNewPolicy(t *testing.T) {
 					Action:   Accept,
 					PolicyID: "1",
 				},
-				Address:  "10.0.0.0/8",
-				Protocol: "tcp",
-				Port:     "80",
+				Addresses: []string{"10.0.0.0/8"},
+				Protocols: []string{"tcp"},
+				Ports:     []string{"80"},
 			}
 
 			netACL := IPRule{
@@ -42,9 +42,9 @@ func TestNewPolicy(t *testing.T) {
 					Action:   Accept,
 					PolicyID: "2",
 				},
-				Address:  "20.0.0.0/8",
-				Protocol: "tcp",
-				Port:     "80",
+				Addresses: []string{"20.0.0.0/8"},
+				Protocols: []string{"tcp"},
+				Ports:     []string{"80"},
 			}
 
 			clause := KeyValueOperator{
@@ -138,9 +138,9 @@ func TestFuncClone(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "1",
 			},
-			Address:  "10.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		netACL := IPRule{
@@ -148,9 +148,9 @@ func TestFuncClone(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "2",
 			},
-			Address:  "20.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"20.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		clause := KeyValueOperator{
@@ -227,9 +227,9 @@ func TestAllLockedSetGet(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "1",
 			},
-			Address:  "10.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		netACL := IPRule{
@@ -237,9 +237,9 @@ func TestAllLockedSetGet(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "2",
 			},
-			Address:  "20.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"20.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		clause := KeyValueOperator{

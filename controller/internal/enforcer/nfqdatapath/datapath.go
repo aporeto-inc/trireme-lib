@@ -7,9 +7,8 @@ import (
 	"os/exec"
 	"time"
 
-	"go.aporeto.io/trireme-lib/buildflags"
-
 	"go.aporeto.io/netlink-go/conntrack"
+	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -112,17 +111,18 @@ func createPolicy(networks []string) policy.IPRuleList {
 		Action: policy.Accept,
 	}
 
-	for _, network := range networks {
-		iprule := policy.IPRule{
-			Address:  network,
-			Port:     "0:65535",
-			Protocol: "tcp",
-			Policy:   &f,
-		}
+	addresses := []string{}
 
-		rules = append(rules, iprule)
+	addresses = append(addresses, networks...)
+
+	iprule := policy.IPRule{
+		Addresses: addresses,
+		Ports:     []string{"0:65535"},
+		Protocols: []string{"tcp"},
+		Policy:    &f,
 	}
 
+	rules = append(rules, iprule)
 	return rules
 }
 
@@ -223,7 +223,7 @@ func New(
 	}
 
 	if err = d.SetTargetNetworks(targetNetworks); err != nil {
-		zap.L().Error("Error adding target networks to the ACLs")
+		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
 	packet.PacketLogLevel = packetLogs
