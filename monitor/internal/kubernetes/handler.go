@@ -81,7 +81,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	}
 
 	if dockerRuntime.PUType() == common.LinuxProcessPU {
-		m.decorateRuntime(puID, dockerRuntime, event, "", "")
+		return m.decorateRuntime(puID, dockerRuntime, event, "", "")
 	}
 
 	return nil
