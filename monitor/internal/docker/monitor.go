@@ -119,6 +119,7 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 	}
 
 	if d.syncAtStart && d.config.Policy != nil {
+
 		options := types.ContainerListOptions{All: true}
 		containers, err := d.dockerClient.ContainerList(ctx, options)
 		if err != nil {
@@ -160,13 +161,24 @@ func (d *DockerMonitor) addHandler(event Event, handler EventHandler) {
 	d.handlers[event] = handler
 }
 
+// getHashKey returns key to loadbalance on. This ensures that all
+// events from a pod/container fall onto the same queue.
+func (d *DockerMonitor) getHashKey(r *events.Message) string {
+
+	if isKubernetesContainer(r.Actor.Attributes) {
+		return kubePodIdentifier(r.Actor.Attributes)
+	}
+	return r.ID
+}
+
 // sendRequestToQueue sends a request to a channel based on a hash function
 func (d *DockerMonitor) sendRequestToQueue(r *events.Message) {
 
 	key0 := uint64(256203161)
 	key1 := uint64(982451653)
 
-	h := siphash.Hash(key0, key1, []byte(r.ID))
+	key := d.getHashKey(r)
+	h := siphash.Hash(key0, key1, []byte(key))
 
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
@@ -259,7 +271,9 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 	// now resync the old containers
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
-		if err != nil {
+
+		// resync host containers first.
+		if err != nil || container.HostConfig.NetworkMode != constants.DockerHostMode {
 			continue
 		}
 
@@ -298,56 +312,86 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 		}
 
 	}
+
+	for _, c := range containers {
+		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
+
+		// resync non host containers now.
+		if err != nil || container.HostConfig.NetworkMode == constants.DockerHostMode {
+			continue
+		}
+
+		puID, _ := puIDFromDockerID(container.ID)
+
+		runtime, err := d.extractMetadata(&container)
+		if err != nil {
+			continue
+		}
+
+		event := common.EventStop
+		if container.State.Running {
+			if !container.State.Paused {
+				event = common.EventStart
+			} else {
+				event = common.EventPause
+			}
+		}
+
+		updateOptions := runtime.Options()
+		updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
+		runtime.SetOptions(updateOptions)
+
+		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, runtime); err != nil {
+			zap.L().Error("Unable to sync existing Container",
+				zap.String("dockerID", c.ID),
+				zap.Error(err),
+			)
+		}
+
+	}
+
 	return nil
 }
 
-// isKubernetesContainer
-func isKubernetesContainer(runtime policy.RuntimeReader) bool {
-
-	if _, ok := runtime.Tag(constants.KubernetesPodNamespaceIdentifier); ok {
-		return true
-	}
-
-	return false
-}
-
 // setupHostMode sets up the net_cls cgroup for the host mode
-func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) (err error) {
+func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo policy.RuntimeReader, dockerInfo *types.ContainerJSON) (err error) {
 
-	// if its a kubernetes container, do not setup host mode. It is set up by kubernetes monitor.
-	if isKubernetesContainer(runtimeInfo) {
-		zap.L().Debug("Kubernetes container is ignored", zap.String("puID", puID))
-		return nil
-	}
-
-	if err = d.netcls.Creategroup(puID); err != nil {
-		return err
-	}
-
-	// Clean the cgroup on exit, if we have failed t activate.
-	defer func() {
-		if err != nil {
-			if derr := d.netcls.DeleteCgroup(puID); derr != nil {
-				zap.L().Warn("Failed to clean cgroup",
-					zap.String("puID", puID),
-					zap.Error(derr),
-					zap.Error(err),
-				)
-			}
+	pausePUID := puID
+	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
+		if err = d.netcls.Creategroup(puID); err != nil {
+			return err
 		}
-	}()
 
-	markval := runtimeInfo.Options().CgroupMark
-	if markval == "" {
-		return errors.New("mark value not found")
+		// Clean the cgroup on exit, if we have failed t activate.
+		defer func() {
+			if err != nil {
+				if derr := d.netcls.DeleteCgroup(puID); derr != nil {
+					zap.L().Warn("Failed to clean cgroup",
+						zap.String("puID", puID),
+						zap.Error(derr),
+						zap.Error(err),
+					)
+				}
+			}
+		}()
+
+		markval := runtimeInfo.Options().CgroupMark
+		if markval == "" {
+			return errors.New("mark value not found")
+		}
+
+		mark, _ := strconv.ParseUint(markval, 10, 32)
+		if err := d.netcls.AssignMark(puID, mark); err != nil {
+			return err
+		}
+	} else {
+		// Add the container pid that is linked to hostnet to
+		// the cgroup of the parent container.
+
+		pausePUID = getPausePUID(policyExtensions(runtimeInfo))
 	}
 
-	mark, _ := strconv.ParseUint(markval, 10, 32)
-	if err := d.netcls.AssignMark(puID, mark); err != nil {
-		return err
-	}
-
-	return d.netcls.AddProcess(puID, dockerInfo.State.Pid)
+	return d.netcls.AddProcess(pausePUID, dockerInfo.State.Pid)
 }
 
 func (d *DockerMonitor) retrieveDockerInfo(ctx context.Context, event *events.Message) (*types.ContainerJSON, error) {
@@ -484,7 +528,9 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
 	}
 
-	if container.HostConfig.NetworkMode == constants.DockerHostMode {
+	// if the container has hostnet set to true or is linked
+	// to container with hostnet set to true, program the cgroup.
+	if isHostNetworkContainer(policyExtensions(runtime)) {
 		if err = d.setupHostMode(puID, runtime, container); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
 		}
@@ -515,7 +561,6 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 	if err != nil {
 		return err
 	}
-
 	runtime := policy.NewPURuntimeWithDefaults()
 	updateOptions := runtime.Options()
 	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)

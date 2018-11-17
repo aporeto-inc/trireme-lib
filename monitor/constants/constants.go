@@ -7,8 +7,11 @@ const (
 	// DefaultDockerSocketType is unix
 	DefaultDockerSocketType = "unix"
 
-	// KubernetesPodNamespaceIdentifier is the label used by Docker for the K8S namespace.
-	KubernetesPodNamespaceIdentifier = "@usr:io.kubernetes.pod.namespace"
+	// K8sPodName
+	K8sPodName = "io.kubernetes.pod.name"
+
+	// K8sPodNamespace
+	K8sPodNamespace = "io.kubernetes.pod.namespace"
 )
 
 const (
@@ -16,4 +19,7 @@ const (
 	DockerHostMode = "host"
 	// DockerLinkedMode is the string of the network mode that indicates shared network namespace
 	DockerLinkedMode = "container:"
+
+	// DockerHostPUID represents the PUID of the host network container.
+	DockerHostPUID = "HostPUID"
 )

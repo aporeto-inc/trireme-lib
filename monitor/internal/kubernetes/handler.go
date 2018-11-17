@@ -2,12 +2,10 @@ package kubernetesmonitor
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strconv"
-	"time"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
@@ -30,6 +28,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime from
 	// DockerMonitor. We can use it and combine it with the pod information on Kubernetes API.
 	if event == common.EventStart || event == common.EventCreate {
+
 		// We check first if this is a Kubernetes managed container
 		podNamespace, podName, err := getKubernetesInformation(dockerRuntime)
 		if err != nil {
@@ -41,7 +40,6 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		if err != nil {
 			return err
 		}
-
 		// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
 		// and from Kube (pod) in order to create a KubernetesRuntime.
 		// The managedContainer parameters define if this container should be ignored.
@@ -56,8 +54,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		if !managedContainer {
 			// for Unmanaged container check if host network and add the process to cgroup.
 			zap.L().Debug("unmanaged Kubernetes container on create or start", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
-			go m.programCgroup(podName, podNamespace, event, dockerRuntime)
-			return nil
+			return m.decorateRuntime(puID, dockerRuntime, event, podName, podNamespace)
 		}
 
 		// We keep the cache uptoDate for future queries
@@ -67,14 +64,14 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		// We check if this PUID was previously managed. We only sent the event upstream to the resolver if it was managed on create or start.
 		kubernetesRuntime = m.cache.getKubernetesRuntimeByPUID(puID)
 		if kubernetesRuntime == nil {
-			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID))
+			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID), zap.String("event", string(event)))
 			return nil
 		}
 	}
 
 	if event == common.EventDestroy {
 		// Time to kill the cache entry
-		m.cache.deletePUIDEntry(puID)
+		m.cache.deletePUIDCache(puID)
 	}
 
 	// The event is then sent to the upstream policyResolver
@@ -84,8 +81,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	}
 
 	if dockerRuntime.PUType() == common.LinuxProcessPU {
-		zap.L().Debug("Setting up host mode for pod", zap.String("pod", puID))
-		return m.setupHostMode(puID, dockerRuntime, event, true)
+		m.decorateRuntime(puID, dockerRuntime, event, "", "")
 	}
 
 	return nil
@@ -144,101 +140,60 @@ func getKubernetesInformation(runtime policy.RuntimeReader) (string, string, err
 	return podNamespace, podName, nil
 }
 
-func (m *KubernetesMonitor) programCgroup(podName, podNamespace string, event common.Event, runtimeInfo policy.RuntimeReader) {
-
-	if event != common.EventStart {
-		return
-	}
-
-	// Get puID of the pause container.
-	var puID string
-	puIDChan := make(chan string, 1)
-	go m.findPauseContainer(podName, podNamespace, puIDChan)
-
-	select {
-	case <-time.After(500 * time.Millisecond):
-		// if we do not find pause container after 500 ms, bail out.
-		// This should  never happen.
-		zap.L().Debug("Not a host container, timing out")
-
-	case puID = <-puIDChan:
-		zap.L().Debug("Found puID of pause container", zap.String("puID", puID))
-	}
-
-	// not a host container, ignore.
-	if puID == "" {
-		zap.L().Debug("Not a host container, so ignoring it", zap.String("podName", podName))
-		return
-	}
-
-	m.setupHostMode(puID, runtimeInfo, event, false) // nolint
-}
-
-// findPauseContainer finds the puid for the pause container. The container events can come out
-// of order.
-func (m *KubernetesMonitor) findPauseContainer(podName, podNamespace string, puID chan string) {
-
-	for {
-		puIDs := m.cache.getPUIDsbyPod(podNamespace, podName)
-		// get the puid of the pause container.
-		for _, id := range puIDs {
-			rtm := m.cache.getDockerRuntimeByPUID(id)
-
-			if isPodInfraContainer(rtm) && rtm.PUType() == common.LinuxProcessPU {
-				puID <- id
-				return
-			}
-
-			// if infra container is found and it is not host container, then pod
-			// is not a host pod.
-			if isPodInfraContainer(rtm) {
-				puID <- ""
-				return
-			}
-		}
-	}
-}
-
-// setupHostMode sets up the net_cls cgroup for the host net containers.
-func (m *KubernetesMonitor) setupHostMode(puID string, runtimeInfo policy.RuntimeReader, event common.Event, pause bool) (err error) {
+// decorateRuntime decorates the docker runtime with puid of the pause container.
+func (m *KubernetesMonitor) decorateRuntime(puID string, runtimeInfo policy.RuntimeReader, event common.Event,
+	podName, podNamespace string) (err error) {
 
 	// Do nothing on other events apart from start event.
 	if event != common.EventStart {
 		return nil
 	}
-	// For pause containers, create the cgroup. Add other containers
-	// to the same cgroup as the pause container.
-	if pause {
-		if err = m.netcls.Creategroup(puID); err != nil {
-			return err
-		}
-		// Clean the cgroup on exit, if we have failed to activate.
-		defer func() {
-			if err != nil {
-				if derr := m.netcls.DeleteCgroup(puID); derr != nil {
-					zap.L().Warn("Failed to clean cgroup",
-						zap.String("puID", puID),
-						zap.Error(derr),
-						zap.Error(err),
-					)
-				}
-			}
-		}()
 
-		markval := runtimeInfo.Options().CgroupMark
-		if markval == "" {
-			return errors.New("mark value not found")
+	puRuntime, ok := runtimeInfo.(*policy.PURuntime)
+	if !ok {
+		zap.L().Error("Found invalid runtime for puid", zap.String("puid", puID))
+		return fmt.Errorf("invalid runtime for puid:%s", puID)
+	}
+
+	extensions := policy.ExtendedMap{}
+
+	// pause container with host net set to true.
+	if runtimeInfo.PUType() == common.LinuxProcessPU {
+		extensions[constants.DockerHostMode] = "true"
+		extensions[constants.DockerHostPUID] = puID
+		options := puRuntime.Options()
+		options.PolicyExtensions = extensions
+
+		// set Options on docker runtime.
+		puRuntime.SetOptions(options)
+		return nil
+	}
+
+	pausePUID := ""
+	puIDs := m.cache.getPUIDsbyPod(podNamespace, podName)
+	// get the puid of the pause container.
+	for _, id := range puIDs {
+		rtm := m.cache.getDockerRuntimeByPUID(id)
+		if rtm == nil {
+			continue
 		}
 
-		mark, _ := strconv.ParseUint(markval, 10, 32)
-		if err := m.netcls.AssignMark(puID, mark); err != nil {
-			return err
+		if isPodInfraContainer(rtm) && rtm.PUType() == common.LinuxProcessPU {
+			pausePUID = id
+			break
+		}
+
+		// if the pause container is not host net container, nothing to do.
+		if isPodInfraContainer(rtm) {
+			return nil
 		}
 	}
 
-	if err := m.netcls.AddProcess(puID, runtimeInfo.Pid()); err != nil {
-		return fmt.Errorf("Unable to add process %d to cgroup.PUID:%s", runtimeInfo.Pid(), puID)
-	}
+	extensions[constants.DockerHostPUID] = pausePUID
+	options := puRuntime.Options()
+	options.PolicyExtensions = extensions
+	// set Options on docker runtime.
+	puRuntime.SetOptions(options)
 
 	return nil
 }
