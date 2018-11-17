@@ -648,7 +648,6 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, isHostPU bool
 
 func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection string) error {
 	iptRules := [][]string{}
-
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
 	baseRule := func(insertOrder int, proto string) []string {
@@ -707,7 +706,6 @@ func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *in
 type rulePred func(policy *policy.FlowPolicy) bool
 
 func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) error {
-
 	insertOrder := int(1)
 	intP := &insertOrder
 

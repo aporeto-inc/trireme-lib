@@ -5,6 +5,7 @@ import "github.com/aporeto-inc/go-ipset/ipset"
 // IpsetProvider returns a fabric for Ipset.
 type IpsetProvider interface {
 	NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error)
+	GetIpset(name string) Ipset
 	DestroyAll() error
 }
 
@@ -25,6 +26,13 @@ type goIpsetProvider struct{}
 // external package.
 func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
 	return ipset.New(name, hasht, p)
+}
+
+// GetIpset gets the ipset object from the name.
+func (i *goIpsetProvider) GetIpset(name string) Ipset {
+	return &ipset.IPSet{
+		Name: name,
+	}
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references

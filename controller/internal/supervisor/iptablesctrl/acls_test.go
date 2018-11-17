@@ -6,11 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aporeto-inc/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 const (
@@ -887,6 +889,163 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 
 			err := i.CleanGlobalRules()
 			Convey("I should get no error if iptables succeeds", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
+
+func TestAddAppACLs(t *testing.T) {
+	Convey("Given an iptables controller ", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+		ipsets := provider.NewTestIpsetProvider()
+		i.ipset = ipsets
+
+		Convey("When I add app ACLs with no rules", func() {
+			err := i.addAppACLs("", appChain, netChain, []aclIPset{})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
+
+			rules := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"80"},
+					Protocols: []string{"TCP"},
+					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
+				},
+
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"443"},
+					Protocols: []string{"UDP"},
+					Policy:    &policy.FlowPolicy{Action: policy.Accept},
+				},
+			}
+
+			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset, nil
+			})
+
+			ipsets.MockGetIpset(t, func(name string) provider.Ipset {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset
+			})
+
+			//ipsets.Mock
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				// test DROP rules are before ACCEPT
+				if table == i.appPacketIPTableContext && chain == appChain {
+					if matchSpec("DROP", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil && matchSpec("NFLOG", rulespec) == nil {
+						return nil
+					}
+				}
+
+				if chain == netChain {
+					if matchSpec("ACCEPT", rulespec) == nil {
+						return nil
+					}
+				}
+
+				return errors.New("Chains and table are incorrect")
+			})
+
+			appACLIPset, err := i.createACLIPSets("chain", rules)
+			So(err, ShouldBeNil)
+
+			err = i.addAppACLs("chain", appChain, netChain, appACLIPset)
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+
+}
+
+func TestAddNetACLs(t *testing.T) {
+	Convey("Given an iptables controller ", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+		ipsets := provider.NewTestIpsetProvider()
+		i.ipset = ipsets
+
+		Convey("When I add app ACLs with no rules", func() {
+			err := i.addNetACLs("", appChain, netChain, []aclIPset{})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
+
+			rules := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"80"},
+					Protocols: []string{"TCP"},
+					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
+				},
+
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"443"},
+					Protocols: []string{"UDP"},
+					Policy:    &policy.FlowPolicy{Action: policy.Accept},
+				},
+			}
+
+			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset, nil
+			})
+
+			ipsets.MockGetIpset(t, func(name string) provider.Ipset {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset
+			})
+
+			//ipsets.Mock
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				// test DROP rules are before ACCEPT
+				if table == i.appPacketIPTableContext && chain == netChain {
+					if matchSpec("DROP", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil && matchSpec("NFLOG", rulespec) == nil {
+						return nil
+					}
+				}
+
+				if chain == appChain {
+					if matchSpec("ACCEPT", rulespec) == nil {
+						return nil
+					}
+				}
+
+				return errors.New("Chains and table are incorrect")
+			})
+
+			netACLIPset, err := i.createACLIPSets("chain", rules)
+			So(err, ShouldBeNil)
+
+			err = i.addNetACLs("chain", appChain, netChain, netACLIPset)
+			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
 		})

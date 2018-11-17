@@ -26,14 +26,14 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 			continue
 		}
 
-		if err := addToIPset(targetNetworkSet, net); err != nil {
+		if err := i.addToIPset(targetNetworkSet, net); err != nil {
 			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
-			if err := delFromIPset(targetNetworkSet, net); err != nil {
+			if err := i.delFromIPset(targetNetworkSet, net); err != nil {
 				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}
@@ -52,7 +52,7 @@ func (i *Instance) createTargetSet(networks []string) error {
 	i.targetSet = ips
 
 	for _, net := range networks {
-		if err := addToIPset(targetNetworkSet, net); err != nil {
+		if err := i.addToIPset(targetNetworkSet, net); err != nil {
 			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
 
 		}

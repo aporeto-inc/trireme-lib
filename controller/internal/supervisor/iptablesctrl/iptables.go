@@ -488,18 +488,16 @@ type aclIPset struct {
 	policy    *policy.FlowPolicy
 }
 
-func addToIPset(setname string, data string) error {
-	set := ipset.IPSet{
-		Name: setname,
-	}
+func (i *Instance) addToIPset(setname string, data string) error {
+	set := i.ipset.GetIpset(setname)
 
 	// ipset can not program this rule
 	if data == "0.0.0.0/0" {
-		if err := addToIPset(setname, "0.0.0.0/1"); err != nil {
+		if err := i.addToIPset(setname, "0.0.0.0/1"); err != nil {
 			return err
 		}
 
-		if err := addToIPset(setname, "128.0.0.0/1"); err != nil {
+		if err := i.addToIPset(setname, "128.0.0.0/1"); err != nil {
 			return err
 		}
 
@@ -514,17 +512,15 @@ func addToIPset(setname string, data string) error {
 	return nil
 }
 
-func delFromIPset(setname string, data string) error {
-	set := ipset.IPSet{
-		Name: setname,
-	}
+func (i *Instance) delFromIPset(setname string, data string) error {
+	set := i.ipset.GetIpset(setname)
 
 	if data == "0.0.0.0/0" {
-		if err := delFromIPset(setname, "0.0.0.0/1"); err != nil {
+		if err := i.delFromIPset(setname, "0.0.0.0/1"); err != nil {
 			return err
 		}
 
-		if err := delFromIPset(setname, "128.0.0.0/1"); err != nil {
+		if err := i.delFromIPset(setname, "128.0.0.0/1"); err != nil {
 			return err
 		}
 	}
@@ -561,14 +557,14 @@ func (i *Instance) removePUFromExternalNetworks(contextID string, serviceID stri
 
 func (i *Instance) destroyACLIPsets(contextID string) {
 	for serviceID, info := range i.serviceIDToIPsets {
-		if info.contextIDs[contextID] == true {
+		if info.contextIDs[contextID] {
 			i.removePUFromExternalNetworks(contextID, serviceID)
 		}
 	}
 }
 
 func (i *Instance) synchronizePUACLs(contextID string, appACLs, netACLs policy.IPRuleList) {
-	var newPUExternalNetworks []string
+	var newPUExternalNetworks []string //nolint
 
 	for _, rule := range appACLs {
 		newPUExternalNetworks = append(newPUExternalNetworks, rule.Policy.ServiceID)
@@ -611,7 +607,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			}
 
 			for _, address := range rule.Addresses {
-				if err := addToIPset(ipsetName, address); err != nil {
+				if err := i.addToIPset(ipsetName, address); err != nil {
 					return nil, err
 				}
 				ips[address] = true
@@ -634,7 +630,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 
 				// add new entries
 				if !info.ips[address] {
-					if err := addToIPset(info.ipset, address); err != nil {
+					if err := i.addToIPset(info.ipset, address); err != nil {
 						return nil, err
 					}
 					newips[address] = true
@@ -646,7 +642,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			// Remove the old entries
 			for address, val := range info.ips {
 				if val {
-					if err := delFromIPset(info.ipset, address); err != nil {
+					if err := i.delFromIPset(info.ipset, address); err != nil {
 						return nil, err
 					}
 				}
