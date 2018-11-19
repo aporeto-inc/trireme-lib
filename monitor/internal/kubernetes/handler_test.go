@@ -11,7 +11,6 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -199,7 +198,6 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 		podStore            kubecache.Store
 		podController       kubecache.Controller
 		podControllerStop   chan struct{}
-		netcls              cgnetcls.Cgroupnetcls
 		enableHostPods      bool
 	}
 	type args struct {
@@ -351,7 +349,6 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 				podController:       tt.fields.podController,
 				podControllerStop:   tt.fields.podControllerStop,
 				enableHostPods:      tt.fields.enableHostPods,
-				netcls:              tt.fields.netcls,
 			}
 			if err := m.HandlePUEvent(tt.args.ctx, tt.args.puID, tt.args.event, tt.args.dockerRuntime); (err != nil) != tt.wantErr {
 				t.Errorf("KubernetesMonitor.HandlePUEvent() error = %v, wantErr %v", err, tt.wantErr)
@@ -482,7 +479,6 @@ func TestKubernetesMonitor_decorateRuntime(t *testing.T) {
 		podStore            kubecache.Store
 		podController       kubecache.Controller
 		podControllerStop   chan struct{}
-		netcls              cgnetcls.Cgroupnetcls
 		enableHostPods      bool
 	}
 	type args struct {
