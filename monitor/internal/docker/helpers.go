@@ -14,7 +14,7 @@ func getPausePUID(extensions policy.ExtendedMap) string {
 	}
 
 	if puid, ok := extensions.Get(constants.DockerHostPUID); ok {
-		zap.L().Info("puid of pause container is", zap.String("puid", puid))
+		zap.L().Debug("puid of pause container is", zap.String("puid", puid))
 		return puid
 	}
 
