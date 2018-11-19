@@ -269,55 +269,27 @@ func (d *DockerMonitor) Resync(ctx context.Context) error {
 
 func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types.Container) error {
 	// now resync the old containers
-	for _, c := range containers {
-		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 
-		// resync host containers first.
-		if err != nil || container.HostConfig.NetworkMode != constants.DockerHostMode {
-			continue
-		}
-
-		puID, _ := puIDFromDockerID(container.ID)
-
-		runtime, err := d.extractMetadata(&container)
-		if err != nil {
-			continue
-		}
-
-		event := common.EventStop
-		if container.State.Running {
-			if !container.State.Paused {
-				event = common.EventStart
-			} else {
-				event = common.EventPause
-			}
-		}
-
-		if container.HostConfig.NetworkMode == constants.DockerHostMode {
-			options := hostModeOptions(&container)
-			options.PolicyExtensions = runtime.Options().PolicyExtensions
-			runtime.SetOptions(*options)
-			runtime.SetPUType(common.LinuxProcessPU)
-		}
-
-		updateOptions := runtime.Options()
-		updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-		runtime.SetOptions(updateOptions)
-
-		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, runtime); err != nil {
-			zap.L().Error("Unable to sync existing Container",
-				zap.String("dockerID", c.ID),
-				zap.Error(err),
-			)
-		}
-
+	// resync containers that share host network first.
+	if err := d.resyncContainersByOrder(ctx, containers,
+		container.HostConfig.NetworkMode != constants.DockerHostMode); err != nil {
+		zap.L().Error("Unable to sync container", zap.Error(err))
 	}
 
+	// resync remaining containers.
+	if err := d.resyncContainersByOrder(ctx, containers,
+		container.HostConfig.NetworkMode == constants.DockerHostMode); err != nil {
+		zap.L().Error("Unable to sync container", zap.Error(err))
+	}
+
+	return nil
+}
+
+func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers []types.Container, ignore bool) {
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 
-		// resync non host containers now.
-		if err != nil || container.HostConfig.NetworkMode == constants.DockerHostMode {
+		if err != nil || ignore {
 			continue
 		}
 
