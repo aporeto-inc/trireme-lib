@@ -590,7 +590,7 @@ func TestSyncContainers(t *testing.T) {
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil).MaxTimes(2)
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("blah"))
 
@@ -609,7 +609,7 @@ func TestSyncContainers(t *testing.T) {
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil).MaxTimes(2)
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
 

@@ -555,7 +555,6 @@ func TestKubernetesMonitor_decorateRuntime(t *testing.T) {
 				podStore:            tt.fields.podStore,
 				podController:       tt.fields.podController,
 				podControllerStop:   tt.fields.podControllerStop,
-				netcls:              tt.fields.netcls,
 				enableHostPods:      tt.fields.enableHostPods,
 			}
 			if err := m.decorateRuntime(tt.args.puID, tt.args.runtimeInfo, tt.args.event, tt.args.podName, tt.args.podNamespace); (err != nil) != tt.wantErr {
