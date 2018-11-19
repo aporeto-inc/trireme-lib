@@ -271,25 +271,29 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 	// now resync the old containers
 
 	// resync containers that share host network first.
-	if err := d.resyncContainersByOrder(ctx, containers,
-		container.HostConfig.NetworkMode != constants.DockerHostMode); err != nil {
+	if err := d.resyncContainersByOrder(ctx, containers, true); err != nil {
 		zap.L().Error("Unable to sync container", zap.Error(err))
 	}
 
 	// resync remaining containers.
-	if err := d.resyncContainersByOrder(ctx, containers,
-		container.HostConfig.NetworkMode == constants.DockerHostMode); err != nil {
+	if err := d.resyncContainersByOrder(ctx, containers, false); err != nil {
 		zap.L().Error("Unable to sync container", zap.Error(err))
 	}
 
 	return nil
 }
 
-func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers []types.Container, ignore bool) {
+//container.HostConfig.NetworkMode == constants.DockerHostMode
+func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers []types.Container, syncHost bool) error {
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 
-		if err != nil || ignore {
+		if err != nil {
+			continue
+		}
+
+		if (syncHost && container.HostConfig.NetworkMode != constants.DockerHostMode) ||
+			(!syncHost && container.HostConfig.NetworkMode == constants.DockerHostMode) {
 			continue
 		}
 
