@@ -590,7 +590,7 @@ func TestSyncContainers(t *testing.T) {
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil).MaxTimes(2)
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("blah"))
 
@@ -609,7 +609,31 @@ func TestSyncContainers(t *testing.T) {
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{{ID: ID}}, nil)
 
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil).MaxTimes(2)
+
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
+
+			err := dmi.Resync(context.Background())
+
+			Convey("Then I should not get no error ", func() {
+				So(err, ShouldBeNil)
+			})
+
+		})
+
+		Convey("When I try to call sync host containers", func() {
+			dmi.syncAtStart = true
+			hostContainer := types.Container{
+				ID: ID,
+				HostConfig: struct {
+					NetworkMode string `json:",omitempty"`
+				}{NetworkMode: "host"}}
+
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{hostContainer}, nil)
+
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil).MaxTimes(2)
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
 
