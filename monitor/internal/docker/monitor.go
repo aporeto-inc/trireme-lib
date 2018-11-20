@@ -268,7 +268,6 @@ func (d *DockerMonitor) Resync(ctx context.Context) error {
 }
 
 func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types.Container) error {
-	// now resync the old containers
 
 	// resync containers that share host network first.
 	if err := d.resyncContainersByOrder(ctx, containers, true); err != nil {
@@ -287,7 +286,6 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers []types.Container, syncHost bool) error {
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
-
 		if err != nil {
 			continue
 		}
@@ -313,6 +311,15 @@ func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers 
 			}
 		}
 
+		// If it is a host container, we need to activate it as a Linux process. We will
+		// override the options that the metadata extractor provided.
+		if container.HostConfig.NetworkMode == constants.DockerHostMode {
+			options := hostModeOptions(&container)
+			options.PolicyExtensions = runtime.Options().PolicyExtensions
+			runtime.SetOptions(*options)
+			runtime.SetPUType(common.LinuxProcessPU)
+		}
+
 		updateOptions := runtime.Options()
 		updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
 		runtime.SetOptions(updateOptions)
@@ -322,6 +329,14 @@ func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers 
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
 			)
+		}
+
+		// if the container has hostnet set to true or is linked
+		// to container with hostnet set to true, program the cgroup.
+		if isHostNetworkContainer(policyExtensions(runtime)) {
+			if err = d.setupHostMode(puID, runtime, &container); err != nil {
+				return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
+			}
 		}
 
 	}
