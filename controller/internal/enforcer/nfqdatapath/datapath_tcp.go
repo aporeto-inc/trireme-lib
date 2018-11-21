@@ -69,7 +69,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
+			// This packet belongs to the client process that is not being enforcerd.
+			// At this point, we can release this flow to kernel as we are not interested in
+			// enforcing policy for the flow.
+			d.releaseUnmonitoredFlow(tcpPacket)
 			return nil
+
 		}
 
 	default:
@@ -1061,4 +1066,20 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 	}
 
 	d.reportReverseExternalServiceFlow(context, report, action, true, tcpPacket)
+}
+
+// releaseUnmonitoredFlow releases the flow and updates the conntrack table
+func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
+
+	zap.L().Debug("Releasing unmonitored flow", zap.String("flow", tcpPacket.L4FlowHash()))
+	if err := d.conntrackHdl.ConntrackTableUpdateMark(
+		tcpPacket.DestinationAddress.String(),
+		tcpPacket.SourceAddress.String(),
+		tcpPacket.IPProto,
+		tcpPacket.DestinationPort,
+		tcpPacket.SourcePort,
+		constants.DefaultConnMark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table", zap.Error(err))
+	}
 }
