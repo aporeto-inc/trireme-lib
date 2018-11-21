@@ -495,11 +495,22 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
 	if i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel {
+
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
 			"-j", "ACCEPT",
 		})
+
+		// allow dns requests to dns proxies.
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-p", "udp", "-m", "addrtype",
+			"--src-type", "LOCAL", "-m", "addrtype",
+			"--dst-type", "LOCAL", "--dport", "53",
+			"-j", "ACCEPT",
+		})
+
 	}
 
 	// Network Packets - SYN
