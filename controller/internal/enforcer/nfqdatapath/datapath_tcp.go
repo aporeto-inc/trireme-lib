@@ -72,7 +72,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			// This packet belongs to the client process that is not being enforcerd.
 			// At this point, we can release this flow to kernel as we are not interested in
 			// enforcing policy for the flow.
-			d.releaseUnmonitoredFlow(tcpPacket)
+			d.releaseUnmonitoredFlow(p)
 			return nil
 
 		}
