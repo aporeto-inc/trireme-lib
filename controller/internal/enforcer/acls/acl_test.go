@@ -11,47 +11,47 @@ import (
 var (
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "400:500",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"400:500"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
 		},
 		policy.IPRule{
-			Address:  "172.17.0.0/16",
-			Port:     "400:500",
-			Protocol: "tcp",
+			Addresses: []string{"172.17.0.0/16"},
+			Ports:     []string{"400:500"},
+			Protocols: []string{"tcp"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172.17/16"},
 		},
 		policy.IPRule{
-			Address:  "192.168.100.0/24",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"192.168.100.0/24"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp192.168.100/24"},
 		},
 		policy.IPRule{
-			Address:  "10.1.1.1",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.1.1.1"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp10.1.1.1"}},
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Protocol: "tcp",
-			Port:     "443",
+			Addresses: []string{"0.0.0.0/0"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"443"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp0/0"}},
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Protocol: "udp",
-			Port:     "443",
+			Addresses: []string{"0.0.0.0/0"},
+			Protocols: []string{"udp"},
+			Ports:     []string{"443"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "udp0/0"}},
@@ -142,27 +142,27 @@ func TestObservedLookup(t *testing.T) {
 	var (
 		rulesWithObservation = policy.IPRuleList{
 			policy.IPRule{
-				Address:  "200.17.0.0/17",
-				Port:     "401",
-				Protocol: "tcp",
+				Addresses: []string{"200.17.0.0/17"},
+				Ports:     []string{"401"},
+				Protocols: []string{"tcp"},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveContinue,
 					PolicyID:      "observed-continue-tcp200.17/17"},
 			},
 			policy.IPRule{
-				Address:  "200.18.0.0/17",
-				Port:     "401",
-				Protocol: "tcp",
+				Addresses: []string{"200.18.0.0/17"},
+				Ports:     []string{"401"},
+				Protocols: []string{"tcp"},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveApply,
 					PolicyID:      "observed-applied-tcp200.18/17"},
 			},
 			policy.IPRule{
-				Address:  "200.0.0.0/9",
-				Port:     "401",
-				Protocol: "tcp",
+				Addresses: []string{"200.0.0.0/9"},
+				Ports:     []string{"401"},
+				Protocols: []string{"tcp"},
 				Policy: &policy.FlowPolicy{
 					Action:   policy.Accept,
 					PolicyID: "tcp200/9"},

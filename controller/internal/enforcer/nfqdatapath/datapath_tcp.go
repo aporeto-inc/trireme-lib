@@ -313,7 +313,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		}
 
 		d.reportExternalServiceFlow(context, report, pkt, true, tcpPacket)
-		return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet %v", perr.Error())
+		return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet")
 	}
 
 	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {

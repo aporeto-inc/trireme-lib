@@ -68,17 +68,17 @@ func TestConfigureRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -114,11 +114,11 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			err := i.ConfigureRules(1, "Context", containerinfo)
-			fmt.Println("Error is ", err)
-			//This will fail for ipset since we need to run this as root for ipsets
+
 			Convey("It should succeed", func() {
-				//This is erroring since ipset creation is not available to a unpriveleged user
+				// This is erroring since ipset creation is not available to a unpriveleged user
 				So(err.Error(), ShouldContainSubstring, "Proxy")
+
 			})
 
 		})
@@ -240,17 +240,17 @@ func TestConfigureRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -291,7 +291,6 @@ func TestConfigureRules(t *testing.T) {
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
 				So(err.Error(), ShouldContainSubstring, "Proxy")
-				//So(err, ShouldBeNil)
 			})
 
 		})
@@ -413,17 +412,17 @@ func TestConfigureRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -620,17 +619,17 @@ func TestConfigureRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -864,17 +863,17 @@ func TestUpdateRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -969,17 +968,17 @@ func TestUpdateRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -1088,17 +1087,17 @@ func TestUpdateRules(t *testing.T) {
 
 		rules := policy.IPRuleList{
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "80",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"80"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
-				Address:  "192.30.253.0/24",
-				Port:     "443",
-				Protocol: "TCP",
-				Policy:   &policy.FlowPolicy{Action: policy.Accept},
+				Addresses: []string{"192.30.253.0/24"},
+				Ports:     []string{"443"},
+				Protocols: []string{"TCP"},
+				Policy:    &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 

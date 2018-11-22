@@ -234,10 +234,10 @@ func EncodedStringToAction(e string) (ActionType, ObserveActionType, error) {
 
 // IPRule holds IP rules to external services
 type IPRule struct {
-	Address  string
-	Port     string
-	Protocol string
-	Policy   *FlowPolicy
+	Addresses []string
+	Ports     []string
+	Protocols []string
+	Policy    *FlowPolicy
 }
 
 // IPRuleList is a list of IP rules

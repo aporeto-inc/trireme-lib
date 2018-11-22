@@ -352,317 +352,6 @@ func TestAddPacketTrap(t *testing.T) {
 	})
 }
 
-func TestAddAppACLs(t *testing.T) {
-
-	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I add app ACLs with no rules", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == appChain {
-					if err := matchSpec("DROP", rulespec); err == nil {
-						return nil
-					}
-					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
-						return nil
-					}
-					if err := matchSpec("NFLOG", rulespec); err == nil {
-						return nil
-					}
-				}
-				return errors.New("error")
-			})
-
-			err := i.addAppACLs("", appChain, netChain, policy.IPRuleList{})
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I add app ACLs with no rules and it fails", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == appChain {
-					return errors.New("error")
-				}
-				return nil
-			})
-
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if table == i.appPacketIPTableContext && chain == appChain {
-					return errors.New("error")
-				}
-				return nil
-			})
-
-			err := i.addAppACLs("", appChain, netChain, policy.IPRuleList{})
-			Convey("I should get  error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-			}
-
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if matchSpec("80", rulespec) == nil && matchSpec("DROP", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addAppACLs("chain", appChain, netChain, rules)
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I add app ACLs with one reject and one accept and the accept fails", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-			}
-
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if matchSpec("80", rulespec) == nil && matchSpec("DROP", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addAppACLs("chain", appChain, netChain, rules)
-			Convey("I should get no error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I add app ACLs with one reject and one accept and the reject rule fails", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-			}
-
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addAppACLs("chain", appChain, netChain, rules)
-			Convey("I should error for reject", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-	})
-}
-
-func TestAddNetAcls(t *testing.T) {
-
-	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I add net ACLs with no rules", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.netPacketIPTableContext && chain == "chain" {
-					if err := matchSpec("DROP", rulespec); err == nil {
-						return nil
-					}
-					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
-						return nil
-					}
-					if err := matchSpec("NFLOG", rulespec); err == nil {
-						return nil
-					}
-				}
-				return errors.New("error")
-			})
-
-			err := i.addNetACLs("", "", "chain", policy.IPRuleList{})
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I add net ACLs with no rules and it fails", func() {
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if table == i.netPacketIPTableContext && chain == "chain" {
-					return errors.New("error")
-				}
-				return nil
-			})
-
-			err := i.addNetACLs("", "", "chain", policy.IPRuleList{})
-			Convey("I should get  error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I add net ACLs with one reject and one accept rule and iptables succeeds", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-			}
-
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if matchSpec("NFLOG", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addNetACLs("chain", "", "", rules)
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I add net ACLs with one reject and one accept and the accept fails", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-			}
-
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if matchSpec("NFLOG", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addNetACLs("chain", "", "", rules)
-			Convey("I should get no error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I add net ACLs with one reject and one accept and the reject rule fails", func() {
-
-			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
-
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "443",
-					Protocol: "TCP",
-					Policy:   &policy.FlowPolicy{Action: policy.Accept},
-				},
-			}
-
-			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if matchSpec("NFLOG", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
-					return nil
-				}
-				if matchSpec("0.0.0.0/0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("error %s", rulespec)
-			})
-			err := i.addNetACLs("chain", "", "", rules)
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-	})
-}
-
 func TestDeleteChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
@@ -1206,48 +895,157 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 	})
 }
 
-func TestUpdateTargetNetworks(t *testing.T) {
-	Convey("Given an iptables controller,", t, func() {
-		i, _ := NewInstance(&fqconfig.FilterQueue{}, constants.RemoteContainer)
+func TestAddAppACLs(t *testing.T) {
+	Convey("Given an iptables controller ", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
 		i.ipset = ipsets
 
-		Convey("When I create the target networks for the first time and ipset succeeds, it should succeed", func() {
-
-			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
-				if name == targetNetworkSet {
-					testset := provider.NewTestIpset()
-					testset.MockAdd(t, func(entry string, timeout int) error {
-						if entry == "10.1.1.0/24" || entry == "20.1.1.0/24" || entry == "30.1.1.0/24" {
-							return nil
-						}
-						return errors.New("error")
-					})
-
-					testset.MockDel(t, func(entry string) error {
-						if entry == "10.1.1.0/24" {
-							return nil
-						}
-						return errors.New("error")
-					})
-
-					return testset, nil
-				}
-				return nil, errors.New("wrong set")
-			})
-
-			err := i.createTargetSet([]string{"10.1.1.0/24", "20.1.1.0/24"})
-			So(err, ShouldBeNil)
-
-			Convey("When I update the target network and I delete an entry", func() {
-				err := i.updateTargetNetworks([]string{"10.1.1.0/24", "20.1.1.0/24"}, []string{"20.1.1.0/24"})
+		Convey("When I add app ACLs with no rules", func() {
+			err := i.addAppACLs("", appChain, netChain, []aclIPset{})
+			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
+		})
+		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
 
-			Convey("When I update the target network and I add an entry", func() {
-				err := i.updateTargetNetworks([]string{"10.1.1.0/24", "20.1.1.0/24"}, []string{"30.1.1.0/24"})
+			rules := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"80"},
+					Protocols: []string{"TCP"},
+					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
+				},
+
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"443"},
+					Protocols: []string{"UDP"},
+					Policy:    &policy.FlowPolicy{Action: policy.Accept},
+				},
+			}
+
+			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset, nil
+			})
+
+			ipsets.MockGetIpset(t, func(name string) provider.Ipset {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset
+			})
+
+			//ipsets.Mock
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				// test DROP rules are before ACCEPT
+				if table == i.appPacketIPTableContext && chain == appChain {
+					if matchSpec("DROP", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil && matchSpec("NFLOG", rulespec) == nil {
+						return nil
+					}
+				}
+
+				if chain == netChain {
+					if matchSpec("ACCEPT", rulespec) == nil {
+						return nil
+					}
+				}
+
+				return errors.New("Chains and table are incorrect")
+			})
+
+			appACLIPset, err := i.createACLIPSets("chain", rules)
+			So(err, ShouldBeNil)
+
+			err = i.addAppACLs("chain", appChain, netChain, appACLIPset)
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+
+}
+
+func TestAddNetACLs(t *testing.T) {
+	Convey("Given an iptables controller ", t, func() {
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+		ipsets := provider.NewTestIpsetProvider()
+		i.ipset = ipsets
+
+		Convey("When I add app ACLs with no rules", func() {
+			err := i.addNetACLs("", appChain, netChain, []aclIPset{})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
+
+			rules := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"80"},
+					Protocols: []string{"TCP"},
+					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
+				},
+
+				policy.IPRule{
+					Addresses: []string{"192.30.253.0/24"},
+					Ports:     []string{"443"},
+					Protocols: []string{"UDP"},
+					Policy:    &policy.FlowPolicy{Action: policy.Accept},
+				},
+			}
+
+			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset, nil
+			})
+
+			ipsets.MockGetIpset(t, func(name string) provider.Ipset {
+				testset := provider.NewTestIpset()
+				testset.MockAdd(t, func(entry string, timeout int) error {
+					return nil
+				})
+				return testset
+			})
+
+			//ipsets.Mock
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				// test DROP rules are before ACCEPT
+				if table == i.appPacketIPTableContext && chain == netChain {
+					if matchSpec("DROP", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil && matchSpec("NFLOG", rulespec) == nil {
+						return nil
+					}
+				}
+
+				if chain == appChain {
+					if matchSpec("ACCEPT", rulespec) == nil {
+						return nil
+					}
+				}
+
+				return errors.New("Chains and table are incorrect")
+			})
+
+			netACLIPset, err := i.createACLIPSets("chain", rules)
+			So(err, ShouldBeNil)
+
+			err = i.addNetACLs("chain", appChain, netChain, netACLIPset)
+			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
 		})

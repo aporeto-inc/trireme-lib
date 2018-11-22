@@ -24,9 +24,9 @@ func TestEmptyPortListLookup(t *testing.T) {
 func TestPortListLookup(t *testing.T) {
 
 	rule := policy.IPRule{
-		Address:  "172.0.0.0/8",
-		Port:     "1:999",
-		Protocol: "tcp",
+		Addresses: []string{"172.0.0.0/8"},
+		Ports:     []string{"1:999"},
+		Protocols: []string{"tcp"},
 		Policy: &policy.FlowPolicy{
 			Action:   policy.Accept,
 			PolicyID: "portMatch",
@@ -34,11 +34,15 @@ func TestPortListLookup(t *testing.T) {
 	}
 
 	Convey("Given a non-empty port action list", t, func() {
-		pa, err := newPortAction(rule)
-		So(err, ShouldBeNil)
-		So(pa, ShouldNotBeNil)
+		var pl portActionList
+		for _, port := range rule.Ports {
+			pa, err := newPortAction(port, rule.Policy)
 
-		pl := &portActionList{pa}
+			So(err, ShouldBeNil)
+			So(pa, ShouldNotBeNil)
+
+			pl = append(pl, pa)
+		}
 
 		Convey("When I lookup for a non matching port, I should get error", func() {
 			r, p, err := pl.lookup(0, nil)
@@ -87,9 +91,9 @@ func TestPortListLookup(t *testing.T) {
 func TestPortListLookupObservedPolicyContinue(t *testing.T) {
 
 	rule := policy.IPRule{
-		Address:  "172.0.0.0/8",
-		Port:     "1:999",
-		Protocol: "tcp",
+		Addresses: []string{"172.0.0.0/8"},
+		Ports:     []string{"1:999"},
+		Protocols: []string{"tcp"},
 		Policy: &policy.FlowPolicy{
 			ObserveAction: policy.ObserveContinue,
 			Action:        policy.Accept,
@@ -98,11 +102,14 @@ func TestPortListLookupObservedPolicyContinue(t *testing.T) {
 	}
 
 	Convey("Given a non-empty port action list", t, func() {
-		pa, err := newPortAction(rule)
-		So(err, ShouldBeNil)
-		So(pa, ShouldNotBeNil)
+		var pl portActionList
+		for _, port := range rule.Ports {
+			pa, err := newPortAction(port, rule.Policy)
+			So(err, ShouldBeNil)
+			So(pa, ShouldNotBeNil)
 
-		pl := &portActionList{pa}
+			pl = append(pl, pa)
+		}
 
 		Convey("When I lookup for a non matching port, I should get error", func() {
 			r, p, err := pl.lookup(0, nil)
@@ -149,9 +156,9 @@ func TestPortListLookupObservedPolicyContinue(t *testing.T) {
 func TestPortListLookupObservedPolicyApply(t *testing.T) {
 
 	rule := policy.IPRule{
-		Address:  "172.0.0.0/8",
-		Port:     "1:999",
-		Protocol: "tcp",
+		Addresses: []string{"172.0.0.0/8"},
+		Ports:     []string{"1:999"},
+		Protocols: []string{"tcp"},
 		Policy: &policy.FlowPolicy{
 			ObserveAction: policy.ObserveApply,
 			Action:        policy.Accept,
@@ -160,11 +167,14 @@ func TestPortListLookupObservedPolicyApply(t *testing.T) {
 	}
 
 	Convey("Given a non-empty port action list", t, func() {
-		pa, err := newPortAction(rule)
-		So(err, ShouldBeNil)
-		So(pa, ShouldNotBeNil)
+		var pl portActionList
+		for _, port := range rule.Ports {
+			pa, err := newPortAction(port, rule.Policy)
+			So(err, ShouldBeNil)
+			So(pa, ShouldNotBeNil)
 
-		pl := &portActionList{pa}
+			pl = append(pl, pa)
+		}
 
 		Convey("When I lookup for a non matching port, I should get error", func() {
 			r, p, err := pl.lookup(0, nil)
