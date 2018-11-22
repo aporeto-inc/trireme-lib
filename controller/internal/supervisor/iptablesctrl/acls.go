@@ -2097,7 +2097,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusi
 	return nil
 }
 
-// addExclusionACLs adds the set of IP addresses that must be excluded
+// addExclusionACLs adds the set of IP addresses that must be excluded.
 func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
