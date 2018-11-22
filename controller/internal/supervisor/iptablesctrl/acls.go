@@ -1003,6 +1003,7 @@ func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []a
 							i.appPacketIPTableContext, appChain, 1,
 							"-p", tcpProto,
 							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
 							"-m", "state", "--state", "ESTABLISHED",
 							"-j", "ACCEPT",
@@ -2097,7 +2098,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusi
 	return nil
 }
 
-// addExclusionACLs adds the set of IP addresses that must be excluded.
+// addExclusionACLs adds the set of IP addresses that must be excluded
 func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
