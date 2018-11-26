@@ -333,7 +333,7 @@ func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers 
 
 		// if the container has hostnet set to true or is linked
 		// to container with hostnet set to true, program the cgroup.
-		if isHostNetworkContainer(policyExtensions(runtime)) {
+		if isHostNetworkContainer(runtime) {
 			if err = d.setupHostMode(puID, runtime, &container); err != nil {
 				return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
 			}
@@ -521,7 +521,7 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 
 	// if the container has hostnet set to true or is linked
 	// to container with hostnet set to true, program the cgroup.
-	if isHostNetworkContainer(policyExtensions(runtime)) {
+	if isHostNetworkContainer(runtime) {
 		if err = d.setupHostMode(puID, runtime, container); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
 		}
