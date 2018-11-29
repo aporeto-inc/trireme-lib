@@ -151,7 +151,7 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 				}
 			}
 		} else {
-			zap.L().Warn("Failed to resolve dnsrule", zap.Error(err))
+			zap.L().Warn("Failed to resolve dns rule", zap.Error(err))
 			return err
 		}
 
@@ -170,7 +170,9 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 	time.Sleep(time.Duration(500) * time.Millisecond)
 
 	for _, dnsrule := range errDNSNames {
-		lookupHost(&dnsrule) // nolint
+		if err := lookupHost(&dnsrule); err != nil {
+			zap.L().Warn("Failed to resolve dns rule on retry", zap.Error(err))
+		}
 	}
 }
 
