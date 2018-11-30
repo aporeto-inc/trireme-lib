@@ -190,6 +190,11 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	p.Lock()
 	defer p.Unlock()
 
+	// Remove pu from registry
+	if err := p.registry.Unregister(puID); err != nil {
+		return err
+	}
+
 	// Find the correct client.
 	c, err := p.clients.Get(puID)
 	if err != nil {
