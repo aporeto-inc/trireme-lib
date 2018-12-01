@@ -140,6 +140,9 @@ type TCPConnection struct {
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 
+	// LoopbackConnection indicates that this connections is within the same pu context.
+	loopbackConnection bool
+
 	// ReportFlowPolicy holds the last matched observed policy
 	ReportFlowPolicy *policy.FlowPolicy
 
@@ -196,6 +199,18 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()))
 	}
+}
+
+// SetLoopbackConnection sets LoopbackConnection field.
+func (c *TCPConnection) SetLoopbackConnection(isLoopback bool) {
+	// Logging information
+	c.loopbackConnection = isLoopback
+}
+
+// IsLoopbackConnection sets LoopbackConnection field.
+func (c *TCPConnection) IsLoopbackConnection() bool {
+	// Logging information
+	return c.loopbackConnection
 }
 
 // NewTCPConnection returns a TCPConnection information struct

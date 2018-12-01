@@ -348,6 +348,11 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 // processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) error {
 
+	// if the traffic belongs to the same pu, let it go
+	if conn.GetState() == connection.TCPData && conn.IsLoopbackConnection() {
+		return nil
+	}
+
 	// If we are already in the connection.TCPData, it means that this is an external flow
 	// At this point we can release the flow to the kernel by updating conntrack
 	// We can also clean up the state since we are not going to see any more
@@ -579,6 +584,14 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	report, pkt := context.SearchRcvRules(tags)
+
+	if txLabel == context.ManagementID() {
+		conn.SetState(connection.TCPData)
+		conn.SetLoopbackConnection(true)
+		d.reportAcceptedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, nil, nil)
+		return nil, nil, nil
+	}
+
 	if pkt.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
@@ -710,6 +723,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+
+	if conn.Auth.RemoteContextID == context.ManagementID() {
+		conn.SetState(connection.TCPData)
+		conn.SetLoopbackConnection(true)
+		d.reportAcceptedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, nil, nil)
+		return nil, nil, nil
+	}
+
 	if pkt.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
