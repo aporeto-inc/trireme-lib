@@ -55,7 +55,7 @@ func (i *Instance) puChainRules(appChain string, netChain string, mark string, t
 	} else {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			iptableNetSection,
 			"-p", tcpProto,
 			"-m", "set", "--match-set", tcpPortSet, "dst",
 			"-m", "comment", "--comment", "Container-specific-chain",
