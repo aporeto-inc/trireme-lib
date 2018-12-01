@@ -43,7 +43,7 @@ func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedM
 // to true or is linked to container with hostnetwork set to true.
 func isHostNetworkContainer(runtime policy.RuntimeReader) bool {
 
-	return runtime.PUType() == common.LinuxProcessPU || getPausePUID(policyExtensions(runtime)) != ""
+	return runtime.PUType() == common.LinuxProcessPU || (getPausePUID(policyExtensions(runtime)) != "")
 }
 
 // IsKubernetesContainer checks if the container is in K8s.
