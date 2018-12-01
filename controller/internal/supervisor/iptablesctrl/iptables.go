@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/spaolacci/murmur3"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -590,6 +591,15 @@ F1:
 func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([]aclIPset, error) {
 	var info *ipsetInfo
 
+	hashServiceID := func(serviceID string) string {
+		hash := murmur3.New64()
+		if _, err := io.WriteString(hash, serviceID); err != nil {
+			return ""
+		}
+
+		return base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	}
+
 	acls := make([]aclIPset, len(rules))
 
 	for _, rule := range rules {
@@ -597,7 +607,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 		if i.serviceIDToIPsets[rule.Policy.ServiceID] == nil {
 			ips := map[string]bool{}
 
-			ipsetName := puPortSetName("external", "ipset_"+rule.Policy.ServiceID)
+			ipsetName := puPortSetName(contextID, "_extnet_"+hashServiceID(rule.Policy.ServiceID))
 			_, err := i.ipset.NewIpset(ipsetName,
 				"hash:net",
 				&ipset.Params{})
@@ -731,7 +741,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 // puPortSetName returns the name of the pu portset.
 func puPortSetName(contextID string, prefix string) string {
-	hash := md5.New()
+	hash := murmur3.New64()
 
 	if _, err := io.WriteString(hash, contextID); err != nil {
 		return ""
