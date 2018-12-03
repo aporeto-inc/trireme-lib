@@ -586,15 +586,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	report, pkt := context.SearchRcvRules(tags)
 
-	if txLabel == context.ManagementID() {
-		zap.L().Info("Traffic to the same pu - accept and move on", zap.String("flow", tcpPacket.L4FlowHash()))
-		conn.SetState(connection.TCPData)
-		conn.SetLoopbackConnection(true)
-		d.reportAcceptedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, nil, nil)
-		return nil, nil, nil
-	}
-
-	if pkt.Action.Rejected() {
+	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
 	}
@@ -611,6 +603,11 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Cache the action
 	conn.ReportFlowPolicy = report
 	conn.PacketFlowPolicy = pkt
+
+	if txLabel == context.ManagementID() {
+		zap.L().Info("Traffic to the same pu - accept and move on", zap.String("flow", tcpPacket.L4FlowHash()))
+		conn.SetLoopbackConnection(true)
+	}
 
 	// Accept the connection
 	return pkt, claims, nil
@@ -726,11 +723,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 
+	// Report and release traffic belonging to the same pu
 	if conn.Auth.RemoteContextID == context.ManagementID() {
 		zap.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
 		conn.SetState(connection.TCPData)
 		conn.SetLoopbackConnection(true)
 		d.reportAcceptedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, nil, nil)
+		d.releaseUnmonitoredFlow(tcpPacket)
 		return nil, nil, nil
 	}
 
@@ -1095,7 +1094,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 // releaseUnmonitoredFlow releases the flow and updates the conntrack table
 func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
-	zap.L().Debug("Releasing unmonitored flow", zap.String("flow", tcpPacket.L4FlowHash()))
+	zap.L().Debug("Releasing flow flow", zap.String("flow", tcpPacket.L4FlowHash()))
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
 		tcpPacket.DestinationAddress.String(),
 		tcpPacket.SourceAddress.String(),
