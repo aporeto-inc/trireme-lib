@@ -727,7 +727,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 
 	if conn.Auth.RemoteContextID == context.ManagementID() {
-		zapl.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
+		zap.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
 		conn.SetState(connection.TCPData)
 		conn.SetLoopbackConnection(true)
 		d.reportAcceptedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, nil, nil)
