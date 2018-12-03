@@ -350,6 +350,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 	// if the traffic belongs to the same pu, let it go
 	if conn.GetState() == connection.TCPData && conn.IsLoopbackConnection() {
+		zap.L().Info("Letting packet go")
 		return nil
 	}
 
@@ -586,6 +587,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	report, pkt := context.SearchRcvRules(tags)
 
 	if txLabel == context.ManagementID() {
+		zap.L().Info("Traffic to the same pu - accept and move on", zap.String("flow", tcpPacket.L4FlowHash()))
 		conn.SetState(connection.TCPData)
 		conn.SetLoopbackConnection(true)
 		d.reportAcceptedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, nil, nil)
@@ -725,6 +727,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 
 	if conn.Auth.RemoteContextID == context.ManagementID() {
+		zapl.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
 		conn.SetState(connection.TCPData)
 		conn.SetLoopbackConnection(true)
 		d.reportAcceptedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, nil, nil)
