@@ -793,7 +793,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidHeader, nil, nil)
+			// TODO: this needs to be converted to a rejected packet messages. It doesn't mean rejected flow. Disabling.
+			// d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidHeader, nil, nil)
 			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 		}
 
