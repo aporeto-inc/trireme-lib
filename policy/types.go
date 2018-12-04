@@ -161,6 +161,12 @@ type FlowPolicy struct {
 	Labels        []string
 }
 
+
+// DefaultAceeptLogPrefix return the prefix used in nf-log action for default rule.
+func DefaultAcceptLogPrefix(contextID string) string {
+	return contextID + ":default:default" + "3"
+}
+
 // LogPrefix is the prefix used in nf-log action. It must be less than
 func (f *FlowPolicy) LogPrefix(contextID string) string {
 	prefix := contextID + ":" + f.PolicyID + ":" + f.ServiceID + f.EncodedActionString()
