@@ -34,7 +34,7 @@ func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, co
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
 func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
-	zap.L().Debug("Initializing with Compact PKI")
+	zap.L().Info("Initializing with Compact PKI")
 
 	key, cert, _, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {

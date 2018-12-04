@@ -365,7 +365,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		if !rule.Public {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
-			if err = p.verifyPolicy(rule.Scopes, sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes(), []string{}); err != nil {
+			if !apiCache.MatchClaims(rule.ClaimMatchingRules, append(sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes()...)) {
 				p.collector.CollectFlowEvent(state.stats)
 				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
@@ -556,36 +556,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-}
-
-func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAttributes []string) error {
-
-	// TODO: Silly implementation. We can do a better lookup here.
-	for _, a := range apitags {
-		for _, user := range userAttributes {
-			if user == a {
-				return nil
-			}
-		}
-		for _, c := range profile {
-			if a == c {
-				return nil
-			}
-		}
-		for _, c := range scopes {
-			if a == c {
-				return nil
-			}
-		}
-	}
-
-	zap.L().Warn("No match found in API token",
-		zap.Strings("User Attributes", userAttributes),
-		zap.Strings("API Policy", apitags),
-		zap.Strings("PU Claims", profile),
-		zap.Strings("PU Scopes", scopes),
-	)
-	return fmt.Errorf("No matching authorization policy")
 }
 
 func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
