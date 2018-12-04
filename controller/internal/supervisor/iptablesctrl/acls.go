@@ -163,7 +163,7 @@ func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark str
 	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string, puType string) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
@@ -213,13 +213,41 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) chainRules(contextID string, appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
 	rules := [][]string{
+		{
+			i.appPacketIPTableContext,
+			i.appPacketIPTableSection,
+			"-p", "udp",
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-m", "state", "--state", "NEW",
+			"-j", "NFLOG", "--nflog-group", "10",
+			"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
+		},
+		{
+			i.appPacketIPTableContext,
+			i.appPacketIPTableSection,
+			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-p", "udp",
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-j", "ACCEPT",
+		},
 		{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", appChain,
+		},
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-p", "udp",
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-j", "ACCEPT",
 		},
 		{
 			i.netPacketIPTableContext,
@@ -594,10 +622,11 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addUDPNatRule adds a rule to avoid masquarading traffic from host udp servers.
-func (i *Instance) getUDPNatRule(udpPorts string) [][]string {
+func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 
-	rules := [][]string{
-		{
+	rules := [][]string{}
+	if insert {
+		rules = append(rules, []string{
 			"nat",
 			"POSTROUTING",
 			"1",
@@ -606,18 +635,28 @@ func (i *Instance) getUDPNatRule(udpPorts string) [][]string {
 			"-m", "multiport",
 			"--source-ports", udpPorts,
 			"-j", "ACCEPT",
-		},
+		})
+	} else {
+		rules = append(rules, []string{
+			"nat",
+			"POSTROUTING",
+			"-p", udpProto,
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "multiport",
+			"--source-ports", udpPorts,
+			"-j", "ACCEPT",
+		})
 	}
 	return rules
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
+func (i *Instance) addChainRules(contextID string, portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			if udpPorts != "0" {
 				// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts), "Insert")
+				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, true), "Insert")
 				if err != nil {
 					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
 				}
@@ -641,13 +680,13 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
+			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, proxyPort, proxyPortSetName), "Append")
+	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
@@ -1268,13 +1307,13 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclI
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
+func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			if udpPorts != "0" {
 				// Delete the postrouting Nat rule for udp.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts), "Delete")
+				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, false), "Delete")
 				if err != nil {
 					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
 				}
@@ -1298,13 +1337,13 @@ func (i *Instance) deleteChainRules(portSetName, appChain, netChain, tcpPorts, u
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, proxyPort, proxyPortSetName), "Delete")
+	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules

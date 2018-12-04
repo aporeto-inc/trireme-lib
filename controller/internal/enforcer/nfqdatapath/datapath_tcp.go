@@ -1094,7 +1094,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 // releaseUnmonitoredFlow releases the flow and updates the conntrack table
 func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
-	zap.L().Debug("Releasing flow flow", zap.String("flow", tcpPacket.L4FlowHash()))
+	zap.L().Debug("Releasing flow", zap.String("flow", tcpPacket.L4FlowHash()))
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
 		tcpPacket.DestinationAddress.String(),
 		tcpPacket.SourceAddress.String(),
