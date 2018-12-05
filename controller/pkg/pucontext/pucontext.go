@@ -139,9 +139,9 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 
 		if ips, err := LookupHost(dnsrule.Name); err == nil {
 			for _, ip := range ips {
-				if !ipcache[ip] {
+				if !ipcache[ip+dnsrule.Port] {
 					rules = createACLRules(rules, dnsrule, ip)
-					ipcache[ip] = true
+					ipcache[ip+dnsrule.Port] = true
 				}
 			}
 
@@ -158,20 +158,25 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 		return nil
 	}
 
-	var errDNSNames policy.DNSRuleList
-
-	for _, dnsrule := range *dnsList {
-		if err := lookupHost(&dnsrule); err != nil {
-			errDNSNames = append(errDNSNames, dnsrule)
+	iterDNS := func(dnsList policy.DNSRuleList) policy.DNSRuleList {
+		var errDNSNames policy.DNSRuleList
+		for _, dnsrule := range dnsList {
+			if err := lookupHost(&dnsrule); err != nil {
+				errDNSNames = append(errDNSNames, dnsrule)
+			}
 		}
+
+		return errDNSNames
 	}
 
-	// retry for failed names
-	time.Sleep(time.Duration(500) * time.Millisecond)
+	initDNSRules := *dnsList
+	sleepTimes := []int{0, 500, 1000, 2000, 4000, 8000}
 
-	for _, dnsrule := range errDNSNames {
-		if err := lookupHost(&dnsrule); err != nil {
-			zap.L().Warn("Failed to resolve dns rule on retry", zap.Error(err))
+	for _, s := range sleepTimes {
+		time.Sleep(time.Duration(s) * time.Millisecond)
+		initDNSRules = iterDNS(initDNSRules)
+		if len(initDNSRules) == 0 {
+			return
 		}
 	}
 }
