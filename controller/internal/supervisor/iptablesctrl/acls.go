@@ -20,7 +20,7 @@ const (
 	udpProto = "udp"
 )
 
-func (i *Instance) puChainRules(appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string) [][]string {
 
 	iptableCgroupSection := appSection
@@ -36,11 +36,41 @@ func (i *Instance) puChainRules(appChain string, netChain string, mark string, t
 		{
 			i.appPacketIPTableContext,
 			iptableCgroupSection,
+			"-p", udpProto, "-m", "mark", "--mark", mark,
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-m", "state", "--state", "NEW",
+			"-j", "NFLOG", "--nflog-group", "10",
+			"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
+		},
+		{
+			i.appPacketIPTableContext,
+			iptableCgroupSection,
+			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-p", udpProto, "-m", "mark", "--mark", mark,
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-j", "ACCEPT",
+		},
+		{
+			i.appPacketIPTableContext,
+			iptableCgroupSection,
 			"-m", "cgroup", "--cgroup", mark,
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
 	}
+
+	// accept the traffic belonging to same pu on the network side.
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		iptableNetSection,
+		"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+		"-p", udpProto, "-m", "mark", "--mark", mark,
+		"-m", "addrtype", "--src-type", "LOCAL",
+		"-m", "addrtype", "--dst-type", "LOCAL",
+		"-j", "ACCEPT",
+	})
 
 	if tcpPorts != "0" {
 		rules = append(rules, []string{
@@ -79,7 +109,7 @@ func (i *Instance) puChainRules(appChain string, netChain string, mark string, t
 
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
 // consider source ports to identify packets from the process.
-func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string, puType string) [][]string {
 
 	iptableCgroupSection := appSection
@@ -131,11 +161,39 @@ func (i *Instance) legacyPuChainRules(appChain string, netChain string, mark str
 			{
 				i.appPacketIPTableContext,
 				iptableCgroupSection,
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-m", "state", "--state", "NEW",
+				"-j", "NFLOG", "--nflog-group", "10",
+				"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-j", "ACCEPT",
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
 				"-p", udpProto,
 				"-m", "multiport",
 				"--source-ports", udpPorts,
 				"-m", "comment", "--comment", "Server-specific-chain",
 				"-j", appChain,
+			},
+			{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-j", "ACCEPT",
 			},
 			{
 				i.netPacketIPTableContext,
@@ -169,11 +227,11 @@ func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string,
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
 	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
-		return i.legacyPuChainRules(appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
+		return i.legacyPuChainRules(contextID, appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
 			appSection, netSection, puType)
 	}
 
-	return i.puChainRules(appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
+	return i.puChainRules(contextID, appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
 		appSection, netSection)
 }
 
