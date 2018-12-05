@@ -46,7 +46,7 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 		{
 			i.appPacketIPTableContext,
 			iptableCgroupSection,
-			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-m", "comment", "--comment", "traffic-same-pu",
 			"-p", udpProto, "-m", "mark", "--mark", mark,
 			"-m", "addrtype", "--src-type", "LOCAL",
 			"-m", "addrtype", "--dst-type", "LOCAL",
@@ -65,7 +65,7 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 	rules = append(rules, []string{
 		i.netPacketIPTableContext,
 		iptableNetSection,
-		"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+		"-m", "comment", "--comment", "traffic-same-pu",
 		"-p", udpProto, "-m", "mark", "--mark", mark,
 		"-m", "addrtype", "--src-type", "LOCAL",
 		"-m", "addrtype", "--dst-type", "LOCAL",
@@ -171,7 +171,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 			{
 				i.appPacketIPTableContext,
 				iptableCgroupSection,
-				"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+				"-m", "comment", "--comment", "traffic-same-pu",
 				"-p", udpProto, "-m", "mark", "--mark", mark,
 				"-m", "addrtype", "--src-type", "LOCAL",
 				"-m", "addrtype", "--dst-type", "LOCAL",
@@ -189,7 +189,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 			{
 				i.netPacketIPTableContext,
 				iptableNetSection,
-				"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+				"-m", "comment", "--comment", "traffic-same-pu",
 				"-p", udpProto, "-m", "mark", "--mark", mark,
 				"-m", "addrtype", "--src-type", "LOCAL",
 				"-m", "addrtype", "--dst-type", "LOCAL",
@@ -286,7 +286,7 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 		{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
-			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-m", "comment", "--comment", "traffic-same-pu",
 			"-p", "udp",
 			"-m", "addrtype", "--src-type", "LOCAL",
 			"-m", "addrtype", "--dst-type", "LOCAL",
@@ -301,7 +301,7 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
-			"-m", "comment", "--comment", "accept traffic belonging to the same pu",
+			"-m", "comment", "--comment", "traffic-same-pu",
 			"-p", "udp",
 			"-m", "addrtype", "--src-type", "LOCAL",
 			"-m", "addrtype", "--dst-type", "LOCAL",
