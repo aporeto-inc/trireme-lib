@@ -123,11 +123,10 @@ type HTTPRule struct {
 	// Methods is a list of the allowed verbs for the given list of URIs.
 	Methods []string
 
-	// Scopes is a list of scopes associated with this rule. Clients
-	// must present one of these scopes in order to get access to this
-	// API. The scopes are presented either in the Trireme identity or the
-	// JWT of HTTP Authorization header.
-	Scopes []string
+	// ClaimMatchingRules is a list of matching rules associated with this rule. Clients
+	// must present a set of claims that will satisfy these rules. Each rule
+	// is an AND clause. The list of expressions is an OR of the AND clauses.
+	ClaimMatchingRules [][]string
 
 	// Public indicates that this is a public API and anyone can access it.
 	// No authorization will be performed on public APIs.

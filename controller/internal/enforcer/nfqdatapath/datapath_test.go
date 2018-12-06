@@ -3101,8 +3101,6 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
-
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
@@ -3123,8 +3121,6 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
-
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, "server", false)
 							So(puInfo1, ShouldNotBeNil)
