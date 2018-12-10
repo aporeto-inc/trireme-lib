@@ -746,8 +746,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 // processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
-	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend ||
-		conn.IsLoopbackConnection() {
+	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
+		return nil, nil, nil
+	}
+
+	if conn.IsLoopbackConnection() {
+		conn.SetState(connection.TCPData)
+		d.releaseUnmonitoredFlow(tcpPacket)
 		return nil, nil, nil
 	}
 
