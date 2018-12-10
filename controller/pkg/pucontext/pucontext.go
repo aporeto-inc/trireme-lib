@@ -116,43 +116,67 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	return pu, nil
 }
 
-func createACLRules(rules *policy.IPRuleList, dnsrule *policy.DNSRule, ip string) *policy.IPRuleList {
+func createACLRules(rules policy.IPRuleList, dnsrule *policy.DNSRule, ip string) policy.IPRuleList {
 	// ipv6 is not supported
 	if strings.Contains(ip, ":") {
 		return rules
 	}
 
-	rulesAppend := append(*rules, policy.IPRule{
+	rules = append(rules, policy.IPRule{
 		Addresses: []string{ip},
 		Ports:     []string{dnsrule.Port},
 		Protocols: []string{"TCP"},
 		Policy:    dnsrule.Policy,
 	})
 
-	return &rulesAppend
+	return rules
 }
 
 func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bool) {
 
-	rules := new(policy.IPRuleList)
-	for _, dnsrule := range *dnsList {
+	lookupHost := func(dnsrule *policy.DNSRule) error {
+		var rules policy.IPRuleList
+
 		if ips, err := LookupHost(dnsrule.Name); err == nil {
 			for _, ip := range ips {
-				if !ipcache[ip] {
-					rules = createACLRules(rules, &dnsrule, ip)
-					ipcache[ip] = true
+				if !ipcache[ip+dnsrule.Port] {
+					rules = createACLRules(rules, dnsrule, ip)
+					ipcache[ip+dnsrule.Port] = true
 				}
 			}
 
-			if len(*rules) > 0 {
-				if err = p.UpdateApplicationACLs(*rules); err != nil {
+			if len(rules) > 0 {
+				if err = p.UpdateApplicationACLs(rules); err != nil {
 					zap.L().Error("Error in Adding rules", zap.Error(err))
 				}
-				// empty the contents of the rules
-				rules = new(policy.IPRuleList)
 			}
 		} else {
-			zap.L().Warn("Failed to resolve dnsrule", zap.Error(err))
+			zap.L().Warn("Failed to resolve dns rule", zap.Error(err))
+			return err
+		}
+
+		return nil
+	}
+
+	iterDNS := func(dnsList policy.DNSRuleList) policy.DNSRuleList {
+		var errDNSNames policy.DNSRuleList
+		for _, dnsrule := range dnsList {
+			if err := lookupHost(&dnsrule); err != nil {
+				errDNSNames = append(errDNSNames, dnsrule)
+			}
+		}
+
+		return errDNSNames
+	}
+
+	initDNSRules := *dnsList
+	sleepTimes := []int{0, 500, 1000, 2000, 4000, 8000}
+
+	for _, s := range sleepTimes {
+		time.Sleep(time.Duration(s) * time.Millisecond)
+		initDNSRules = iterDNS(initDNSRules)
+		if len(initDNSRules) == 0 {
+			return
 		}
 	}
 }
