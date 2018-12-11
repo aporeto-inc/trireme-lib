@@ -33,43 +33,38 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
 		},
-		{
-			i.appPacketIPTableContext,
-			iptableCgroupSection,
-			"-p", udpProto, "-m", "mark", "--mark", mark,
-			"-m", "addrtype", "--src-type", "LOCAL",
-			"-m", "addrtype", "--dst-type", "LOCAL",
-			"-m", "state", "--state", "NEW",
-			"-j", "NFLOG", "--nflog-group", "10",
-			"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
-		},
-		{
-			i.appPacketIPTableContext,
-			iptableCgroupSection,
-			"-m", "comment", "--comment", "traffic-same-pu",
-			"-p", udpProto, "-m", "mark", "--mark", mark,
-			"-m", "addrtype", "--src-type", "LOCAL",
-			"-m", "addrtype", "--dst-type", "LOCAL",
-			"-j", "ACCEPT",
-		},
-		{
-			i.appPacketIPTableContext,
-			iptableCgroupSection,
-			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
-			"-j", appChain,
-		},
 	}
 
-	// accept the traffic belonging to same pu on the network side.
+	if appSection == HostModeOutput {
+		// accept udp traffic within the host pu
+		rules = append(rules, [][]string{
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-m", "state", "--state", "NEW",
+				"-j", "NFLOG", "--nflog-group", "10",
+				"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
+			},
+			{
+				i.appPacketIPTableContext,
+				iptableCgroupSection,
+				"-m", "comment", "--comment", "traffic-same-pu",
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-j", "ACCEPT",
+			}}...)
+	}
+
 	rules = append(rules, []string{
-		i.netPacketIPTableContext,
-		iptableNetSection,
-		"-m", "comment", "--comment", "traffic-same-pu",
-		"-p", udpProto, "-m", "mark", "--mark", mark,
-		"-m", "addrtype", "--src-type", "LOCAL",
-		"-m", "addrtype", "--dst-type", "LOCAL",
-		"-j", "ACCEPT",
+		i.appPacketIPTableContext,
+		iptableCgroupSection,
+		"-m", "cgroup", "--cgroup", mark,
+		"-m", "comment", "--comment", "Server-specific-chain",
+		"-j", appChain,
 	})
 
 	if tcpPorts != "0" {
@@ -94,6 +89,21 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 	}
 
 	if udpPorts != "0" {
+
+		if netSection == HostModeInput {
+			// accept the traffic belonging to same pu on the network side.
+			// capture before the catch all rule
+			rules = append(rules, []string{
+				i.netPacketIPTableContext,
+				iptableNetSection,
+				"-m", "comment", "--comment", "traffic-same-pu",
+				"-p", udpProto, "-m", "mark", "--mark", mark,
+				"-m", "addrtype", "--src-type", "LOCAL",
+				"-m", "addrtype", "--dst-type", "LOCAL",
+				"-j", "ACCEPT",
+			})
+		}
+
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
 			iptableNetSection,
