@@ -267,6 +267,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 	// Install the new rules
 	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+		zap.L().Error("failed to install rules", zap.Error(err))
 		return nil
 	}
 

@@ -937,7 +937,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 	if err := programACLs(testAccept, testObserveApply); err != nil {
 		return err
 	}
-
+	zap.L().Info("programmed udp acls for", zap.Reflect("pu", contextID))
 	return nil
 }
 
