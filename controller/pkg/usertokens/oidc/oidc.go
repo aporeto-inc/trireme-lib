@@ -216,7 +216,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		}
 		idToken, err = v.oauthVerifier.Verify(ctx, token)
 		if err != nil {
-			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required: %s", err)
+			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required")
 		}
 	}
 

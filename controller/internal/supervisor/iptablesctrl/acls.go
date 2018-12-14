@@ -657,7 +657,7 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, isHostPU bool
 
 }
 
-func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) error {
+func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection string) error {
 	iptRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
@@ -711,15 +711,7 @@ func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *in
 		}
 	}
 
-	if order == "Append" {
-		// remove the insertion order from rules
-		for i, rule := range iptRules {
-			iptRules[i] = append(rule[:2], rule[3:]...)
-		}
-		return i.processRulesFromList(iptRules, order)
-	}
-
-	return i.processRulesFromList(iptRules, order)
+	return i.processRulesFromList(iptRules, "Insert")
 }
 
 type rulePred func(policy *policy.FlowPolicy) bool
@@ -734,7 +726,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) erro
 				if strings.ToLower(proto) == tcpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, chain, "10", tcpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, chain, "10", tcpProto, "dst"); err != nil {
 						return err
 					}
 				}
@@ -804,7 +796,7 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset)
 					proto != udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", proto, "dst", "Append"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, appChain, "10", proto, "dst"); err != nil {
 						return err
 					}
 				}
@@ -868,10 +860,10 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if (strings.ToLower(proto) == udpProto || strings.ToLower(proto) == "all") &&
+				if strings.ToLower(proto) == udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, appChain, "10", udpProto, "dst"); err != nil {
 						return err
 					}
 
@@ -1001,7 +993,7 @@ func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []a
 				if strings.ToLower(proto) == tcpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", tcpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, netChain, "11", tcpProto, "src"); err != nil {
 						return err
 					}
 
@@ -1083,7 +1075,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []a
 				if strings.ToLower(proto) == udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", udpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, netChain, "11", udpProto, "src"); err != nil {
 						return err
 					}
 
@@ -1165,7 +1157,7 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset)
 					proto != udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", proto, "src", "Append"); err != nil {
+					if err := i.programRule(contextID, &rule, intP, netChain, "11", proto, "src"); err != nil {
 						return err
 					}
 				}

@@ -17,7 +17,6 @@ import (
 
 const (
 	appChain = "appChain"
-	errChain = "errChain"
 	netChain = "netChain"
 	ruleType = "mark"
 )
@@ -926,12 +925,6 @@ func TestAddAppACLs(t *testing.T) {
 					Protocols: []string{"UDP"},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
-
-				policy.IPRule{
-					Addresses: []string{"192.30.253.0/24"},
-					Protocols: []string{"all"},
-					Policy:    &policy.FlowPolicy{Action: policy.Accept},
-				},
 			}
 
 			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
@@ -965,10 +958,6 @@ func TestAddAppACLs(t *testing.T) {
 					}
 				}
 
-				if chain == errChain {
-					return errors.New("chain is incorrect")
-				}
-
 				return errors.New("Chains and table are incorrect")
 			})
 
@@ -979,12 +968,6 @@ func TestAddAppACLs(t *testing.T) {
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
-
-			err = i.addAppACLs("chain", errChain, errChain, appACLIPset)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-
 		})
 
 	})
@@ -1020,12 +1003,6 @@ func TestAddNetACLs(t *testing.T) {
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"443"},
 					Protocols: []string{"UDP"},
-					Policy:    &policy.FlowPolicy{Action: policy.Accept},
-				},
-
-				policy.IPRule{
-					Addresses: []string{"192.30.253.0/24"},
-					Protocols: []string{"all"},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
