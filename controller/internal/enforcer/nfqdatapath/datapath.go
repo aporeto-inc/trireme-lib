@@ -289,6 +289,13 @@ func NewWithDefaults(
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
+	// pucontext launches a go routine to periodically
+	// lookup dns names. ctx cancel signals the go routine to exit
+	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
+        zap.L().Error("cancelling previous go routine")
+		prevPU.(*pucontext.PUContext).CancelFunc()
+	}
+
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
 	if err != nil {
@@ -342,12 +349,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	} else {
 		d.puFromIP = pu
-	}
-
-	// pucontext launches a go routine to periodically
-	// lookup dns names. ctx cancel signals the go routine to exit
-	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
-		prevPU.(*pucontext.PUContext).CancelFunc()
 	}
 
 	// Cache PU from contextID for management and policy updates

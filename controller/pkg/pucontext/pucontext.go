@@ -170,7 +170,7 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 	}
 
 	initDNSRules := *dnsList
-	sleepTimes := []int{0, 500, 1000, 2000, 4000, 8000}
+	sleepTimes := []int{0}
 
 	for _, s := range sleepTimes {
 		time.Sleep(time.Duration(s) * time.Millisecond)
@@ -199,6 +199,7 @@ func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
 		for {
 			select {
 			case <-ctx.Done():
+				zap.L().Debug("Cancelling the previous go routine")
 				return
 			default:
 				p.dnsToACLs(dnsList, ipcache)
