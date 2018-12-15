@@ -112,7 +112,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	}
 
 	dnsACL := puInfo.Policy.DNSNameACLs()
-	pu.startDNS(ctx, &dnsACL)
+	//pu.startDNS(ctx, &dnsACL)
 	return pu, nil
 }
 
