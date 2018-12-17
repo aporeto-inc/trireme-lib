@@ -255,14 +255,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"--match-set", destSetName, "src,src",
 			"-j", "ACCEPT",
 		},
-		{ // Needed for Web sockets
-			i.netPacketIPTableContext,
-			proxyInputChain,
-			"-p", tcpProto,
-			"-m", "set",
-			"--match-set", srvSetName, "dst",
-			"-j", "ACCEPT",
-		},
 		{ // APIServices
 			i.netPacketIPTableContext,
 			proxyInputChain,
@@ -291,14 +283,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
-			"-j", "ACCEPT",
-		},
-		{ // Needed for websocket support
-			i.appPacketIPTableContext,
-			proxyOutputChain,
-			"-p", tcpProto,
-			"-m", "set",
-			"--match-set", srvSetName, "dst",
 			"-j", "ACCEPT",
 		},
 		{
