@@ -711,7 +711,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 	if pkt.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
