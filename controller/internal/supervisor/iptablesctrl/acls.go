@@ -868,7 +868,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if (strings.ToLower(proto) == udpProto || strings.ToLower(proto) == "all") &&
+				if (strings.ToLower(proto) == udpProto) &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {

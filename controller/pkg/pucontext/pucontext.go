@@ -184,7 +184,6 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
 
 	ipcache := make(map[string]bool)
-	p.dnsToACLs(dnsList, ipcache)
 
 	go func() {
 		curTime := time.Now()
