@@ -47,6 +47,10 @@ type ApplicationService struct {
 	// listening to. This is needed in the case of port mappings.
 	PrivateNetworkInfo *common.Service
 
+	// PrivateTLSListener indicates that the service uses a TLS listener. As a
+	// result we must TLS for traffic send locally in the service.
+	PrivateTLSListener bool
+
 	// PublicNetworkInfo provides the network information where the enforcer
 	// should listen for incoming connections of the service. This can be
 	// different than the PrivateNetworkInfo where the application is listening
