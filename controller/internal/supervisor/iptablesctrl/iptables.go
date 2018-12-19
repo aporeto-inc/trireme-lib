@@ -243,7 +243,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return errors.New("policy rules cannot be nil")
 	}
 
-	proxyPort := containerInfo.Runtime.Options().ProxyPort
+	proxyPort := containerInfo.Policy.ServicesListeningPort()
 	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
 
 	portSetName := i.getPortSet(contextID)
@@ -430,7 +430,7 @@ func (i *Instance) ACLProvider() provider.IptablesProvider {
 // configureContainerRules adds the chain rules for a container.
 func (i *Instance) configureContainerRules(appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
-	proxyPort := puInfo.Runtime.Options().ProxyPort
+	proxyPort := puInfo.Policy.ServicesListeningPort()
 
 	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
 }
@@ -438,7 +438,7 @@ func (i *Instance) configureContainerRules(appChain, netChain, proxyPortSetName 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
 func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
-	proxyPort := puInfo.Runtime.Options().ProxyPort
+	proxyPort := puInfo.Policy.ServicesListeningPort()
 
 	mark := puInfo.Runtime.Options().CgroupMark
 

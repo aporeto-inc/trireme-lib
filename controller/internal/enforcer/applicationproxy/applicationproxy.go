@@ -99,6 +99,11 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.Lock()
 	defer p.Unlock()
 
+	if puInfo.Policy.ServicesListeningPort() == "0" {
+		zap.L().Warn("Services listening port not specified - not activating proxy")
+		return nil
+	}
+
 	data, err := p.puFromID.Get(puID)
 	if err != nil || data == nil {
 		return fmt.Errorf("Undefined PU - Context not found: %s", puID)
@@ -128,9 +133,9 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
-	l, err := p.createNetworkListener(ctx, ":"+puInfo.Runtime.Options().ProxyPort)
+	l, err := p.createNetworkListener(ctx, ":"+puInfo.Policy.ServicesListeningPort())
 	if err != nil {
-		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Runtime.Options().ProxyPort, err)
+		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
 
 	// Create a new client entry and start the servers.
@@ -263,7 +268,6 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype common
 
 // createNetworkListener starts a network listener (traffic from network to PUs)
 func (p *AppProxy) createNetworkListener(ctx context.Context, port string) (net.Listener, error) {
-
 	return markedconn.NewSocketListener(ctx, port, proxyMarkInt)
 }
 

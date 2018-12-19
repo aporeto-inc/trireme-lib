@@ -1,8 +1,6 @@
 package constants
 
 const (
-	// DefaultProxyPort  the default port the l4 proxy listens on
-	DefaultProxyPort = "5000"
 	// DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
 	// DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
@@ -64,9 +62,6 @@ const (
 
 	// EnvCompressedTags stores whether we should be using compressed tags.
 	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
-
-	// EnvApplicationProxyPort store the application proxy port
-	EnvApplicationProxyPort = "TRIREME_ENV_PROXY_PORT"
 )
 
 // ModeType defines the mode of the enforcement and supervisor.

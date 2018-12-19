@@ -30,11 +30,8 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 					zap.L().Error("Failed to assing mark to socket", zap.Error(err))
 				}
-				if err := setSocketTimeout(int(fd), time.Second*60); err != nil {
-					zap.L().Error("Failed to set connect timeout", zap.Error(err))
-				}
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 30, 1); err != nil {
-					zap.L().Error("Failed to set fast open socket option", zap.Error(err))
+					zap.L().Debug("Failed to set fast open socket option", zap.Error(err))
 				}
 			})
 		},
@@ -52,17 +49,13 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 }
 
 func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
-
 	listenerCfg := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
 			c.Control(func(fd uintptr) {
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 					zap.L().Error("Failed to mark connection", zap.Error(err))
 				}
-				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
-					zap.L().Error("cannot set SO_REUSEADDR", zap.Error(err))
-				}
-				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 23, 64*1024); err != nil {
+				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 23, 16*1024); err != nil {
 					zap.L().Error("Cannot set tcp fast open options", zap.Error(err))
 				}
 			})
@@ -192,19 +185,20 @@ type sockaddr struct {
 
 // GetOriginalDestination -- Func to get original destination a connection
 func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint interfacer
+
 	var addr sockaddr
 	size := uint32(unsafe.Sizeof(addr))
 
-	inFile, err := conn.File()
+	rawconn, err := conn.SyscallConn()
 	if err != nil {
-		return []byte{}, 0, err
+		return nil, 0, err
 	}
-	defer inFile.Close() // nolint errcheck
 
-	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
-	if err != nil {
-		return []byte{}, 0, err
-	}
+	rawconn.Control(func(fd uintptr) {
+		if err := getsockopt(int(fd), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size); err != nil {
+			zap.L().Error("Failed to retrieve original destination", zap.Error(err))
+		}
+	})
 
 	if addr.family != syscall.AF_INET {
 		return []byte{}, 0, fmt.Errorf("invalid address family")
