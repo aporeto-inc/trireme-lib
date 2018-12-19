@@ -198,7 +198,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if err := i.deleteChainRules(tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType); err != nil {
+	if err := i.deleteChainRules(contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
@@ -272,14 +272,14 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(contextID, portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		username := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(contextID, portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxySetName, puType); err != nil {
 			return err
 		}
 	}
@@ -428,11 +428,11 @@ func (i *Instance) ACLProvider() provider.IptablesProvider {
 }
 
 // configureContainerRules adds the chain rules for a container.
-func (i *Instance) configureContainerRules(appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
+func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
 	proxyPort := puInfo.Policy.ServicesListeningPort()
 
-	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
+	return i.addChainRules(contextID, "", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
@@ -456,7 +456,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	}
 
 	username := puInfo.Runtime.Options().UserID
-	return i.addChainRules(tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType)
+	return i.addChainRules(contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType)
 }
 
 func (i *Instance) deleteProxySets(proxyPortSetName string) error {
@@ -698,7 +698,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	// If its a remote and thus container, configure container rules.
 	if i.mode == constants.RemoteContainer || i.mode == constants.Sidecar {
-		if err := i.configureContainerRules(appChain, netChain, proxySetName, containerInfo); err != nil {
+		if err := i.configureContainerRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 			return err
 		}
 	}
