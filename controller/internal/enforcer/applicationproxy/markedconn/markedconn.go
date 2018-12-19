@@ -228,3 +228,20 @@ func setSocketTimeout(fd int, timeout time.Duration) error {
 	}
 	return nil
 }
+
+// GetInterfaces retrieves all the local interfaces.
+func GetInterfaces() map[string]struct{} {
+	ipmap := map[string]struct{}{}
+
+	ifaces, _ := net.Interfaces()
+	for _, intf := range ifaces {
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			ip, _, _ := net.ParseCIDR(addr.String())
+			if ip.To4() != nil {
+				ipmap[ip.String()] = struct{}{}
+			}
+		}
+	}
+	return ipmap
+}

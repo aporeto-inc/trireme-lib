@@ -58,3 +58,8 @@ func (l ProxiedListener) Addr() net.Addr {
 func (l ProxiedListener) Close() error {
 	return l.netListener.Close()
 }
+
+// GetInterfaces retrieves all the local interfaces.
+func GetInterfaces() map[string]struct{} {
+	return nil
+}

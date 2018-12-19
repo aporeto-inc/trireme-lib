@@ -15,7 +15,6 @@ import (
 	"github.com/aporeto-inc/oxy/forward"
 	"github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
@@ -82,7 +81,7 @@ func NewHTTPProxy(
 		applicationProxy: applicationProxy,
 		mark:             mark,
 		secrets:          secrets,
-		localIPs:         connproc.GetInterfaces(),
+		localIPs:         markedconn.GetInterfaces(),
 		registry:         registry,
 	}
 }

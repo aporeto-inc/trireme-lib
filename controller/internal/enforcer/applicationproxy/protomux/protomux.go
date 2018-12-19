@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.uber.org/zap"
@@ -66,7 +65,7 @@ func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.
 		wg:       sync.WaitGroup{},
 		protomap: map[common.ListenerType]*ProtoListener{},
 		registry: registry,
-		localIPs: connproc.GetInterfaces(),
+		localIPs: markedconn.GetInterfaces(),
 		mark:     mark,
 		puID:     puID,
 	}

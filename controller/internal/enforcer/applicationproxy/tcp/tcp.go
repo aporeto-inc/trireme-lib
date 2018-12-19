@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -71,7 +70,7 @@ func NewTCPProxy(
 	caPool *x509.CertPool,
 ) *Proxy {
 
-	localIPs := connproc.GetInterfaces()
+	localIPs := markedconn.GetInterfaces()
 
 	return &Proxy{
 		collector:     c,
