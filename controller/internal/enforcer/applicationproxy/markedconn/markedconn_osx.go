@@ -3,22 +3,17 @@
 package markedconn
 
 import (
+	"context"
 	"net"
 )
 
-// DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
-func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Conn, error) {
-
+// DialMarkedTCPWithContext dials a TCP connection and associates a mark. Propagates the context.
+func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
 	return nil, nil
 }
 
-// MarkConnection is an OSX mock
-func MarkConnection(conn net.Conn, mark int) error {
-	return nil
-}
-
-// SocketListener creates a socket listener with SO_REUSEADDR.
-func SocketListener(port string, mark int) (net.Listener, error) {
+// NewSocketListener creates a socket listener with marked connections.
+func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
 	return nil, nil
 }
 

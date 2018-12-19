@@ -174,6 +174,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 }
 
 func (m *MultiplexedListener) serve(conn net.Conn) {
+	defer m.wg.Done()
 
 	c, ok := conn.(*markedconn.ProxiedConnection)
 	if !ok {
@@ -181,7 +182,6 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		return
 	}
 
-	defer m.wg.Done()
 	ip, port := c.GetOriginalDestination()
 	remoteAddr := c.RemoteAddr()
 	if remoteAddr == nil {

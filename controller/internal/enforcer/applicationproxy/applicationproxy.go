@@ -128,7 +128,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
-	l, err := p.createNetworkListener(":" + puInfo.Runtime.Options().ProxyPort)
+	l, err := p.createNetworkListener(ctx, ":"+puInfo.Runtime.Options().ProxyPort)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Runtime.Options().ProxyPort, err)
 	}
@@ -262,9 +262,9 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype common
 }
 
 // createNetworkListener starts a network listener (traffic from network to PUs)
-func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
+func (p *AppProxy) createNetworkListener(ctx context.Context, port string) (net.Listener, error) {
 
-	return markedconn.SocketListener(port, proxyMarkInt)
+	return markedconn.NewSocketListener(ctx, port, proxyMarkInt)
 }
 
 // processCertificateUpdates processes the certificate information and updates

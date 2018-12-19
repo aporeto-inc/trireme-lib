@@ -127,7 +127,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
 	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
 
-	downConn, err := p.downConnection(ip, port)
+	downConn, err := p.downConnection(ctx, ip, port)
 	if err != nil {
 		flowproperties := &proxyFlowProperties{
 			DestIP:     ip.String(),
@@ -157,53 +157,50 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		return
 	}
 
-	if isEncrypted {
-		if err := p.handleEncryptedData(ctx, upConn, downConn); err != nil {
-			zap.L().Error("Failed to process connection - aborting", zap.Error(err))
-		}
-		return
-	}
-
-	if err := connproc.Pipe(ctx, upConn, downConn); err != nil {
-		zap.L().Error("Failed to handle data pipe - aborting", zap.Error(err))
-	}
+	p.proxyData(ctx, isEncrypted, upConn, downConn)
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, isEncrypted bool, downConn net.Conn, serverConn net.Conn) error {
 
-	p.RLock()
-	ca := p.ca
-	p.RUnlock()
+	if isEncrypted {
+		p.RLock()
+		ca := p.ca
+		p.RUnlock()
 
-	tlsConn := tls.Client(downConn, &tls.Config{
-		InsecureSkipVerify: true,
-		ClientCAs:          ca,
-	})
-	defer tlsConn.Close() // nolint errcheck
+		tlsConn := tls.Client(downConn, &tls.Config{
+			InsecureSkipVerify: true,
+			ClientCAs:          ca,
+		})
+		defer tlsConn.Close() // nolint errcheck
+		downConn = tlsConn
+	}
 
 	// TLS will automatically start negotiation on write. Nothing to do for us.
-	p.copyData(ctx, serverConn, tlsConn)
+	p.copyData(ctx, serverConn, downConn)
 	return nil
 }
 
-func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, isEncrypted bool, downConn net.Conn, serverConn net.Conn) error {
 
-	p.RLock()
-	if p.certificate == nil {
-		zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
+	if isEncrypted {
+		p.RLock()
+		if p.certificate == nil {
+			zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
+			p.RUnlock()
+			return fmt.Errorf("Failed to start encryption")
+		}
+		certs := []tls.Certificate{*p.certificate}
 		p.RUnlock()
-		return fmt.Errorf("Failed to start encryption")
-	}
-	certs := []tls.Certificate{*p.certificate}
-	p.RUnlock()
 
-	tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
-		Certificates: certs,
-	})
-	defer tlsConn.Close() // nolint errcheck
+		tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
+			Certificates: certs,
+		})
+		defer tlsConn.Close() // nolint errcheck
+		serverConn = tlsConn
+	}
 
 	// TLS will automatically start negotiation on write. Nothing to for us.
-	p.copyData(ctx, tlsConn, downConn)
+	p.copyData(ctx, serverConn, downConn)
 	return nil
 }
 
@@ -237,24 +234,27 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 		}
 	}()
 
-	if _, err := io.Copy(dest, readwithContext(func(p []byte) (int, error) {
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		default:
-			return source.Read(p)
-		}
-	})); err != nil { // nolint
+	if _, err := io.Copy(dest, readwithContext(
+		func(p []byte) (int, error) {
+			select {
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			default:
+				return source.Read(p)
+			}
+		},
+	),
+	); err != nil { // nolint
 		logErr(err)
 	}
 }
 
-func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn) error {
+func (p *Proxy) proxyData(ctx context.Context, isEncrypted bool, upConn net.Conn, downConn net.Conn) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
 	if p.isLocal(upConn) {
-		return p.startEncryptedClientDataPath(ctx, downConn, upConn)
+		return p.startEncryptedClientDataPath(ctx, isEncrypted, downConn, upConn)
 	}
-	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
+	return p.startEncryptedServerDataPath(ctx, isEncrypted, downConn, upConn)
 }
 
 func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error) {
@@ -268,14 +268,14 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
+func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Conn, error) {
 
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
 	}
 
-	return markedconn.DialMarkedTCP("tcp", nil, raddr, proxyMarkInt)
+	return markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, proxyMarkInt)
 
 }
 

@@ -361,7 +361,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -476,7 +476,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -755,7 +755,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.SourcePort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),

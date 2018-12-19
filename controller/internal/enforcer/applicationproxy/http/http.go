@@ -165,7 +165,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, err
 		}
-		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		conn, err := markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -184,7 +184,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		conn, err := markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -199,7 +199,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(context.Background())
 			return nil, err
 		}
-		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		conn, err := markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -218,7 +218,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		conn, err := markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
