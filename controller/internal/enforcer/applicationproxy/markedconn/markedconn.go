@@ -38,7 +38,7 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 		},
 	}
 
-	conn, err := d.Dial(network, addr.String())
+	conn, err := d.DialContext(ctx, network, addr.String())
 	if err != nil {
 		zap.L().Error("Failed to dial to downstream node",
 			zap.Error(err),
