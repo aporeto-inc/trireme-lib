@@ -156,7 +156,9 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		return
 	}
 
-	p.proxyData(ctx, isEncrypted, upConn, downConn)
+	if err := p.proxyData(ctx, isEncrypted, upConn, downConn); err != nil {
+		zap.L().Debug("Error will proxying data", zap.Error(err))
+	}
 }
 
 func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, isEncrypted bool, downConn net.Conn, serverConn net.Conn) error {

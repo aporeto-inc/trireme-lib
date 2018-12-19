@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"syscall"
 	"time"
@@ -19,6 +18,8 @@ const (
 	sockOptOriginalDst = 80
 )
 
+// DialMarkedTCPWithContext will dial a TCP connection to the provide address and mark the socket
+// with the provided mark.
 func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
 	d := net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error {
@@ -48,10 +49,11 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 	return conn, err
 }
 
+// NewSocketListener will create a listener and mark the socket with the provided mark.
 func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
 	listenerCfg := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
-			c.Control(func(fd uintptr) {
+			return c.Control(func(fd uintptr) {
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 					zap.L().Error("Failed to mark connection", zap.Error(err))
 				}
@@ -59,7 +61,6 @@ func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener
 					zap.L().Error("Cannot set tcp fast open options", zap.Error(err))
 				}
 			})
-			return nil
 		},
 	}
 
@@ -194,11 +195,13 @@ func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint 
 		return nil, 0, err
 	}
 
-	rawconn.Control(func(fd uintptr) {
+	if err := rawconn.Control(func(fd uintptr) {
 		if err := getsockopt(int(fd), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size); err != nil {
 			zap.L().Error("Failed to retrieve original destination", zap.Error(err))
 		}
-	})
+	}); err != nil {
+		return nil, 0, fmt.Errorf("Failed to get original destination: %s", err)
+	}
 
 	if addr.family != syscall.AF_INET {
 		return []byte{}, 0, fmt.Errorf("invalid address family")
@@ -216,17 +219,6 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 		err = e1
 	}
 	return
-}
-
-// setSocketTimeout sets the receive and send timeouts on the given socket.
-func setSocketTimeout(fd int, timeout time.Duration) error {
-	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
-	for _, opt := range []int{syscall.SO_RCVTIMEO, syscall.SO_SNDTIMEO} {
-		if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, opt, &tv); err != nil {
-			return os.NewSyscallError("setsockopt", err)
-		}
-	}
-	return nil
 }
 
 // GetInterfaces retrieves all the local interfaces.
