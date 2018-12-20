@@ -77,7 +77,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 					Users: users,
 				},
 			}
-
+			zap.L().Info("Sending stats to master", zap.Reflect("RCP Request", request.Payload))
 			if err := s.rpchdl.RemoteCall(
 				statsContextID,
 				statsRPCCommand,
