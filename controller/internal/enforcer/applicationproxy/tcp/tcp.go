@@ -402,7 +402,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 		SourceType: collector.EnpointTypePU,
 	}
 	conn := connection.NewProxyConnection()
-	conn.SetState(connection.ServerSendToken)
+	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
@@ -447,7 +447,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 
 			conn.ReportFlowPolicy = report
 			conn.PacketFlowPolicy = packet
-			conn.SetState(connection.ServerAuthenticatePair)
+			conn.SetState(connection.ServerSendToken)
 
 		case connection.ServerSendToken:
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
@@ -461,7 +461,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 				zap.L().Error("Failed to write", zap.Error(err))
 				return false, fmt.Errorf("Failed to write ack: %s", err)
 			}
-			conn.SetState(connection.ServerReceivePeerToken)
+			conn.SetState(connection.ServerAuthenticatePair)
 
 		case connection.ServerAuthenticatePair:
 			if err := upConn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
