@@ -14,6 +14,7 @@ import (
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.uber.org/zap"
 )
 
 // EventServer is a new event server
@@ -84,6 +85,9 @@ func (e *EventServer) Run(ctx context.Context) error {
 // before calling the actual monitor handlers to process the event.
 func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	event := &common.EventInfo{}
+	defer r.Body.Close()
+	zap.L().Info("Processing socket client request", zap.String("URI", r.RequestURI))
+	defer zap.L().Info("Finished processing socket client request")
 	if err := json.NewDecoder(r.Body).Decode(event); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -104,7 +108,9 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	zap.L().Info("Sending event for processing", zap.String("Event", string(event.EventType)))
 	if err := e.processEvent(r.Context(), event); err != nil {
+		zap.L().Error("Error in processing event")
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
 		return
 	}
