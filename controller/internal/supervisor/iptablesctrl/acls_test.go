@@ -92,7 +92,7 @@ func TestAddChainRules(t *testing.T) {
 				return nil
 			})
 
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
 			So(err, ShouldBeNil)
 		})
 
@@ -103,7 +103,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -115,7 +115,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", "")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -131,7 +131,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
 			So(err, ShouldBeNil)
 		})
 
@@ -139,7 +139,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostModeNetworkPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostModeNetworkPU)
 			So(err, ShouldBeNil)
 		})
 
@@ -147,7 +147,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostPU)
 			So(err, ShouldBeNil)
 		})
 
@@ -158,7 +158,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -169,7 +169,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostModeNetworkPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostModeNetworkPU)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -180,7 +180,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.HostPU)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -191,7 +191,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
+			err := i.addChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", extractors.LinuxPU)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -199,7 +199,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "0", "0", "0", "1001", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "0", "0", "0", "1001", "", "5000", "proxyPortSet", "")
 			So(err, ShouldBeNil)
 
 		})
@@ -213,7 +213,7 @@ func TestAddChainRules(t *testing.T) {
 
 				return fmt.Errorf("added to different chain: %s", chain)
 			})
-			err := i.addChainRules("appchain", "netchain", "80", "0", "0", "1001", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "80", "0", "0", "1001", "", "5000", "proxyPortSet", "")
 			So(err, ShouldBeNil)
 
 		})
@@ -364,7 +364,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", "")
+			err := i.deleteChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", "")
 			So(err, ShouldBeNil)
 		})
 
@@ -372,7 +372,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", "")
+			err := i.deleteChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", "")
 			So(err, ShouldBeNil)
 
 		})
@@ -381,7 +381,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", extractors.HostPU)
+			err := i.deleteChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", extractors.HostPU)
 			So(err, ShouldBeNil)
 
 		})
@@ -390,7 +390,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", extractors.HostPU)
+			err := i.deleteChainRules("context", "appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", extractors.HostPU)
 			So(err, ShouldBeNil)
 		})
 

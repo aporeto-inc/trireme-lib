@@ -14,6 +14,15 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.AcceptReported)
 	}
+
+	if sourceID == destID {
+		report = &policy.FlowPolicy{
+			Action:   policy.Accept,
+			PolicyID: "default",
+		}
+		packet = report
+	}
+
 	d.reportFlow(p, sourceID, destID, context, "", report, packet)
 }
 
