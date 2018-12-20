@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultStatsIntervalMiliseconds = 5000
+	defaultStatsIntervalMiliseconds = 1000
 	defaultUserRetention            = 10
 	statsContextID                  = "UNUSED"
 	statsRPCCommand                 = "StatsServer.GetStats"
