@@ -94,7 +94,7 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		if err != nil {
 			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
-		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
+		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
 				clientCAs = portContext.ClientTrustedRoots
@@ -243,7 +243,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				fmt.Println("Returning client certificate", p.cert)
 				return p.cert, nil
 			},
 		},
@@ -575,7 +574,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Update the request headers with the user attributes as defined by the mappings
 	pctx.Authorizer.UpdateRequestHeaders(r, userAttributes)
-	fmt.Printf("Request headers %+v\n", r.Header)
 
 	// Update the statistics and forward the request. We always encrypt downstream
 	state.stats.Action = policy.Accept | policy.Encrypt
