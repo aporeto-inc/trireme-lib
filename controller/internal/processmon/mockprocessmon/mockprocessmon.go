@@ -54,8 +54,8 @@ func (mr *MockProcessManagerMockRecorder) KillProcess(contextID interface{}) *go
 
 // LaunchProcess mocks base method
 // nolint
-func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPath string, rpchdl rpcwrapper.RPCClient, arg, statssecret, procMountPoint, proxyPort string) (bool, error) {
-	ret := m.ctrl.Call(m, "LaunchProcess", contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint, proxyPort)
+func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPath string, rpchdl rpcwrapper.RPCClient, arg, statssecret, procMountPoint string) (bool, error) {
+	ret := m.ctrl.Call(m, "LaunchProcess", contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -63,8 +63,8 @@ func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPa
 
 // LaunchProcess indicates an expected call of LaunchProcess
 // nolint
-func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint, proxyPort interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchProcess", reflect.TypeOf((*MockProcessManager)(nil).LaunchProcess), contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint, proxyPort)
+func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchProcess", reflect.TypeOf((*MockProcessManager)(nil).LaunchProcess), contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint)
 }
 
 // SetLogParameters mocks base method
