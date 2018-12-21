@@ -37,7 +37,7 @@ func (p *allocator) Release(item string) {
 	}
 
 	intItem, err := strconv.Atoi(item)
-	if err == nil {
+	if err != nil {
 		return
 	}
 	p.allocate <- intItem

@@ -271,9 +271,6 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 // Initiate the downstream connection
 func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Conn, error) {
 
-	if port == 20996 {
-		fmt.Println("Downconnection is to the wrong port ")
-	}
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
