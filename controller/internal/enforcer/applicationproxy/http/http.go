@@ -192,6 +192,40 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		return conn, nil
 	}
 
+	// Dial functions for the websockets.
+	netDial := func(network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			reportStats(context.Background())
+			return nil, err
+		}
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(context.Background())
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
+		}
+		return conn, nil
+	}
+
+	appDial := func(network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			reportStats(context.Background())
+			return nil, err
+		}
+		pctx, err := p.registry.RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
+		if err != nil {
+			return nil, err
+		}
+		raddr.Port = pctx.TargetPort
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(context.Background())
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
+		}
+		return conn, nil
+	}
+
 	// Create an encrypted downstream transport. We will mark the downstream connection
 	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
@@ -203,19 +237,16 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		MaxIdleConns:        2000,
 	}
 
-	// Create an unencrypted transport for talking to the application
+	// Create an unencrypted transport for talking to the application. If encryption
+	// is selected do not verify the certificates. This is supposed to be inside the
+	// same system. TODO: use pinned certificates.
 	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 		DialContext:         appDialerWithContext,
 		MaxIdleConns:        2000,
 		MaxIdleConnsPerHost: 2000,
-	}
-
-	netDial := func(network, addr string) (net.Conn, error) {
-		raddr, err := net.ResolveTCPAddr(network, addr)
-		if err != nil {
-			return nil, fmt.Errorf("Cannot resolve address")
-		}
-		return markedconn.DialMarkedTCP(network, nil, raddr, p.mark)
 	}
 
 	// Create the proxies dowards the network and the application.
@@ -233,6 +264,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	p.fwd, err = forward.New(
 		forward.RoundTripper(NewTriremeRoundTripper(transport)),
+		forward.WebsocketTLSClientConfig(&tls.Config{InsecureSkipVerify: true}),
+		forward.WebSocketNetDial(appDial),
 		forward.BufferPool(NewPool()),
 		forward.ErrorHandler(TriremeHTTPErrHandler{}),
 	)
@@ -517,14 +550,20 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Select as http or https for communication with listening service.
+	httpPrefix := "http://"
+	if pctx.Service.PrivateTLSListener {
+		httpPrefix = "https://"
+	}
+
 	// Create the target URI. Websocket Gorilla proxy takes it from the URL. For normal
 	// connections we don't want that.
 	if forward.IsWebsocketRequest(r) {
-		r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+		fmt.Println("Target URL", originalDestination.String())
+		r.URL, err = url.ParseRequestURI(httpPrefix + originalDestination.String())
 	} else {
-		r.URL, err = url.ParseRequestURI("http://" + r.Host)
+		r.URL, err = url.ParseRequestURI(httpPrefix + r.Host)
 	}
-
 	if err != nil {
 		state.stats.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
