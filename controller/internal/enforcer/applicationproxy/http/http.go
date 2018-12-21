@@ -243,6 +243,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
+			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				fmt.Println("Returning client certificate", p.cert)
+				return p.cert, nil
+			},
 		},
 		DialContext:         appDialerWithContext,
 		MaxIdleConns:        2000,
@@ -572,6 +576,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Update the request headers with the user attributes as defined by the mappings
 	pctx.Authorizer.UpdateRequestHeaders(r, userAttributes)
+	fmt.Printf("Request headers %+v\n", r.Header)
 
 	// Update the statistics and forward the request. We always encrypt downstream
 	state.stats.Action = policy.Accept | policy.Encrypt
