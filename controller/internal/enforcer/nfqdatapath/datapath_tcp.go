@@ -624,6 +624,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
+		if _, err := d.puFromContextID.Get(conn.Context.ID()); err != nil {
+			// PU has been deleted. Ignore these packets
+			return nil, nil, fmt.Errorf("PU is already dead - drop SynAck packet")
+		}
+
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
