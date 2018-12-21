@@ -8,4 +8,10 @@ type Allocator interface {
 
 	// Release releases a string
 	Release(item string)
+
+	// AllocateInt allocates an int
+	AllocateInt() int
+
+	// ReleaseInt releases an item of type integer.
+	ReleaseInt(item int)
 }

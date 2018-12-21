@@ -320,9 +320,7 @@ func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers 
 			runtime.SetPUType(common.LinuxProcessPU)
 		}
 
-		updateOptions := runtime.Options()
-		updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-		runtime.SetOptions(updateOptions)
+		runtime.SetOptions(runtime.Options())
 
 		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, runtime); err != nil {
 			zap.L().Error("Unable to sync existing Container",
@@ -455,9 +453,7 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 		runtime.SetPUType(common.LinuxProcessPU)
 	}
 
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtime)
 }
@@ -495,9 +491,7 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 		runtime.SetPUType(common.LinuxProcessPU)
 	}
 
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
@@ -538,9 +532,7 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime)
 }
@@ -553,9 +545,7 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 		return err
 	}
 	runtime := policy.NewPURuntimeWithDefaults()
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, runtime)
 	if err != nil {
@@ -584,9 +574,7 @@ func (d *DockerMonitor) handlePauseEvent(ctx context.Context, event *events.Mess
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, runtime)
 }
@@ -600,9 +588,7 @@ func (d *DockerMonitor) handleUnpauseEvent(ctx context.Context, event *events.Me
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	updateOptions := runtime.Options()
-	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
-	runtime.SetOptions(updateOptions)
+	runtime.SetOptions(runtime.Options())
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, runtime)
 }

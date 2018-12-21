@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/buildflags"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -253,7 +252,6 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,
-			ProxyPort:  strconv.Itoa(l.config.ApplicationProxyPort),
 		})
 
 		// Processes are still alive. We should enforce policy.
