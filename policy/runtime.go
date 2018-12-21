@@ -58,9 +58,7 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 	}
 
 	if options == nil {
-		options = &OptionsType{
-			ProxyPort: "5000",
-		}
+		options = &OptionsType{}
 	}
 
 	return &PURuntime{

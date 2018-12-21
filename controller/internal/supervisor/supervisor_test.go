@@ -55,6 +55,7 @@ func createPUInfo() *policy.PUInfo {
 		[]string{"172.17.0.0/24"},
 		[]string{},
 		[]string{},
+		0,
 		nil,
 		nil,
 		[]string{},
