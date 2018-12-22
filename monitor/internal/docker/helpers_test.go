@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -159,8 +160,26 @@ func TestIsKubernetesContainer(t *testing.T) {
 }
 
 func Test_isHostNetworkContainer(t *testing.T) {
+
+	puRuntimeWithExtensions := func() *policy.PURuntime {
+		extensions := policy.ExtendedMap{
+			constants.DockerHostPUID: "1234",
+		}
+		puRuntime := policy.NewPURuntimeWithDefaults()
+		options := puRuntime.Options()
+		options.PolicyExtensions = extensions
+		puRuntime.SetOptions(options)
+		return puRuntime
+	}
+
+	puRuntimeForProcess := func() *policy.PURuntime {
+		puRuntime := policy.NewPURuntimeWithDefaults()
+		puRuntime.SetPUType(common.LinuxProcessPU)
+		return puRuntime
+	}
+
 	type args struct {
-		extensions policy.ExtendedMap
+		runtime policy.RuntimeReader
 	}
 	tests := []struct {
 		name string
@@ -170,23 +189,28 @@ func Test_isHostNetworkContainer(t *testing.T) {
 		{
 			name: "Test when puid is populated",
 			args: args{
-				extensions: policy.ExtendedMap{
-					constants.DockerHostPUID: "1234",
-				},
+				runtime: puRuntimeWithExtensions(),
 			},
 			want: true,
 		},
 		{
 			name: "Test when puid is not populated",
 			args: args{
-				extensions: policy.ExtendedMap{},
+				runtime: policy.NewPURuntimeWithDefaults(),
 			},
 			want: false,
+		},
+		{
+			name: "Test when runtime is of Linux process pu",
+			args: args{
+				runtime: puRuntimeForProcess(),
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isHostNetworkContainer(tt.args.extensions); got != tt.want {
+			if got := isHostNetworkContainer(tt.args.runtime); got != tt.want {
 				t.Errorf("isHostNetworkContainer() = %v, want %v", got, tt.want)
 			}
 		})
