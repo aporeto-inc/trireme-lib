@@ -1,6 +1,7 @@
 package dockermonitor
 
 import (
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -40,9 +41,9 @@ func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedM
 
 // IsHostNetworkContainer returns true if container has hostnetwork set
 // to true or is linked to container with hostnetwork set to true.
-func isHostNetworkContainer(extensions policy.ExtendedMap) bool {
+func isHostNetworkContainer(runtime policy.RuntimeReader) bool {
 
-	return getPausePUID(extensions) != ""
+	return runtime.PUType() == common.LinuxProcessPU || (getPausePUID(policyExtensions(runtime)) != "")
 }
 
 // IsKubernetesContainer checks if the container is in K8s.

@@ -46,7 +46,6 @@ type PUContext struct {
 	udpNetworks       []*net.IPNet
 	DNSACLs           cache.DataStore
 	mark              string
-	ProxyPort         string
 	tcpPorts          []string
 	udpPorts          []string
 	excludedNetworks  []string

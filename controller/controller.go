@@ -15,7 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/allocator"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +26,6 @@ type trireme struct {
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
-	port                 allocator.Allocator
 	rpchdl               rpcwrapper.RPCClient
 	locks                sync.Map
 }
@@ -44,7 +42,6 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
-		proxyPort:              5000,
 	}
 
 	for _, opt := range opts {
@@ -160,9 +157,6 @@ func (t *trireme) UpdateConfiguration(networks []string) error {
 func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
-	newOptions := containerInfo.Runtime.Options()
-	newOptions.ProxyPort = t.port.Allocate()
-	containerInfo.Runtime.SetOptions(newOptions)
 
 	logEvent := &collector.ContainerRecord{
 		ContextID: contextID,
@@ -213,9 +207,6 @@ func (t *trireme) doHandleDelete(contextID string, runtime *policy.PURuntime) er
 
 	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
 	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
-	if runtime.Options().ProxyPort != "" {
-		t.port.Release(runtime.Options().ProxyPort)
-	}
 
 	if errS != nil || errE != nil {
 		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
