@@ -8,7 +8,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -325,7 +325,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// We now generate the version
 	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	version := GenerateVersion(compressionType, false)
+	version := GenerateVersion(Version{CompressionType: compressionType})
 
 	// We are now processing as a Trireme packet that needs authorization headers
 	// Create TCP Option
@@ -568,11 +568,10 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
-	// Packets that have authorization information go through the auth path
-	// Decode the JWT token using the context key
-	// We now generate the version
+	// We now compare the version we attached in the JWT in the application
+	// SYN with the current version. If it varies we drop the packet
 	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	if !CompareVersion(claims.V, compressionType, constants.CompressionTypeMask) {
+	if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
 		zap.L().Debug("META: COMPRESSION ERROR", zap.Reflect("err", err))
 		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type: %s", err)
