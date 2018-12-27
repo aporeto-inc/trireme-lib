@@ -84,7 +84,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 }
 
 // createSynPacketToken creates the authentication token
-func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, version []byte) (token []byte, err error) {
 
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
@@ -99,6 +99,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	claims := &tokens.ConnectionClaims{
 		T:  context.Identity(),
 		EK: auth.LocalServiceContext,
+		V:  version,
 	}
 
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
@@ -112,12 +113,13 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
 // We need to sign the received token. No caching possible here
-func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, version []byte) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity(),
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
+		V:   version,
 	}
 
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {

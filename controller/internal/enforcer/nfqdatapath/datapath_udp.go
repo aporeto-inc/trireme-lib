@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.uber.org/zap"
 )
@@ -372,8 +373,11 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 		return fmt.Errorf("No target found")
 	}
 
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	version := GenerateVersion(compressionType, false)
+
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, version)
 
 	if err != nil {
 		return err
@@ -468,7 +472,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
-	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, []byte{})
 	if err != nil {
 		return err
 	}
@@ -564,6 +568,13 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	if claims == nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of no claims")
+	}
+
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	if !CompareVersion(claims.V, compressionType, constants.CompressionTypeMask) {
+		zap.L().Debug("META: COMPRESSION ERROR", zap.Reflect("err", err))
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type: %s", err)
 	}
 
 	// Why is this required. Take a look.

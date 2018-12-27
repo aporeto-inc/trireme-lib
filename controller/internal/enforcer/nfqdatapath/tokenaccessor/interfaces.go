@@ -16,8 +16,8 @@ type TokenAccessor interface {
 	GetTokenServerID() string
 
 	CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error)
-	CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
-	CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
+	CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, version []byte) (token []byte, err error)
+	CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, version []byte) (token []byte, err error)
 	ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error)
 	ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error)
 }

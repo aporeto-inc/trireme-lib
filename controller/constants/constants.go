@@ -102,6 +102,31 @@ const (
 	CompressedTagLengthV2 int = 4
 )
 
+// Version field contants
+const (
+	// CompressionTypeNoneMask mask that identifies compression type
+	CompressionTypeNoneMask = 0x0
+	// CompressionTypeV1Mask mask that identifies if encryption is set
+	CompressionTypeV1Mask = 0x1
+	// CompressionTypeV2Mask mask that identifies the handshake version
+	CompressionTypeV2Mask = 0x2
+	// CompressionTypeMask mask that identifies the compression type
+	CompressionTypeMask = 0x3
+)
+
+// CompressionTypeMask returns the mask based on the type
+func (c CompressionType) CompressionTypeMask() uint8 {
+
+	switch c {
+	case CompressionTypeV1:
+		return CompressionTypeV1Mask
+	case CompressionTypeV2:
+		return CompressionTypeV2Mask
+	default:
+		return CompressionTypeNoneMask
+	}
+}
+
 // CompressionTypeToTagLength converts CompressionType to length.
 func CompressionTypeToTagLength(t CompressionType) int {
 

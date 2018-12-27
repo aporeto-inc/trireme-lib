@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -322,12 +323,16 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		return policy, nil
 	}
 
+	// We now generate the version
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	version := GenerateVersion(compressionType, false)
+
 	// We are now processing as a Trireme packet that needs authorization headers
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, version)
 
 	if err != nil {
 		return nil, err
@@ -388,7 +393,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, []byte{})
 
 	if err != nil {
 		return err
@@ -563,6 +568,16 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
+	// Packets that have authorization information go through the auth path
+	// Decode the JWT token using the context key
+	// We now generate the version
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	if !CompareVersion(claims.V, compressionType, constants.CompressionTypeMask) {
+		zap.L().Debug("META: COMPRESSION ERROR", zap.Reflect("err", err))
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type: %s", err)
+	}
+
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
@@ -584,7 +599,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	report, pkt := context.SearchRcvRules(tags)
-
+	zap.L().Debug("META: ENCRYPTED-SYN", zap.Reflect("encrypt", pkt.Action.Encrypted()))
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
@@ -623,7 +638,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-
+		zap.L().Debug("META: ERROR", zap.Error(err))
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
@@ -730,7 +745,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		d.releaseUnmonitoredFlow(tcpPacket)
 		return nil, nil, nil
 	}
-
+	zap.L().Debug("META: ENCRYPTED", zap.Reflect("encrypt", pkt.Action.Encrypted()))
 	if pkt.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
