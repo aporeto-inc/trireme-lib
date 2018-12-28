@@ -394,7 +394,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We add encrypt attr in the version field
-	version := GenerateVersion(Version{Encrypt: conn.PacketFlowPolicy.Action.Encrypted()})
+	version := GenerateVersion(Version{Encrypt: encryptionAttr(conn.PacketFlowPolicy.Action.Encrypted())})
 
 	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, version)
 

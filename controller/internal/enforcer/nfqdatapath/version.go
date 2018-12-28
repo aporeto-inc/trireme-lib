@@ -10,7 +10,7 @@ type Version struct {
 	// CompressionType represents compressed tag mode attribute
 	CompressionType uint8
 	// Encrypt represents enryption enabled attribute
-	Encrypt bool
+	Encrypt uint8
 }
 
 // GenerateVersion generates the 32-bit version field
@@ -25,7 +25,7 @@ func GenerateVersion(version Version) []byte {
 
 	versionData := make([]byte, tokens.MaxVersionLen)
 	versionData[0] |= version.CompressionType
-	versionData[0] |= encryptionAttr(version.Encrypt)
+	versionData[0] |= version.Encrypt
 
 	return versionData
 }
