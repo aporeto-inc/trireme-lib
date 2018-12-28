@@ -43,5 +43,5 @@ const (
 	// MaxVersionLen must be maximimum version length
 	MaxVersionLen = 4
 	// EncryptionEnabledMask mask that identifies the handshake version
-	EncryptionEnabledMask = 0x4
+	EncryptionEnabledMask = 0x04
 )
