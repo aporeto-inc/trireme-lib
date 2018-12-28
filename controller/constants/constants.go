@@ -99,13 +99,13 @@ const (
 
 // Version field contants
 const (
-	// CompressionTypeNoneMask mask that identifies compression type
+	// CompressionTypeNoneMask mask that identifies compression type none
 	CompressionTypeNoneMask = 0x00
-	// CompressionTypeV1Mask mask that identifies if encryption is set
+	// CompressionTypeV1Mask mask that identifies compression type v1
 	CompressionTypeV1Mask = 0x01
-	// CompressionTypeV2Mask mask that identifies the handshake version
+	// CompressionTypeV2Mask mask that identifies compression type v2
 	CompressionTypeV2Mask = 0x02
-	// CompressionTypeMask mask that identifies the compression type
+	// CompressionTypeMask mask used to check relevant compression types
 	CompressionTypeMask = 0x03
 )
 
