@@ -27,9 +27,7 @@ func GenerateVersion(version Version) []byte {
 
 	versionData := make([]byte, tokens.MaxVersionLen)
 	versionData[0] |= version.CompressionType
-	if version.Encrypt {
-		versionData[0] |= tokens.EncryptionEnabledMask
-	}
+	versionData[0] |= encryptionAttr(version.Encrypt)
 
 	zap.L().Debug("META: Bit", zap.Reflect("bit", fmt.Sprintf("%08b", versionData)))
 	return versionData
@@ -58,4 +56,13 @@ func CompareVersionAttribute(version []byte, versionAttr uint8, mask uint8) bool
 func parseVersionAttr(version []byte, mask uint8) byte {
 
 	return version[0] & mask
+}
+
+func encryptionAttr(encrypt bool) uint8 {
+
+	if !encrypt {
+		return 0x0
+	}
+
+	return tokens.EncryptionEnabledMask
 }

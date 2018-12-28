@@ -323,13 +323,13 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		return policy, nil
 	}
 
-	// We now generate the version
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	version := GenerateVersion(Version{CompressionType: compressionType})
-
 	// We are now processing as a Trireme packet that needs authorization headers
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
+
+	// We now generate the version
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	version := GenerateVersion(Version{CompressionType: compressionType})
 
 	// Create a token
 	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, version)
@@ -393,7 +393,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, []byte{})
+	// We add encrypt attr in the version field
+	version := GenerateVersion(Version{Encrypt: conn.PacketFlowPolicy.Action.Encrypted()})
+
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, version)
 
 	if err != nil {
 		return err
@@ -568,19 +571,18 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
-	// We now compare the version we attached in the JWT in the application
-	// SYN with the current version. If it varies we drop the packet
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
-		zap.L().Debug("META: COMPRESSION ERROR", zap.Reflect("err", err))
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type: %s", err)
-	}
-
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
+	}
+
+	// We now compare the version we attached in the JWT in the application
+	// SYN with the current version. If it varies we drop the packet
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+	if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
@@ -598,7 +600,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	report, pkt := context.SearchRcvRules(tags)
-	zap.L().Debug("META: ENCRYPTED-SYN", zap.Reflect("encrypt", pkt.Action.Encrypted()))
+
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
@@ -749,7 +751,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		d.releaseUnmonitoredFlow(tcpPacket)
 		return nil, nil, nil
 	}
-	zap.L().Debug("META: ENCRYPTED", zap.Reflect("encrypt", pkt.Action.Encrypted()))
+
+	if !CompareVersionAttribute(claims.V, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidToken, report, pkt)
+		return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
+	}
+
 	if pkt.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
