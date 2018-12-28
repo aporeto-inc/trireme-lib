@@ -5,12 +5,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// HandshakeVersion is the enforcer version
+// TODO: Enable this in datapath
+const HandshakeVersion = 0x40
+
 // Version holds version sub attributes
 type Version struct {
 	// CompressionType represents compressed tag mode attribute
 	CompressionType uint8
 	// Encrypt represents enryption enabled attribute
 	Encrypt uint8
+	// Handshake type represents handshake version
+	HandshakeType uint8
 }
 
 // GenerateVersion generates the 32-bit version field
@@ -20,12 +26,14 @@ func GenerateVersion(version Version) []byte {
 	// This is a 32 bit version used to be a symmetric identification between enforcers
 	// Byte 0 : Bits 0,1 represents compressed tag mode.
 	//          Bit 2 represents enryption enabled.
-	//          Bits [3:7] reserved for future use. (currently unused).
+	//          Bits [3:6] represents handshake version.
+	//          Bits [7] reserved for future use. (currently unused).
 	// Bytes [1:3]: reserved for future use.
 
 	versionData := make([]byte, tokens.MaxVersionLen)
 	versionData[0] |= version.CompressionType
 	versionData[0] |= version.Encrypt
+	versionData[0] |= version.HandshakeType
 
 	return versionData
 }
