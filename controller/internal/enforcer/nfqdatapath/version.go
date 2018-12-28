@@ -66,7 +66,7 @@ func parseVersionAttr(version []byte, mask uint8) byte {
 func encryptionAttr(encrypt bool) uint8 {
 
 	if !encrypt {
-		return 0x0
+		return 0x00
 	}
 
 	return tokens.EncryptionEnabledMask
