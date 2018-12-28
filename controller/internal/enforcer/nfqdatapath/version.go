@@ -1,8 +1,6 @@
 package nfqdatapath
 
 import (
-	"fmt"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.uber.org/zap"
 )
@@ -29,7 +27,6 @@ func GenerateVersion(version Version) []byte {
 	versionData[0] |= version.CompressionType
 	versionData[0] |= encryptionAttr(version.Encrypt)
 
-	zap.L().Debug("META: Bit", zap.Reflect("bit", fmt.Sprintf("%08b", versionData)))
 	return versionData
 }
 
