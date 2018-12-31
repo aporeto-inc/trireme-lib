@@ -27,7 +27,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version if the right bit set", func() {
-			equal := CompareVersionAttribute([]byte(version), constants.CompressionTypeV2Mask, constants.CompressionTypeMask)
+			equal := CompareVersionAttribute(version, constants.CompressionTypeV2Mask, constants.CompressionTypeMask)
 
 			Convey("Then it should be equal", func() {
 				So(equal, ShouldBeTrue)
@@ -35,7 +35,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with wrong type", func() {
-			equal := CompareVersionAttribute([]byte(version), constants.CompressionTypeV1Mask, constants.CompressionTypeMask)
+			equal := CompareVersionAttribute(version, constants.CompressionTypeV1Mask, constants.CompressionTypeMask)
 
 			Convey("Then it should not be equal", func() {
 				So(equal, ShouldBeFalse)
@@ -43,7 +43,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with right bit set and different attribute", func() {
-			equal := CompareVersionAttribute([]byte(version), encryptionAttr(true), tokens.EncryptionEnabledMask)
+			equal := CompareVersionAttribute(version, encryptionAttr(true), tokens.EncryptionEnabledMask)
 
 			Convey("Then it should be equal", func() {
 				So(equal, ShouldBeTrue)
@@ -51,7 +51,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with right bit set and different attribute with wrong bit", func() {
-			equal := CompareVersionAttribute([]byte(version), encryptionAttr(false), tokens.EncryptionEnabledMask)
+			equal := CompareVersionAttribute(version, encryptionAttr(false), tokens.EncryptionEnabledMask)
 
 			Convey("Then it should not be equal", func() {
 				So(equal, ShouldBeFalse)
@@ -59,7 +59,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version of handhskae", func() {
-			equal := CompareVersionAttribute([]byte(version), HandshakeVersion, HandshakeVersion)
+			equal := CompareVersionAttribute(version, HandshakeVersion, HandshakeVersion)
 
 			Convey("Then it should be equal", func() {
 				So(equal, ShouldBeTrue)
@@ -75,7 +75,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with right bit set", func() {
-			equal := CompareVersionAttribute([]byte(version), constants.CompressionTypeV2Mask, constants.CompressionTypeMask)
+			equal := CompareVersionAttribute(version, constants.CompressionTypeV2Mask, constants.CompressionTypeMask)
 
 			Convey("Then it should be equal", func() {
 				So(equal, ShouldBeTrue)
@@ -83,7 +83,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with wrong bit set", func() {
-			equal := CompareVersionAttribute([]byte(version), constants.CompressionTypeV1Mask, constants.CompressionTypeMask)
+			equal := CompareVersionAttribute(version, constants.CompressionTypeV1Mask, constants.CompressionTypeMask)
 
 			Convey("Then it should not be equal", func() {
 				So(equal, ShouldBeFalse)
@@ -91,7 +91,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with right bit set and different attribute", func() {
-			equal := CompareVersionAttribute([]byte(version), encryptionAttr(true), tokens.EncryptionEnabledMask)
+			equal := CompareVersionAttribute(version, encryptionAttr(true), tokens.EncryptionEnabledMask)
 
 			Convey("Then it should not be equal", func() {
 				So(equal, ShouldBeFalse)
@@ -99,7 +99,7 @@ func TestVersion(t *testing.T) {
 		})
 
 		Convey("Given I compare the version with right bit set and different attribute with wrong bit", func() {
-			equal := CompareVersionAttribute([]byte(version), encryptionAttr(false), tokens.EncryptionEnabledMask)
+			equal := CompareVersionAttribute(version, encryptionAttr(false), tokens.EncryptionEnabledMask)
 
 			Convey("Then it should be equal", func() {
 				So(equal, ShouldBeTrue)
