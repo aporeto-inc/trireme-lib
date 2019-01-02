@@ -276,7 +276,6 @@ func (p *processMon) getLaunchProcessEnvVars(
 	statsServerSecret string,
 	refPid int,
 	refNSPath string,
-	proxyPort string,
 ) []string {
 
 	newEnvVars := []string{
@@ -288,7 +287,6 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
-		constants.EnvApplicationProxyPort + "=" + proxyPort,
 	}
 
 	if p.compressedTags != constants.CompressionTypeNone {
@@ -322,7 +320,6 @@ func (p *processMon) LaunchProcess(
 	arg string,
 	statsServerSecret string,
 	procMountPoint string,
-	proxyPort string,
 ) (bool, error) {
 
 	// Locking here to get the procesinfo to avoid race conditions
@@ -403,7 +400,6 @@ func (p *processMon) LaunchProcess(
 		statsServerSecret,
 		refPid,
 		refNSPath,
-		proxyPort,
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {

@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
@@ -42,6 +43,8 @@ type PUPolicy struct {
 	triremeUDPNetworks []string
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
+	// servicesListeningPort is the port that we will use for the proxy.
+	servicesListeningPort int
 	// exposedServices is the list of services that this PU is exposing.
 	exposedServices ApplicationServicesList
 	// dependentServices is the list of services that this PU depends on.
@@ -87,6 +90,7 @@ func NewPUPolicy(
 	triremeNetworks []string,
 	triremeUDPNetworks []string,
 	excludedNetworks []string,
+	servicesListeningPort int,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
 	scopes []string,
@@ -129,28 +133,29 @@ func NewPUPolicy(
 	}
 
 	return &PUPolicy{
-		managementID:       id,
-		triremeAction:      action,
-		applicationACLs:    appACLs,
-		networkACLs:        netACLs,
-		DNSACLs:            dnsACLs,
-		transmitterRules:   txtags,
-		receiverRules:      rxtags,
-		identity:           identity,
-		annotations:        annotations,
-		ips:                ips,
-		triremeNetworks:    triremeNetworks,
-		triremeUDPNetworks: triremeUDPNetworks,
-		excludedNetworks:   excludedNetworks,
-		exposedServices:    exposedServices,
-		dependentServices:  dependentServices,
-		scopes:             scopes,
+		managementID:          id,
+		triremeAction:         action,
+		applicationACLs:       appACLs,
+		networkACLs:           netACLs,
+		DNSACLs:               dnsACLs,
+		transmitterRules:      txtags,
+		receiverRules:         rxtags,
+		identity:              identity,
+		annotations:           annotations,
+		ips:                   ips,
+		triremeNetworks:       triremeNetworks,
+		triremeUDPNetworks:    triremeUDPNetworks,
+		excludedNetworks:      excludedNetworks,
+		servicesListeningPort: servicesListeningPort,
+		exposedServices:       exposedServices,
+		dependentServices:     dependentServices,
+		scopes:                scopes,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, []string{}, nil, nil, []string{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, []string{}, 0, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -172,6 +177,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.triremeNetworks,
 		p.triremeUDPNetworks,
 		p.excludedNetworks,
+		p.servicesListeningPort,
 		p.exposedServices,
 		p.dependentServices,
 		p.scopes,
@@ -332,6 +338,14 @@ func (p *PUPolicy) DependentServices() ApplicationServicesList {
 	return p.dependentServices
 }
 
+// ServicesListeningPort returns the port that should be used by the proxies.
+func (p *PUPolicy) ServicesListeningPort() string {
+	p.Lock()
+	defer p.Unlock()
+
+	return strconv.Itoa(p.servicesListeningPort)
+}
+
 // UpdateTriremeNetworks updates the set of networks for trireme
 func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
 	p.Lock()
@@ -423,50 +437,52 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 	defer p.Unlock()
 
 	return &PUPolicyPublic{
-		ManagementID:        p.managementID,
-		TriremeAction:       p.triremeAction,
-		ApplicationACLs:     p.applicationACLs.Copy(),
-		NetworkACLs:         p.networkACLs.Copy(),
-		DNSACLs:             p.DNSACLs.Copy(),
-		TransmitterRules:    p.transmitterRules.Copy(),
-		ReceiverRules:       p.receiverRules.Copy(),
-		Annotations:         p.annotations.Copy(),
-		Identity:            p.identity.Copy(),
-		IPs:                 p.ips.Copy(),
-		TriremeNetworks:     p.triremeNetworks,
-		TriremeUDPNetworks:  p.triremeUDPNetworks,
-		ExcludedNetworks:    p.excludedNetworks,
-		ExposedServices:     p.exposedServices,
-		DependentServices:   p.dependentServices,
-		Scopes:              p.scopes,
-		ServicesCA:          p.servicesCA,
-		ServicesCertificate: p.servicesCertificate,
-		ServicesPrivateKey:  p.servicesPrivateKey,
+		ManagementID:          p.managementID,
+		TriremeAction:         p.triremeAction,
+		ApplicationACLs:       p.applicationACLs.Copy(),
+		NetworkACLs:           p.networkACLs.Copy(),
+		DNSACLs:               p.DNSACLs.Copy(),
+		TransmitterRules:      p.transmitterRules.Copy(),
+		ReceiverRules:         p.receiverRules.Copy(),
+		Annotations:           p.annotations.Copy(),
+		Identity:              p.identity.Copy(),
+		IPs:                   p.ips.Copy(),
+		TriremeNetworks:       p.triremeNetworks,
+		TriremeUDPNetworks:    p.triremeUDPNetworks,
+		ServicesListeningPort: p.servicesListeningPort,
+		ExcludedNetworks:      p.excludedNetworks,
+		ExposedServices:       p.exposedServices,
+		DependentServices:     p.dependentServices,
+		Scopes:                p.scopes,
+		ServicesCA:            p.servicesCA,
+		ServicesCertificate:   p.servicesCertificate,
+		ServicesPrivateKey:    p.servicesPrivateKey,
 	}
 }
 
 // PUPolicyPublic captures all policy information related ot the processing
 // unit in an object that can be marshalled and transmitted over the RPC interface.
 type PUPolicyPublic struct {
-	ManagementID        string                  `json:"managementID,omitempty"`
-	TriremeAction       PUAction                `json:"triremeAction,omitempty"`
-	ApplicationACLs     IPRuleList              `json:"applicationACLs,omitempty"`
-	NetworkACLs         IPRuleList              `json:"networkACLs,omitempty"`
-	DNSACLs             DNSRuleList             `json:"dnsACLs,omitempty"`
-	Identity            *TagStore               `json:"identity,omitempty"`
-	Annotations         *TagStore               `json:"annotations,omitempty"`
-	TransmitterRules    TagSelectorList         `json:"transmitterRules,omitempty"`
-	ReceiverRules       TagSelectorList         `json:"receiverRules,omitempty"`
-	IPs                 ExtendedMap             `json:"IPs,omitempty"`
-	TriremeNetworks     []string                `json:"triremeNetworks,omitempty"`
-	TriremeUDPNetworks  []string                `json:"triremeUDPNetworks,omitempty"`
-	ExcludedNetworks    []string                `json:"excludedNetworks,omitempty"`
-	ExposedServices     ApplicationServicesList `json:"exposedServices,omitempty"`
-	DependentServices   ApplicationServicesList `json:"dependentServices,omitempty"`
-	ServicesCertificate string                  `json:"servicesCertificate,omitempty"`
-	ServicesPrivateKey  string                  `json:"servicesPrivateKey,omitempty"`
-	ServicesCA          string                  `json:"servicesCA,omitempty"`
-	Scopes              []string                `json:"scopes,omitempty"`
+	ManagementID          string                  `json:"managementID,omitempty"`
+	TriremeAction         PUAction                `json:"triremeAction,omitempty"`
+	ApplicationACLs       IPRuleList              `json:"applicationACLs,omitempty"`
+	NetworkACLs           IPRuleList              `json:"networkACLs,omitempty"`
+	DNSACLs               DNSRuleList             `json:"dnsACLs,omitempty"`
+	Identity              *TagStore               `json:"identity,omitempty"`
+	Annotations           *TagStore               `json:"annotations,omitempty"`
+	TransmitterRules      TagSelectorList         `json:"transmitterRules,omitempty"`
+	ReceiverRules         TagSelectorList         `json:"receiverRules,omitempty"`
+	IPs                   ExtendedMap             `json:"IPs,omitempty"`
+	TriremeNetworks       []string                `json:"triremeNetworks,omitempty"`
+	TriremeUDPNetworks    []string                `json:"triremeUDPNetworks,omitempty"`
+	ExcludedNetworks      []string                `json:"excludedNetworks,omitempty"`
+	ServicesListeningPort int                     `json:"servicesListeningPort,omitempty"`
+	ExposedServices       ApplicationServicesList `json:"exposedServices,omitempty"`
+	DependentServices     ApplicationServicesList `json:"dependentServices,omitempty"`
+	ServicesCertificate   string                  `json:"servicesCertificate,omitempty"`
+	ServicesPrivateKey    string                  `json:"servicesPrivateKey,omitempty"`
+	ServicesCA            string                  `json:"servicesCA,omitempty"`
+	Scopes                []string                `json:"scopes,omitempty"`
 }
 
 // ToPrivatePolicy converts the object to a private object.
@@ -481,24 +497,25 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 	}
 
 	return &PUPolicy{
-		managementID:        p.ManagementID,
-		triremeAction:       p.TriremeAction,
-		applicationACLs:     p.ApplicationACLs,
-		networkACLs:         p.NetworkACLs.Copy(),
-		DNSACLs:             p.DNSACLs.Copy(),
-		transmitterRules:    p.TransmitterRules.Copy(),
-		receiverRules:       p.ReceiverRules.Copy(),
-		annotations:         p.Annotations.Copy(),
-		identity:            p.Identity.Copy(),
-		ips:                 p.IPs.Copy(),
-		triremeNetworks:     p.TriremeNetworks,
-		triremeUDPNetworks:  p.TriremeUDPNetworks,
-		excludedNetworks:    p.ExcludedNetworks,
-		exposedServices:     exposedServices,
-		dependentServices:   p.DependentServices,
-		scopes:              p.Scopes,
-		servicesCA:          p.ServicesCA,
-		servicesCertificate: p.ServicesCertificate,
-		servicesPrivateKey:  p.ServicesPrivateKey,
+		managementID:          p.ManagementID,
+		triremeAction:         p.TriremeAction,
+		applicationACLs:       p.ApplicationACLs,
+		networkACLs:           p.NetworkACLs.Copy(),
+		DNSACLs:               p.DNSACLs.Copy(),
+		transmitterRules:      p.TransmitterRules.Copy(),
+		receiverRules:         p.ReceiverRules.Copy(),
+		annotations:           p.Annotations.Copy(),
+		identity:              p.Identity.Copy(),
+		ips:                   p.IPs.Copy(),
+		triremeNetworks:       p.TriremeNetworks,
+		triremeUDPNetworks:    p.TriremeUDPNetworks,
+		servicesListeningPort: p.ServicesListeningPort,
+		excludedNetworks:      p.ExcludedNetworks,
+		exposedServices:       exposedServices,
+		dependentServices:     p.DependentServices,
+		scopes:                p.Scopes,
+		servicesCA:            p.ServicesCA,
+		servicesCertificate:   p.ServicesCertificate,
+		servicesPrivateKey:    p.ServicesPrivateKey,
 	}
 }

@@ -118,7 +118,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cfg := data.(*cacheData)
-	port := cfg.containerInfo.Runtime.Options().ProxyPort
+	port := cfg.containerInfo.Policy.ServicesListeningPort()
 
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
 	puType := extractors.GetPuType(cfg.containerInfo.Runtime)

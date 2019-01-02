@@ -366,7 +366,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -481,7 +481,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -623,6 +623,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+
+		if _, err := d.puFromContextID.Get(conn.Context.ID()); err != nil {
+			// PU has been deleted. Ignore these packets
+			return nil, nil, fmt.Errorf("PU is already dead - drop SynAck packet")
+		}
 
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
@@ -782,7 +787,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.SourcePort,
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow",
+			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
