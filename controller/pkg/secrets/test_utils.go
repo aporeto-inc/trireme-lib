@@ -5,6 +5,7 @@ import (
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
+// Certs
 var (
 	CAPEM = `-----BEGIN CERTIFICATE-----
 MIIBmzCCAUCgAwIBAgIRAIbf7tsXeg6vUJ2pe3WXzgwwCgYIKoZIzj0EAwIwPDEQ
