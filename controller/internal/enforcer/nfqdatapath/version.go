@@ -1,6 +1,8 @@
 package nfqdatapath
 
 import (
+	"encoding/binary"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.uber.org/zap"
 )
@@ -58,9 +60,11 @@ func CompareVersionAttribute(version []byte, versionAttr uint8, mask uint8) bool
 }
 
 // parseVersionAttr returns the version attribute set
-func parseVersionAttr(version []byte, mask uint8) byte {
+func parseVersionAttr(version []byte, mask uint8) uint8 {
 
-	return version[0] & mask
+	data := binary.LittleEndian.Uint16(version)
+
+	return uint8(data) & mask
 }
 
 func encryptionAttr(encrypt bool) uint8 {

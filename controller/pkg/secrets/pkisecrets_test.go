@@ -13,22 +13,22 @@ func TestNewPKISecrets(t *testing.T) {
 
 	Convey("When I create a new  PKI secret , it should succeed ", t, func() {
 
-		p, err := NewPKISecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), nil)
+		p, err := NewPKISecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), nil)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
-		So(p.AuthorityPEM, ShouldResemble, []byte(caPEM))
-		So(p.PrivateKeyPEM, ShouldResemble, []byte(privateKeyPEM))
-		So(p.PublicKeyPEM, ShouldResemble, []byte(publicPEM))
+		So(p.AuthorityPEM, ShouldResemble, []byte(CAPEM))
+		So(p.PrivateKeyPEM, ShouldResemble, []byte(PrivateKeyPEM))
+		So(p.PublicKeyPEM, ShouldResemble, []byte(PublicPEM))
 	})
 
 	Convey("When I create a new compact PKI with invalid certs, it should fail", t, func() {
-		p, err := NewPKISecrets([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), nil)
+		p, err := NewPKISecrets([]byte(PrivateKeyPEM)[:20], []byte(PublicPEM)[:30], []byte(CAPEM), nil)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
 
 	Convey("When I create a new compact PKI with invalid CA, it should fail", t, func() {
-		p, err := NewPKISecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], nil)
+		p, err := NewPKISecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM)[:10], nil)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
@@ -38,11 +38,11 @@ func TestNewPKISecrets(t *testing.T) {
 func TestPKIBasicInterfaceFunctions(t *testing.T) {
 
 	Convey("Given a valid CompactPKI ", t, func() {
-		p, err := NewPKISecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), nil)
+		p, err := NewPKISecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), nil)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 
-		key, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM))
+		key, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM))
 		Convey("I should get the right secrets type ", func() {
 			So(p.Type(), ShouldResemble, PKIType)
 		})
@@ -52,19 +52,19 @@ func TestPKIBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should get the right transmitter key", func() {
-			So(p.TransmittedKey(), ShouldResemble, []byte(publicPEM))
+			So(p.TransmittedKey(), ShouldResemble, []byte(PublicPEM))
 		})
 
 		Convey("I should get the right CA Auth PEM file", func() {
-			So(p.AuthPEM(), ShouldResemble, []byte(caPEM))
+			So(p.AuthPEM(), ShouldResemble, []byte(CAPEM))
 		})
 
 		Convey("I should get the right Certificate PEM", func() {
-			So(p.TransmittedPEM(), ShouldResemble, []byte(publicPEM))
+			So(p.TransmittedPEM(), ShouldResemble, []byte(PublicPEM))
 		})
 
 		Convey("I Should get the right Key PEM", func() {
-			So(p.EncodingPEM(), ShouldResemble, []byte(privateKeyPEM))
+			So(p.EncodingPEM(), ShouldResemble, []byte(PrivateKeyPEM))
 		})
 
 		Convey("I should ge the righ ack size", func() {
@@ -76,13 +76,13 @@ func TestPKIBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("When I verify the received public key, it should succeed", func() {
-			pk, err := p.VerifyPublicKey([]byte(publicPEM))
+			pk, err := p.VerifyPublicKey([]byte(PublicPEM))
 			So(err, ShouldBeNil)
 			So(pk, ShouldResemble, cert)
 		})
 
 		Convey("When I verify and there is a bad key, I should get an error", func() {
-			_, err := p.VerifyPublicKey([]byte(publicPEM[:10]))
+			_, err := p.VerifyPublicKey([]byte(PublicPEM[:10]))
 			So(err, ShouldNotBeNil)
 		})
 
@@ -107,15 +107,15 @@ func TestPKIBasicInterfaceFunctions(t *testing.T) {
 
 func TestPKICache(t *testing.T) {
 	Convey("Given PKI secrets with a cache", t, func() {
-		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM))
+		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM))
 		cache := map[string]*ecdsa.PublicKey{}
-		p, err := NewPKISecrets([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), cache)
+		p, err := NewPKISecrets([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), cache)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 		So(p.CertificateCache, ShouldEqual, cache)
 
 		Convey("When I add a certificate in the cache for server1", func() {
-			err := p.PublicKeyAdd("server1", []byte(publicPEM))
+			err := p.PublicKeyAdd("server1", []byte(PublicPEM))
 			So(err, ShouldBeNil)
 			Convey("If I try to get the decoding key for the server, it should succeed ", func() {
 				key, err := p.DecodingKey("server1", nil, nil)
@@ -129,7 +129,7 @@ func TestPKICache(t *testing.T) {
 		})
 
 		Convey("When I add a bad certificate in the cache for server1, I should get an error ", func() {
-			err := p.PublicKeyAdd("server1", []byte(publicPEM[:10]))
+			err := p.PublicKeyAdd("server1", []byte(PublicPEM[:10]))
 			So(err, ShouldNotBeNil)
 		})
 
