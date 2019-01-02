@@ -1,6 +1,6 @@
 package secrets
 
-import "github.com/dgrijalva/jwt-go"
+import jwt "github.com/dgrijalva/jwt-go"
 
 // This is a NULL secrets implementation only for performance testing
 // ATTENTION *** ONLY FOR TESTING
