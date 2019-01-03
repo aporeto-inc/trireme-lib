@@ -374,10 +374,10 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	}
 
 	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	version := GenerateVersion(Version{CompressionType: compressionType})
+	claimsHeader := GenerateClaimsHeader(ClaimsHeader{CompressionType: compressionType})
 
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, version)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeader)
 
 	if err != nil {
 		return err
@@ -571,10 +571,10 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	}
 
 	// NOTE: Backward compatibility
-	if claims.V != nil {
+	if claims.H != nil {
 		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-		if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		if !CompareClaimsHeaderAttribute(claims.H, compressionType, constants.CompressionTypeMask) {
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}
 	}

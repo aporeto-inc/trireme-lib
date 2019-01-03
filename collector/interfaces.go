@@ -36,6 +36,10 @@ const (
 	APIPolicyDrop = "api"
 	// UnableToDial indicates that the proxy cannot dial out the connection
 	UnableToDial = "dial"
+	// CompressedTagMismatch indicates that the compressed tag version is dissimilar
+	CompressedTagMismatch = "compressedtagmismatch"
+	// EncryptionMismatch indicates that the policy encryption varies between client and server enforcer
+	EncryptionMismatch = "encryptionmismatch"
 )
 
 // Container event description

@@ -327,12 +327,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	// We now generate the version
+	// We now generate the claims header
 	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	version := GenerateVersion(Version{CompressionType: compressionType})
+	claimsHeader := GenerateClaimsHeader(ClaimsHeader{CompressionType: compressionType})
 
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, version)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeader)
 
 	if err != nil {
 		return nil, err
@@ -393,10 +393,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	// We add encrypt attr in the version field
-	version := GenerateVersion(Version{Encrypt: encryptionAttr(conn.PacketFlowPolicy.Action.Encrypted())})
+	// We add encrypt attr in the claims header field
+	claimsHeader := GenerateClaimsHeader(ClaimsHeader{Encrypt: encryptionAttr(conn.PacketFlowPolicy.Action.Encrypted())})
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, version)
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
 
 	if err != nil {
 		return err
@@ -577,12 +577,12 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 	}
 
-	// We now compare the version we attached in the JWT in the application
-	// SYN with the current version. If it varies we drop the packet
-	if claims.V != nil {
+	// We now compare the claims header we attached in the JWT in the application
+	// SYN with the current claims header. If it varies we drop the packet
+	if claims.H != nil {
 		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-		if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
-			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		if !CompareClaimsHeaderAttribute(claims.H, compressionType, constants.CompressionTypeMask) {
+			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}
 	}
@@ -755,9 +755,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	// NOTE: For backward compatibility, remove this check later
-	if claims.V != nil {
-		if !CompareVersionAttribute(claims.V, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
-			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidToken, report, pkt)
+	if claims.H != nil {
+		if !CompareClaimsHeaderAttribute(claims.H, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
+			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.EncryptionMismatch, report, pkt)
 			return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
 		}
 	}

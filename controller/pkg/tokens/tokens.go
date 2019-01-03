@@ -15,8 +15,8 @@ type ConnectionClaims struct {
 	C string `json:",omitempty"`
 	// ID is the source PU ID
 	ID string `json:",omitempty"`
-	// V is the version of the enforcer
-	V []byte `json:",omitempty"`
+	// H is the claims header
+	H []byte `json:",omitempty"`
 }
 
 // TokenEngine is the interface to the different implementations of tokens
@@ -40,8 +40,8 @@ const (
 	MaxServerName = 24
 	// NonceLength is the length of the Nonce to be used in the secrets
 	NonceLength = 16
-	// MaxVersionLen must be maximimum version length
-	MaxVersionLen = 4
+	// MaxHeaderLen must be maximimum claims header length
+	MaxHeaderLen = 4
 	// EncryptionEnabledMask mask that identifies the handshake version
 	EncryptionEnabledMask = 0x04
 )
