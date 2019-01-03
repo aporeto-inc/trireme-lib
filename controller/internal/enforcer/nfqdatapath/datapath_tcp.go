@@ -579,10 +579,12 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// We now compare the version we attached in the JWT in the application
 	// SYN with the current version. If it varies we drop the packet
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidToken, nil, nil)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+	if claims.V != nil {
+		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+		if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
+			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		}
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
@@ -752,9 +754,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, nil
 	}
 
-	if !CompareVersionAttribute(claims.V, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidToken, report, pkt)
-		return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
+	// NOTE: For backward compatibility, remove this check later
+	if claims.V != nil {
+		if !CompareVersionAttribute(claims.V, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
+			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidToken, report, pkt)
+			return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
+		}
 	}
 
 	if pkt.Action.Rejected() {

@@ -570,10 +570,13 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of no claims")
 	}
 
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
-		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+	// NOTE: Backward compatibility
+	if claims.V != nil {
+		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
+		if !CompareVersionAttribute(claims.V, compressionType, constants.CompressionTypeMask) {
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		}
 	}
 
 	// Why is this required. Take a look.
