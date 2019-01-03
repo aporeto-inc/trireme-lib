@@ -1,7 +1,7 @@
 package packetprocessor
 
 import (
-	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
