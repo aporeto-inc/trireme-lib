@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/coreos/go-iptables/iptables"
-	"github.com/hashicorp/go-version"
+	version "github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 )
 

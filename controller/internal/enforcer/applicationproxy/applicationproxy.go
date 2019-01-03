@@ -10,7 +10,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
+	httpproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"

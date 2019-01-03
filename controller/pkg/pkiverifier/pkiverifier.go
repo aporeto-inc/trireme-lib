@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
 

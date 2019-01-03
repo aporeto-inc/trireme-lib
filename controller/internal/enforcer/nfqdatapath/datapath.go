@@ -13,7 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
