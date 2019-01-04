@@ -170,7 +170,7 @@ func (p *processMon) collectChildExitStatus() {
 }
 
 // SetLogParameters setups args that should be propagated to child processes
-func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
+func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags claimsheader.CompressionType) {
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
 	p.logLevel = logLevel
@@ -290,7 +290,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvLogFormat + "=" + p.logFormat,
 	}
 
-	if p.compressedTags != constants.CompressionTypeNone {
+	if p.compressedTags != claimsheader.CompressionTypeNone {
 		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
 	}
 
