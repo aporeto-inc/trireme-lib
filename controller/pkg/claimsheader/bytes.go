@@ -15,7 +15,7 @@ func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
 	claimsHeader := ClaimsHeader{}
 	claimsHeader.compressionType = constants.CompressionTypeMask(c.extractHeaderAttribute(constants.CompressionTypeBitMask.ToUint8()))
-	claimsHeader.encrypt = Uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask))
+	claimsHeader.encrypt = uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask))
 	claimsHeader.handshakeVersion = c.extractHeaderAttribute(HandshakeVersion)
 
 	return &claimsHeader

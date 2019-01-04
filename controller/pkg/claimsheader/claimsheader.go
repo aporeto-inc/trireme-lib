@@ -28,7 +28,7 @@ func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
 	claimsHeaderData := make([]byte, MaxHeaderLen)
 	claimsHeaderData[0] |= c.compressionType.ToUint8()
-	claimsHeaderData[0] |= Encrypt(c.encrypt).ToUint8()
+	claimsHeaderData[0] |= boolToUint8(c.encrypt)
 	claimsHeaderData[0] |= c.handshakeVersion
 
 	return claimsHeaderData

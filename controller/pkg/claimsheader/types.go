@@ -12,11 +12,8 @@ type ClaimsHeader struct {
 	handshakeVersion uint8
 }
 
-// Encrypt type bool
-type Encrypt bool
-
-// ToUint8 returns the encrypt uint8 based on the flag
-func (e Encrypt) ToUint8() uint8 {
+// boolToUint8 converts bool to uint8
+func boolToUint8(e bool) uint8 {
 
 	if !e {
 		return 0x00
@@ -25,8 +22,8 @@ func (e Encrypt) ToUint8() uint8 {
 	return EncryptionEnabledMask
 }
 
-// Uint8ToBool converts uint8 to bool
-func Uint8ToBool(n uint8) bool {
+// uint8ToBool converts uint8 to bool
+func uint8ToBool(n uint8) bool {
 
 	return n == EncryptionEnabledMask
 }
