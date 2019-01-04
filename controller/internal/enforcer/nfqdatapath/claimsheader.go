@@ -67,6 +67,7 @@ func parseClaimsHeaderAttr(claimsHeader []byte, mask uint8) uint8 {
 	return uint8(data) & mask
 }
 
+// encryptionAttr returns the mask based on the encrypt flag
 func encryptionAttr(encrypt bool) uint8 {
 
 	if !encrypt {
