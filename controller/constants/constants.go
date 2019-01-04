@@ -64,11 +64,6 @@ const (
 	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
 )
 
-// API service related constants
-const (
-	CallbackURIExtension = "/aporeto/oidc/callback"
-)
-
 // ModeType defines the mode of the enforcement and supervisor.
 type ModeType int
 
@@ -172,3 +167,8 @@ func String2CompressionType(s string) CompressionType {
 	}
 	return CompressionTypeNone
 }
+
+// API service related constants
+const (
+	CallbackURIExtension = "/aporeto/oidc/callback"
+)
