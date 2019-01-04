@@ -13,12 +13,11 @@ type HeaderBytes []byte
 // WARNING: Caller has to make sure that headerbytes is NOT nil
 func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
-	claimsHeader := ClaimsHeader{}
-	claimsHeader.compressionType = constants.CompressionTypeMask(c.extractHeaderAttribute(constants.CompressionTypeBitMask.ToUint8()))
-	claimsHeader.encrypt = uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask))
-	claimsHeader.handshakeVersion = c.extractHeaderAttribute(HandshakeVersion)
-
-	return &claimsHeader
+	return &ClaimsHeader{
+		compressionType:  constants.CompressionTypeMask(c.extractHeaderAttribute(constants.CompressionTypeBitMask.ToUint8())),
+		encrypt:          uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask)),
+		handshakeVersion: c.extractHeaderAttribute(HandshakeVersion),
+	}
 }
 
 // extractHeaderAttribute returns the claimsHeader attribute set
