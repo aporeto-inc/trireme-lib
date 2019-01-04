@@ -20,7 +20,7 @@ func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 	}
 }
 
-// extractHeaderAttribute returns the claimsHeader attribute set
+// extractHeaderAttribute returns the attribute from bytes
 func (c HeaderBytes) extractHeaderAttribute(mask uint8) uint8 {
 
 	data := binary.LittleEndian.Uint16(c)
