@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -373,11 +374,14 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 		return fmt.Errorf("No target found")
 	}
 
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	claimsHeader := GenerateClaimsHeader(ClaimsHeader{CompressionType: compressionType})
+	// We now generate the claims header
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeToMask()
+	claimsHeaderBytes := claimsheader.NewClaimsHeader(
+		claimsheader.OptionCompressionType(compressionType),
+	).ToBytes()
 
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeader)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeaderBytes)
 
 	if err != nil {
 		return err
@@ -572,8 +576,8 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// NOTE: Backward compatibility
 	if claims.H != nil {
-		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-		if !CompareClaimsHeaderAttribute(claims.H, compressionType, constants.CompressionTypeMask) {
+		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}

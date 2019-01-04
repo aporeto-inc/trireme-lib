@@ -1,6 +1,8 @@
 package tokens
 
-import "go.aporeto.io/trireme-lib/policy"
+import (
+	"go.aporeto.io/trireme-lib/policy"
+)
 
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
@@ -16,7 +18,7 @@ type ConnectionClaims struct {
 	// ID is the source PU ID
 	ID string `json:",omitempty"`
 	// H is the claims header
-	H []byte `json:",omitempty"`
+	H interface{} `json:",omitempty"`
 }
 
 // TokenEngine is the interface to the different implementations of tokens
@@ -40,8 +42,4 @@ const (
 	MaxServerName = 24
 	// NonceLength is the length of the Nonce to be used in the secrets
 	NonceLength = 16
-	// MaxHeaderLen must be maximimum claims header length
-	MaxHeaderLen = 4
-	// EncryptionEnabledMask mask that identifies the handshake version
-	EncryptionEnabledMask = 0x04
 )

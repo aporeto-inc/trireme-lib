@@ -10,6 +10,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -328,11 +329,13 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We now generate the claims header
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-	claimsHeader := GenerateClaimsHeader(ClaimsHeader{CompressionType: compressionType})
+	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeToMask()
+	claimsHeaderBytes := claimsheader.NewClaimsHeader(
+		claimsheader.OptionCompressionType(compressionType),
+	).ToBytes()
 
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeader)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeaderBytes)
 
 	if err != nil {
 		return nil, err
@@ -394,9 +397,12 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We add encrypt attr in the claims header field
-	claimsHeader := GenerateClaimsHeader(ClaimsHeader{Encrypt: encryptionAttr(conn.PacketFlowPolicy.Action.Encrypted())})
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
+	claimsHeaderBytes := claimsheader.NewClaimsHeader(
+		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
+	).ToBytes()
+
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
 
 	if err != nil {
 		return err
@@ -580,8 +586,8 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// We now compare the claims header we attached in the JWT in the application
 	// SYN with the current claims header. If it varies we drop the packet
 	if claims.H != nil {
-		compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeMask()
-		if !CompareClaimsHeaderAttribute(claims.H, compressionType, constants.CompressionTypeMask) {
+		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}
@@ -756,7 +762,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// NOTE: For backward compatibility, remove this check later
 	if claims.H != nil {
-		if !CompareClaimsHeaderAttribute(claims.H, encryptionAttr(pkt.Action.Encrypted()), tokens.EncryptionEnabledMask) {
+		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		if claimsHeader.Encrypt() != pkt.Action.Encrypted() {
 			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.EncryptionMismatch, report, pkt)
 			return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
 		}
