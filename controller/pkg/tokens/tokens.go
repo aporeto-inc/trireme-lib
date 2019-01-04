@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -18,7 +19,7 @@ type ConnectionClaims struct {
 	// ID is the source PU ID
 	ID string `json:",omitempty"`
 	// H is the claims header
-	H interface{} `json:",omitempty"`
+	H claimsheader.HeaderBytes `json:",omitempty"`
 }
 
 // TokenEngine is the interface to the different implementations of tokens

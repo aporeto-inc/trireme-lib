@@ -576,7 +576,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// NOTE: Backward compatibility
 	if claims.H != nil {
-		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		claimsHeader := claims.H.ToClaimsHeader()
 		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")

@@ -586,7 +586,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// We now compare the claims header we attached in the JWT in the application
 	// SYN with the current claims header. If it varies we drop the packet
 	if claims.H != nil {
-		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		claimsHeader := claims.H.ToClaimsHeader()
 		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
@@ -762,7 +762,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// NOTE: For backward compatibility, remove this check later
 	if claims.H != nil {
-		claimsHeader := claims.H.(claimsheader.HeaderBytes).ToClaimsHeader()
+		claimsHeader := claims.H.ToClaimsHeader()
 		if claimsHeader.Encrypt() != pkt.Action.Encrypted() {
 			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.EncryptionMismatch, report, pkt)
 			return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
