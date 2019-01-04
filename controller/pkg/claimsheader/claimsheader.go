@@ -15,14 +15,16 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 }
 
 // ToBytes generates the 32-bit header in bytes
+//    0             1              2               3               4
+//   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// 	|CT|E|  H    |                 R (reserved)                     |
+// 	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  CT [0,1] - Compressed tag type
+//  E [2]    - Enryption enabled
+//  H [3:6]  - Handshake version
+//  R [4:31] - Unused currently
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
-
-	// This is a 32 bit header used to be a symmetric identification between enforcers
-	// Byte 0 : Bits 0,1 represents compressed tag mode.
-	//          Bit 2 represents enryption enabled.
-	//          Bits [3:6] represents handshake version.
-	//          Bits [7] reserved for future use. (currently unused).
-	// Bytes [1:3]: reserved for future use.
 
 	claimsHeaderData := make([]byte, MaxHeaderLen)
 	claimsHeaderData[0] |= c.compressionType.ToUint8()
