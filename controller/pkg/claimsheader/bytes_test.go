@@ -9,18 +9,18 @@ import (
 
 func TestHeaderBytes(t *testing.T) {
 
-	Convey("Given I create a new bytes", t, func() {
+	Convey("Given I create a new header bytes", t, func() {
 		header := NewClaimsHeader(
 			OptionCompressionType(constants.CompressionTypeV2Mask),
 			OptionEncrypt(true),
 			OptionHandshakeVersion(HandshakeVersion),
 		).ToBytes()
 
-		Convey("Then claims header should not be nil", func() {
+		Convey("Then header bytes should not be nil", func() {
 			So(header, ShouldNotBeNil)
 		})
 
-		Convey("Given I compare the claims header if the right bit set", func() {
+		Convey("Given I convert bytes to claims header", func() {
 			ch := header.ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {

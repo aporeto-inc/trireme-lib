@@ -14,8 +14,7 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 	return c
 }
 
-// ToByte generates the 32-bit header field
-// claimsHeader holds all the claimsHeader sub attributes
+// ToBytes generates the 32-bit header in bytes
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
 	// This is a 32 bit header used to be a symmetric identification between enforcers
@@ -33,16 +32,19 @@ func (c *ClaimsHeader) ToBytes() HeaderBytes {
 	return claimsHeaderData
 }
 
+// CompressionType is the compression type
 func (c *ClaimsHeader) CompressionType() constants.CompressionType {
 
 	return c.compressionType.CompressionMaskToType()
 }
 
+// Encrypt is the encrypt in bool
 func (c *ClaimsHeader) Encrypt() bool {
 
 	return bool(c.encrypt)
 }
 
+// HandshakeVersion is the handshake version
 func (c *ClaimsHeader) HandshakeVersion() uint8 {
 
 	return HandshakeVersion

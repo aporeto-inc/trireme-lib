@@ -20,7 +20,7 @@ func TestHeader(t *testing.T) {
 			So(header, ShouldNotBeNil)
 		})
 
-		Convey("Given I compare the claims header if the right bit set", func() {
+		Convey("Given I convert bytes to claims header", func() {
 			ch := header.ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
@@ -41,7 +41,7 @@ func TestHeader(t *testing.T) {
 			So(header, ShouldNotBeNil)
 		})
 
-		Convey("Given I compare the claims header if the right bit set", func() {
+		Convey("Given I convert bytes to claims header", func() {
 			ch := header.ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
@@ -51,9 +51,9 @@ func TestHeader(t *testing.T) {
 		})
 	})
 
-	Convey("Given I try to get compression type without data", t, func() {
+	Convey("Given I try retrieve fields without any data", t, func() {
 
-		Convey("Given I compare the claims header if the right bit set", func() {
+		Convey("Given I convert bytes to claims header", func() {
 			ch := &ClaimsHeader{}
 
 			Convey("Then it should be equal", func() {

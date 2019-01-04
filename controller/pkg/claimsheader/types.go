@@ -25,6 +25,7 @@ func (e Encrypt) ToUint8() uint8 {
 	return EncryptionEnabledMask
 }
 
+// Uint8ToBool converts uint8 to bool
 func Uint8ToBool(n uint8) bool {
 
 	if n == 0x00 {

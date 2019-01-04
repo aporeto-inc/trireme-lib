@@ -64,6 +64,24 @@ const (
 	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
 )
 
+// API service related constants
+const (
+	CallbackURIExtension = "/aporeto/oidc/callback"
+)
+
+// ModeType defines the mode of the enforcement and supervisor.
+type ModeType int
+
+const (
+	// RemoteContainer indicates that the Supervisor is implemented in the
+	// container namespace
+	RemoteContainer ModeType = iota
+	// LocalServer indicates that the Supervisor applies to Linux processes
+	LocalServer
+	// Sidecar indicates the controller to be in sidecar mode
+	Sidecar
+)
+
 // CompressionType defines the compression used.
 type CompressionType string
 
@@ -94,7 +112,7 @@ const (
 	CompressionTypeV1Mask CompressionTypeMask = 0x01
 	// CompressionTypeV2Mask mask that identifies compression type v2
 	CompressionTypeV2Mask CompressionTypeMask = 0x02
-	// CompressionTypeMask mask used to check relevant compression types
+	// CompressionTypeBitMask mask used to check relevant compression types
 	CompressionTypeBitMask CompressionTypeMask = 0x03
 )
 
@@ -111,7 +129,7 @@ func (ct CompressionType) CompressionTypeToMask() CompressionTypeMask {
 	}
 }
 
-// CompressionTypeToMask returns the mask based on the type
+// CompressionMaskToType returns the type based on mask
 func (cm CompressionTypeMask) CompressionMaskToType() CompressionType {
 
 	switch cm {
@@ -124,7 +142,7 @@ func (cm CompressionTypeMask) CompressionMaskToType() CompressionType {
 	}
 }
 
-// CompressionTypeToMask returns the mask based on the type
+// ToUint8 returns uint8 from compressiontypemask
 func (cm CompressionTypeMask) ToUint8() uint8 {
 
 	return uint8(cm)
@@ -154,21 +172,3 @@ func String2CompressionType(s string) CompressionType {
 	}
 	return CompressionTypeNone
 }
-
-// API service related constants
-const (
-	CallbackURIExtension = "/aporeto/oidc/callback"
-)
-
-// ModeType defines the mode of the enforcement and supervisor.
-type ModeType int
-
-const (
-	// RemoteContainer indicates that the Supervisor is implemented in the
-	// container namespace
-	RemoteContainer ModeType = iota
-	// LocalServer indicates that the Supervisor applies to Linux processes
-	LocalServer
-	// Sidecar indicates the controller to be in sidecar mode
-	Sidecar
-)
