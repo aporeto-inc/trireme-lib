@@ -9,8 +9,8 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -42,7 +42,7 @@ type JWTConfig struct {
 	// cache test
 	tokenCache cache.DataStore
 	// compressionType determines of compression should be used when creating tokens
-	compressionType claimsheader.CompressionType
+	compressionType constants.CompressionType
 	// compressionTagLength is the length of tags based on compressionType
 	compressionTagLength int
 }
@@ -59,7 +59,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	}
 
 	var signMethod jwt.SigningMethod
-	compressionType := claimsheader.CompressionTypeNone
+	compressionType := constants.CompressionTypeNone
 
 	if s == nil {
 		return nil, errors.New("secrets can not be nil")
@@ -84,7 +84,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		secrets:              s,
 		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 		compressionType:      compressionType,
-		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
+		compressionTagLength: constants.CompressionTypeToTagLength(compressionType),
 	}, nil
 }
 
@@ -107,7 +107,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 
 		// Handling compression here. If we need to use compression, we will copy
 		// the claims to the C claim and remove all the other fields.
-		if c.compressionType != claimsheader.CompressionTypeNone {
+		if c.compressionType != constants.CompressionTypeNone {
 			tags := allclaims.T
 			allclaims.T = nil
 			for _, t := range tags.Tags {

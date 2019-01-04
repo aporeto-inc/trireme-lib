@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
@@ -15,7 +15,7 @@ func TestNewCompactPKI(t *testing.T) {
 	// txkey is a token that has the client public key signed by the CA
 	Convey("When I create a new compact PKI, it should succeed ", t, func() {
 
-		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), txKey, claimsheader.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), txKey, constants.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 		So(p.AuthorityPEM, ShouldResemble, []byte(CAPEM))
@@ -24,13 +24,13 @@ func TestNewCompactPKI(t *testing.T) {
 	})
 
 	Convey("When I create a new compact PKI with invalid certs, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(PrivateKeyPEM)[:20], []byte(PublicPEM)[:30], []byte(CAPEM), txKey, claimsheader.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(PrivateKeyPEM)[:20], []byte(PublicPEM)[:30], []byte(CAPEM), txKey, constants.CompressionTypeNone)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
 
 	Convey("When I create a new compact PKI with invalid CA, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM)[:10], txKey, claimsheader.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM)[:10], txKey, constants.CompressionTypeNone)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
@@ -40,7 +40,7 @@ func TestNewCompactPKI(t *testing.T) {
 func TestBasicInterfaceFunctions(t *testing.T) {
 	txKey := CreateTxtToken()
 	Convey("Given a valid CompactPKI ", t, func() {
-		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), txKey, claimsheader.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), txKey, constants.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 
