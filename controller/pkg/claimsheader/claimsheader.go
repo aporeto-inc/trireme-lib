@@ -41,11 +41,11 @@ func (c *ClaimsHeader) CompressionType() constants.CompressionType {
 // Encrypt is the encrypt in bool
 func (c *ClaimsHeader) Encrypt() bool {
 
-	return bool(c.encrypt)
+	return c.encrypt
 }
 
 // HandshakeVersion is the handshake version
 func (c *ClaimsHeader) HandshakeVersion() uint8 {
 
-	return HandshakeVersion
+	return c.handshakeVersion
 }
