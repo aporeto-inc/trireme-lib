@@ -1,5 +1,3 @@
-//
-
 package nfqdatapath
 
 import (
