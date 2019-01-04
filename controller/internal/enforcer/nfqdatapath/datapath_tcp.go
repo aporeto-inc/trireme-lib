@@ -983,12 +983,13 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 			//we will create the bare minimum needed to exercise our stack
 			//We need this syn to look similar to what we will pass on the retry
-			//so we setup enought for us to identify this request in the later stages
+			//so we setup enough for us to identify this request in the later stages
 
 			// update the unknownSynConnectionTracker cache to keep track of
 			// syn packet that has no context yet.
 			if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
-				return nil, fmt.Errorf("unable to keep track of syn packet: %s", err)
+				zap.L().Debug("unknownSynConnectionTracker cache data store returned error")
+				return nil, err
 			}
 
 			// Remove any of our data from the packet.
