@@ -15,6 +15,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -54,7 +55,7 @@ type processMon struct {
 	logLevel  string
 	logFormat string
 	// compressedTags instructs the remotes to use compressed tags.
-	compressedTags constants.CompressionType
+	compressedTags claimsheader.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
 	runtimeErrorChannel chan *policy.RuntimeError
 
