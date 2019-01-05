@@ -52,6 +52,27 @@ func TestHeader(t *testing.T) {
 		})
 	})
 
+	Convey("Given I create a new claims header and with no encryption type", t, func() {
+		header := NewClaimsHeader(
+			OptionEncrypt(false),
+			OptionDatapathVersion(DatapathVersion1),
+		).ToBytes()
+
+		Convey("Then claims header should not be nil", func() {
+			So(header, ShouldNotBeNil)
+		})
+
+		Convey("Given I convert bytes to claims header", func() {
+			ch := header.ToClaimsHeader()
+
+			Convey("Then it should be equal", func() {
+				So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
+				So(ch.Encrypt(), ShouldEqual, false)
+				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
+			})
+		})
+	})
+
 	Convey("Given I try retrieve fields without any data", t, func() {
 
 		Convey("Given I convert bytes to claims header", func() {
