@@ -1,5 +1,9 @@
 package claimsheader
 
+import (
+	"strconv"
+)
+
 // CompressionType defines the compression used.
 type CompressionType int
 
@@ -20,6 +24,11 @@ const (
 	CompressedTagLengthV2 int = 4
 )
 
+func (c CompressionType) toString() string {
+
+	return strconv.Itoa(int(c))
+}
+
 // CompressionTypeToTagLength converts CompressionType to length.
 func CompressionTypeToTagLength(t CompressionType) int {
 
@@ -36,11 +45,13 @@ func CompressionTypeToTagLength(t CompressionType) int {
 
 // String2CompressionType is a helper to convert string to compression type
 func String2CompressionType(s string) CompressionType {
-	if s == string(CompressionTypeV1) {
+	if s == CompressionTypeV1.toString() {
 		return CompressionTypeV1
 	}
-	if s == string(CompressionTypeV2) {
+
+	if s == CompressionTypeV2.toString() {
 		return CompressionTypeV2
 	}
+
 	return CompressionTypeNone
 }
