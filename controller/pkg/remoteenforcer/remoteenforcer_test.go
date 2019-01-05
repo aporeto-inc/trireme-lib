@@ -24,6 +24,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
@@ -111,7 +112,7 @@ func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()
 
-	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token, constants.CompressionTypeNone)
+	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token, claimsheader.CompressionTypeNone)
 	if err != nil {
 		fmt.Println("CompackPKI creation failed with:", err)
 	}
