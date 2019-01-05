@@ -25,17 +25,17 @@ type compressionTypeMask uint8
 
 const (
 	// compressionTypeNoneMask mask that identifies compression type none
-	compressionTypeNoneMask compressionTypeMask = 0x00
+	compressionTypeNoneMask compressionTypeMask = 0x40
 	// compressionTypeV1Mask mask that identifies compression type v1
-	compressionTypeV1Mask compressionTypeMask = 0x01
+	compressionTypeV1Mask compressionTypeMask = 0x80
 	// compressionTypeV2Mask mask that identifies compression type v2
-	compressionTypeV2Mask compressionTypeMask = 0x02
+	compressionTypeV2Mask compressionTypeMask = 0xC0
 	// compressionTypeBitMask mask used to check relevant compression types
-	compressionTypeBitMask compressionTypeMask = 0x03
+	compressionTypeBitMask compressionTypeMask = 0xC0
 )
 
-// compressionTypeToMask returns the mask based on the type
-func (ct CompressionType) compressionTypeToMask() compressionTypeMask {
+// toMask returns the mask based on the type
+func (ct CompressionType) toMask() compressionTypeMask {
 
 	switch ct {
 	case CompressionTypeV1:
@@ -47,8 +47,8 @@ func (ct CompressionType) compressionTypeToMask() compressionTypeMask {
 	}
 }
 
-// compressionMaskToType returns the type based on mask
-func (cm compressionTypeMask) compressionMaskToType() CompressionType {
+// toType returns the type based on mask
+func (cm compressionTypeMask) toType() CompressionType {
 
 	switch cm {
 	case compressionTypeV1Mask:
@@ -60,10 +60,16 @@ func (cm compressionTypeMask) compressionMaskToType() CompressionType {
 	}
 }
 
-// ToUint8 returns uint8 from compressiontypemask
-func (cm compressionTypeMask) ToUint8() uint8 {
+// toUint8 returns uint8 from compressiontypemask
+func (cm compressionTypeMask) toUint8() uint8 {
 
 	return uint8(cm)
+}
+
+// toUint8 returns uint8 from compressiontypemask
+func (cm compressionTypeMask) toUint32() uint32 {
+
+	return uint32(cm)
 }
 
 // CompressionTypeToTagLength converts CompressionType to length.

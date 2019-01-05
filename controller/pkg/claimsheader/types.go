@@ -1,15 +1,13 @@
 package claimsheader
 
-
-
 // ClaimsHeader holds header sub attributes
 type ClaimsHeader struct {
 	// CompressionType represents compressed tag mode attribute
-	compressionType compressionTypeMask
+	compressionType CompressionType
 	// Encrypt represents enryption enabled attribute
 	encrypt bool
 	// Handshake type represents handshake version
-	handshakeVersion uint8
+	datapathVersion DatapathVersion
 }
 
 // boolToUint8 converts bool to uint8
@@ -19,11 +17,11 @@ func boolToUint8(e bool) uint8 {
 		return 0x00
 	}
 
-	return EncryptionEnabledMask
+	return encryptionEnabledBit
 }
 
-// uint8ToBool converts uint8 to bool
-func uint8ToBool(n uint8) bool {
+// uint32ToBool converts uint8 to bool
+func uint32ToBool(n uint32) bool {
 
-	return n == EncryptionEnabledMask
+	return n == encryptionEnabledMask
 }

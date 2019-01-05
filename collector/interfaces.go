@@ -40,6 +40,8 @@ const (
 	CompressedTagMismatch = "compressedtagmismatch"
 	// EncryptionMismatch indicates that the policy encryption varies between client and server enforcer
 	EncryptionMismatch = "encryptionmismatch"
+	// DatapathVersionMismatch indicates that the datapath version is dissimilar
+	DatapathVersionMismatch = "datapathversionmismatch"
 )
 
 // Container event description

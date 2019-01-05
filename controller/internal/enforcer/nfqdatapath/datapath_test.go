@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -88,7 +89,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 	puInfo2.Policy.AddReceiverRules(tagSelector)
 
-	secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+	secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 	So(err, ShouldBeNil)
 	if collectors != nil {
 		// mock the call
@@ -201,7 +202,7 @@ func TestInvalidContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -241,7 +242,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
@@ -345,7 +346,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 
@@ -1260,7 +1261,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 func TestCacheState(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 		// mock the call
@@ -1316,7 +1317,7 @@ func TestCacheState(t *testing.T) {
 func TestDoCreatePU(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -1362,7 +1363,7 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 		// mock the call
@@ -1392,7 +1393,7 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -1425,7 +1426,7 @@ func TestDoCreatePU(t *testing.T) {
 func TestContextFromIP(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -4199,7 +4200,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 			puInfo2.Policy.AddReceiverRules(tagSelector)
 
-			secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+			secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 			So(err, ShouldBeNil)
 			collector := &collector.DefaultCollector{}
 			// mock the call
@@ -4331,7 +4332,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
-						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 						So(err, ShouldBeNil)
 						collector := &collector.DefaultCollector{}
 						// mock the call
@@ -4393,7 +4394,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
-						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 						So(err, ShouldBeNil)
 						collector := &collector.DefaultCollector{}
 
@@ -4484,7 +4485,7 @@ func TestDNS(t *testing.T) {
 	var lock sync.Mutex
 
 	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -4555,7 +4556,7 @@ func TestDNSWithError(t *testing.T) {
 	var lock sync.Mutex
 
 	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
@@ -4632,7 +4633,7 @@ func TestDNSWithError(t *testing.T) {
 
 func TestPUPortCreation(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), constants.CompressionTypeNone)
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 

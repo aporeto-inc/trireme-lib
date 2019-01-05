@@ -329,9 +329,9 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We now generate the claims header
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeToMask()
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compressionType),
+		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 	).ToBytes()
 
 	// Create a token
@@ -399,6 +399,8 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We add encrypt attr in the claims header field
 
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
+		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 	).ToBytes()
 
@@ -586,9 +588,15 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// We now compare the claims header we attached in the JWT in the application
 	// SYN with the current claims header. If it varies we drop the packet
 	if claims.H != nil {
-		if claims.H.ToClaimsHeader().CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
+		claimsHeader := claims.H.ToClaimsHeader()
+		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		}
+
+		if claimsHeader.DatapathVersion() != claimsheader.DatapathVersion1 {
+			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
 		}
 	}
 

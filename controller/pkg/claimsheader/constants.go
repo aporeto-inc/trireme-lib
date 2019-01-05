@@ -1,11 +1,10 @@
 package claimsheader
 
 const (
-	// HandshakeVersion is the enforcer version
-	// TODO: Enable this in datapath
-	HandshakeVersion = 0x00
-	// MaxHeaderLen must be maximimum claims header length
-	MaxHeaderLen = 4
-	// EncryptionEnabledMask mask that identifies the handshake version
-	EncryptionEnabledMask = 0x04
+	// maxHeaderLen must be maximimum claims header length
+	maxHeaderLen = 4
+	// encryptionEnabledBit that is set in the bytes
+	encryptionEnabledBit = 0x01
+	// encryptionEnabledMask mask that is the decimal value of the bit
+	encryptionEnabledMask = 0x100
 )

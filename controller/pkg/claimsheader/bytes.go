@@ -2,8 +2,6 @@ package claimsheader
 
 import (
 	"encoding/binary"
-
-
 )
 
 // HeaderBytes is the claimsheader in bytes
@@ -13,17 +11,20 @@ type HeaderBytes []byte
 // WARNING: Caller has to make sure that headerbytes is NOT nil
 func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
+	compressionTypeMask := compressionTypeMask(c.extractHeaderAttribute(compressionTypeBitMask.toUint32()))
+	datapathVersionMask := datapathVersionMask(c.extractHeaderAttribute(datapathVersion.toUint32()))
+
 	return &ClaimsHeader{
-		compressionType:  compressionTypeMask(c.extractHeaderAttribute(compressionTypeBitMask.ToUint8())),
-		encrypt:          uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask)),
-		handshakeVersion: c.extractHeaderAttribute(HandshakeVersion),
+		compressionType: compressionTypeMask.toType(),
+		encrypt:         uint32ToBool(c.extractHeaderAttribute(encryptionEnabledMask)),
+		datapathVersion: datapathVersionMask.toType(),
 	}
 }
 
 // extractHeaderAttribute returns the attribute from bytes
-func (c HeaderBytes) extractHeaderAttribute(mask uint8) uint8 {
+func (c HeaderBytes) extractHeaderAttribute(mask uint32) uint32 {
 
-	data := binary.LittleEndian.Uint16(c)
+	data := binary.LittleEndian.Uint32(c)
 
-	return uint8(data) & mask
+	return data & mask
 }

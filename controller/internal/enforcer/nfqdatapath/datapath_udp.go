@@ -375,9 +375,9 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	}
 
 	// We now generate the claims header
-	compressionType := d.secrets.(*secrets.CompactPKI).Compressed.CompressionTypeToMask()
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compressionType),
+		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 	).ToBytes()
 
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
@@ -576,8 +576,14 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// NOTE: Backward compatibility
 	if claims.H != nil {
-		if claims.H.ToClaimsHeader().CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
+		claimsHeader := claims.H.ToClaimsHeader()
+		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		}
+
+		if claimsHeader.DatapathVersion() != claimsheader.DatapathVersion1 {
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}
 	}

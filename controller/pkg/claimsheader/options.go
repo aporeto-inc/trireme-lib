@@ -1,12 +1,10 @@
 package claimsheader
 
-
-
 // Option is used to set claimsheader fields
 type Option func(*ClaimsHeader)
 
 // OptionCompressionType sets compression Type
-func OptionCompressionType(compressionType compressionTypeMask) Option {
+func OptionCompressionType(compressionType CompressionType) Option {
 
 	return func(c *ClaimsHeader) {
 		c.compressionType = compressionType
@@ -21,10 +19,10 @@ func OptionEncrypt(encrypt bool) Option {
 	}
 }
 
-// OptionHandshakeVersion sets handshake version
-func OptionHandshakeVersion(handshakeVersion uint8) Option {
+// OptionDatapathVersion sets handshake version
+func OptionDatapathVersion(datapathVersion DatapathVersion) Option {
 
 	return func(c *ClaimsHeader) {
-		c.handshakeVersion = handshakeVersion
+		c.datapathVersion = datapathVersion
 	}
 }
