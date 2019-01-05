@@ -22,7 +22,8 @@ func (dv DatapathVersion) toMask() datapathVersionMask {
 type datapathVersionMask uint8
 
 const (
-	datapathVersion datapathVersionMask = 0x00
+	datapathVersion        datapathVersionMask = 0x00
+	datapathVersionBitMask datapathVersionMask = 0x3F
 )
 
 func (dm datapathVersionMask) toType() DatapathVersion {

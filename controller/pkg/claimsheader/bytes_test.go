@@ -25,7 +25,7 @@ func TestHeaderBytes(t *testing.T) {
 			Convey("Then it should be equal", func() {
 				So(ch.compressionType, ShouldEqual, CompressionTypeV2)
 				So(ch.encrypt, ShouldEqual, true)
-				So(ch.datapathVersion, ShouldEqual, datapathVersion)
+				So(ch.datapathVersion, ShouldEqual, DatapathVersion1)
 			})
 		})
 	})

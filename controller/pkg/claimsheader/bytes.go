@@ -12,7 +12,7 @@ type HeaderBytes []byte
 func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
 	compressionTypeMask := compressionTypeMask(c.extractHeaderAttribute(compressionTypeBitMask.toUint32()))
-	datapathVersionMask := datapathVersionMask(c.extractHeaderAttribute(datapathVersion.toUint32()))
+	datapathVersionMask := datapathVersionMask(c.extractHeaderAttribute(datapathVersionBitMask.toUint32()))
 
 	return &ClaimsHeader{
 		compressionType: compressionTypeMask.toType(),
