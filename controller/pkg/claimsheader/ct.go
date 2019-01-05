@@ -1,5 +1,7 @@
 package claimsheader
 
+import "strconv"
+
 // CompressionType defines the compression used.
 type CompressionType int
 
@@ -20,6 +22,24 @@ const (
 	CompressedTagLengthV2 int = 4
 )
 
+// toMask returns the mask based on the type
+func (ct CompressionType) toMask() compressionTypeMask {
+
+	switch ct {
+	case CompressionTypeV1:
+		return compressionTypeV1Mask
+	case CompressionTypeV2:
+		return compressionTypeV2Mask
+	default:
+		return compressionTypeNoneMask
+	}
+}
+
+func (ct CompressionType) toString() string {
+
+	return strconv.Itoa(int(ct))
+}
+
 // compressionTypeMask defines the compression mask.
 type compressionTypeMask uint8
 
@@ -33,19 +53,6 @@ const (
 	// compressionTypeBitMask mask used to check relevant compression types
 	compressionTypeBitMask compressionTypeMask = 0xC0
 )
-
-// toMask returns the mask based on the type
-func (ct CompressionType) toMask() compressionTypeMask {
-
-	switch ct {
-	case CompressionTypeV1:
-		return compressionTypeV1Mask
-	case CompressionTypeV2:
-		return compressionTypeV2Mask
-	default:
-		return compressionTypeNoneMask
-	}
-}
 
 // toType returns the type based on mask
 func (cm compressionTypeMask) toType() CompressionType {
@@ -88,11 +95,13 @@ func CompressionTypeToTagLength(t CompressionType) int {
 
 // String2CompressionType is a helper to convert string to compression type
 func String2CompressionType(s string) CompressionType {
-	if s == string(CompressionTypeV1) {
+	if s == CompressionTypeV1.toString() {
 		return CompressionTypeV1
 	}
-	if s == string(CompressionTypeV2) {
+
+	if s == CompressionTypeV2.toString() {
 		return CompressionTypeV2
 	}
+
 	return CompressionTypeNone
 }
