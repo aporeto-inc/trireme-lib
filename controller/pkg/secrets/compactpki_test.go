@@ -7,7 +7,6 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
