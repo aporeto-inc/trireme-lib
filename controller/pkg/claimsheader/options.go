@@ -1,12 +1,12 @@
 package claimsheader
 
-import "go.aporeto.io/trireme-lib/controller/constants"
+
 
 // Option is used to set claimsheader fields
 type Option func(*ClaimsHeader)
 
 // OptionCompressionType sets compression Type
-func OptionCompressionType(compressionType constants.CompressionTypeMask) Option {
+func OptionCompressionType(compressionType compressionTypeMask) Option {
 
 	return func(c *ClaimsHeader) {
 		c.compressionType = compressionType

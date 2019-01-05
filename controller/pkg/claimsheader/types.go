@@ -1,11 +1,11 @@
 package claimsheader
 
-import "go.aporeto.io/trireme-lib/controller/constants"
+
 
 // ClaimsHeader holds header sub attributes
 type ClaimsHeader struct {
 	// CompressionType represents compressed tag mode attribute
-	compressionType constants.CompressionTypeMask
+	compressionType compressionTypeMask
 	// Encrypt represents enryption enabled attribute
 	encrypt bool
 	// Handshake type represents handshake version

@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/constants"
+
 )
 
 func TestHeaderBytes(t *testing.T) {
 
 	Convey("Given I create a new header bytes", t, func() {
 		header := NewClaimsHeader(
-			OptionCompressionType(constants.CompressionTypeV2Mask),
+			OptionCompressionType(compressionTypeV2Mask),
 			OptionEncrypt(true),
 			OptionHandshakeVersion(HandshakeVersion),
 		).ToBytes()
@@ -24,7 +24,7 @@ func TestHeaderBytes(t *testing.T) {
 			ch := header.ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
-				So(ch.compressionType, ShouldEqual, constants.CompressionTypeV2Mask)
+				So(ch.compressionType, ShouldEqual, compressionTypeV2Mask)
 				So(ch.encrypt, ShouldEqual, true)
 				So(ch.handshakeVersion, ShouldEqual, HandshakeVersion)
 			})

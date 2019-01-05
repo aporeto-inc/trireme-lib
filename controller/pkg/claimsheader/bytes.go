@@ -3,7 +3,7 @@ package claimsheader
 import (
 	"encoding/binary"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
+
 )
 
 // HeaderBytes is the claimsheader in bytes
@@ -14,7 +14,7 @@ type HeaderBytes []byte
 func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
 	return &ClaimsHeader{
-		compressionType:  constants.CompressionTypeMask(c.extractHeaderAttribute(constants.CompressionTypeBitMask.ToUint8())),
+		compressionType:  compressionTypeMask(c.extractHeaderAttribute(compressionTypeBitMask.ToUint8())),
 		encrypt:          uint8ToBool(c.extractHeaderAttribute(EncryptionEnabledMask)),
 		handshakeVersion: c.extractHeaderAttribute(HandshakeVersion),
 	}

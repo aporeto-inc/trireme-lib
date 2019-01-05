@@ -1,6 +1,6 @@
 package claimsheader
 
-import "go.aporeto.io/trireme-lib/controller/constants"
+
 
 // NewClaimsHeader returns claims header handler
 func NewClaimsHeader(opts ...Option) *ClaimsHeader {
@@ -35,9 +35,9 @@ func (c *ClaimsHeader) ToBytes() HeaderBytes {
 }
 
 // CompressionType is the compression type
-func (c *ClaimsHeader) CompressionType() constants.CompressionType {
+func (c *ClaimsHeader) CompressionType() CompressionType {
 
-	return c.compressionType.CompressionMaskToType()
+	return c.compressionType.compressionMaskToType()
 }
 
 // Encrypt is the encrypt in bool
