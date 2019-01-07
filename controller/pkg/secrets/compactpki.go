@@ -115,7 +115,7 @@ func (p *CompactPKI) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *CompactPKI) AckSize() uint32 {
-	return uint32(280)
+	return uint32(300)
 }
 
 // AuthPEM returns the Certificate Authority PEM
