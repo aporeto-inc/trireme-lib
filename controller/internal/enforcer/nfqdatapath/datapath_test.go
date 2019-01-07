@@ -3345,13 +3345,6 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							}
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
-
-								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								// The app synack packet will be considered as non PU traffic
-								So(err, ShouldBeNil)
-							}
-
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								contextID := "123456"
 								puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
 								context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
