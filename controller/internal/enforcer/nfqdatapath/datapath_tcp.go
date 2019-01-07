@@ -979,11 +979,13 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 			// Remove any of our data from the packet.
 			if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-				return nil, nil
+				zap.L().Error("Syn received with tcp option not set", zap.Error(err))
+				return nil, errNonPUTraffic
 			}
 
 			if err = p.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-				return nil, err
+				zap.L().Error("Error removing TCP Data", zap.Error(err))
+				return nil, errNonPUTraffic
 			}
 
 			p.DropDetachedBytes()
