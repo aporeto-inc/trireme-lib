@@ -6,11 +6,12 @@ type ClaimsHeader struct {
 	compressionType CompressionType
 	// Encrypt represents enryption enabled attribute
 	encrypt bool
-	// Handshake type represents handshake version
+	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
 }
 
 // boolToUint8 converts bool to uint8
+// to populate the bits based on e
 func boolToUint8(e bool) uint8 {
 
 	if !e {
@@ -21,6 +22,7 @@ func boolToUint8(e bool) uint8 {
 }
 
 // uint32ToBool converts uint8 to bool
+// to populate the struct based on n
 func uint32ToBool(n uint32) bool {
 
 	return n == encryptionEnabledMask

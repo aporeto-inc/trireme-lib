@@ -16,11 +16,11 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 //    0             1              2               3               4
 //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |     H     |CT|E|               R (reserved)                   |
+//  |     D     |CT|E|               R (reserved)                   |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  H  [0:5]  - Handshake version
+//  D  [0:5]  - Datapath version
 //  CT [6,7]  - Compressed tag type
-//  E  [8]    - Enryption enabled
+//  E  [8]    - Encryption enabled
 //  R  [9:31] - Unused currently
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 

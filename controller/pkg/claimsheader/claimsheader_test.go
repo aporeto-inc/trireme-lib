@@ -74,15 +74,12 @@ func TestHeader(t *testing.T) {
 	})
 
 	Convey("Given I try retrieve fields without any data", t, func() {
+		ch := &ClaimsHeader{}
 
-		Convey("Given I convert bytes to claims header", func() {
-			ch := &ClaimsHeader{}
-
-			Convey("Then it should be equal", func() {
-				So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
-				So(ch.Encrypt(), ShouldEqual, false)
-				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-			})
+		Convey("Then it should be equal", func() {
+			So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
+			So(ch.Encrypt(), ShouldEqual, false)
+			So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
 		})
 	})
 }

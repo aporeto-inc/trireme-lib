@@ -22,6 +22,7 @@ func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 }
 
 // extractHeaderAttribute returns the attribute from bytes
+// mask - mask specific to the attribute
 func (c HeaderBytes) extractHeaderAttribute(mask uint32) uint32 {
 
 	data := binary.LittleEndian.Uint32(c)
