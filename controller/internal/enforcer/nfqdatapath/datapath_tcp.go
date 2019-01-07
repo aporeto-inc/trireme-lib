@@ -397,7 +397,6 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We add encrypt attr in the claims header field
-
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
 		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
