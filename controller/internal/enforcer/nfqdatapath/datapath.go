@@ -196,12 +196,11 @@ func New(
 
 		puFromContextID: puFromContextID,
 
-		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
-		appReplyConnectionTracker:   cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
-		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
 		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
@@ -545,7 +544,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
-			return nil, portNotFound
+			return nil, errPortNotFound
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
