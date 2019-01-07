@@ -20,6 +20,10 @@ import (
 	"go.uber.org/zap"
 )
 
+var errInvalidState = errors.New("Invalid State")
+var errInvalidNetState = errors.New("Invalid net state")
+var errNonPUTraffic = errors.New("Traffic belongs to a PU we are not monitoring")
+
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
@@ -43,38 +47,32 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		conn, err = d.netSynRetrieveState(p)
-		if err != nil {
-			if d.packetLogs {
-				zap.L().Debug("Packet rejected",
-					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-					zap.Error(err),
-				)
-			}
-			return err
-		}
 
-		if conn == nil {
-			//context is destroyed here if we are a transient PU
-			//Verdict get set to pass
-			return nil
+		if err != nil {
+			switch err {
+			// Non PU Traffic let it through
+			case errNonPUTraffic:
+				return nil
+			default:
+				if d.packetLogs {
+					zap.L().Debug("Packet rejected",
+						zap.String("flow", p.L4FlowHash()),
+						zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+						zap.Error(err),
+					)
+				}
+				return err
+			}
 		}
 
 	case packet.TCPSynAckMask:
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
-				zap.L().Debug("SynAckPacket Ingored",
-					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-				)
-			}
 			// This packet belongs to the client process that is not being enforcerd.
 			// At this point, we can release this flow to kernel as we are not interested in
 			// enforcing policy for the flow.
 			d.releaseUnmonitoredFlow(p)
 			return nil
-
 		}
 
 	default:
@@ -895,12 +893,6 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) (*connection.TCPConnection, error) {
 
-	err := d.unknownSynConnectionTracker.Remove(p.L4ReverseFlowHash())
-	if err != nil {
-		// we are seeing a syn-ack for a syn we have not seen
-		return nil, fmt.Errorf("dropping synack for an unknown syn: %s", err)
-	}
-
 	contextID := context.ID()
 
 	portSpec, err := portspec.NewPortSpec(p.SourcePort, p.SourcePort, contextID)
@@ -985,30 +977,23 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enough for us to identify this request in the later stages
 
-			// update the unknownSynConnectionTracker cache to keep track of
-			// syn packet that has no context yet.
-			if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
-				zap.L().Debug("unknownSynConnectionTracker cache data store returned error")
-				return nil, err
-			}
-
 			// Remove any of our data from the packet.
 			if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil
 			}
 
 			if err = p.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-				return nil, fmt.Errorf("syn packet dropped because of invalid format: %s", err)
+				return nil, err
 			}
 
 			p.DropDetachedBytes()
 
 			p.UpdateTCPChecksum()
 
-			return nil, nil
+			return nil, errNonPUTraffic
 		}
 
-		return nil, errors.New("no context in net processing")
+		return nil, errInvalidState
 	}
 
 	if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
@@ -1023,12 +1008,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
-		if d.packetLogs {
-			zap.L().Debug("No connection for SynAck packet ",
-				zap.String("flow", p.L4FlowHash()),
-			)
-		}
-		return nil, fmt.Errorf("no synack connection: %s", err)
+		return nil, errNonPUTraffic
 	}
 
 	return conn.(*connection.TCPConnection), nil
@@ -1037,33 +1017,42 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
+
+	// Did we see a network syn/ack packet? (PU is a client)
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
-	if err != nil {
-		conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
-		if err != nil {
-			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-				// Let's try if its an existing connection
-				context, cerr := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolTCP)
-				if cerr != nil {
-					return nil, errors.New("No context in app processing")
-				}
-				conn = connection.NewTCPConnection(context)
-				conn.(*connection.TCPConnection).SetState(connection.UnknownState)
-				return conn.(*connection.TCPConnection), nil
-			}
-			return nil, fmt.Errorf("net state not found: %s", err)
-		}
-		if err = updateTimer(d.netOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
-			return nil, err
-		}
-	} else {
+	if err == nil {
 		if err = updateTimer(d.netReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
 			return nil, err
 		}
+
+		return conn.(*connection.TCPConnection), nil
 	}
 
-	return conn.(*connection.TCPConnection), nil
+	// Did we see a network Syn packet before? (PU is a server)
+	conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
+	if err == nil {
+		if err = updateTimer(d.netOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
+			return nil, err
+		}
 
+		return conn.(*connection.TCPConnection), nil
+	}
+
+	// We reach in this state for a client PU only when the service connection(encrypt) sends data sparsely.
+	// Packets are dropped when this happens, and that is a BUG!!!
+	// For the server PU we mark the connection in the unknown state.
+	if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+		// Let's try if its an existing connection
+		context, cerr := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolTCP)
+		if cerr != nil {
+			return nil, errors.New("No context in app processing")
+		}
+		conn = connection.NewTCPConnection(context)
+		conn.(*connection.TCPConnection).SetState(connection.UnknownState)
+		return conn.(*connection.TCPConnection), nil
+	}
+
+	return nil, errInvalidNetState
 }
 
 // updateTimer updates the timers for the service connections

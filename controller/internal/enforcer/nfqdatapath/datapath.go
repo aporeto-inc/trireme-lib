@@ -3,6 +3,7 @@ package nfqdatapath
 // Go libraries
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"time"
@@ -29,6 +30,11 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
+
+var errMarkNotFound = errors.New("PU mark not found")
+var errPortNotFound = errors.New("Port not found")
+var errContextIDNotFound = errors.New("unable to find contextID")
+var errInvalidProtocol = errors.New("Invalid Protocol")
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
@@ -68,11 +74,10 @@ type Datapath struct {
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker    cache.DataStore
-	appReplyConnectionTracker   cache.DataStore
-	netOrigConnectionTracker    cache.DataStore
-	netReplyConnectionTracker   cache.DataStore
-	unknownSynConnectionTracker cache.DataStore
+	appOrigConnectionTracker  cache.DataStore
+	appReplyConnectionTracker cache.DataStore
+	netOrigConnectionTracker  cache.DataStore
+	netReplyConnectionTracker cache.DataStore
 
 	udpSourcePortConnectionCache cache.DataStore
 
@@ -515,7 +520,8 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if app {
 		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
-			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
+			zap.L().Error("Could not find pu context for the mark", zap.String("mark", mark))
+			return nil, errMarkNotFound
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -524,26 +530,32 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if protocol == packet.IPProtocolTCP {
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {
-			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
+			zap.L().Debug("Could not find PU context for TCP server port ", zap.Uint16("port", port))
+			return nil, errPortNotFound
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
-		}
-		return pu.(*pucontext.PUContext), nil
-	} else if protocol == packet.IPProtocolUDP {
-		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
-		if err != nil {
-			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
-		}
-
-		pu, err := d.puFromContextID.Get(contextID)
-		if err != nil {
-			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
+			return nil, errContextIDNotFound
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	return nil, fmt.Errorf("Invalid protocol:%d", protocol)
+	if protocol == packet.IPProtocolUDP {
+		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
+		if err != nil {
+			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
+			return nil, portNotFound
+		}
+
+		pu, err := d.puFromContextID.Get(contextID)
+		if err != nil {
+			return nil, errContextIDNotFound
+		}
+		return pu.(*pucontext.PUContext), nil
+	}
+
+	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
+
+	return nil, errInvalidProtocol
 }
