@@ -20,6 +20,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -36,6 +37,7 @@ const (
 type Proxy struct {
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
+	secrets       secrets.Secrets
 
 	puContext   string
 	registry    *serviceregistry.Registry
@@ -68,6 +70,7 @@ func NewTCPProxy(
 	registry *serviceregistry.Registry,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
+	secrets secrets.Secrets,
 ) *Proxy {
 
 	localIPs := markedconn.GetInterfaces()
@@ -80,6 +83,7 @@ func NewTCPProxy(
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
+		secrets:       secrets,
 	}
 }
 
@@ -330,7 +334,12 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, []byte{})
+			// We now generate the claims header
+			claimsHeaderBytes := claimsheader.NewClaimsHeader(
+				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
+				claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+			).ToBytes()
+			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
 			}
@@ -356,6 +365,17 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
+			}
+			// NOTE: For backward compatibility, remove this check later
+			if claims.H != nil {
+				if claims.H.ToClaimsHeader().Encrypt() != packet.Action.Encrypted() {
+					// Here we report If the encrypt flag is mismatched between pus
+					// TODO: This will be removed once we upgrade the connection in future
+					puFlowProperties := flowproperties
+					puFlowProperties.DestType = collector.EnpointTypePU
+					p.reportRejectedFlow(puFlowProperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.EncryptionMismatch, nil, nil)
+					return isEncrypted, errors.New("dropping because of encryption mismatch")
+				}
 			}
 			if packet.Action.Encrypted() {
 				isEncrypted = true
@@ -430,6 +450,12 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
+			if claims.H != nil {
+				if claims.H.ToClaimsHeader().CompressionType() != p.secrets.(*secrets.CompactPKI).Compressed {
+					p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.CompressedTagMismatch, nil, nil)
+					return isEncrypted, errors.New("dropping because of compressed tag mismatch")
+				}
+			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(backendport))
 			report, packet := puContext.SearchRcvRules(tags)
@@ -450,7 +476,12 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, []byte{})
+			claimsHeaderBytes := claimsheader.NewClaimsHeader(
+				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
+				claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
+			).ToBytes()
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}
