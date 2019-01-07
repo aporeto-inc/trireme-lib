@@ -331,7 +331,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// We now generate the claims header
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
-		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+		claimsheader.OptionDatapathVersion(d.datapathVersion),
 	).ToBytes()
 
 	// Create a token
@@ -399,7 +399,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We add encrypt attr in the claims header field
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
-		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+		claimsheader.OptionDatapathVersion(d.datapathVersion),
 		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 	).ToBytes()
 
@@ -428,7 +428,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// We now generate the claims header
 		claimsHeaderBytes := claimsheader.NewClaimsHeader(
 			claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
-			claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+			claimsheader.OptionDatapathVersion(d.datapathVersion),
 		).ToBytes()
 		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
 		if err != nil {
@@ -598,7 +598,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
 		}
 
-		if claimsHeader.DatapathVersion() != claimsheader.DatapathVersion1 {
+		if claimsHeader.DatapathVersion() != d.datapathVersion {
 			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
 		}

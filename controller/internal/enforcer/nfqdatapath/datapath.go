@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -40,13 +41,14 @@ var GetUDPRawSocket = afinetrawsocket.CreateSocket
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    *fqconfig.FilterQueue
-	collector      collector.EventCollector
-	tokenAccessor  tokenaccessor.TokenAccessor
-	service        packetprocessor.PacketProcessor
-	secrets        secrets.Secrets
-	nflogger       nflog.NFLogger
-	procMountPoint string
+	filterQueue     *fqconfig.FilterQueue
+	collector       collector.EventCollector
+	tokenAccessor   tokenaccessor.TokenAccessor
+	service         packetprocessor.PacketProcessor
+	secrets         secrets.Secrets
+	nflogger        nflog.NFLogger
+	procMountPoint  string
+	datapathVersion claimsheader.DatapathVersion
 
 	targetNetworks *acls.ACLCache
 	// Internal structures and caches
@@ -220,6 +222,7 @@ func New(
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
+		datapathVersion:        claimsheader.DatapathVersion1,
 	}
 
 	if err = d.SetTargetNetworks(targetNetworks); err != nil {
