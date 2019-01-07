@@ -507,7 +507,11 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
 
-	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
+	claimsHeaderBytes := claimsheader.NewClaimsHeader(
+		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+	).ToBytes()
+	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
 
 	if err != nil {
 		return err

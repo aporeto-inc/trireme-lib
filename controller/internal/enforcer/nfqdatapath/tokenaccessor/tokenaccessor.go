@@ -69,11 +69,12 @@ func (t *tokenAccessor) GetTokenServerID() string {
 }
 
 // CreateAckPacketToken creates the authentication token
-func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error) {
+func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader claimsheader.HeaderBytes) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
+		H:   claimsHeader,
 	}
 
 	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext)

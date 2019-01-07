@@ -426,7 +426,12 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
-		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
+		// We now generate the claims header
+		claimsHeaderBytes := claimsheader.NewClaimsHeader(
+			claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+			claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
+		).ToBytes()
+		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
 		if err != nil {
 			return err
 		}
