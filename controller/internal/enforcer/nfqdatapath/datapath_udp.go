@@ -588,7 +588,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 		if claimsHeader.DatapathVersion() != d.datapathVersion {
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
 		}
 	}
 
