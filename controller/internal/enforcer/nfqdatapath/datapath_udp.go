@@ -578,26 +578,26 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of no claims")
 	}
 
-	// NOTE: Backward compatibility
-	if claims.H != nil {
-		claimsHeader := claims.H.ToClaimsHeader()
-		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
-		}
-
-		if claimsHeader.DatapathVersion() != d.datapathVersion {
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
-		}
-	}
-
 	// Why is this required. Take a look.
 	txLabel, _ := claims.T.Get(enforcerconstants.TransmitterLabel)
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestinationPort)))
+
+	// NOTE: Backward compatibility
+	if claims.H != nil {
+		claimsHeader := claims.H.ToClaimsHeader()
+		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
+			d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		}
+
+		if claimsHeader.DatapathVersion() != d.datapathVersion {
+			d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
+		}
+	}
 
 	report, pkt := context.SearchRcvRules(claims.T)
 	if pkt.Action.Rejected() {
