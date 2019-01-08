@@ -22,10 +22,10 @@ var errInvalidState = errors.New("Invalid State")
 var errInvalidNetState = errors.New("Invalid net state")
 var errNonPUTraffic = errors.New("Traffic belongs to a PU we are not monitoring")
 var errAppSynNotSeen = errors.New("App Syn packet was not seen")
+var errNoConnFound = errors.New("no context or connection found")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
-
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -140,7 +140,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
-
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -913,8 +912,19 @@ func (d *Datapath) appSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
 
-	// Did we see an Application Syn packet before?
-	conn, err := d.appOrigConnectionTracker.GetReset(hash, 0)
+	// If this ack packet is from Server, Did we see a network Syn for this server PU?
+	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
+	if err == nil {
+		if uerr := updateTimer(d.appReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
+			zap.L().Error("entry expired just before updating the timer", zap.String("flow", hash))
+			return nil, uerr
+		}
+
+		return conn.(*connection.TCPConnection), nil
+	}
+
+	// If this ack packet is from client, Did we see an Application Syn packet before?
+	conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 	if err == nil {
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
 			return nil, uerr
@@ -933,7 +943,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		return conn.(*connection.TCPConnection), nil
 	}
 
-	return nil, errors.New("no context or connection found")
+	return nil, errNoConnFound
 }
 
 // netSynRetrieveState retrieves the state for the Syn packets on the network.
