@@ -9,20 +9,19 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
 var errInvalidState = errors.New("Invalid State")
 var errInvalidNetState = errors.New("Invalid net state")
 var errNonPUTraffic = errors.New("Traffic belongs to a PU we are not monitoring")
+var errAppSynNotSeen = errors.New("App Syn packet was not seen")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
@@ -171,7 +170,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	case packet.TCPSynAckMask:
-		conn, err = d.appRetrieveState(p)
+		conn, err = d.appSynAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
 				zap.L().Debug("SynAckPacket Ignored",
@@ -891,76 +890,50 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 	return connection.NewTCPConnection(context), nil
 }
 
-func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) (*connection.TCPConnection, error) {
+// appSynAckRetrieveState retrieves the state for application syn/ack packet.
+func (d *Datapath) appSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
+	hash := p.L4FlowHash()
 
-	contextID := context.ID()
-
-	portSpec, err := portspec.NewPortSpec(p.SourcePort, p.SourcePort, contextID)
+	// Did we see a network syn for this server PU?
+	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid port format %s", err)
+		return nil, errAppSynNotSeen
 	}
 
-	d.contextIDFromTCPPort.AddPortSpec(portSpec)
-	// Find the uid for which mark was asserted.
-	if err != nil {
-		// Every outgoing packet has a mark. We should never come here
-		return nil, fmt.Errorf("unable to find username for the packet mark: %s", err)
+	if uerr := updateTimer(d.appReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
+		zap.L().Error("entry expired just before updating the timer", zap.String("flow", hash))
+		return nil, uerr
 	}
 
-	iptablesInstance := iptablesctrl.GetInstance()
-	if iptablesInstance == nil {
-		return nil, fmt.Errorf("iptables instance cannot be nil")
-	}
-
-	// Add port to the cache and program the portset
-	if err := iptablesInstance.AddPortToPortSet(contextID, strconv.Itoa(int(p.SourcePort))); err != nil {
-		return nil, fmt.Errorf("unable to update portset cache: %s", err)
-	}
-
-	// syn ack for which there is no corresponding syn context, so drop it.
-	return nil, errors.New("dropped synack for an unknown syn")
+	return conn.(*connection.TCPConnection), nil
 }
 
 // appRetrieveState retrieves the state for the rest of the application packets. It
 // returns an error if it cannot find the state
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
 	hash := p.L4FlowHash()
 
-	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
-	if err != nil {
-		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
-		if err != nil {
-			if d.mode != constants.RemoteContainer && p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
-				// We see a syn ack for which we have not recorded a syn
-				// Update the port for the context matching the mark this packet has comes with
-				context, perr := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
-				if perr == nil {
-					return processSynAck(d, p, context)
-				}
-			}
-			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-				// Let's try if its an existing connection
-				context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
-				if err != nil {
-					return nil, errors.New("No context in app processing")
-				}
-				conn = connection.NewTCPConnection(context)
-				conn.(*connection.TCPConnection).SetState(connection.UnknownState)
-				return conn.(*connection.TCPConnection), nil
-			}
-			return nil, errors.New("no context or connection found")
-		}
+	// Did we see an Application Syn packet before?
+	conn, err := d.appOrigConnectionTracker.GetReset(hash, 0)
+	if err == nil {
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
 			return nil, uerr
 		}
-	} else {
-		if uerr := updateTimer(d.appReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
-			return nil, uerr
-		}
+		return conn.(*connection.TCPConnection), nil
 	}
 
-	return conn.(*connection.TCPConnection), nil
+	if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+		// Let's try if its an existing connection
+		context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolTCP)
+		if err != nil {
+			return nil, errors.New("No context in app processing")
+		}
+		conn = connection.NewTCPConnection(context)
+		conn.(*connection.TCPConnection).SetState(connection.UnknownState)
+		return conn.(*connection.TCPConnection), nil
+	}
+
+	return nil, errors.New("no context or connection found")
 }
 
 // netSynRetrieveState retrieves the state for the Syn packets on the network.
