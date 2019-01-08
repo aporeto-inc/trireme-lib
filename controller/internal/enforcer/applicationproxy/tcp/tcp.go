@@ -337,7 +337,6 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			// We now generate the claims header
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
-				claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 			).ToBytes()
 			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
@@ -388,7 +387,6 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
-				claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 			).ToBytes()
 			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
@@ -482,7 +480,6 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
-				claimsheader.OptionDatapathVersion(claimsheader.DatapathVersion1),
 				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 			).ToBytes()
 			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
