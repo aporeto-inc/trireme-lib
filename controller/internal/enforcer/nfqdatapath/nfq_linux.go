@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func errorCallback(err error, data interface{}) {
+func errorCallback(err error, data interface{}) { // nolint
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {

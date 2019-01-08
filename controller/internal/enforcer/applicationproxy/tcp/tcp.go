@@ -225,13 +225,13 @@ func (r readwithContext) Read(p []byte) (int, error) { return r(p) }
 
 func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 	defer func() {
-		switch dest.(type) {
+		switch connType := dest.(type) {
 		case *tls.Conn:
-			dest.(*tls.Conn).CloseWrite() // nolint errcheck
+			connType.CloseWrite() // nolint errcheck
 		case *net.TCPConn:
-			dest.(*net.TCPConn).CloseWrite() // nolint errcheck
+			connType.CloseWrite() // nolint errcheck
 		case *markedconn.ProxiedConnection:
-			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
+			connType.GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
 

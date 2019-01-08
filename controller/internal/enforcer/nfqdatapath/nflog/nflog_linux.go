@@ -53,7 +53,7 @@ func (a *nfLog) Run(ctx context.Context) {
 	}()
 }
 
-func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
+func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) { // nolint
 
 	record, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
@@ -64,7 +64,7 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
 	a.collector.CollectFlowEvent(record)
 }
 
-func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, data interface{}) {
+func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, data interface{}) { // nolint
 
 	record, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
