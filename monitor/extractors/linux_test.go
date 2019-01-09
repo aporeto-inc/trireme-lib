@@ -75,10 +75,11 @@ func TestSystemdEventMetadataExtractor(t *testing.T) {
 
 		Convey("If all data are present", func() {
 			event := &common.EventInfo{
-				Name: "./testdata/curl",
-				PID:  1234,
-				PUID: "/1234",
-				Tags: []string{"app=web"},
+				Name:       "./testdata/curl",
+				Executable: "./testdata/curl",
+				PID:        1234,
+				PUID:       "/1234",
+				Tags:       []string{"app=web"},
 			}
 
 			pu, err := SystemdEventMetadataExtractor(event)
