@@ -223,8 +223,8 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
 		PUType:             common.LinuxProcessPU,
-        Name:               c.ServiceName,
-        Executable:         c.Executable,
+		Name:               c.ServiceName,
+		Executable:         c.Executable,
 		Tags:               c.Labels,
 		PID:                int32(os.Getpid()),
 		EventType:          common.EventStart,
