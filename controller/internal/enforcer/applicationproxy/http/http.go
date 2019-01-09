@@ -172,7 +172,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		return conn, nil
 	}
 
-	appDialerWithContext := func(ctx context.Context, network, _ string) (net.Conn, error) { // nolint
+	appDialerWithContext := func(ctx context.Context, network, _ string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 		if err != nil {
 			reportStats(ctx)
