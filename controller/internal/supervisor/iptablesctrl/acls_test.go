@@ -934,7 +934,7 @@ func TestAddAppACLs(t *testing.T) {
 				},
 			}
 
-			ipsets.MockNewIpset(t, func(_ string, _ string, p *ipset.Params) (provider.Ipset, error) {
+			ipsets.MockNewIpset(t, func(_ string, _ string, _ *ipset.Params) (provider.Ipset, error) {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
@@ -1030,7 +1030,7 @@ func TestAddNetACLs(t *testing.T) {
 				},
 			}
 
-			ipsets.MockNewIpset(t, func(_ string, _ string, p *ipset.Params) (provider.Ipset, error) {
+			ipsets.MockNewIpset(t, func(_ string, _ string, _ *ipset.Params) (provider.Ipset, error) {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
