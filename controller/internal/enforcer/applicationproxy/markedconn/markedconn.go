@@ -22,7 +22,7 @@ const (
 // with the provided mark.
 func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
 	d := net.Dialer{
-		Control: func(network, _ string, c syscall.RawConn) error {
+		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
 
 				if err := syscall.SetNonblock(int(fd), false); err != nil {
