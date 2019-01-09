@@ -20,7 +20,7 @@ const (
 
 // DialMarkedTCPWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.
-func DialMarkedTCPWithContext(ctx context.Context, _ string, addr *net.TCPAddr, mark int) (net.Conn, error) {
+func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
 	d := net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error { // nolint
 			return c.Control(func(fd uintptr) {
