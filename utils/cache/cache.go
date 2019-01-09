@@ -371,7 +371,7 @@ func (c *Cache) SizeOf() int {
 	return len(c.data)
 }
 
-// LockedModify  locks the data store
+// LockedModify locks the data store
 func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error) {
 
 	var timer *time.Timer

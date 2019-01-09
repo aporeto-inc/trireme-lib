@@ -21,7 +21,7 @@ import (
 var errInvalidState = errors.New("Invalid State")
 var errInvalidNetState = errors.New("Invalid net state")
 var errNonPUTraffic = errors.New("Traffic belongs to a PU we are not monitoring")
-var errAppSynNotSeen = errors.New("App Syn packet was not seen")
+var errNetSynNotSeen = errors.New("Network Syn packet was not seen")
 var errNoConnFound = errors.New("no context or connection found")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -205,8 +205,8 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				// Drop this synack as it belongs to PU
 				// for which we didn't see syn
 
-				zap.L().Error("Syn was not seen, and we are monitoring this PU. Dropping the syn ack packet", zap.String("contextID", cid.(string)), zap.Uint16("port", p.SourcePort))
-				return errors.New("dropping packet as syn wasn't seen")
+				zap.L().Error("Network Syn was not seen, and we are monitoring this PU. Dropping the syn ack packet", zap.String("contextID", cid.(string)), zap.Uint16("port", p.SourcePort))
+				return errNetSynNotSeen
 			}
 
 			// syn ack for non aporeto traffic can be let through
@@ -896,7 +896,7 @@ func (d *Datapath) appSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 	// Did we see a network syn for this server PU?
 	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
-		return nil, errAppSynNotSeen
+		return nil, errNetSynNotSeen
 	}
 
 	if uerr := updateTimer(d.appReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
