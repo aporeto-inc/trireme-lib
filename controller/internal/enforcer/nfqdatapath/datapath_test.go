@@ -497,11 +497,13 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 							fmt.Println("Output packet", i)
 							outPacket.Print(0)
 						}
-						fmt.Println("length", len(oldPacket.GetBytes()), len(outPacket.GetBytes()))
+
 						if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
 							packetDiffers = true
 							fmt.Println("Error: packets dont match")
+							fmt.Println("Input Packet")
 							oldPacket.Print(0)
+							fmt.Println("Output Packet")
 							outPacket.Print(0)
 							t.Errorf("Packet %d Input and output packet do not match", i)
 							t.FailNow()
@@ -3340,6 +3342,13 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
 								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 								t.Error("Invalid Test Packet")
+							}
+
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
+
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								// The app synack packet will be considered as non PU traffic
+								So(err, ShouldBeNil)
 							}
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
