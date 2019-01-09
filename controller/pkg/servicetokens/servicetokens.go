@@ -85,7 +85,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	}
 
 	claims := &JWTClaims{}
-	if _, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) { // nolint
+	if _, err := jwt.ParseWithClaims(token, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
 		return key, nil
 	}); err != nil {
 		return "", nil, nil, err

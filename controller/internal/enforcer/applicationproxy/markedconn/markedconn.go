@@ -20,7 +20,7 @@ const (
 
 // DialMarkedTCPWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.
-func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
+func DialMarkedTCPWithContext(ctx context.Context, _ string, addr *net.TCPAddr, mark int) (net.Conn, error) {
 	d := net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error { // nolint
 			return c.Control(func(fd uintptr) {
@@ -52,7 +52,7 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 // NewSocketListener will create a listener and mark the socket with the provided mark.
 func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
 	listenerCfg := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error { // nolint
+		Control: func(_, address string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 					zap.L().Error("Failed to mark connection", zap.Error(err))

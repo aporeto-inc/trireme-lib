@@ -934,7 +934,7 @@ func TestAddAppACLs(t *testing.T) {
 				},
 			}
 
-			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) { // nolint
+			ipsets.MockNewIpset(t, func(_ string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
@@ -942,7 +942,7 @@ func TestAddAppACLs(t *testing.T) {
 				return testset, nil
 			})
 
-			ipsets.MockGetIpset(t, func(name string) provider.Ipset { // nolint
+			ipsets.MockGetIpset(t, func(_ string) provider.Ipset {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
@@ -1030,7 +1030,7 @@ func TestAddNetACLs(t *testing.T) {
 				},
 			}
 
-			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) { // nolint
+			ipsets.MockNewIpset(t, func(_ string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
@@ -1038,7 +1038,7 @@ func TestAddNetACLs(t *testing.T) {
 				return testset, nil
 			})
 
-			ipsets.MockGetIpset(t, func(name string) provider.Ipset { // nolint
+			ipsets.MockGetIpset(t, func(_ string) provider.Ipset {
 				testset := provider.NewTestIpset()
 				testset.MockAdd(t, func(entry string, timeout int) error {
 					return nil
