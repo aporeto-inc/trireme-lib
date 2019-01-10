@@ -5,6 +5,7 @@ package packet
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -25,6 +26,8 @@ var (
 	debugContextApp uint64
 	debugContextNet uint64
 )
+
+var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
 
 func init() {
 	PacketLogLevel = false
@@ -378,7 +381,8 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
-		return fmt.Errorf("tcp data detach failed: %s: optionlength=%d optionlength=%d", err, optionLength, dataLength)
+		zap.L().Debug(fmt.Sprintf("tcp data detach failed: %s: optionlength=%d optionlength=%d", err, optionLength, dataLength))
+		return errTCPPacketCorrupt
 	}
 
 	// Process TCP Header fields and metadata
