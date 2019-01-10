@@ -263,7 +263,7 @@ func NewWithDefaults(
 
 	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
-		zap.L().Fatal("Cannot create a token engine")
+		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
