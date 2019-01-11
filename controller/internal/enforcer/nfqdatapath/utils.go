@@ -10,7 +10,7 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
 	if conn != nil {
 		conn.SetReported(connection.AcceptReported)
 	}
@@ -23,17 +23,12 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 		packet = report
 	}
 
-	d.reportFlow(p, sourceID, destID, context, "", report, packet)
+	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
+
+	d.reportFlow(p, src, dst, context, "", report, packet)
 }
 
-func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-	if conn != nil {
-		conn.SetReported(connection.AcceptReported)
-	}
-	d.reportFlow(p, sourceID, destID, context, "", report, packet)
-}
-
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
 	if conn != nil && mode == collector.PolicyDrop {
 		conn.SetReported(connection.RejectReported)
 	}
@@ -47,7 +42,10 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	if packet == nil {
 		packet = report
 	}
-	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
+
+	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
+
+	d.reportFlow(p, src, dst, context, mode, report, packet)
 }
 
 func (d *Datapath) reportUDPExternalFlow(p *packet.Packet, context *pucontext.PUContext, app bool, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -66,7 +64,17 @@ func (d *Datapath) reportUDPExternalFlow(p *packet.Packet, context *pucontext.PU
 	d.reportExternalServiceFlow(context, report, packet, app, p)
 }
 
-func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
+	if conn != nil {
+		conn.SetReported(connection.AcceptReported)
+	}
+
+	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
+
+	d.reportFlow(p, src, dst, context, "", report, packet)
+}
+
+func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
 	if conn != nil && mode == collector.PolicyDrop {
 		conn.SetReported(connection.RejectReported)
 	}
@@ -81,7 +89,9 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 		packet = report
 	}
 
-	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
+	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
+
+	d.reportFlow(p, src, dst, context, mode, report, packet)
 }
 
 func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, actual *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
@@ -152,6 +162,28 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
+}
+
+func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID string, reverse bool) (*collector.EndPoint, *collector.EndPoint) {
+
+	src := &collector.EndPoint{
+		ID:   sourceID,
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+		Type: collector.EnpointTypePU,
+	}
+	dst := &collector.EndPoint{
+		ID:   destID,
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+		Type: collector.EnpointTypePU,
+	}
+
+	if reverse {
+		return dst, src
+	}
+
+	return src, dst
 }
 
 func addressMatch(ip net.IP, targets []*net.IPNet) bool {
