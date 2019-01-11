@@ -267,7 +267,7 @@ func NewWithDefaults(
 
 	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
-		zap.L().Fatal("Cannot create a token engine")
+		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
@@ -473,28 +473,18 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
-		ContextID: context.ID(),
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.EnpointTypePU,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.EnpointTypePU,
-		},
-		Tags:       context.Annotations(),
-		Action:     actual.Action,
-		DropReason: mode,
-		PolicyID:   actual.PolicyID,
-		L4Protocol: p.IPProto,
-		Count:      1,
+		ContextID:   context.ID(),
+		Source:      src,
+		Destination: dst,
+		Tags:        context.Annotations(),
+		Action:      actual.Action,
+		DropReason:  mode,
+		PolicyID:    actual.PolicyID,
+		L4Protocol:  p.IPProto,
+		Count:       1,
 	}
 
 	if report.ObserveAction.Observed() {
