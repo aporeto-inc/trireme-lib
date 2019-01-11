@@ -59,30 +59,19 @@ func generateCommonTestData(action policy.ActionType) (*packet.Packet, *connecti
 
 func generateTestEndpoints(reverse bool) (*collector.EndPoint, *collector.EndPoint) {
 
-	var src, dst *collector.EndPoint
+	src := &collector.EndPoint{
+		IP:   srcAddress.String(),
+		Port: srcPort,
+		ID:   srcID,
+	}
+	dst := &collector.EndPoint{
+		IP:   dstAddress.String(),
+		Port: dstPort,
+		ID:   dstID,
+	}
 
 	if reverse {
-		dst = &collector.EndPoint{
-			IP:   srcAddress.String(),
-			Port: srcPort,
-			ID:   srcID,
-		}
-		src = &collector.EndPoint{
-			IP:   dstAddress.String(),
-			Port: dstPort,
-			ID:   dstID,
-		}
-	} else {
-		src = &collector.EndPoint{
-			IP:   srcAddress.String(),
-			Port: srcPort,
-			ID:   srcID,
-		}
-		dst = &collector.EndPoint{
-			IP:   dstAddress.String(),
-			Port: dstPort,
-			ID:   dstID,
-		}
+		return dst, src
 	}
 
 	return src, dst

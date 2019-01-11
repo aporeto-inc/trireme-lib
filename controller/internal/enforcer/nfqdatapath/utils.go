@@ -166,34 +166,21 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 
 func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID string, reverse bool) (*collector.EndPoint, *collector.EndPoint) {
 
-	var src, dst *collector.EndPoint
+	src := &collector.EndPoint{
+		ID:   sourceID,
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+		Type: collector.EnpointTypePU,
+	}
+	dst := &collector.EndPoint{
+		ID:   destID,
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+		Type: collector.EnpointTypePU,
+	}
 
 	if reverse {
-		src = &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.EnpointTypePU,
-		}
-		dst = &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.EnpointTypePU,
-		}
-	} else {
-		src = &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.EnpointTypePU,
-		}
-		dst = &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.EnpointTypePU,
-		}
+		return dst, src
 	}
 
 	return src, dst
