@@ -11,6 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	compactPKIAckSize = 300
+)
+
 // CompactPKI holds all PKI information
 type CompactPKI struct {
 	PrivateKeyPEM []byte
@@ -115,7 +119,7 @@ func (p *CompactPKI) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *CompactPKI) AckSize() uint32 {
-	return uint32(300)
+	return uint32(compactPKIAckSize)
 }
 
 // AuthPEM returns the Certificate Authority PEM
