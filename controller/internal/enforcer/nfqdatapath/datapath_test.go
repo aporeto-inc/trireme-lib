@@ -1768,7 +1768,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 							enforcer.mutualAuthorization = true
-							enforcer.processApplicationTCPPackets(tcpPacket)
+							enforcer.processApplicationTCPPackets(tcpPacket) // nolint
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
@@ -1781,7 +1781,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							outPacket, errp := packet.New(0, output, "0", true)
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
-							enforcer.processNetworkTCPPackets(outPacket)
+							enforcer.processNetworkTCPPackets(outPacket)	// nolint
 
 							if debug {
 								fmt.Println("Output packet", i)
