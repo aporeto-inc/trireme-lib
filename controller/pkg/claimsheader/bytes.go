@@ -9,23 +9,23 @@ type HeaderBytes []byte
 
 // ToClaimsHeader parses the bytes and returns the ClaimsHeader
 // WARNING: Caller has to make sure that headerbytes is NOT nil
-func (c HeaderBytes) ToClaimsHeader() *ClaimsHeader {
+func (h HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
-	compressionTypeMask := compressionTypeMask(c.extractHeaderAttribute(compressionTypeBitMask.toUint32()))
-	datapathVersionMask := datapathVersionMask(c.extractHeaderAttribute(datapathVersionBitMask.toUint32()))
+	compressionTypeMask := compressionTypeMask(h.extractHeaderAttribute(compressionTypeBitMask.toUint32()))
+	datapathVersionMask := datapathVersionMask(h.extractHeaderAttribute(datapathVersionBitMask.toUint32()))
 
 	return &ClaimsHeader{
 		compressionType: compressionTypeMask.toType(),
-		encrypt:         uint32ToBool(c.extractHeaderAttribute(encryptionEnabledMask)),
+		encrypt:         uint32ToBool(h.extractHeaderAttribute(encryptionEnabledMask)),
 		datapathVersion: datapathVersionMask.toType(),
 	}
 }
 
 // extractHeaderAttribute returns the attribute from bytes
 // mask - mask specific to the attribute
-func (c HeaderBytes) extractHeaderAttribute(mask uint32) uint32 {
+func (h HeaderBytes) extractHeaderAttribute(mask uint32) uint32 {
 
-	data := binary.LittleEndian.Uint32(c)
+	data := binary.LittleEndian.Uint32(h)
 
 	return data & mask
 }
