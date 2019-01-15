@@ -243,7 +243,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
-			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { // nolint
 				return p.cert, nil
 			},
 		},
