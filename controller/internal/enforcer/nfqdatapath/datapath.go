@@ -411,7 +411,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	// Cleanup the contextID cache
-	if err := d.puFromContextID.RemoveWithDelay(contextID, 10*time.Second); err != nil {
+	if err := d.puFromContextID.RemoveWithDelay(contextID, 10*time.Minute); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
