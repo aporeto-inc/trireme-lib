@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	constants "go.aporeto.io/trireme-lib/controller/constants"
 	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -69,7 +69,7 @@ func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNs
 
 // SetLogParameters mocks base method
 // nolint
-func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logLevel, logFormat string, compressedTags constants.CompressionType) {
+func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logLevel, logFormat string, compressedTags claimsheader.CompressionType) {
 	m.ctrl.Call(m, "SetLogParameters", logToConsole, logWithID, logLevel, logFormat, compressedTags)
 }
 

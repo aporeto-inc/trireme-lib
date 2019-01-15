@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 // Processor holds all the local data of the authorization engine. A processor
@@ -96,6 +97,7 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 	case policy.UserAuthorizationOIDC:
 		// Now we can parse the user claims.
 		if p.userTokenHandler == nil {
+			zap.L().Error("Internal Server Error: OIDC User Token Handler not configured")
 			return []string{}, false, userToken, nil
 		}
 		return p.userTokenHandler.Validate(r.Context(), userToken)

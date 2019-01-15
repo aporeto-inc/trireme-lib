@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
@@ -83,7 +83,7 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 			continue
 		}
 
-		JWTToken, err = jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		JWTToken, err = jwt.ParseWithClaims(tokenString, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
 			return pk, nil
 		})
 		if err != nil || !JWTToken.Valid {

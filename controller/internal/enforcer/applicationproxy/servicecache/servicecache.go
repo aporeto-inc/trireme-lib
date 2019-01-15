@@ -153,13 +153,14 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 		prefixes = s.local
 	}
 
+	addresses := e.Addresses
 	// If addresses are nil, I only care about ports.
 	if len(e.Addresses) == 0 {
 		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
-		e.Addresses = []*net.IPNet{ip}
+		addresses = append(addresses, ip)
 	}
 
-	for _, addr := range e.Addresses {
+	for _, addr := range addresses {
 		binPrefix := binary.BigEndian.Uint32(addr.IP) & binary.BigEndian.Uint32(addr.Mask)
 		len, _ := addr.Mask.Size()
 		if _, ok := prefixes[len]; !ok {

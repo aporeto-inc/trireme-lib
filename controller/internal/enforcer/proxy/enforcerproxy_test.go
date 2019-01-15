@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -189,7 +190,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults and PKICompactType", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token, constants.CompressionTypeNone)
+		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token, claimsheader.CompressionTypeNone)
 		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), cpki, rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {

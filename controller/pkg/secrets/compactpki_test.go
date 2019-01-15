@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
@@ -71,7 +71,7 @@ func TestNewCompactPKI(t *testing.T) {
 	// txkey is a token that has the client public key signed by the CA
 	Convey("When I create a new compact PKI, it should succeed ", t, func() {
 
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, constants.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 		So(p.AuthorityPEM, ShouldResemble, []byte(caPEM))
@@ -80,13 +80,13 @@ func TestNewCompactPKI(t *testing.T) {
 	})
 
 	Convey("When I create a new compact PKI with invalid certs, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), txKey, constants.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), txKey, claimsheader.CompressionTypeNone)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
 
 	Convey("When I create a new compact PKI with invalid CA, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], txKey, constants.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], txKey, claimsheader.CompressionTypeNone)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
@@ -96,7 +96,7 @@ func TestNewCompactPKI(t *testing.T) {
 func TestBasicInterfaceFunctions(t *testing.T) {
 	txKey := createTxtToken()
 	Convey("Given a valid CompactPKI ", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, constants.CompressionTypeNone)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 

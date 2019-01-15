@@ -15,6 +15,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -54,7 +55,7 @@ type processMon struct {
 	logLevel  string
 	logFormat string
 	// compressedTags instructs the remotes to use compressed tags.
-	compressedTags constants.CompressionType
+	compressedTags claimsheader.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
 	runtimeErrorChannel chan *policy.RuntimeError
 
@@ -169,7 +170,7 @@ func (p *processMon) collectChildExitStatus() {
 }
 
 // SetLogParameters setups args that should be propagated to child processes
-func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
+func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags claimsheader.CompressionType) {
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
 	p.logLevel = logLevel
@@ -289,7 +290,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvLogFormat + "=" + p.logFormat,
 	}
 
-	if p.compressedTags != constants.CompressionTypeNone {
+	if p.compressedTags != claimsheader.CompressionTypeNone {
 		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
 	}
 

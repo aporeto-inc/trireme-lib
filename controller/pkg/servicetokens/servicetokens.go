@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -85,7 +85,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	}
 
 	claims := &JWTClaims{}
-	if _, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+	if _, err := jwt.ParseWithClaims(token, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
 		return key, nil
 	}); err != nil {
 		return "", nil, nil, err

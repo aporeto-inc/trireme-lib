@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/oxy/forward"
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
@@ -159,7 +159,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 	}
 
-	networkDialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+	networkDialerWithContext := func(ctx context.Context, network, _ string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 		if err != nil {
 			reportStats(ctx)
@@ -173,7 +173,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		return conn, nil
 	}
 
-	appDialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+	appDialerWithContext := func(ctx context.Context, network, _ string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 		if err != nil {
 			reportStats(ctx)
