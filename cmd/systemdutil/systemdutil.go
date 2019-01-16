@@ -224,6 +224,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	request := &common.EventInfo{
 		PUType:             common.LinuxProcessPU,
 		Name:               c.ServiceName,
+		Executable:         c.Executable,
 		Tags:               c.Labels,
 		PID:                int32(os.Getpid()),
 		EventType:          common.EventStart,

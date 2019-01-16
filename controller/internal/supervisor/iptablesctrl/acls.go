@@ -357,6 +357,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -456,6 +457,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices

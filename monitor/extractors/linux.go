@@ -84,7 +84,7 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
 
-	if fileMd5, err := computeFileMd5(event.Name); err == nil {
+	if fileMd5, err := computeFileMd5(event.Executable); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
 	}
 
