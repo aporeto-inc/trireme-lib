@@ -46,6 +46,9 @@ type EventInfo struct {
 	// The Name is a user-friendly name for the Processing Unit.
 	Name string `json:"name,omitempty"`
 
+	// The Executable is the executable name  for the Processing Unit.
+	Executable string `json:"executable,omitempty"`
+
 	// Tags represents the set of MetadataTags associated with this PUID.
 	Tags []string `json:"tags,omitempty"`
 
