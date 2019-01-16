@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -334,9 +335,15 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
+
 			// We now generate the claims header
+			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
+			if !ok {
+				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
+				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
+				claimsheader.OptionCompressionType(compactPKI.Compressed),
 			).ToBytes()
 			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
@@ -385,8 +392,13 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
+			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
+			if !ok {
+				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
+				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
+				claimsheader.OptionCompressionType(compactPKI.Compressed),
 			).ToBytes()
 			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
 			if err != nil {
@@ -478,8 +490,13 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
+			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
+			if !ok {
+				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
+				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(p.secrets.(*secrets.CompactPKI).Compressed),
+				claimsheader.OptionCompressionType(compactPKI.Compressed),
 				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 			).ToBytes()
 			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)

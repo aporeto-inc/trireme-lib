@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -325,8 +326,13 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We now generate the claims header
+	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
+	if !ok {
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		return nil, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionCompressionType(compactPKI.Compressed),
 		claimsheader.OptionDatapathVersion(d.datapathVersion),
 	).ToBytes()
 
@@ -393,8 +399,13 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// We add encrypt attr in the claims header field
+	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
+	if !ok {
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionCompressionType(compactPKI.Compressed),
 		claimsheader.OptionDatapathVersion(d.datapathVersion),
 		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 	).ToBytes()
@@ -421,9 +432,13 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
-		// We now generate the claims header
+		compactPKI, ok := d.secrets.(*secrets.CompactPKI)
+		if !ok {
+			zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+			return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+		}
 		claimsHeaderBytes := claimsheader.NewClaimsHeader(
-			claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+			claimsheader.OptionCompressionType(compactPKI.Compressed),
 			claimsheader.OptionDatapathVersion(d.datapathVersion),
 		).ToBytes()
 		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)

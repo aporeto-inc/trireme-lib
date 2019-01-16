@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -375,8 +376,13 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	}
 
 	// We now generate the claims header
+	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
+	if !ok {
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionCompressionType(compactPKI.Compressed),
 		claimsheader.OptionDatapathVersion(d.datapathVersion),
 	).ToBytes()
 
@@ -507,8 +513,13 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
 
+	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
+	if !ok {
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(d.secrets.(*secrets.CompactPKI).Compressed),
+		claimsheader.OptionCompressionType(compactPKI.Compressed),
 		claimsheader.OptionDatapathVersion(d.datapathVersion),
 	).ToBytes()
 	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
