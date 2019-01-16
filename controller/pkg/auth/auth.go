@@ -68,7 +68,7 @@ func (p *Processor) UpdateServiceAPIs(apis *urisearch.APICache) error {
 func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, string, error) {
 
 	switch p.userAuthorizationType {
-	case policy.UserAuthorizationMutualTLS:
+	case policy.UserAuthorizationMutualTLS, policy.UserAuthorizationJWT:
 		// First parse any incoming certificates and retrieve attributes from them.
 		// This is used in case of client authorization with certificates.
 		attributes := []string{}
@@ -84,8 +84,17 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 				attributes = append(attributes, "OU="+org)
 			}
 		}
+
+		if p.userAuthorizationType == policy.UserAuthorizationJWT && p.userTokenHandler != nil {
+			jwtAttributes, _, _, err := p.userTokenHandler.Validate(r.Context(), userToken)
+			if err != nil {
+				return attributes, false, userToken, fmt.Errorf("Unable to decode JWT: %s", err)
+			}
+			return append(attributes, jwtAttributes...), false, userToken, nil
+		}
+
 		return attributes, false, userToken, nil
-	case policy.UserAuthorizationOIDC, policy.UserAuthorizationJWT:
+	case policy.UserAuthorizationOIDC:
 		// Now we can parse the user claims.
 		if p.userTokenHandler == nil {
 			zap.L().Error("Internal Server Error: OIDC User Token Handler not configured")

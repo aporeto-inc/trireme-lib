@@ -199,7 +199,7 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 	}
 
 	clientCAs := x509.NewCertPool()
-	if service.UserAuthorizationType == policy.UserAuthorizationMutualTLS &&
+	if (service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || service.UserAuthorizationType == policy.UserAuthorizationJWT) &&
 		len(service.MutualTLSTrustedRoots) > 0 {
 		if !clientCAs.AppendCertsFromPEM(service.MutualTLSTrustedRoots) {
 			return fmt.Errorf("Unable to process client CAs")
