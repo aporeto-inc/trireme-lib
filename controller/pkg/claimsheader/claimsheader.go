@@ -21,7 +21,7 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 //  D  [0:5]  - Datapath version
 //  CT [6,7]  - Compressed tag type
 //  E  [8]    - Encryption enabled
-//  R  [9:31] - Unused currently
+//  R  [9:31] - Reserved
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
 	claimsHeaderData := make([]byte, maxHeaderLen)
