@@ -94,9 +94,10 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		if err != nil {
 			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
-		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
+		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
+				fmt.Println("Detected custom root certificate")
 				clientCAs = portContext.ClientTrustedRoots
 			}
 			config := p.newBaseTLSConfig()
@@ -242,6 +243,9 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
+			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { // nolint
+				return p.cert, nil
+			},
 		},
 		DialContext:         appDialerWithContext,
 		MaxIdleConns:        2000,
