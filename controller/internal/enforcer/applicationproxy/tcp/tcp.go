@@ -340,7 +340,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
 			if !ok {
 				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
-				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+				return isEncrypted, secrets.ErrNotCompactPKI
 			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(compactPKI.Compressed),
@@ -395,7 +395,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
 			if !ok {
 				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
-				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+				return isEncrypted, secrets.ErrNotCompactPKI
 			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(compactPKI.Compressed),
@@ -493,7 +493,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
 			if !ok {
 				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(p.secrets)))
-				return isEncrypted, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(p.secrets))
+				return isEncrypted, secrets.ErrNotCompactPKI
 			}
 			claimsHeaderBytes := claimsheader.NewClaimsHeader(
 				claimsheader.OptionCompressionType(compactPKI.Compressed),

@@ -329,7 +329,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
 		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
-		return nil, fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+		return nil, secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(compactPKI.Compressed),
@@ -402,7 +402,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
 		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
-		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+		return secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(compactPKI.Compressed),
@@ -435,7 +435,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 		if !ok {
 			zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
-			return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+			return secrets.ErrNotCompactPKI
 		}
 		claimsHeaderBytes := claimsheader.NewClaimsHeader(
 			claimsheader.OptionCompressionType(compactPKI.Compressed),

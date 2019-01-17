@@ -379,7 +379,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
 		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
-		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+		return secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(compactPKI.Compressed),
@@ -516,7 +516,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
 		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
-		return fmt.Errorf("Secrets does not hold compactPKI type, so type assertion failed: %v", reflect.TypeOf(d.secrets))
+		return secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
 		claimsheader.OptionCompressionType(compactPKI.Compressed),
