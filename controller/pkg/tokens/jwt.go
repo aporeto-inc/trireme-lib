@@ -17,6 +17,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrCompressedTagMismatch err type for compressed type mismatch
+var ErrCompressedTagMismatch = errors.New("Compressed tag mismatch")
+
+// ErrDatapathVersionMismatch err type for datapath version mismatch
+var ErrDatapathVersionMismatch = errors.New("Datapath version mismatch")
+
 var (
 	noncePosition = 2
 	tokenPosition = 2 + NonceLength
@@ -45,6 +51,8 @@ type JWTConfig struct {
 	compressionType claimsheader.CompressionType
 	// compressionTagLength is the length of tags based on compressionType
 	compressionTagLength int
+	// datapathVersion is the current version of the datapath
+	datapathVersion claimsheader.DatapathVersion
 }
 
 // NewJWT creates a new JWT token processor
@@ -85,12 +93,13 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 		compressionType:      compressionType,
 		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
+		datapathVersion:      claimsheader.DatapathVersion1,
 	}, nil
 }
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte) (token []byte, err error) {
+func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
@@ -121,6 +130,11 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
 		}
 	}
+
+	// Set the appropriate claims header
+	claimsHeader.SetCompressionType(c.compressionType)
+	claimsHeader.SetDatapathVersion(c.datapathVersion)
+	claims.H = claimsHeader.ToBytes()
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
@@ -250,6 +264,16 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 
 		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
+	}
+
+	if jwtClaims.ConnectionClaims.H != nil {
+		claimsHeader := jwtClaims.ConnectionClaims.H.ToClaimsHeader()
+		if claimsHeader.CompressionType() != c.compressionType {
+			return nil, nil, nil, ErrCompressedTagMismatch
+		}
+		if claimsHeader.DatapathVersion() != c.datapathVersion {
+			return nil, nil, nil, ErrDatapathVersionMismatch
+		}
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)

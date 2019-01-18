@@ -13,7 +13,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -324,19 +323,8 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	// We now generate the claims header
-	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
-	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-		return nil, secrets.ErrNotCompactPKI
-	}
-	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compactPKI.Compressed),
-		claimsheader.OptionDatapathVersion(d.datapathVersion),
-	).ToBytes()
-
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeaderBytes)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 
 	if err != nil {
 		return nil, err
@@ -397,19 +385,11 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	// We add encrypt attr in the claims header field
-	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
-	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-		return secrets.ErrNotCompactPKI
-	}
-	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compactPKI.Compressed),
-		claimsheader.OptionDatapathVersion(d.datapathVersion),
+	claimsHeader := claimsheader.NewClaimsHeader(
 		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
-	).ToBytes()
+	)
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
 
 	if err != nil {
 		return err
@@ -431,16 +411,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
-		compactPKI, ok := d.secrets.(*secrets.CompactPKI)
-		if !ok {
-			zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-			return secrets.ErrNotCompactPKI
-		}
-		claimsHeaderBytes := claimsheader.NewClaimsHeader(
-			claimsheader.OptionCompressionType(compactPKI.Compressed),
-			claimsheader.OptionDatapathVersion(d.datapathVersion),
-		).ToBytes()
-		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
+		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
 		if err != nil {
 			return err
 		}
@@ -582,8 +553,17 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
 	// The source will retry but we have no state to maintain here.
 	if err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
+		switch err {
+		case tokens.ErrCompressedTagMismatch:
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil, false)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		case tokens.ErrDatapathVersionMismatch:
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
+		default:
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
+		}
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
@@ -597,21 +577,6 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil, false)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
-	}
-
-	// We now compare the claims header we attached in the JWT in the application
-	// SYN with the current claims header. If it varies we drop the packet
-	if claims.H != nil {
-		claimsHeader := claims.H.ToClaimsHeader()
-		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
-			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
-		}
-
-		if claimsHeader.DatapathVersion() != d.datapathVersion {
-			d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
-		}
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the

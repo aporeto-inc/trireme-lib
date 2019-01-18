@@ -15,7 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.uber.org/zap"
 )
@@ -374,19 +373,8 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 		return fmt.Errorf("No target found")
 	}
 
-	// We now generate the claims header
-	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
-	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-		return secrets.ErrNotCompactPKI
-	}
-	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compactPKI.Compressed),
-		claimsheader.OptionDatapathVersion(d.datapathVersion),
-	).ToBytes()
-
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsHeaderBytes)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 
 	if err != nil {
 		return err
@@ -481,7 +469,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
-	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, []byte{})
+	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
 	if err != nil {
 		return err
 	}
@@ -512,16 +500,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
 
-	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
-	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-		return secrets.ErrNotCompactPKI
-	}
-	claimsHeaderBytes := claimsheader.NewClaimsHeader(
-		claimsheader.OptionCompressionType(compactPKI.Compressed),
-		claimsheader.OptionDatapathVersion(d.datapathVersion),
-	).ToBytes()
-	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, claimsHeaderBytes)
+	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
 
 	if err != nil {
 		return err
@@ -577,8 +556,18 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
-		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
+		switch err {
+		case tokens.ErrCompressedTagMismatch:
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil, false)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
+		case tokens.ErrDatapathVersionMismatch:
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
+			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
+
+		default:
+			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
+			return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
+		}
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
@@ -594,20 +583,6 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestinationPort)))
-
-	// NOTE: Backward compatibility
-	if claims.H != nil {
-		claimsHeader := claims.H.ToClaimsHeader()
-		if claimsHeader.CompressionType() != d.secrets.(*secrets.CompactPKI).Compressed {
-			d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
-		}
-
-		if claimsHeader.DatapathVersion() != d.datapathVersion {
-			d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
-		}
-	}
 
 	report, pkt := context.SearchRcvRules(claims.T)
 	if pkt.Action.Rejected() {

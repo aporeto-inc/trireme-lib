@@ -25,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -37,7 +38,6 @@ const (
 type Proxy struct {
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
-	secrets       secrets.Secrets
 
 	puContext   string
 	registry    *serviceregistry.Registry
@@ -70,7 +70,6 @@ func NewTCPProxy(
 	registry *serviceregistry.Registry,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
-	secrets secrets.Secrets,
 ) *Proxy {
 
 	localIPs := markedconn.GetInterfaces()
@@ -83,7 +82,6 @@ func NewTCPProxy(
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
-		secrets:       secrets,
 	}
 }
 
@@ -334,17 +332,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-
-			// We now generate the claims header
-			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
-			if !ok {
-				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-				return isEncrypted, secrets.ErrNotCompactPKI
-			}
-			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(compactPKI.Compressed),
-			).ToBytes()
-			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
+			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
 			}
@@ -391,15 +379,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
-			if !ok {
-				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-				return isEncrypted, secrets.ErrNotCompactPKI
-			}
-			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(compactPKI.Compressed),
-			).ToBytes()
-			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
+			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
 			}
@@ -460,13 +440,13 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
-			}
-			if claims.H != nil {
-				if claims.H.ToClaimsHeader().CompressionType() != p.secrets.(*secrets.CompactPKI).Compressed {
+				switch err {
+				case tokens.ErrCompressedTagMismatch:
 					p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.CompressedTagMismatch, nil, nil)
 					return isEncrypted, errors.New("dropping because of compressed tag mismatch")
+				default:
+					p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+					return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 				}
 			}
 			tags := claims.T.Copy()
@@ -489,16 +469,10 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			compactPKI, ok := p.secrets.(*secrets.CompactPKI)
-			if !ok {
-				zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
-				return isEncrypted, secrets.ErrNotCompactPKI
-			}
-			claimsHeaderBytes := claimsheader.NewClaimsHeader(
-				claimsheader.OptionCompressionType(compactPKI.Compressed),
+			claimsHeader := claimsheader.NewClaimsHeader(
 				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
-			).ToBytes()
-			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeaderBytes)
+			)
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeader)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}

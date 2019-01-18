@@ -49,3 +49,21 @@ func (c *ClaimsHeader) DatapathVersion() DatapathVersion {
 
 	return c.datapathVersion
 }
+
+// SetCompressionType sets the compression type
+func (c *ClaimsHeader) SetCompressionType(ct CompressionType) {
+
+	c.compressionType = ct
+}
+
+// SetEncrypt sets the encrypt
+func (c *ClaimsHeader) SetEncrypt(e bool) {
+
+	c.encrypt = e
+}
+
+// SetDatapathVersion sets the datapath version
+func (c *ClaimsHeader) SetDatapathVersion(dv DatapathVersion) {
+
+	c.datapathVersion = dv
+}
