@@ -4,7 +4,6 @@ package nfqdatapath
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -328,7 +327,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// We now generate the claims header
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
 		return nil, secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
@@ -401,7 +400,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We add encrypt attr in the claims header field
 	compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 	if !ok {
-		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+		zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
 		return secrets.ErrNotCompactPKI
 	}
 	claimsHeaderBytes := claimsheader.NewClaimsHeader(
@@ -434,7 +433,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// connection minimizing the chances of a replay attack
 		compactPKI, ok := d.secrets.(*secrets.CompactPKI)
 		if !ok {
-			zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed", zap.Reflect("type", reflect.TypeOf(d.secrets)))
+			zap.L().Error("Secrets does not hold compactPKI type, so type assertion failed")
 			return secrets.ErrNotCompactPKI
 		}
 		claimsHeaderBytes := claimsheader.NewClaimsHeader(
