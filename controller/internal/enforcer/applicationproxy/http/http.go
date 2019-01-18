@@ -588,7 +588,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
-			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access denied by network policy to downstream IP: %s", originalDestination.IP.String()), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
