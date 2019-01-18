@@ -563,7 +563,6 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 		case tokens.ErrDatapathVersionMismatch:
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
 			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
-
 		default:
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 			return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
