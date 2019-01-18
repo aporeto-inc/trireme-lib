@@ -304,10 +304,10 @@ func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
 
 func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {
 
-	if claimsHeader.CompressionType() != c.compressionType {
+	switch {
+	case claimsHeader.CompressionType() != c.compressionType:
 		return ErrCompressedTagMismatch
-	}
-	if claimsHeader.DatapathVersion() != c.datapathVersion {
+	case claimsHeader.DatapathVersion() != c.datapathVersion:
 		return ErrDatapathVersionMismatch
 	}
 
