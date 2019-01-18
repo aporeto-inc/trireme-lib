@@ -267,12 +267,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 	}
 
 	if jwtClaims.ConnectionClaims.H != nil {
-		claimsHeader := jwtClaims.ConnectionClaims.H.ToClaimsHeader()
-		if claimsHeader.CompressionType() != c.compressionType {
-			return nil, nil, nil, ErrCompressedTagMismatch
-		}
-		if claimsHeader.DatapathVersion() != c.datapathVersion {
-			return nil, nil, nil, ErrDatapathVersionMismatch
+		if err := c.verifyClaimsHeader(jwtClaims.ConnectionClaims.H.ToClaimsHeader()); err != nil {
+			return nil, nil, nil, err
 		}
 	}
 
@@ -304,4 +300,16 @@ func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
 	copy(nonce, token[noncePosition:tokenPosition])
 
 	return nonce, nil
+}
+
+func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {
+
+	if claimsHeader.CompressionType() != c.compressionType {
+		return ErrCompressedTagMismatch
+	}
+	if claimsHeader.DatapathVersion() != c.datapathVersion {
+		return ErrDatapathVersionMismatch
+	}
+
+	return nil
 }
