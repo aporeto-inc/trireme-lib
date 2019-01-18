@@ -73,7 +73,7 @@ func TestHeader(t *testing.T) {
 		})
 	})
 
-	Convey("Given I create a new claims header and with no encryption type", t, func() {
+	Convey("Given I create a new claims header and change it later", t, func() {
 		header := NewClaimsHeader(
 			OptionEncrypt(false),
 			OptionDatapathVersion(DatapathVersion1),
