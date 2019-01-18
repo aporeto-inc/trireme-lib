@@ -15,9 +15,6 @@ const (
 	compactPKIAckSize = 300
 )
 
-// ErrNotCompactPKI error for non compatible secrets
-var ErrNotCompactPKI = errors.New("secrets does not hold compactPKI type")
-
 // CompactPKI holds all PKI information
 type CompactPKI struct {
 	PrivateKeyPEM []byte
