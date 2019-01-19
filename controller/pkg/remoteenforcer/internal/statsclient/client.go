@@ -56,8 +56,8 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 	return sc, nil
 }
 
-// pushStats  async function which makes a rpc call to send stats every STATS_INTERVAL
-func (s *statsClient) pushStats(ctx context.Context) {
+// sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
+func (s *statsClient) sendStats(ctx context.Context) {
 
 	ticker := time.NewTicker(s.statsInterval)
 	userTicker := time.NewTicker(s.userRetention)
@@ -123,7 +123,7 @@ func (s *statsClient) Run(ctx context.Context) error {
 		return err
 	}
 
-	go s.pushStats(ctx)
+	go s.sendStats(ctx)
 
 	return nil
 }
