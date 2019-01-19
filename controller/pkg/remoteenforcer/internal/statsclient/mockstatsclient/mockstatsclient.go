@@ -51,3 +51,15 @@ func (m *MockStatsClient) Run(ctx context.Context) error {
 func (mr *MockStatsClientMockRecorder) Run(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockStatsClient)(nil).Run), ctx)
 }
+
+// SendStats mocks base method
+// nolint
+func (m *MockStatsClient) SendStats() {
+	m.ctrl.Call(m, "SendStats")
+}
+
+// SendStats indicates an expected call of SendStats
+// nolint
+func (mr *MockStatsClientMockRecorder) SendStats() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendStats", reflect.TypeOf((*MockStatsClient)(nil).SendStats))
+}
