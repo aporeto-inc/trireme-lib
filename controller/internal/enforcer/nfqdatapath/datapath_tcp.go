@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -384,7 +385,11 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
+	claimsHeader := claimsheader.NewClaimsHeader(
+		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
+	)
+
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
 
 	if err != nil {
 		return err
@@ -548,7 +553,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
 	// The source will retry but we have no state to maintain here.
 	if err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
 	}
 
@@ -730,6 +735,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		d.reportAcceptedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, nil, nil, true)
 		d.releaseUnmonitoredFlow(tcpPacket)
 		return nil, nil, nil
+	}
+
+	// NOTE: For backward compatibility, remove this check later
+	if claims.H != nil {
+		if claims.H.ToClaimsHeader().Encrypt() != pkt.Action.Encrypted() {
+			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.EncryptionMismatch, nil, nil, true)
+			return nil, nil, fmt.Errorf("syn/ack packet dropped because of encryption mismatch")
+		}
 	}
 
 	if pkt.Action.Rejected() {

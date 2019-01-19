@@ -19,6 +19,7 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -37,6 +38,98 @@ var (
 	debug     bool
 	iteration int
 )
+
+func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, modeType string, targetNetExternal bool) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
+	var mode constants.ModeType
+	if modeType == "container" {
+		mode = constants.RemoteContainer
+	} else if modeType == "server" {
+		mode = constants.LocalServer
+	}
+
+	tagSelector := policy.TagSelector{
+
+		Clause: []policy.KeyValueOperator{
+			{
+				Key:      enforcerconstants.TransmitterLabel,
+				Value:    []string{"value"},
+				Operator: policy.Equal,
+			},
+		},
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
+	}
+	PacketFlow := packetgen.NewTemplateFlow()
+	_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+	So(err, ShouldBeNil)
+	iteration = iteration + 1
+	puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
+	puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
+	puIP1 := PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String() // + strconv.Itoa(iteration)
+	puIP2 := PacketFlow.GetNthPacket(0).GetIPPacket().DstIP.String() // + strconv.Itoa(iteration)
+	serverID := testServerID
+
+	// Create ProcessingUnit 1
+	puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+
+	ip1 := policy.ExtendedMap{}
+	ip1["bridge"] = puIP1
+	puInfo1.Runtime.SetIPAddresses(ip1)
+	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
+	puInfo1.Policy.SetIPAddresses(ipl1)
+	puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
+	puInfo1.Policy.AddReceiverRules(tagSelector)
+
+	// Create processing unit 2
+	puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+
+	ip2 := policy.ExtendedMap{"bridge": puIP2}
+	puInfo2.Runtime.SetIPAddresses(ip2)
+	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+	puInfo2.Policy.SetIPAddresses(ipl2)
+	puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
+	puInfo2.Policy.AddReceiverRules(tagSelector)
+
+	secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+	So(err, ShouldBeNil)
+	if collectors != nil {
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+		if targetNetExternal {
+			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+		} else {
+			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+		}
+
+		err1 = enforcer.Enforce(puID1, puInfo1)
+		err2 = enforcer.Enforce(puID2, puInfo2)
+	} else {
+		collector := &collector.DefaultCollector{}
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		if targetNetExternal {
+			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+		} else {
+			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+		}
+		err1 = enforcer.Enforce(puID1, puInfo1)
+		err2 = enforcer.Enforce(puID2, puInfo2)
+	}
+
+	return puInfo1, puInfo2, enforcer, err1, err2, nil, nil
+}
 
 func TestEnforcerExternalNetworks(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
@@ -109,7 +202,8 @@ func TestInvalidContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -123,7 +217,7 @@ func TestInvalidContext(t *testing.T) {
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		PacketFlow := packetgen.NewTemplateFlow()
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
 		So(err, ShouldBeNil)
@@ -148,7 +242,8 @@ func TestInvalidIPContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
 
@@ -173,7 +268,7 @@ func TestInvalidIPContext(t *testing.T) {
 			}
 		}()
 		PacketFlow := packetgen.NewTemplateFlow()
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
+		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
 		So(err, ShouldBeNil)
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
 		So(err, ShouldBeNil)
@@ -251,11 +346,12 @@ func TestInvalidTokenContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 
 		PacketFlow := packetgen.NewTemplateFlow()
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
 		ip := policy.ExtendedMap{
 			"brige": testDstIP,
@@ -292,97 +388,6 @@ func TestInvalidTokenContext(t *testing.T) {
 			})
 		})
 	})
-}
-
-func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, modeType string, targetNetExternal bool) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
-	var mode constants.ModeType
-	if modeType == "container" {
-		mode = constants.RemoteContainer
-	} else if modeType == "server" {
-		mode = constants.LocalServer
-	}
-
-	tagSelector := policy.TagSelector{
-
-		Clause: []policy.KeyValueOperator{
-			{
-				Key:      enforcerconstants.TransmitterLabel,
-				Value:    []string{"value"},
-				Operator: policy.Equal,
-			},
-		},
-		Policy: &policy.FlowPolicy{Action: policy.Accept},
-	}
-	PacketFlow := packetgen.NewTemplateFlow()
-	_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-	So(err, ShouldBeNil)
-	iteration = iteration + 1
-	puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
-	puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
-	puIP1 := PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String() // + strconv.Itoa(iteration)
-	puIP2 := PacketFlow.GetNthPacket(0).GetIPPacket().DstIP.String() // + strconv.Itoa(iteration)
-	serverID := testServerID
-
-	// Create ProcessingUnit 1
-	puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
-
-	ip1 := policy.ExtendedMap{}
-	ip1["bridge"] = puIP1
-	puInfo1.Runtime.SetIPAddresses(ip1)
-	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
-	puInfo1.Policy.SetIPAddresses(ipl1)
-	puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
-	puInfo1.Policy.AddReceiverRules(tagSelector)
-
-	// Create processing unit 2
-	puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
-
-	ip2 := policy.ExtendedMap{"bridge": puIP2}
-	puInfo2.Runtime.SetIPAddresses(ip2)
-	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
-	puInfo2.Policy.SetIPAddresses(ipl2)
-	puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
-	puInfo2.Policy.AddReceiverRules(tagSelector)
-
-	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-	if collectors != nil {
-		// mock the call
-		prevRawSocket := GetUDPRawSocket
-		defer func() {
-			GetUDPRawSocket = prevRawSocket
-		}()
-		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-			return nil, nil
-		}
-		if targetNetExternal {
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
-		} else {
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
-		}
-
-		err1 = enforcer.Enforce(puID1, puInfo1)
-		err2 = enforcer.Enforce(puID2, puInfo2)
-	} else {
-		collector := &collector.DefaultCollector{}
-		// mock the call
-		prevRawSocket := GetUDPRawSocket
-		defer func() {
-			GetUDPRawSocket = prevRawSocket
-		}()
-		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-			return nil, nil
-		}
-
-		if targetNetExternal {
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
-		} else {
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
-		}
-		err1 = enforcer.Enforce(puID1, puInfo1)
-		err2 = enforcer.Enforce(puID2, puInfo2)
-	}
-
-	return puInfo1, puInfo2, enforcer, err1, err2, nil, nil
 }
 
 func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
@@ -1232,7 +1237,8 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 func TestCacheState(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 		// mock the call
 		prevRawSocket := GetUDPRawSocket
@@ -1248,7 +1254,7 @@ func TestCacheState(t *testing.T) {
 		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
 
 		// Should fail: Not in cache
-		err := enforcer.Unenforce(contextID)
+		err = enforcer.Unenforce(contextID)
 		if err == nil {
 			t.Errorf("Expected failure, no contextID in cache")
 		}
@@ -1287,7 +1293,8 @@ func TestCacheState(t *testing.T) {
 func TestDoCreatePU(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -1332,7 +1339,8 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 		// mock the call
 		prevRawSocket := GetUDPRawSocket
@@ -1361,7 +1369,8 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -1393,7 +1402,8 @@ func TestDoCreatePU(t *testing.T) {
 func TestContextFromIP(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -1458,9 +1468,7 @@ func TestContextFromIP(t *testing.T) {
 }
 
 func TestInvalidPacket(t *testing.T) {
-	// collector := &collector.DefaultCollector{}
-	// secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-	// enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc")
+
 	var puInfo1, puInfo2 *policy.PUInfo
 	var enforcer *Datapath
 	var err1, err2 error
@@ -1781,7 +1789,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							outPacket, errp := packet.New(0, output, "0", true)
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
-							enforcer.processNetworkTCPPackets(outPacket)	// nolint
+							enforcer.processNetworkTCPPackets(outPacket) // nolint
 
 							if debug {
 								fmt.Println("Output packet", i)
@@ -4308,8 +4316,8 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 			puInfo2.Policy.AddReceiverRules(tagSelector)
 
-			secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-
+			secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+			So(err, ShouldBeNil)
 			collector := &collector.DefaultCollector{}
 			// mock the call
 			prevRawSocket := GetUDPRawSocket
@@ -4440,7 +4448,8 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
-						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+						So(err, ShouldBeNil)
 						collector := &collector.DefaultCollector{}
 						// mock the call
 						prevRawSocket := GetUDPRawSocket
@@ -4501,7 +4510,8 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
-						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+						secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+						So(err, ShouldBeNil)
 						collector := &collector.DefaultCollector{}
 
 						// mock the call
@@ -4591,7 +4601,8 @@ func TestDNS(t *testing.T) {
 	var lock sync.Mutex
 
 	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -4639,7 +4650,7 @@ func TestDNS(t *testing.T) {
 		So(err2, ShouldBeNil)
 
 		PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, "10.0.0.0", 666, 80)
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
 
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
@@ -4661,7 +4672,8 @@ func TestDNSWithError(t *testing.T) {
 	var lock sync.Mutex
 
 	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -4719,7 +4731,7 @@ func TestDNSWithError(t *testing.T) {
 		So(err3, ShouldBeNil)
 
 		PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, "10.0.0.0", 666, 80)
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
 
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
@@ -4737,7 +4749,8 @@ func TestDNSWithError(t *testing.T) {
 
 func TestPUPortCreation(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
