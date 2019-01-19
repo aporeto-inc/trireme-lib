@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
@@ -55,8 +56,8 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 	return sc, nil
 }
 
-// sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
-func (s *statsClient) sendStats(ctx context.Context) {
+// pushStats  async function which makes a rpc call to send stats every STATS_INTERVAL
+func (s *statsClient) pushStats(ctx context.Context) {
 
 	ticker := time.NewTicker(s.statsInterval)
 	userTicker := time.NewTicker(s.userRetention)
@@ -71,21 +72,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 				continue
 			}
 
-			request := rpcwrapper.Request{
-				Payload: &rpcwrapper.StatsPayload{
-					Flows: flows,
-					Users: users,
-				},
-			}
-
-			if err := s.rpchdl.RemoteCall(
-				statsContextID,
-				statsRPCCommand,
-				&request,
-				&rpcwrapper.Response{},
-			); err != nil {
-				zap.L().Error("RPC failure in sending statistics: Unable to send flows")
-			}
+			s.sendRequest(flows, users)
 		case <-userTicker.C:
 			s.collector.FlushUserCache()
 		case <-ctx.Done():
@@ -93,6 +80,38 @@ func (s *statsClient) sendStats(ctx context.Context) {
 		}
 	}
 
+}
+
+func (s *statsClient) sendRequest(flows map[string]*collector.FlowRecord, users map[string]*collector.UserRecord) {
+
+	request := rpcwrapper.Request{
+		Payload: &rpcwrapper.StatsPayload{
+			Flows: flows,
+			Users: users,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(
+		statsContextID,
+		statsRPCCommand,
+		&request,
+		&rpcwrapper.Response{},
+	); err != nil {
+		zap.L().Error("RPC failure in sending statistics: Unable to send flows")
+	}
+}
+
+// SendStats sends all the stats from the cache
+func (s *statsClient) SendStats() {
+
+	flows := s.collector.GetAllRecords()
+	users := s.collector.GetUserRecords()
+	if flows == nil && users == nil {
+		zap.L().Debug("Flows and UserRecords are nil while sending stats to collector")
+		return
+	}
+
+	s.sendRequest(flows, users)
 }
 
 // Start This is an private function called by the remoteenforcer to connect back
@@ -104,7 +123,7 @@ func (s *statsClient) Run(ctx context.Context) error {
 		return err
 	}
 
-	go s.sendStats(ctx)
+	go s.pushStats(ctx)
 
 	return nil
 }

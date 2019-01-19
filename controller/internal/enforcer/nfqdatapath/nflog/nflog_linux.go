@@ -82,9 +82,6 @@ func (a *nfLog) nflogErrorHandler(err error) {
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, error) {
 
-	zap.L().Debug("HITTING NFLOG")
-	//time.Sleep(15 * time.Second)
-
 	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
 
 	if len(parts) != 3 {
