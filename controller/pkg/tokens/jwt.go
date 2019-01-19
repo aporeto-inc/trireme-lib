@@ -17,12 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// ErrCompressedTagMismatch err type for compressed type mismatch
-var ErrCompressedTagMismatch = errors.New("Compressed tag mismatch")
-
-// ErrDatapathVersionMismatch err type for datapath version mismatch
-var ErrDatapathVersionMismatch = errors.New("Datapath version mismatch")
-
 var (
 	noncePosition = 2
 	tokenPosition = 2 + NonceLength
@@ -306,9 +300,9 @@ func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) 
 
 	switch {
 	case claimsHeader.CompressionType() != c.compressionType:
-		return ErrCompressedTagMismatch
+		return newErrTokens(errCompressedTagMismatch)
 	case claimsHeader.DatapathVersion() != c.datapathVersion:
-		return ErrDatapathVersionMismatch
+		return newErrTokens(errDatapathVersionMismatch)
 	}
 
 	return nil

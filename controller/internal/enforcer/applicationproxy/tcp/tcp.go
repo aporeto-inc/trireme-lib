@@ -440,12 +440,14 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				if err == tokens.ErrCompressedTagMismatch {
-					p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.CompressedTagMismatch, nil, nil)
-					return isEncrypted, errors.New("dropping because of compressed tag mismatch")
+				// NOTE: If err is nil, WITHOUT this check there will be panic
+				errToken, ok := err.(*tokens.ErrTokens)
+				if !ok {
+					p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+					return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 				}
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, errToken.Reason(), nil, nil)
+				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", errToken.Error())
 			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(backendport))

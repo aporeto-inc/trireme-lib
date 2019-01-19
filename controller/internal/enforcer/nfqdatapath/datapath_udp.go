@@ -556,17 +556,13 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		switch err {
-		case tokens.ErrCompressedTagMismatch:
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.CompressedTagMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar compression type")
-		case tokens.ErrDatapathVersionMismatch:
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.DatapathVersionMismatch, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of dissimilar datapath version")
-		default:
+		errToken, ok := err.(*tokens.ErrTokens)
+		if !ok {
 			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 			return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
 		}
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, errToken.Reason(), nil, nil, false)
+		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", errToken.Error())
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
