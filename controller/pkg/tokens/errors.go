@@ -7,26 +7,26 @@ const (
 	errDatapathVersionMismatch = "Datapath version mismatch"
 )
 
-// ErrTokens holds error message in string
-type ErrTokens struct {
+// ErrToken holds error message in string
+type ErrToken struct {
 	message string
 }
 
-// newErrTokens returns ErrToken handle
-func newErrTokens(message string) *ErrTokens {
-	return &ErrTokens{
+// newErrToken returns ErrToken handle
+func newErrToken(message string) *ErrToken {
+	return &ErrToken{
 		message: message,
 	}
 }
 
 // Error returns error in string
-func (e *ErrTokens) Error() string {
+func (e *ErrToken) Error() string {
 
 	return e.message
 }
 
-// Reason returns collector reason
-func (e *ErrTokens) Reason() string {
+// Code returns collector reason
+func (e *ErrToken) Code() string {
 
 	switch e.message {
 	case errCompressedTagMismatch:
@@ -36,4 +36,15 @@ func (e *ErrTokens) Reason() string {
 	default:
 		return collector.InvalidToken
 	}
+}
+
+// CodeFromErr returns the collector code from ErrToken
+func CodeFromErr(err error) string {
+
+	errToken, ok := err.(*ErrToken)
+	if !ok {
+		return collector.InvalidToken
+	}
+
+	return errToken.Code()
 }

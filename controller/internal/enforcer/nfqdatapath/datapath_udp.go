@@ -556,13 +556,8 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		errToken, ok := err.(*tokens.ErrTokens)
-		if !ok {
-			d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
-			return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
-		}
-		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, errToken.Reason(), nil, nil, false)
-		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", errToken.Error())
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
+		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn

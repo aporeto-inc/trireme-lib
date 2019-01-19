@@ -553,13 +553,8 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
 	// The source will retry but we have no state to maintain here.
 	if err != nil {
-		errToken, ok := err.(*tokens.ErrTokens)
-		if !ok {
-			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
-			return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
-		}
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, errToken.Reason(), nil, nil, false)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", errToken.Error())
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn

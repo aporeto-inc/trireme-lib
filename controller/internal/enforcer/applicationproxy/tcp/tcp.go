@@ -440,14 +440,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				// NOTE: If err is nil, WITHOUT this check there will be panic
-				errToken, ok := err.(*tokens.ErrTokens)
-				if !ok {
-					p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-					return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
-				}
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, errToken.Reason(), nil, nil)
-				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", errToken.Error())
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, tokens.CodeFromErr(err), nil, nil)
+				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(backendport))
