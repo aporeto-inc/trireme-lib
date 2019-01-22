@@ -1617,6 +1617,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
+		"-p", "tcp",
 		"-m", "addrtype", "--dst-type", "LOCAL",
 		"-j", natProxyInputChain)
 	if err != nil {
@@ -1788,7 +1789,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
