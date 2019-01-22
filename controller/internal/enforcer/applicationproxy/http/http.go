@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -394,7 +395,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		// If it is a secrets request we process it and move on. No need to
 		// validate policy.
-		if p.isSecretsRequest(w, r) {
+		if p.isSecretsRequest(w, r, sctx) {
 			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
 			return
 		}
@@ -600,7 +601,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
-func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
+func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *serviceregistry.ServiceContext) bool {
 
 	if r.Host != "169.254.254.1" {
 		return false
@@ -615,6 +616,15 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 		if _, err := w.Write([]byte(p.keyPEM)); err != nil {
 			zap.L().Error("Unable to write response")
 		}
+	case "/health":
+		data, err := json.Marshal(sctx.PU.Policy.ToPublicPolicy())
+		if err != nil {
+			data = []byte("Internal Server Error")
+		}
+		if _, err := w.Write(data); err != nil {
+			zap.L().Error("Unable to write response to health API")
+		}
+
 	default:
 		http.Error(w, fmt.Sprintf("Uknown"), http.StatusBadRequest)
 	}
