@@ -94,18 +94,15 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	if netPacket.IPProto == packet.IPProtocolTCP {
 		// // Accept the packet
-		buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
-		copyIndex := copy(buffer, netPacket.Buffer)
+		buffer := make([]byte, netPacket.ipHdr.IPTotalLength)
+		copyIndex := copy(buffer, netPacket.ipHdr.Buffer)
+		copyIndex += copy(buffer[copyIndex:], netPacket.tcpHdr.Buffer)
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
 
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
-		// Buffer is already modified.
-		buffer := make([]byte, len(netPacket.Buffer))
-		copyIndex := copy(buffer, netPacket.Buffer)
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
-
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.ipHdr.Buffer)), uint32(p.ID), netPacket.ipHdr.Buffer)
 	}
 }
 
@@ -136,8 +133,9 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	if appPacket.IPProto == packet.IPProtocolTCP {
 		// Accept the packet
-		buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
-		copyIndex := copy(buffer, appPacket.Buffer)
+		buffer := make([]byte, appPacket.ipHdr.IPTotalLength)
+		copyIndex := copy(buffer, appPacket.ipHdr.Buffer)
+		copyIndex += copy(buffer[copyIndex:], appPacket.tcpHdr.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 

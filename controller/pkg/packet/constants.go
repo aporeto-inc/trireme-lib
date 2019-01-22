@@ -46,7 +46,8 @@ const (
 
 // IP Header masks
 const (
-	ipv4HdrLenMask = 0xF
+	ipv4HdrLenMask = 0x0F
+	ipv4ProtoMask  = 0xF0
 )
 
 // TCP Header field position constants

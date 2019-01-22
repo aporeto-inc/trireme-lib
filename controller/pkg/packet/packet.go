@@ -58,20 +58,17 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 
 	var p Packet
 
-	// Buffer Setup
-	p.Buffer = bytes
-
 	// Get the mark value
 	p.Mark = mark
 
 	// Set the context
 	p.context = context
 
-	if bytes[ipHdrLenPos]&ipProtoMask == 0x40 {
-		return parseIPv4Packet()
+	if bytes[ipv4HdrLenPos]&ipv4ProtoMask == 0x40 {
+		return &p, p.parseIPv4Packet(bytes, lengthValidate)
 	}
 
-	return parseIPv6Packet()
+	return p.parseIPv6Packet()
 }
 
 func (p *Packet) parseTCP(bytes []byte) {
@@ -92,23 +89,19 @@ func (p *Packet) parseTCP(bytes []byte) {
 	p.tcpHdr.tcpData = []byte{}
 }
 
-func (p *Packet) parseUDP() {
+func (p *Packet) parseUDP(bytes []byte) {
 	// UDP Header Processing
 	p.udpHdr.Buffer = bytes[minIPv4HdrSize:]
 	udpBuffer := p.udpHdr.Buffer
 
 	p.udpHdr.UDPChecksum = binary.BigEndian.Uint16(udpBuffer[UDPChecksumPos : UDPChecksumPos+2])
-	p.udrpHdr.udpData = []byte{}
+	p.udpHdr.udpData = []byte{}
 
-	p.udpHdr.SourcePort = binary.BigEndian.Uint16(udpBuffer[udpSourcePortPost : udpSourcePortPos+2])
+	p.udpHdr.SourcePort = binary.BigEndian.Uint16(udpBuffer[udpSourcePortPos : udpSourcePortPos+2])
 	p.udpHdr.DestinationPort = binary.BigEndian.Uint16(udpBuffer[udpDestPortPos : udpDestPortPos+2])
 }
 
-func (p *Packet) parseIPv4Packet(context uint64, bytes []byte, mark string, lengthValidate bool) (packet *Packet, err error) {
-	var p Packet
-
-	// Get the mark value
-	p.Mark = mark
+func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) {
 
 	// IP Header Processing
 	p.ipHdr.ipHeaderLen = bytes[ipv4HdrLenPos] & ipv4HdrLenMask
@@ -120,14 +113,14 @@ func (p *Packet) parseIPv4Packet(context uint64, bytes []byte, mark string, leng
 	p.ipHdr.DestinationAddress = net.IP(bytes[ipv4DestAddrPos : ipv4DestAddrPos+4])
 
 	if p.ipHdr.ipHeaderLen != minIPv4HdrWords {
-		return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+		return fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHdr.ipHeaderLen)
 	}
 
 	if lengthValidate && p.ipHdr.IPTotalLength != uint16(len(p.ipHdr.Buffer)) {
 		if p.ipHdr.IPTotalLength < uint16(len(p.ipHdr.Buffer)) {
-			p.ipHdr.Buffer = p.ipHdr.Buffer[:p.IPTotalLength]
+			p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.IPTotalLength]
 		} else {
-			return nil, fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.ipHdr.IPTotalLength, len(p.ipHdr.Buffer))
+			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.ipHdr.IPTotalLength, len(p.ipHdr.Buffer))
 		}
 	}
 
@@ -136,24 +129,25 @@ func (p *Packet) parseIPv4Packet(context uint64, bytes []byte, mark string, leng
 	// Some sanity checking for TCP.
 	if p.ipHdr.IPProto == IPProtocolTCP {
 		if p.ipHdr.IPTotalLength < minTCPIPPacketLen {
-			return nil, fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.ipHdr.ipHeaderLen)
+			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.ipHdr.ipHeaderLen)
 		}
 
-		p.parseTCP()
+		p.parseTCP(bytes)
 	}
 
 	// Some sanity checking for UDP.
-	if p.IPProto == IPProtocolUDP {
-		if p.IPTotalLength < minUDPIPPacketLen {
-			return nil, fmt.Errorf("udp ip packet too small: hdrlen=%d", p.ipHeaderLen)
+	if p.ipHdr.IPProto == IPProtocolUDP {
+		if p.ipHdr.IPTotalLength < minUDPIPPacketLen {
+			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.ipHdr.ipHeaderLen)
 		}
-		p.parseUDP()
+		p.parseUDP(bytes)
 	}
 
-	return &p, nil
+	return nil
 }
 
-func (p *Packet) parseIPv6Packet(context uint64, bytes []byte, mark string, lengthValidate bool) (packet *Packet, err error) {
+func (p *Packet) parseIPv6Packet() (packet *Packet, err error) {
+	return nil, nil
 
 }
 
@@ -265,8 +259,8 @@ func (p *Packet) Print(context uint64) {
 			p.ipHdr.ipID,
 			flagsToDir(p.context|context),
 			flagsToStr(p.context|context),
-			p.tcpHdr.SourceAddress.To4().String(), p.tcpHdr.SourcePort,
-			p.tcpHdr.DestinationAddress.To4().String(), p.tcpHdr.DestinationPort,
+			p.ipHdr.SourceAddress.To4().String(), p.tcpHdr.SourcePort,
+			p.ipHdr.DestinationAddress.To4().String(), p.tcpHdr.DestinationPort,
 			tcpFlagsToStr(p.tcpHdr.TCPFlags),
 			p.tcpHdr.TCPSeq, p.tcpHdr.TCPAck, p.ipHdr.IPTotalLength-p.TCPDataStartBytes(),
 			expAck, expAck, p.tcpHdr.tcpDataOffset,
@@ -390,7 +384,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		p.tcpHdr.tcpOptions = p.tcpHdr.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
 	}
 
-	p.tcpHdr.Buffer = p.ipHdr.Buffer[:p.TCPDataStartBytes()-optionLength]
+	p.tcpHdr.Buffer = p.tcpHdr.Buffer[:p.TCPDataStartBytes()-optionLength]
 
 	return
 }
@@ -426,7 +420,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 
 	// Modify the fields
 	p.tcpHdr.tcpDataOffset = p.tcpHdr.tcpDataOffset + uint8(numberOfOptions)
-	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
+	binary.BigEndian.PutUint16(p.tcpHdr.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.tcpHdr.TCPChecksum)
 	p.tcpHdr.Buffer[tcpDataOffsetPos] = p.tcpHdr.tcpDataOffset << 4
 }
 
@@ -470,16 +464,16 @@ func (p *Packet) L4FlowHash() string {
 
 // L4ReverseFlowHash calculate a hash string based on the 4-tuple by reversing source and destination information
 func (p *Packet) L4ReverseFlowHash() string {
-	return p.DestinationAddress.String() + ":" + p.SourceAddress.String() + ":" + p.destPort() + ":" + p.sourcePort()
+	return p.ipHdr.DestinationAddress.String() + ":" + p.ipHdr.SourceAddress.String() + ":" + p.destPort() + ":" + p.sourcePort()
 }
 
 // SourcePortHash calculates a hash based on dest ip/port for net packet and src ip/port for app packet.
 func (p *Packet) SourcePortHash(stage uint64) string {
 	if stage == PacketTypeNetwork {
-		return p.DestinationAddress.String() + ":" + p.desPort()
+		return p.ipHdr.DestinationAddress.String() + ":" + p.destPort()
 	}
 
-	return p.SourceAddress.String() + ":" + p.sourcePort()
+	return p.ipHdr.SourceAddress.String() + ":" + p.sourcePort()
 }
 
 // ID returns the IP ID of the packet

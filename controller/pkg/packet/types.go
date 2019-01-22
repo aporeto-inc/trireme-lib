@@ -137,7 +137,7 @@ func TCPFlagsToStr(flags uint8) string {
 
 // Packet is the main structure holding packet information
 
-type ipHdr struct {
+type iphdr struct {
 	Buffer []byte
 
 	// IP Header fields
@@ -150,7 +150,7 @@ type ipHdr struct {
 	DestinationAddress net.IP
 }
 
-type tcpHdr struct {
+type tcphdr struct {
 	Buffer     []byte
 	tcpOptions []byte
 	tcpData    []byte
@@ -165,7 +165,7 @@ type tcpHdr struct {
 	TCPChecksum   uint16
 }
 
-type udpHdr struct {
+type udphdr struct {
 	Buffer          []byte
 	SourcePort      uint16
 	DestinationPort uint16
@@ -180,9 +180,9 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	ipHdr  ip
-	tcpHdr tcp
-	udpHdr udp
+	ipHdr  iphdr
+	tcpHdr tcphdr
+	udpHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata
