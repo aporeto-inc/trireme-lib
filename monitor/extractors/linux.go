@@ -63,8 +63,8 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
 }
 
-// TODO: Remove OLDTAGS
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
+// TODO: Remove OLDTAGS
 func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
