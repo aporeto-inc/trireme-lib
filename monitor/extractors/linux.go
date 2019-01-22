@@ -63,6 +63,7 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
 }
 
+// TODO: Remove OLDTAGS
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
 func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
@@ -80,17 +81,21 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
+		runtimeTags.AppendKeyValue("@app:linux:"+u, "true")
 	}
 
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
+	runtimeTags.AppendKeyValue("@os:hostname", findFQDN(time.Second))
 
 	if fileMd5, err := computeFileMd5(event.Executable); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
+		runtimeTags.AppendKeyValue("@app:linux:filechecksum", hex.EncodeToString(fileMd5))
 	}
 
 	depends := libs(event.Name)
 	for _, lib := range depends {
 		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
+		runtimeTags.AppendKeyValue("@app:linux:lib:"+lib, "true")
 	}
 
 	options := policy.OptionsType{}
