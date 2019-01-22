@@ -617,7 +617,10 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *
 			zap.L().Error("Unable to write response")
 		}
 	case "/health":
-		data, err := json.Marshal(sctx.PU.Policy.ToPublicPolicy())
+		plc := sctx.PU.Policy.ToPublicPolicy()
+		plc.ServicesCertificate = ""
+		plc.ServicesPrivateKey = ""
+		data, err := json.Marshal(plc)
 		if err != nil {
 			data = []byte("Internal Server Error")
 		}
