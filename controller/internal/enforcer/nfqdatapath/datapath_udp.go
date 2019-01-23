@@ -416,17 +416,25 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
 	}
 
 	go func() {
-		for retries := 0; retries < retransmitRetries; retries++ {
-			zap.L().Debug("Retry", zap.Reflect("retry", retries))
-			delay := time.Millisecond * time.Duration((retransmitDelay * (retries + 1)))
-			select {
-			case <-stop:
-				return
-			case <-time.After(delay):
-				if err := d.udpSocketWriter.WriteSocket(localBuffer); err != nil {
-					zap.L().Error("Failed to write control packet to socket", zap.Error(err))
+		backoff := 0
+		for {
+			for retries := 0; retries < retransmitRetries; retries++ {
+				zap.L().Debug("Retry", zap.Reflect("retry", retries))
+				delay := time.Millisecond * time.Duration((retransmitDelay * (retries + 1)))
+				select {
+				case <-stop:
+					return
+				case <-time.After(delay):
+					if err := d.udpSocketWriter.WriteSocket(localBuffer); err != nil {
+						zap.L().Error("Failed to write control packet to socket", zap.Error(err))
+					}
+
+					if err == nil {
+						return
+					}
 				}
 			}
+
 		}
 	}()
 	return nil
