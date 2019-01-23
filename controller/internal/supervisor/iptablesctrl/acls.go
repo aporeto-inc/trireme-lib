@@ -357,6 +357,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -456,6 +457,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -1615,6 +1617,8 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
+		"-p", "tcp",
+		"-m", "addrtype", "--dst-type", "LOCAL",
 		"-j", natProxyInputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
@@ -1785,7 +1789,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 

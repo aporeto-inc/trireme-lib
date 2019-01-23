@@ -303,6 +303,8 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
+	s.statsClient.SendStats()
+
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.enforcer.Unenforce(payload.ContextID)
 }

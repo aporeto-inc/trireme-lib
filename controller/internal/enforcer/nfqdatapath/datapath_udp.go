@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -477,7 +478,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
-	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
 	if err != nil {
 		return err
 	}
@@ -564,7 +565,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
 		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
 	}
 

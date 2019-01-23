@@ -7,6 +7,7 @@ import (
 	"time"
 
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -75,7 +76,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 		RMT: auth.RemoteContext,
 	}
 
-	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext)
+	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader())
 	if err != nil {
 		return []byte{}, err
 	}
@@ -101,7 +102,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		EK: auth.LocalServiceContext,
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader()); err != nil {
 		return []byte{}, nil
 	}
 
@@ -112,7 +113,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
 // We need to sign the received token. No caching possible here
-func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity(),
@@ -120,7 +121,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 		EK:  auth.LocalServiceContext,
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
 		return []byte{}, nil
 	}
 

@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
