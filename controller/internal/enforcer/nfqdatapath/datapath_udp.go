@@ -22,7 +22,7 @@ const (
 	// Default retransmit delay for first packet
 	retransmitDelay = 200
 	// rentrasmitRetries is the number of times we will retry
-	retransmitRetries = 3
+	retransmitRetries = 20
 )
 
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application.
@@ -417,6 +417,7 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
 
 	go func() {
 		for retries := 0; retries < retransmitRetries; retries++ {
+			zap.L().Debug("Retry", zap.Reflect("retry", retries))
 			delay := time.Millisecond * time.Duration((retransmitDelay * (retries + 1)))
 			select {
 			case <-stop:
