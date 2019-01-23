@@ -180,8 +180,8 @@ func New(
 		}
 
 		// clear udp conntrack entries.
-		cmd := exec.Command("conntrack", "-D", "-p", "udp", "--mark", "0xeeee")
-		if err := cmd.Run(); err != nil {
+		cmd = exec.Command("conntrack", "-D", "-p", "udp", "--mark", "0xeeee")
+		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to clear udp conntrack entries", zap.Error(err))
 		}
 
