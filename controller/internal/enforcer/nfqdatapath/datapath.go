@@ -178,6 +178,13 @@ func New(
 				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
 			}
 		}
+
+		// clear udp conntrack entries.
+		cmd := exec.Command("conntrack", "-D", "-p", "udp", "--mark", "0xeeee")
+		if err := cmd.Run(); err != nil {
+			zap.L().ERROR("Failed to clear udp conntrack entries", zap.Error(err))
+		}
+
 	}
 
 	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
