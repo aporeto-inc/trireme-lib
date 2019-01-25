@@ -31,3 +31,10 @@ type TriremeController interface {
 	// parameters can be updated during run time.
 	UpdateConfiguration(networks []string) error
 }
+
+type ControllerDebugInfo interface {
+	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU
+	EnableReceivedPacketTracing(enabled bool, contextID string)
+	// EnablePacketTracing enable iptables -j trace for the paricular pu and is much wider packet stream.
+	EnablePacketTracing(enabled bool, contextID string)
+}
