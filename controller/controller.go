@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -253,6 +254,17 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		Tags:      containerInfo.Runtime.Tags(),
 		Event:     collector.ContainerUpdate,
 	})
+
+	return nil
+}
+
+//Debug Handlers
+
+func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	return nil
+}
+
+func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 
 	return nil
 }

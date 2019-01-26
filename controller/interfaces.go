@@ -2,7 +2,9 @@ package controller
 
 import (
 	"context"
+	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -30,11 +32,12 @@ type TriremeController interface {
 	// UpdateConfiguration updates the configuration of the controller. Only specific configuration
 	// parameters can be updated during run time.
 	UpdateConfiguration(networks []string) error
+	ControllerDebugInfo
 }
 
 type ControllerDebugInfo interface {
-	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU
-	EnableReceivedPacketTracing(enabled bool, contextID string)
+	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
+	EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 	// EnablePacketTracing enable iptables -j trace for the paricular pu and is much wider packet stream.
-	EnablePacketTracing(enabled bool, contextID string)
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
