@@ -402,7 +402,7 @@ func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
 		zap.L().Error("Invalid certificate", zap.Error(err))
 		return
 	}
-	p.serviceCertificateExpiration = certificate.NotAfter
+	p.serviceCertificateExpiration = time.Now().Add(certificate.NotAfter.Sub(time.Now()) / 2)
 
 }
 
