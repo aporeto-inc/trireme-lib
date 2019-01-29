@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -39,6 +40,12 @@ type Enforcer interface {
 	UpdateSecrets(secrets secrets.Secrets) error
 
 	SetTargetNetworks(networks []string) error
+	EnforcerDebugInfo
+}
+
+type EnforcerDebugInfo interface {
+	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
+	EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -164,6 +171,10 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 // GetFilterQueue returns the current FilterQueueConfig of the transport path.
 func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
+}
+
+func (e *enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	return nil
 }
 
 // New returns a new policy enforcer that implements both the data paths.

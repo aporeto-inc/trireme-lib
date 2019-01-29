@@ -259,12 +259,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 }
 
 //Debug Handlers
-
-func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	return nil
+func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
+	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(ctx, contextID, direction, interval)
 }
 
-func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
 
-	return nil
+	return t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
 }

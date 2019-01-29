@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -245,6 +246,114 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	return nil
 }
 
+func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	
+	data, err := s.versionTracker.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("cannot find policy version: %s", err)
+	}
+
+	cfg := data.(*cacheData)
+	iptablesRules := DebugRules(cfg,s.Mode)
+	ipt,err := iptables.New()
+	if err != nil {
+		return fmt.Errorf("error while execing iptables %s",err)
+	}
+	ipt.
+	return nil
+}
+
+func DebugRules(data cacheData,mode constants.ModeType) [][]string {
+	iptables := [][]string{}
+	if mode == constants.RemoteContainer {
+		iptables = append(iptables, [][]string{
+			{
+				"raw",
+				"PREROUTING",
+				"-j", "TRACE",
+			},
+			{
+				"raw",
+				"OUTPUT",
+				"-j", "TRACE",
+			},
+		}...)
+	}else{
+		if data.tcpPorts != "0" {
+			iptables = append(iptables,
+				{
+					{
+						"raw",
+						"PREROUTING",
+						"-p","tcp",
+						"--match","multiport"
+						"--destination-ports",data.tcpPorts,
+						"-j", "TRACE",
+					},
+					{
+						"raw",
+						"OUTPUT",
+						"--match","multiport"
+						"--source-ports",data.tcpPorts,
+						"-j", "TRACE",
+					},
+				}...
+			)
+			
+		}else{
+			iptables = append(iptables,{
+			{
+				"raw",
+				"PREROUTING",
+				"-p","tcp",
+				"-j", "TRACE",
+			},
+			{
+				"raw",
+				"OUTPUT",
+				"-m","cgroup",
+				"--cgroup",mark,
+				"-j", "TRACE",
+			},
+			}...)
+		}
+		if data.udpPorts != "0" {
+			iptables = append(iptables,{
+			{
+				"raw",
+				"PREROUTING",
+				"-p","udp",
+				"--match","multiport"
+				"--destination-ports",data.udpPorts,
+				"-j", "TRACE",
+			},
+			{
+				"raw",
+				"OUTPUT",
+				"--match","multiport"
+				"--source-ports",data.tcpPorts,
+				"-j", "TRACE",
+			},
+			}...)
+		}else{
+			iptables = append(iptables,{
+			{
+				"raw",
+				"PREROUTING",
+				"-p","tcp",
+				"-j", "TRACE",
+			},
+			{
+				"raw",
+				"OUTPUT",
+				"-m","cgroup",
+				"--cgroup",mark,
+				"-j", "TRACE",
+			},
+			}...)
+		}
+	}
+}
 func revert(a, b interface{}) interface{} {
 	entry := a.(*cacheData)
 	entry.version = entry.version ^ 1

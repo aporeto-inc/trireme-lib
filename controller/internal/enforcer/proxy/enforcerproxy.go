@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -177,6 +178,10 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	// Start the server for statistics collection.
 	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer) // nolint
 
+	return nil
+}
+
+func (s *ProxyInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 	return nil
 }
 

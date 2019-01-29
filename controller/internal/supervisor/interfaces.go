@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"time"
 
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/policy"
@@ -24,6 +25,7 @@ type Supervisor interface {
 
 	// CleanUp requests the supervisor to clean up all ACLs
 	CleanUp() error
+	DebugInfo
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
@@ -49,4 +51,8 @@ type Implementor interface {
 
 	// ACLProvider returns the ACL provider used by the implementor
 	ACLProvider() provider.IptablesProvider
+}
+
+type DebugInfo interface {
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }

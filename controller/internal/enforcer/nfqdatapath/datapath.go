@@ -21,6 +21,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -547,4 +548,8 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
 
 	return nil, errInvalidProtocol
+}
+
+func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -170,5 +171,9 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 			return fmt.Errorf("unable to add excluded ip list for %s: %s", contextID, err)
 		}
 	}
+	return nil
+}
+
+func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
 }
