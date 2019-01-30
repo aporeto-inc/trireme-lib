@@ -175,5 +175,15 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 }
 
 func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnableIPTablesPacketTracingPayLoad{
+			IPTablesPacketTracing: true,
+			Interval:              interval,
+			ContextID:             contextID,
+		},
+	}
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableIPTablesPacketTracing, request, &rpcwrapper.Response{}); err != nil {
+		return fmt.Errorf("Unable to enable iptables tracing for contextID %s: %s", contextID, err)
+	}
 	return nil
 }

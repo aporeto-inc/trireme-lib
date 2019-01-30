@@ -421,6 +421,23 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	return nil
 }
 
+func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enforce message auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+	zap.L().Error("Remote Enforcer executing iptables trace")
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
+	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+	resp.Status = ""
+	return nil
+}
+
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 

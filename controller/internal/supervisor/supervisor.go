@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-iptables/iptables"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -247,23 +248,42 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 }
 
 func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
-	
+
 	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("cannot find policy version: %s", err)
 	}
 
 	cfg := data.(*cacheData)
-	iptablesRules := DebugRules(cfg,s.Mode)
-	ipt,err := iptables.New()
+	iptablesRules := DebugRules(cfg, s.mode)
+	ipt, err := iptables.New()
 	if err != nil {
-		return fmt.Errorf("error while execing iptables %s",err)
+		return fmt.Errorf("error while execing iptables %s", err)
 	}
-	ipt.
+	for _, rule := range iptablesRules {
+		zap.L().Error("Installing Rule")
+		if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
+			zap.L().Error("Unable to install rule", zap.Error(err))
+		}
+	}
+
+	// anonymous go func to flush debug iptables after interval
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+			case <-time.After(interval):
+				zap.L().Error("Deleting Rule")
+				for _, rule := range iptablesRules {
+					ipt.Delete(rule[0], rule[1], rule[2:]...)
+				}
+			}
+		}
+	}()
 	return nil
 }
 
-func DebugRules(data cacheData,mode constants.ModeType) [][]string {
+func DebugRules(data *cacheData, mode constants.ModeType) [][]string {
 	iptables := [][]string{}
 	if mode == constants.RemoteContainer {
 		iptables = append(iptables, [][]string{
@@ -278,82 +298,85 @@ func DebugRules(data cacheData,mode constants.ModeType) [][]string {
 				"-j", "TRACE",
 			},
 		}...)
-	}else{
+	} else {
 		if data.tcpPorts != "0" {
 			iptables = append(iptables,
-				{
+				[][]string{
 					{
 						"raw",
 						"PREROUTING",
-						"-p","tcp",
-						"--match","multiport"
-						"--destination-ports",data.tcpPorts,
+						"-p", "tcp",
+						"--match", "multiport",
+						"--destination-ports", data.tcpPorts,
 						"-j", "TRACE",
 					},
 					{
 						"raw",
 						"OUTPUT",
-						"--match","multiport"
-						"--source-ports",data.tcpPorts,
+						"--match", "multiport",
+						"--source-ports", data.tcpPorts,
 						"-j", "TRACE",
 					},
-				}...
+				}...,
 			)
-			
-		}else{
-			iptables = append(iptables,{
-			{
-				"raw",
-				"PREROUTING",
-				"-p","tcp",
-				"-j", "TRACE",
-			},
-			{
-				"raw",
-				"OUTPUT",
-				"-m","cgroup",
-				"--cgroup",mark,
-				"-j", "TRACE",
-			},
+
+		} else {
+			iptables = append(iptables, [][]string{
+				{
+					"raw",
+					"PREROUTING",
+					"-p", "tcp",
+					"-j", "TRACE",
+				},
+				{
+					"raw",
+					"OUTPUT",
+					"-m", "cgroup",
+					"--cgroup", data.mark,
+					"-j", "TRACE",
+				},
 			}...)
 		}
 		if data.udpPorts != "0" {
-			iptables = append(iptables,{
-			{
-				"raw",
-				"PREROUTING",
-				"-p","udp",
-				"--match","multiport"
-				"--destination-ports",data.udpPorts,
-				"-j", "TRACE",
-			},
-			{
-				"raw",
-				"OUTPUT",
-				"--match","multiport"
-				"--source-ports",data.tcpPorts,
-				"-j", "TRACE",
-			},
+			iptables = append(iptables, [][]string{
+				{
+					"raw",
+					"PREROUTING",
+					"-p", "udp",
+					"--match", "multiport",
+					"--destination-ports", data.udpPorts,
+					"-j", "TRACE",
+				},
+				{
+					"raw",
+					"OUTPUT",
+					"--match", "multiport",
+					"--source-ports", data.tcpPorts,
+					"-j", "TRACE",
+				},
 			}...)
-		}else{
-			iptables = append(iptables,{
-			{
-				"raw",
-				"PREROUTING",
-				"-p","tcp",
-				"-j", "TRACE",
-			},
-			{
-				"raw",
-				"OUTPUT",
-				"-m","cgroup",
-				"--cgroup",mark,
-				"-j", "TRACE",
-			},
-			}...)
+		} else {
+			iptables = append(iptables,
+				[][]string{
+					{
+						"raw",
+						"PREROUTING",
+						"-p", "tcp",
+						"-j", "TRACE",
+					},
+					{
+						"raw",
+						"OUTPUT",
+						"-m", "cgroup",
+						"--cgroup", data.mark,
+						"-j", "TRACE",
+					},
+				}...)
 		}
 	}
+	return iptables
 }
+
 func revert(a, b interface{}) interface{} {
 	entry := a.(*cacheData)
 	entry.version = entry.version ^ 1

@@ -118,3 +118,9 @@ type ExcludeIPRequestPayload struct {
 type SetTargetNetworks struct {
 	TargetNetworks []string `json:",omitempty"`
 }
+
+type EnableIPTablesPacketTracingPayLoad struct {
+	IPTablesPacketTracing bool          `json:",omitempty"`
+	Interval              time.Duration `json:",omitempty"`
+	ContextID             string        `json:",omitempty"`
+}
