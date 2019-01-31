@@ -551,5 +551,10 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 }
 
 func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	pucontext, err := d.puFromContextID.Get(contextID)
+	if err != nil {
+		zap.L().Error("ContextID not found", zap.String("contextID", contextID), zap.Error(err))
+		return err
+	}
 	return nil
 }

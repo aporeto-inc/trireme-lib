@@ -268,7 +268,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 
 //Debug Handlers
 func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
-	zap.L().Debug("Called from controller.go")
 	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(ctx, contextID, direction, interval)
 }
 
