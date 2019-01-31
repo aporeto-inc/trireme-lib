@@ -26,6 +26,8 @@ func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 // CollectUserEvent is part of the EventCollector interface.
 func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
 
+func (d *DefaultCollector) CollectTraceEvent(records []string) {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()

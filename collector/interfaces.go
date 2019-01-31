@@ -84,6 +84,12 @@ type EventCollector interface {
 
 	// CollectUserEvent  collects a user event
 	CollectUserEvent(record *UserRecord)
+	DebugInfoCollector
+}
+
+type DebugInfoCollector interface {
+	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
+	CollectTraceEvent(records []string)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )

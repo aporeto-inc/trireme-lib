@@ -241,6 +241,7 @@ func newTrireme(c *config) TriremeController {
 		supervisors:          map[constants.ModeType]supervisor.Supervisor{},
 		puTypeToEnforcerType: map[common.PUType]constants.ModeType{},
 		locks:                sync.Map{},
+		enablingTrace:        make(chan *traceTrigger, 10),
 	}
 
 	zap.L().Debug("Creating Enforcers")

@@ -48,3 +48,9 @@ func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
 		c.ProcessedUsers[record.ID] = true
 	}
 }
+
+// CollectTraceEvent collect trace events
+func (c *collectorImpl) CollectTraceEvent(records []string) {
+	//We will leave this unimplemented
+	// trace event collection in done from the main enforcer
+}

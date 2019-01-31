@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -12,12 +13,18 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
+
+type traceTrigger struct {
+	duration time.Duration
+	expiry   time.Time
+}
 
 // trireme contains references to all the different components of the controller.
 // Depending on the configuration we might have multiple supervisor and enforcer types.
@@ -28,6 +35,7 @@ type trireme struct {
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
 	rpchdl               rpcwrapper.RPCClient
+	enablingTrace        chan *traceTrigger
 	locks                sync.Map
 }
 
@@ -72,7 +80,7 @@ func (t *trireme) Run(ctx context.Context) error {
 			return fmt.Errorf("unable to start the enforcer: %s", err)
 		}
 	}
-
+	go t.runIPTraceCollector(ctx)
 	return nil
 }
 
@@ -265,7 +273,48 @@ func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID str
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
-
-	zap.L().Debug("Called from controller.go::IPTablesPacketTracing")
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		zap.L().Warn("Unable to set nf_log_all_netns.container tracing will not work")
+	}
+	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
+	if err := cmd.Run(); err != nil {
+		zap.L().Fatal("Failed to enable log all netns options", zap.Error(err))
+	}
+	t.enablingTrace <- &traceTrigger{
+		duration: interval,
+		expiry:   time.Now().Add(interval),
+	}
 	return t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+}
+
+func (t *trireme) runIPTraceCollector(ctx context.Context) {
+	//Run dmesg once to establish baseline
+	expiry := time.Now()
+	hdl := dmesgparser.New()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case traceparams := <-t.enablingTrace:
+			if !traceparams.expiry.After(expiry) {
+				//if we already have a request expiring later drop this
+				continue
+			}
+
+			expiry = traceparams.expiry
+		case <-time.After(1 * time.Second):
+			if !time.Now().After(expiry) {
+				messages, err := hdl.RunDmesgCommand()
+				if err != nil {
+					zap.L().Warn("Unable to run dmesg", zap.Error(err))
+					continue
+				}
+				t.config.collector.CollectTraceEvent(messages)
+
+			}
+
+		}
+	}
+
 }
