@@ -659,11 +659,14 @@ func userCredentials(serviceID string, r *http.Request, authorizer *auth.Process
 	}
 
 	userAttributes, redirect, refreshedToken, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
-	if err == nil && len(userAttributes) > 0 {
+	if len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		c.CollectUserEvent(userRecord)
 		state.stats.Source.UserID = userRecord.ID
 		state.stats.Source.Type = collector.EndpointTypeClaims
+	}
+	if err != nil && len(userAttributes) > 0 {
+		zap.L().Warn("Partially failed to extract and decode user claims", zap.Error(err))
 	} else if err != nil {
 		zap.L().Error("Failed to decode user claims", zap.Error(err))
 	}
