@@ -681,7 +681,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 // Update the udp fin cache and delete the connmark.
 func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
-	// add it to the udp fin cache. If we have already recieved the fin packet
+	// add it to the udp fin cache. If we have already received the fin packet
 	// for this flow. There is no need to change the connmark label again.
 	if d.udpFinPacketTracker.AddOrUpdate(udpPacket.L4ReverseFlowHash(), true) {
 		return nil

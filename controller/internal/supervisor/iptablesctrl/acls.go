@@ -18,8 +18,8 @@ import (
 const (
 	tcpProto     = "tcp"
 	udpProto     = "udp"
-	numPackets   = 100
-	initialCount = 99
+	numPackets   = "100"
+	initialCount = "99"
 )
 
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
