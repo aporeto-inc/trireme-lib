@@ -93,7 +93,10 @@ type Datapath struct {
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
-	// connctrack handle
+	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
+	packetTracingCache cache.DataStore
+
+	// conntrack handle
 	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
@@ -108,6 +111,10 @@ type Datapath struct {
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
 	puToPortsMap    map[string]map[string]bool
+}
+
+type tracingCacheEntry struct {
+	direction packettracing.TracingDirection
 }
 
 func createPolicy(networks []string) policy.IPRuleList {
@@ -210,6 +217,7 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 
+		packetTracingCache:     cache.NewCache("PacketTracingCache"),
 		targetNetworks:         acls.NewACLCache(),
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
@@ -551,10 +559,9 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 }
 
 func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	pucontext, err := d.puFromContextID.Get(contextID)
-	if err != nil {
-		zap.L().Error("ContextID not found", zap.String("contextID", contextID), zap.Error(err))
-		return err
-	}
+	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
+		direction: direction,
+	})
+	d.packetTracingCache.SetTimeOut(contextID, interval)
 	return nil
 }

@@ -26,7 +26,7 @@ var errNetSynNotSeen = errors.New("Network Syn packet was not seen")
 var errNoConnFound = errors.New("no context or connection found")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -40,7 +40,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		)
 	}
 
-	var conn *connection.TCPConnection
+	//var conn *connection.TCPConnection
 
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
@@ -52,7 +52,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			switch err {
 			// Non PU Traffic let it through
 			case errNonPUTraffic:
-				return nil
+				return conn, nil
 			default:
 				if d.packetLogs {
 					zap.L().Debug("Packet rejected",
@@ -61,7 +61,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 						zap.Error(err),
 					)
 				}
-				return err
+				return conn, err
 			}
 		}
 
@@ -72,7 +72,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			// At this point, we can release this flow to kernel as we are not interested in
 			// enforcing policy for the flow.
 			d.releaseUnmonitoredFlow(p)
-			return nil
+			return conn, nil
 		}
 
 	default:
@@ -85,7 +85,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 					zap.Error(err),
 				)
 			}
-			return err
+			return conn, err
 		}
 	}
 
@@ -97,7 +97,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		if !d.service.PreProcessTCPNetPacket(p, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return errors.New("pre service processing failed for network packet")
+			return conn, errors.New("pre service processing failed for network packet")
 		}
 	}
 
@@ -114,7 +114,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 				zap.Error(err),
 			)
 		}
-		return fmt.Errorf("packet processing failed for network packet: %s", err)
+		return conn, fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
 
 	p.Print(packet.PacketStageService)
@@ -123,7 +123,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action, claims, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return errors.New("post service processing failed for network packet")
+			return conn, errors.New("post service processing failed for network packet")
 		}
 
 		if conn.ServiceConnection && conn.TimeOut > 0 {
@@ -136,11 +136,11 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 
-	return nil
+	return conn, nil
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -154,8 +154,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		)
 	}
 
-	var conn *connection.TCPConnection
-
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		conn, err = d.appSynRetrieveState(p)
@@ -167,7 +165,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 					zap.Error(err),
 				)
 			}
-			return err
+			return conn, err
 		}
 	case packet.TCPSynAckMask:
 		conn, err = d.appSynAckRetrieveState(p)
@@ -186,7 +184,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				item, err := d.puFromContextID.Get(cid.(string))
 				if err != nil {
 					// Let the packet through if the context is not found
-					return nil
+					return conn, nil
 				}
 
 				ctx := item.(*pucontext.PUContext)
@@ -197,21 +195,21 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				// for any of these cases. Drop for everything else.
 				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.DestinationAddress.To4(), p.SourcePort)
 				if perr == nil && policy.Action.Accepted() {
-					return nil
+					return conn, nil
 				}
 
 				if ctx.IPinExcludedNetworks(p.DestinationAddress) {
-					return nil
+					return conn, nil
 				}
 				// Drop this synack as it belongs to PU
 				// for which we didn't see syn
 
 				zap.L().Error("Network Syn was not seen, and we are monitoring this PU. Dropping the syn ack packet", zap.String("contextID", cid.(string)), zap.Uint16("port", p.SourcePort))
-				return errNetSynNotSeen
+				return conn, errNetSynNotSeen
 			}
 
 			// syn ack for non aporeto traffic can be let through
-			return nil
+			return conn, nil
 		}
 	default:
 		conn, err = d.appRetrieveState(p)
@@ -223,7 +221,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 					zap.Error(err),
 				)
 			}
-			return err
+			return conn, err
 		}
 	}
 
@@ -236,7 +234,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return errors.New("pre service processing failed for application packet")
+			return conn, errors.New("pre service processing failed for application packet")
 		}
 	}
 
@@ -253,7 +251,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			)
 		}
 		p.Print(packet.PacketFailureAuth)
-		return fmt.Errorf("processing failed for application packet: %s", err)
+		return conn, fmt.Errorf("processing failed for application packet: %s", err)
 	}
 
 	p.Print(packet.PacketStageService)
@@ -262,14 +260,14 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return errors.New("post service processing failed for application packet")
+			return conn, errors.New("post service processing failed for application packet")
 		}
 	}
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
-	return nil
+	return conn, nil
 }
 
 // processApplicationTCPPacket processes a TCP packet and dispatches it to other methods based on the flags

@@ -90,6 +90,8 @@ type EventCollector interface {
 type DebugInfoCollector interface {
 	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
 	CollectTraceEvent(records []string)
+
+	CollectPacketEvent()
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )

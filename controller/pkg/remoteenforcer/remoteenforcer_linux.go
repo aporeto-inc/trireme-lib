@@ -426,7 +426,6 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 		resp.Status = "enforce message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
-	zap.L().Error("Remote Enforcer executing iptables trace")
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
