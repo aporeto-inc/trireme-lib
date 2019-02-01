@@ -60,5 +60,5 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 
 // MarkVal returns a new Mark
 func MarkVal() uint64 {
-	return 0
+	return 103
 }

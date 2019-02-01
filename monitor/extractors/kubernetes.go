@@ -20,11 +20,18 @@ const KubernetesContainerNameIdentifier = "@usr:io.kubernetes.container.name"
 // KubernetesInfraContainerName is the name of the infra POD.
 const KubernetesInfraContainerName = "POD"
 
+// UpstreamOldNameIdentifier is the identifier used to identify the nane on the resulting PU
+// TODO: Remove OLDTAGS
+const UpstreamOldNameIdentifier = "@k8s:name"
+
 // UpstreamNameIdentifier is the identifier used to identify the nane on the resulting PU
-const UpstreamNameIdentifier = "@k8s:name"
+const UpstreamNameIdentifier = "@app:k8s:name"
+
+// UpstreamOldNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
+const UpstreamOldNamespaceIdentifier = "@k8s:namespace"
 
 // UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
-const UpstreamNamespaceIdentifier = "@k8s:namespace"
+const UpstreamNamespaceIdentifier = "@app:k8s:namespace"
 
 // UserLabelPrefix is the label prefix for all user defined labels
 const UserLabelPrefix = "@usr:"
@@ -58,7 +65,9 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 	}
 
 	tags := policy.NewTagStoreFromMap(podLabels)
+	tags.AppendKeyValue(UpstreamOldNameIdentifier, pod.GetName())
 	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
+	tags.AppendKeyValue(UpstreamOldNamespaceIdentifier, pod.GetNamespace())
 	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
 
 	originalRuntime, ok := runtime.(*policy.PURuntime)

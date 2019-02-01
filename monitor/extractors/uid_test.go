@@ -12,6 +12,7 @@ import (
 func createDummyPolicy(event *common.EventInfo) *policy.PURuntime {
 	runtimeTags := policy.NewTagStore()
 	runtimeTags.AppendKeyValue("@sys:test", "valid")
+	runtimeTags.AppendKeyValue("@app:linux:test", "valid")
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
