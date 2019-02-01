@@ -570,8 +570,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", udpProto, "-m", "statistic", "--mode", "nth",
-		"--every", numPackets, "--packet", initialCount,
+		"-p", udpProto,
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
@@ -615,7 +614,8 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", udpProto,
+		"-p", udpProto, "-m", "statistic", "--mode", "nth",
+		"--every", numPackets, "--packet", initialCount,
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
