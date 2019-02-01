@@ -3,6 +3,7 @@ package collector
 import (
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -91,7 +92,7 @@ type DebugInfoCollector interface {
 	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
 	CollectTraceEvent(records []string)
 
-	CollectPacketEvent()
+	CollectPacketEvent(report *PacketReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -175,4 +176,23 @@ type ContainerRecord struct {
 type UserRecord struct {
 	ID     string
 	Claims []string
+}
+
+type PacketReport struct {
+	TCPFlags        int
+	Claims          []string
+	DestinationIP   string
+	DestinationPort int
+	DropReason      string
+	Encrypt         bool
+	Event           packettracing.PacketEvent
+	Length          int
+	Mark            int
+	Namespace       string
+	PacketID        int
+	Protocol        int
+	PUID            string
+	SourceIP        string
+	SourcePort      int
+	TriremePacket   bool
 }

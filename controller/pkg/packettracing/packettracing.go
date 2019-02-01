@@ -9,12 +9,12 @@ const (
 	Invalid         TracingDirection = 4
 )
 
-type packetEvent string
+type PacketEvent string
 
 const (
-	PacketDropped  packetEvent = "Dropped"
-	PacketReceived packetEvent = "Received"
-	PacketSent     packetEvent = "Transmitted"
+	PacketDropped  PacketEvent = "Dropped"
+	PacketReceived PacketEvent = "Received"
+	PacketSent     PacketEvent = "Transmitted"
 )
 
 func IsNetworkPacketTraced(direction TracingDirection) bool {
@@ -23,23 +23,4 @@ func IsNetworkPacketTraced(direction TracingDirection) bool {
 
 func IsApplicationPacketTraced(direction TracingDirection) bool {
 	return (direction&ApplicationOnly != 0)
-}
-
-type PacketReport struct {
-	TCPFlags        int
-	Claims          map[string]string
-	DestinationIP   string
-	DestinationPort int
-	DropReason      string
-	Encrypt         bool
-	Event           packetEvent
-	Length          int
-	Mark            int
-	Namespace       string
-	PacketID        int
-	Protocol        int
-	PUID            string
-	SourceIP        string
-	SourcePort      int
-	TriremePacket   bool
 }

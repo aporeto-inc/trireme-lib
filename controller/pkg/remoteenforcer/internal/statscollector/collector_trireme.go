@@ -56,7 +56,7 @@ func (c *collectorImpl) CollectTraceEvent(records []string) {
 }
 
 // CollectTraceEvent collect trace events
-func (c *collectorImpl) CollectPacketEvent() {
+func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	//We will leave this unimplemented
 	// trace event collection in done from the main enforcer
 }

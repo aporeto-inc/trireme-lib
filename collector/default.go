@@ -28,7 +28,7 @@ func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
 
 func (d *DefaultCollector) CollectTraceEvent(records []string) {}
 
-func (d *DefaultCollector) CollectPacketEvent() {}
+func (d *DefaultCollector) CollectPacketEvent(report *PacketReport) {}
 
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {

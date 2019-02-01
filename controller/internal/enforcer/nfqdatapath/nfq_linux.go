@@ -10,6 +10,7 @@ import (
 	"time"
 
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
@@ -95,6 +96,42 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
+			if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+				report := &collector.PacketReport{}
+				if netPacket.IPProto == packet.IPProtocolTCP {
+					report.TCPFlags = int(netPacket.TCPFlags)
+					report.Protocol = int(packet.IPProtocolTCP)
+					if tcpConn != nil {
+						report.Encrypt = tcpConn.ServiceConnection
+						report.Claims = tcpConn.Context.Identity().GetSlice()
+						report.PUID = tcpConn.Context.ManagementID()
+					}
+				} else if netPacket.IPProto == packet.IPProtocolUDP {
+					report.Protocol = int(packet.IPProtocolUDP)
+					if udpConn != nil {
+						report.Encrypt = udpConn.ServiceConnection
+						report.Claims = udpConn.Context.Identity().GetSlice()
+						report.PUID = udpConn.Context.ManagementID()
+					}
+				}
+
+				//this is getting dropped so nothing on this
+				report.DestinationIP = netPacket.DestinationAddress.String()
+				report.SourceIP = netPacket.SourceAddress.String()
+				report.DestinationPort = int(netPacket.DestinationPort)
+				report.SourcePort = int(netPacket.SourcePort)
+				report.DropReason = processError.Error()
+				report.Length = int(netPacket.IPTotalLength)
+				report.Mark = p.Mark
+				report.PacketID, _ = strconv.Atoi(netPacket.ID())
+				report.TriremePacket = true
+				report.Event = packettracing.PacketDropped
+				d.collector.CollectPacketEvent(report)
+			}
+
+		}
+
 		return
 	}
 
@@ -117,20 +154,20 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
 		if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 
-			report := &packettracing.PacketReport{}
+			report := &collector.PacketReport{}
 			if netPacket.IPProto == packet.IPProtocolTCP {
 				report.TCPFlags = int(netPacket.TCPFlags)
 				report.Protocol = int(packet.IPProtocolTCP)
 				if tcpConn != nil {
 					report.Encrypt = tcpConn.ServiceConnection
-					//report.Claims = tcpConn.Context.Identity().GetSlice()
+					report.Claims = tcpConn.Context.Identity().GetSlice()
 					report.PUID = tcpConn.Context.ManagementID()
 				}
 			} else if netPacket.IPProto == packet.IPProtocolUDP {
 				report.Protocol = int(packet.IPProtocolUDP)
 				if udpConn != nil {
 					report.Encrypt = udpConn.ServiceConnection
-					//report.Claims = udpConn.Context.Identity().GetSlice()
+					report.Claims = udpConn.Context.Identity().GetSlice()
 					report.PUID = udpConn.Context.ManagementID()
 				}
 			}
@@ -145,8 +182,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			report.Protocol = int(netPacket.IPProto)
 			report.TriremePacket = true
 			report.Event = packettracing.PacketSent
-			//report.Claims = map[string]string{"Idenity": tcpConn.Context.Identity().String()}
-
+			d.collector.CollectPacketEvent(report)
 		}
 		//
 
@@ -181,7 +217,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 		if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
 			if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
-				report := &packettracing.PacketReport{}
+				report := &collector.PacketReport{}
 				if appPacket.IPProto == packet.IPProtocolTCP {
 					report.TCPFlags = int(appPacket.TCPFlags)
 					report.Protocol = int(packet.IPProtocolTCP)
@@ -210,7 +246,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 				report.PacketID, _ = strconv.Atoi(appPacket.ID())
 				report.TriremePacket = true
 				report.Event = packettracing.PacketDropped
-
+				d.collector.CollectPacketEvent(report)
 			}
 
 		}
@@ -235,7 +271,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
 		if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 
-			report := &packettracing.PacketReport{}
+			report := &collector.PacketReport{}
 			if appPacket.IPProto == packet.IPProtocolTCP {
 				report.TCPFlags = int(appPacket.TCPFlags)
 				report.Protocol = int(packet.IPProtocolTCP)
@@ -263,7 +299,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			report.Protocol = int(appPacket.IPProto)
 			report.TriremePacket = true
 			report.Event = packettracing.PacketSent
-			//report.Claims = map[string]string{"Idenity": tcpConn.Context.Identity().String()}
+			d.collector.CollectPacketEvent(report)
 
 		}
 		//
