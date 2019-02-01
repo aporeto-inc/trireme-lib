@@ -28,6 +28,8 @@ func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
 
 func (d *DefaultCollector) CollectTraceEvent(records []string) {}
 
+func (d *DefaultCollector) CollectPacketEvent() {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()
