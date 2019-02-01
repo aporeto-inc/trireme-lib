@@ -88,6 +88,7 @@ type Datapath struct {
 	udpNetOrigConnectionTracker  cache.DataStore
 	udpNetReplyConnectionTracker cache.DataStore
 	udpNatConnectionTracker      cache.DataStore
+	udpFinPacketTracker          cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
@@ -208,6 +209,7 @@ func New(
 		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
+		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
 
 		targetNetworks:         acls.NewACLCache(),
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
