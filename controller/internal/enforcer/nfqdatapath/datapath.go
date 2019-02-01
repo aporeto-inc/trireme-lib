@@ -558,7 +558,8 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	return nil, errInvalidProtocol
 }
 
-func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
 		direction: direction,
 	})

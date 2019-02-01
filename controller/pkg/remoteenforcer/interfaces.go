@@ -25,6 +25,8 @@ const (
 	SetTargetNetworks = "RemoteEnforcer.SetTargetNetworks"
 	// EnableIPTablesPacketTracing enable iptables trace mode
 	EnableIPTablesPacketTracing = "RemoteEnforcer.EnableIPTablesPacketTracing"
+	// EnableDatapathPacketTracing enable datapath packet tracing
+	EnableDatapathPacketTracing = "RemoteEnforcer.EnableDatapathPacketTracing"
 )
 
 // RemoteIntf is the interface implemented by the remote enforcer

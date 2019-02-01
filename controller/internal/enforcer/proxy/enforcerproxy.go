@@ -145,6 +145,23 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 	return nil
 }
 
+// EnableDatapathPacketTracing enable nfq packet tracing in remote container
+func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnableDatapathPacketTracingPayLoad{
+			Direction: direction,
+			Interval:  interval,
+			ContextID: contextID,
+		},
+	}
+	err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableDatapathPacketTracing, request, resp)
+	if err != nil {
+		return fmt.Errorf("unable to enable datapath packet tracing %s -- %s", err, resp.Status)
+	}
+	return nil
+}
+
 // SetTargetNetworks does the RPC call for SetTargetNetworks to the corresponding
 // remote enforcers
 func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
@@ -173,15 +190,20 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
 	statsServer := rpcwrapper.NewRPCWrapper()
-	rpcServer := &StatsServer{rpchdl: statsServer, collector: s.collector, secret: s.statsServerSecret}
-
+	debugServer := rpcwrapper.NewRPCWrapper()
+	rpcServer := &StatsServer{
+		rpchdl:    statsServer,
+		collector: s.collector,
+		secret:    s.statsServerSecret,
+	}
+	debugserverparams := &DebugServer{
+		rpchdl:    statsServer,
+		collector: s.collector,
+		secret:    s.statsServerSecret, // Reusing statsServer secret
+	}
 	// Start the server for statistics collection.
-	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer) // nolint
-
-	return nil
-}
-
-func (s *ProxyInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer)         // nolint
+	go debugServer.StartServer(ctx, "unix", rpcwrapper.DebugChannel, debugserverparams) // nolint
 	return nil
 }
 
@@ -311,6 +333,13 @@ type StatsServer struct {
 	secret    string
 }
 
+// DebugServer is a struct receiver for debugserver to handle debug events from remote enforcer
+type DebugServer struct {
+	collector collector.DebugInfoCollector
+	rpchdl    rpcwrapper.RPCServer
+	secret    string
+}
+
 // GetStats is the function called from the remoteenforcer when it has new flow events to publish.
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
@@ -328,5 +357,18 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 		r.collector.CollectUserEvent(record)
 	}
 
+	return nil
+}
+
+// PostPacketEvent is called from the remote to post multiple records from the remoteenforcer
+func (r *DebugServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.DebugPacketPayload)
+	for _, record := range payload.PacketRecords {
+		r.collector.CollectPacketEvent(record)
+	}
 	return nil
 }

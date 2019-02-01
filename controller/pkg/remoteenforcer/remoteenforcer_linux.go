@@ -421,6 +421,23 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	return nil
 }
 
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enforce message auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
+	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+	return nil
+}
+
+// EnableIPTablesPacketTracing enables iptables trace packet tracing
 func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "enforce message auth failed"

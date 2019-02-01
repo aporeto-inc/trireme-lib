@@ -267,8 +267,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 }
 
 //Debug Handlers
-func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
-	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(ctx, contextID, direction, interval)
+func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
+	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(contextID, direction, interval)
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {

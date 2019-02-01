@@ -44,8 +44,8 @@ type Enforcer interface {
 }
 
 type EnforcerDebugInfo interface {
-	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
-	EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error
+	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
+	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -173,7 +173,7 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
 }
 
-func (e *enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 	return nil
 }
 
