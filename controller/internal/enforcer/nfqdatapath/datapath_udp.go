@@ -191,7 +191,10 @@ func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConn
 		if err != nil {
 			// This might be an existing udp connection.
 			// Send FinAck to reauthorize the connection.
-			d.sendUDPFinPacket(p)
+			if err:= d.sendUDPFinPacket(p) {
+				return nil, fmt.Errorf("net state not found, unable to send
+					fin ack packets: %s", err)
+			}
 			return nil, fmt.Errorf("net state not found: %s", err)
 		}
 	}
@@ -551,7 +554,9 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	}
 
 	zap.L().Debug("Clearing fin packet entry in cache", zap.String("flowhash", udpPacket.L4FlowHash()))
-	d.udpFinPacketTracker.Remove(udpPacket.L4FlowHash())
+	if _ := d.udpFinPacketTracker.Remove(udpPacket.L4FlowHash()) {
+		zap.L().Debug("Unable to remove entry from udp finack cache")
+	}
 	return nil
 }
 
