@@ -45,3 +45,12 @@ func (c *collectorImpl) FlushUserCache() {
 
 	c.ProcessedUsers = map[string]bool{}
 }
+
+// GetAllDataPathPacketRecords returns all datapath packet tracing records
+func (c *collectorImpl) GetAllDataPathPacketRecords() []*collector.PacketReport {
+	c.Lock()
+	defer c.Unlock()
+	record := c.DatapathPacketReports
+	c.DatapathPacketReports = []*collector.PacketReport{}
+	return record
+}

@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -212,6 +213,10 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	}
 
 	resp.Status = ""
+	if err := s.debugClient.Run(s.ctx); err != nil {
+		resp.Status = err.Error()
+		return errors.New(resp.Status)
+	}
 	return nil
 }
 

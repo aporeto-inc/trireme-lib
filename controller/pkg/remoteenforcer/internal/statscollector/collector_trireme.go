@@ -59,4 +59,8 @@ func (c *collectorImpl) CollectTraceEvent(records []string) {
 func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	//We will leave this unimplemented
 	// trace event collection in done from the main enforcer
+	c.Lock()
+	defer c.Unlock()
+	c.DatapathPacketReports = append(c.DatapathPacketReports, report)
+
 }
