@@ -361,7 +361,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 }
 
 // PostPacketEvent is called from the remote to post multiple records from the remoteenforcer
-func (r *DebugServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		return errors.New("message sender cannot be verified")
 	}

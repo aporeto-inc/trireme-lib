@@ -18,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -42,6 +43,15 @@ const DefaultExternalIPTimeout = "500ms"
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
+
+type debugacketmessage struct {
+	Mark    int
+	p       *packet.Packet
+	tcpConn *connection.TCPConnection
+	udpConn *connection.UDPConnection
+	err     error
+	network bool
+}
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -563,6 +573,10 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
 		direction: direction,
 	})
-	d.packetTracingCache.SetTimeOut(contextID, interval)
+	go func() {
+		<-time.After(interval)
+		d.packetTracingCache.Remove(contextID)
+	}()
+
 	return nil
 }

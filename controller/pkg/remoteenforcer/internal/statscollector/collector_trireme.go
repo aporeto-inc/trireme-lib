@@ -61,6 +61,7 @@ func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	// trace event collection in done from the main enforcer
 	c.Lock()
 	defer c.Unlock()
+	zap.L().Debug("Collected Packet Event")
 	c.DatapathPacketReports = append(c.DatapathPacketReports, report)
 
 }

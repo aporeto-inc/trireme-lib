@@ -26,6 +26,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -45,6 +46,7 @@ func newServer(
 	rpcChannel string,
 	secret string,
 	statsClient statsclient.StatsClient,
+	debugClient debugclient.DebugClient,
 ) (s RemoteIntf, err error) {
 
 	var collector statscollector.Collector
@@ -55,7 +57,12 @@ func newServer(
 			return nil, err
 		}
 	}
-
+	if debugClient == nil {
+		debugClient, err = debugclient.NewDebugClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
@@ -69,6 +76,7 @@ func newServer(
 		rpcHandle:      rpcHandle,
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
+		debugClient:    debugClient,
 		ctx:            ctx,
 		cancel:         cancel,
 	}, nil
@@ -435,6 +443,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
+	zap.L().Error("")
 	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
@@ -477,7 +486,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil)
+	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
 	if err != nil {
 		return err
 	}

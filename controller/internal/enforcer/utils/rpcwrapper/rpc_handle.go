@@ -275,4 +275,5 @@ func RegisterTypes() {
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.SetTarget_Networks", *(&SetTargetNetworks{}))
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.DebugPacket_Payload", *(&DebugPacketPayload{}))
 }

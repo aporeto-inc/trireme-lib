@@ -174,6 +174,7 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 }
 
 func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	e.transport.EnableDatapathPacketTracing(contextID, direction, interval)
 	return nil
 }
 
