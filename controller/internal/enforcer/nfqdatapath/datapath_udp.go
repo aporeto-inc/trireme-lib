@@ -191,9 +191,8 @@ func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConn
 		if err != nil {
 			// This might be an existing udp connection.
 			// Send FinAck to reauthorize the connection.
-			if err:= d.sendUDPFinPacket(p); err != nil {
-				return nil, fmt.Errorf("net state not found, unable to send
-					fin ack packets: %s", err)
+			if err := d.sendUDPFinPacket(p); err != nil {
+				return nil, fmt.Errorf("net state not found, unable to send fin ack packets: %s", err)
 			}
 			return nil, fmt.Errorf("net state not found: %s", err)
 		}
