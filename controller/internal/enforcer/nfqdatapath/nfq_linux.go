@@ -96,7 +96,22 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
-		if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
+		var value interface{}
+		var err error
+		if netPacket.IPProto == packet.IPProtocolTCP {
+			if tcpConn == nil {
+				return
+			}
+			value, err = d.packetTracingCache.Get(tcpConn.Context.ID())
+		}
+		if netPacket.IPProto == packet.IPProtocolUDP {
+			if udpConn == nil {
+				return
+			}
+			value, err = d.packetTracingCache.Get(udpConn.Context.ID())
+		}
+
+		if err == nil {
 			if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 				report := &collector.PacketReport{}
 				if netPacket.IPProto == packet.IPProtocolTCP {
@@ -150,8 +165,20 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
-
-	if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
+	var value interface{}
+	if netPacket.IPProto == packet.IPProtocolTCP {
+		if tcpConn == nil {
+			return
+		}
+		value, err = d.packetTracingCache.Get(tcpConn.Context.ID())
+	}
+	if netPacket.IPProto == packet.IPProtocolUDP {
+		if udpConn == nil {
+			return
+		}
+		value, err = d.packetTracingCache.Get(udpConn.Context.ID())
+	}
+	if err == nil {
 		if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 
 			report := &collector.PacketReport{}
@@ -268,6 +295,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
+
 	if value, err := d.packetTracingCache.Get(tcpConn.Context.ID()); err == nil {
 		if packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 

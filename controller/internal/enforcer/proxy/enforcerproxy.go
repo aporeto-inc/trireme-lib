@@ -190,20 +190,20 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
 	statsServer := rpcwrapper.NewRPCWrapper()
-	debugServer := rpcwrapper.NewRPCWrapper()
+	//debugServer := rpcwrapper.NewRPCWrapper()
 	rpcServer := &StatsServer{
 		rpchdl:    statsServer,
 		collector: s.collector,
 		secret:    s.statsServerSecret,
 	}
-	debugserverparams := &DebugServer{
-		rpchdl:    statsServer,
-		collector: s.collector,
-		secret:    s.statsServerSecret, // Reusing statsServer secret
-	}
+	// debugserverparams := &DebugServer{
+	// 	rpchdl:    statsServer,
+	// 	collector: s.collector,
+	// 	secret:    s.statsServerSecret, // Reusing statsServer secret
+	// }
 	// Start the server for statistics collection.
-	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer)         // nolint
-	go debugServer.StartServer(ctx, "unix", rpcwrapper.DebugChannel, debugserverparams) // nolint
+	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer) // nolint
+	//go debugServer.StartServer(ctx, "unix", rpcwrapper.DebugChannel, debugserverparams) // nolint
 	return nil
 }
 
