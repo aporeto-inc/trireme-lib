@@ -8,6 +8,13 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+// DebugInfo is interface that the supervisor implements to configure iptables tracing interface
+type DebugInfo interface {
+
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
+}
+
 // A Supervisor is implementing the node control plane that captures the packets.
 type Supervisor interface {
 
@@ -51,11 +58,4 @@ type Implementor interface {
 
 	// ACLProvider returns the ACL provider used by the implementor
 	ACLProvider() provider.IptablesProvider
-}
-
-// DebugInfo is interface that the supervisor implements to configure iptables tracing interface
-type DebugInfo interface {
-
-	// EnableIPTablesPacketTracing enables ip tables packet tracing
-	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
