@@ -402,3 +402,37 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 	})
 
 }
+
+func TestPostPacketEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+	c := eventCollector()
+	packetreport := &collector.PacketReport{
+		DestinationIP: "12.12.12.12",
+		SourceIP:      "1.1.1.1",
+	}
+	request := rpcwrapper.Request{
+		Payload: rpcwrapper.DebugPacketPayload{
+			PacketRecords: []*collector.PacketReport{packetreport},
+		},
+	}
+	statsserver := &StatsServer{
+		rpchdl:    rpchdl,
+		collector: c,
+		secret:    "test",
+	}
+	response := &rpcwrapper.Response{}
+
+	Convey("Given i receive a invalid message from the remote enforcer ", t, func() {
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(false)
+		err := statsserver.PostPacketEvent(request, response)
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Given i receive a valid message from the remote enforcer ", t, func() {
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(true)
+		err := statsserver.PostPacketEvent(request, response)
+		So(err, ShouldBeNil)
+	})
+}

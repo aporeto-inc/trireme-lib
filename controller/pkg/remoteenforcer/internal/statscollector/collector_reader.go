@@ -2,7 +2,6 @@ package statscollector
 
 import (
 	"go.aporeto.io/trireme-lib/collector"
-	"go.uber.org/zap"
 )
 
 // Count returns the current number of flows.
@@ -55,7 +54,6 @@ func (c *collectorImpl) GetAllDataPathPacketRecords() []*collector.PacketReport 
 	defer c.Unlock()
 
 	record := c.DatapathPacketReports
-	zap.L().Debug("All Records length", zap.Int("Length Collected", len(record)))
 	c.DatapathPacketReports = []*collector.PacketReport{}
 	return record
 }

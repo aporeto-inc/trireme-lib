@@ -4866,6 +4866,27 @@ func TestCollectTCPPacket(t *testing.T) {
 	})
 }
 
+func TestEnableDatapathPacketTracing(t *testing.T) {
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I enable packettracing on a PU", func() {
+			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.ApplicationOnly, 10*time.Second)
+			So(err, ShouldBeNil)
+			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
+			So(err, ShouldBeNil)
+			<-time.After(15 * time.Second)
+			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
+			So(err, ShouldNotBeNil)
+		})
+		Convey("I enable packettracing on a invalid PU", func() {
+			err := enforcer.EnableDatapathPacketTracing("unknown", packettracing.ApplicationOnly, 10*time.Second)
+			So(err, ShouldNotBeNil)
+		})
+	})
+}
+
 type testFiles struct{}
 
 var mockfiles *testFiles
