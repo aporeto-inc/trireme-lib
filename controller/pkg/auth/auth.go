@@ -90,10 +90,11 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 			if err != nil {
 				return attributes, false, userToken, fmt.Errorf("Unable to decode JWT: %s", err)
 			}
-			return append(attributes, jwtAttributes...), false, userToken, nil
+			attributes = append(attributes, jwtAttributes...)
 		}
 
 		return attributes, false, userToken, nil
+
 	case policy.UserAuthorizationOIDC:
 		// Now we can parse the user claims.
 		if p.userTokenHandler == nil {
