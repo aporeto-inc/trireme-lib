@@ -159,6 +159,7 @@ func (m *TestSupervisorInst) SetTargetNetworks(networks []string) error {
 	return nil
 }
 
+// EnableIPTablesPacketTracing enable iptables packet trace
 func (m *TestSupervisorInst) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.EnableIPTablesPacketTracing != nil {
 		return mock.EnableIPTablesPacketTracing(ctx, contextID, interval)

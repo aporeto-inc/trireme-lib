@@ -1,6 +1,6 @@
 package packettracing
 
-// TracingDiretion is used to configure the direction for which we want to trace packets
+// TracingDirection is used to configure the direction for which we want to trace packets
 type TracingDirection int
 
 // TracingDirection enum all possible states

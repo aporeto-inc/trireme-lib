@@ -40,11 +40,11 @@ type Enforcer interface {
 	UpdateSecrets(secrets secrets.Secrets) error
 
 	SetTargetNetworks(networks []string) error
-	EnforcerDebugInfo
+	DebugInfo
 }
 
 // EnforcerDebugInfo is interface to implement methods to configure datapath packet tracing in the nfqdatapath
-type EnforcerDebugInfo interface {
+type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
 	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 }

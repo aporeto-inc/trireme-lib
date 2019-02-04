@@ -176,6 +176,7 @@ type UserRecord struct {
 	Claims []string
 }
 
+// PacketReport is the struct which is used to report packets captured in datapath
 type PacketReport struct {
 	TCPFlags        int
 	Claims          []string

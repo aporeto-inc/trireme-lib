@@ -3154,11 +3154,11 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
-								_, _, err = enforcer.processNetworkTCPPackets(outPacket)
+								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
-								_, _, err = enforcer.processNetworkTCPPackets(outPacket)
+								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							}
 
@@ -3314,7 +3314,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 
-								_, _, err = enforcer.processNetworkTCPPackets(outPacket)
+								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 
 							}
