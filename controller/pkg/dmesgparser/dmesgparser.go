@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-type hdl struct {
+type dmesg struct {
 	chanSize          int
 	lastProcessedTime float64
 	sync.Mutex
@@ -22,7 +22,7 @@ func getEntryTime(line string) float64 {
 }
 
 // TODOD move to dmesg -w mode later
-// func (r *hdl) runDmesgCommandFollowMode(outputChan chan string, interval time.Duration) {
+// func (r *dmesg) runDmesgCommandFollowMode(outputChan chan string, interval time.Duration) {
 // 	cmdCtx,cancel := context.WithTimeout(ctx, interval)
 // 	defer cancel()
 // 	cmd := exec.CommandContext(, "dmesg", "-w", "-l", "warn")
@@ -30,7 +30,7 @@ func getEntryTime(line string) float64 {
 // }
 
 // RunDmesgCommand runs the dmesg command to capture raw dmesg output
-func (d *hdl) RunDmesgCommand() ([]string, error) {
+func (d *dmesg) RunDmesgCommand() ([]string, error) {
 
 	output, err := exec.Command("dmesg").CombinedOutput()
 	if err != nil {
@@ -60,9 +60,9 @@ func isTraceOutput(line string) bool {
 
 }
 
-// New return an initialized hdl
-func New() *hdl {
-	return &hdl{
+// New return an initialized dmesg
+func New() *dmesg {
+	return &dmesg{
 		chanSize:          10000,
 		lastProcessedTime: 0,
 	}

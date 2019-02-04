@@ -43,7 +43,7 @@ type Enforcer interface {
 	DebugInfo
 }
 
-// EnforcerDebugInfo is interface to implement methods to configure datapath packet tracing in the nfqdatapath
+// DebugInfo is interface to implement methods to configure datapath packet tracing in the nfqdatapath
 type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
 	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error

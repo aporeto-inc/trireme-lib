@@ -269,9 +269,9 @@ func (d *Datapath) collectUDPPacket(msg *debugacketmessage) {
 		report.PUID = msg.udpConn.Context.ManagementID()
 	}
 
-	if msg.network == true && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
 		return
-	} else if msg.network == false && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 		return
 	}
 	report.Protocol = int(packet.IPProtocolUDP)
@@ -325,9 +325,9 @@ func (d *Datapath) collectTCPPacket(msg *debugacketmessage) {
 		report.PUID = msg.tcpConn.Context.ManagementID()
 	}
 
-	if msg.network == true && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
 		return
-	} else if msg.network == false && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
 		return
 	}
 

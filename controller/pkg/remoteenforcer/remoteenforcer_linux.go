@@ -222,7 +222,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	resp.Status = ""
 	if err := s.debugClient.Run(s.ctx); err != nil {
-		resp.Status = err.Error()
+		resp.Status = "DebugClient" + err.Error()
 		return errors.New(resp.Status)
 	}
 	return nil

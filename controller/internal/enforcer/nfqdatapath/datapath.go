@@ -575,7 +575,7 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 	})
 	go func() {
 		<-time.After(interval)
-		d.packetTracingCache.Remove(contextID)
+		d.packetTracingCache.Remove(contextID) // nolint
 	}()
 
 	return nil
