@@ -45,6 +45,8 @@ func (p *packetEventMatcher) Matches(x interface{}) bool {
 func (p *packetEventMatcher) String() string {
 	return fmt.Sprintf("is equal to %v", p.x)
 }
+
+// PacketEventMatcher return gomock matcher
 func PacketEventMatcher(x interface{}) gomock.Matcher {
 	return &packetEventMatcher{x: x}
 }

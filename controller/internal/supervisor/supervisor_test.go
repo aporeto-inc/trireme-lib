@@ -309,3 +309,39 @@ func TestStop(t *testing.T) {
 		})
 	})
 }
+
+func TestEnableIPTablesPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a properly configured supervisor", t, func() {
+		c := &collector.DefaultCollector{}
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		So(s, ShouldNotBeNil)
+
+		impl := mocksupervisor.NewMockImplementor(ctrl)
+		s.impl = impl
+
+		Convey("When I try to start it and the implementor works", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			err := s.Run(context.Background())
+			Convey("I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+
+		})
+	})
+}

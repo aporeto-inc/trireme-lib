@@ -359,3 +359,29 @@ func TestUnenforce(t *testing.T) {
 		})
 	})
 }
+
+func TestEnableDatapathPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	Convey("When i setup a proxy enforcer",t,func(){
+		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
+		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
+		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
+	}),
+	Convey("Then policyEnf should not be nil", func() {
+			So(policyEnf, ShouldNotBeNil)
+	})
+	Convey("Then i call EnableDatapathpacket tracing with wrong contextID",func(){
+		rpcwrapper.EXPECT().RemoteCall("doesnotexist",remoteenforcer.EnableDatapathPacketTracing,gomock.Any(),gomock.Any().Times(1).Return(fmt.Errorf("ContextID does not exist"))
+		err := policyEnf.EnableDatapathPacketTracing("doesnotexist",packettracing.NetworkOnly,10*time.Second)
+		So(err,ShouldNotBeNil)
+		})
+	Convey("Then i call EnableDatapathpacket tracing with wrong contextID",func(){
+		rpcwrapper.EXPECT().RemoteCall("doesnotexist",remoteenforcer.EnableDatapathPacketTracing,gomock.Any(),gomock.Any().Times(1).Return(nil)
+		err := policyEnf.EnableDatapathPacketTracing("doesnotexist",packettracing.NetworkOnly,10*time.Second)
+		So(err,ShouldBeNil)
+	})	
+}
+
+		

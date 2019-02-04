@@ -274,7 +274,6 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 			select {
 			case <-ctx.Done():
 			case <-time.After(interval):
-				zap.L().Error("Deleting Rule")
 				for _, rule := range iptablesRules {
 					if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
 						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
