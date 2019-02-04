@@ -22,6 +22,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -4777,6 +4778,90 @@ func TestPUPortCreation(t *testing.T) {
 		})
 
 		enforcer.Enforce(contextID, puInfo) // nolint
+
+	})
+}
+
+func TestCollectTCPPacket(t *testing.T) {
+	//setup a default debug message
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	var puInfo1 *policy.PUInfo
+	var enforcer *Datapath
+	var err1, err2 error
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
+	Convey("Given an initialiazed debug message", t, func() {
+		puInfo1, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", false)
+		So(enforcer, ShouldNotBeNil)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		PacketFlow := packetgen.NewTemplateFlow()
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+
+		tcpPacket, err := packet.New(0, synPacket, "0", true)
+		So(err, ShouldBeNil)
+		Convey("We setup tcp network packet tracing for this pu with incomplete state", func() {
+			interval := 10 * time.Second
+			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			So(err, ShouldBeNil)
+			packetreport := collector.PacketReport{
+				DestinationIP: tcpPacket.DestinationAddress.String(),
+				SourceIP:      tcpPacket.SourceAddress.String(),
+			}
+			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(0)
+			enforcer.collectTCPPacket(&debugpacketmessage{
+				Mark:    10,
+				p:       tcpPacket,
+				tcpConn: nil,
+				udpConn: nil,
+				err:     nil,
+				network: true,
+			})
+		})
+		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil state", func() {
+			interval := 10 * time.Second
+			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			So(err, ShouldBeNil)
+			packetreport := collector.PacketReport{
+				DestinationIP: tcpPacket.DestinationAddress.String(),
+				SourceIP:      tcpPacket.SourceAddress.String(),
+			}
+			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
+			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext))
+			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(1)
+			enforcer.collectTCPPacket(&debugpacketmessage{
+				Mark:    10,
+				p:       tcpPacket,
+				tcpConn: tcpConn,
+				udpConn: nil,
+				err:     nil,
+				network: true,
+			})
+		})
+		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil and inject application packet", func() {
+			interval := 10 * time.Second
+			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			So(err, ShouldBeNil)
+			packetreport := collector.PacketReport{
+				DestinationIP: tcpPacket.DestinationAddress.String(),
+				SourceIP:      tcpPacket.SourceAddress.String(),
+			}
+			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
+			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext))
+			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(0)
+			enforcer.collectTCPPacket(&debugpacketmessage{
+				Mark:    10,
+				p:       tcpPacket,
+				tcpConn: tcpConn,
+				udpConn: nil,
+				err:     nil,
+				network: false,
+			})
+		})
 
 	})
 }
