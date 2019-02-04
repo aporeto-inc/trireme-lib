@@ -36,9 +36,10 @@ type TriremeController interface {
 	ControllerDebugInfo
 }
 
+// ControllerDebugInfo is the interface implemented by controllers to support configuring debug options
 type ControllerDebugInfo interface {
 	// EnableReceivedPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
 	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error
-	// EnablePacketTracing enable iptables -j trace for the paricular pu and is much wider packet stream.
+	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error
 }

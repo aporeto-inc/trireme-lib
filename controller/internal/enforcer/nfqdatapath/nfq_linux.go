@@ -99,7 +99,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		if netPacket.IPProto == packet.IPProtocolTCP {
-			d.CollectTCPPacket(&debugacketmessage{
+			d.collectTCPPacket(&debugacketmessage{
 				Mark:    p.Mark,
 				p:       netPacket,
 				tcpConn: tcpConn,
@@ -108,7 +108,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 				network: true,
 			})
 		} else if netPacket.IPProto == packet.IPProtocolUDP {
-			d.CollectUDPPacket(&debugacketmessage{
+			d.collectUDPPacket(&debugacketmessage{
 				Mark:    p.Mark,
 				p:       netPacket,
 				tcpConn: nil,
@@ -137,7 +137,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	}
 	if netPacket.IPProto == packet.IPProtocolTCP {
-		d.CollectTCPPacket(&debugacketmessage{
+		d.collectTCPPacket(&debugacketmessage{
 			Mark:    p.Mark,
 			p:       netPacket,
 			tcpConn: tcpConn,
@@ -146,7 +146,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			network: true,
 		})
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
-		d.CollectUDPPacket(&debugacketmessage{
+		d.collectUDPPacket(&debugacketmessage{
 			Mark:    p.Mark,
 			p:       netPacket,
 			tcpConn: nil,
@@ -184,7 +184,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		if appPacket.IPProto == packet.IPProtocolTCP {
 
-			d.CollectTCPPacket(&debugacketmessage{
+			d.collectTCPPacket(&debugacketmessage{
 				Mark:    p.Mark,
 				p:       appPacket,
 				tcpConn: tcpConn,
@@ -193,7 +193,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 				network: false,
 			})
 		} else if appPacket.IPProto == packet.IPProtocolUDP {
-			d.CollectUDPPacket(&debugacketmessage{
+			d.collectUDPPacket(&debugacketmessage{
 				Mark:    p.Mark,
 				p:       appPacket,
 				tcpConn: nil,
@@ -221,7 +221,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	}
 	if appPacket.IPProto == packet.IPProtocolTCP {
-		d.CollectTCPPacket(&debugacketmessage{
+		d.collectTCPPacket(&debugacketmessage{
 			Mark:    p.Mark,
 			p:       appPacket,
 			tcpConn: tcpConn,
@@ -230,7 +230,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			network: false,
 		})
 	} else if appPacket.IPProto == packet.IPProtocolUDP {
-		d.CollectUDPPacket(&debugacketmessage{
+		d.collectUDPPacket(&debugacketmessage{
 			Mark:    p.Mark,
 			p:       appPacket,
 			tcpConn: nil,
@@ -242,29 +242,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 }
 
-// func (d *Datapath) startnetworkDebugger(ctx context.Context, packetChan chan debugacketmessage, queuenum uint16) {
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case msg := <-packetChan:
-// 			var value interface{}
-// 			var err error
-// 			if msg.p.IPProto == packet.IPProtocolTCP {
-// 				value, err = d.packetTracingCache.Get(mdg.tcpConn.Context.ID())
-// 			} else if msg.p.IPProto == packet.IPProtocolUDP {
-// 				value, err = d.packetTracingCache.Get(mdg.udpConn.Context.ID())
-
-// 			}
-// 			if err == nil { // This context is being debugged
-
-// 			}
-
-// 		}
-// 	}
-// }
-
-func (d *Datapath) CollectUDPPacket(msg *debugacketmessage) {
+func (d *Datapath) collectUDPPacket(msg *debugacketmessage) {
 	var value interface{}
 	var err error
 	report := &collector.PacketReport{}
@@ -316,7 +294,7 @@ func (d *Datapath) CollectUDPPacket(msg *debugacketmessage) {
 	d.collector.CollectPacketEvent(report)
 }
 
-func (d *Datapath) CollectTCPPacket(msg *debugacketmessage) {
+func (d *Datapath) collectTCPPacket(msg *debugacketmessage) {
 	var value interface{}
 	var err error
 	report := &collector.PacketReport{}

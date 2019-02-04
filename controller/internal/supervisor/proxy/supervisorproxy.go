@@ -174,6 +174,7 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 	return nil
 }
 
+// EnableIPTablesPacketTracing enable iptables tracing
 func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.EnableIPTablesPacketTracingPayLoad{

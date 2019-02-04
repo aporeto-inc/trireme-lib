@@ -411,7 +411,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	var err error
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enforce message auth failed"
+		resp.Status = "updatesecrets auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -437,7 +437,7 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
 func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enforce message auth failed"
+		resp.Status = "enable datapath packet tracing auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 	cmdLock.Lock()
@@ -453,7 +453,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 // EnableIPTablesPacketTracing enables iptables trace packet tracing
 func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enforce message auth failed"
+		resp.Status = "enable iptable packet tracing auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 	cmdLock.Lock()

@@ -53,6 +53,9 @@ type Implementor interface {
 	ACLProvider() provider.IptablesProvider
 }
 
+// DebugInfo is interface that the supervisor implements to configure iptables tracing interface
 type DebugInfo interface {
+
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }

@@ -111,6 +111,7 @@ type StatsPayload struct {
 	Users map[string]*collector.UserRecord `json:",omitempty"`
 }
 
+// DebugPacketPayload is the enforcer packet report from remote enforcers
 type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
 }

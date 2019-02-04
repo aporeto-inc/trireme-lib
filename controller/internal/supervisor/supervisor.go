@@ -247,6 +247,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	return nil
 }
 
+// EnableIPTablesPacketTracing enables ip tables packet tracing
 func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 
 	data, err := s.versionTracker.Get(contextID)
@@ -255,7 +256,7 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 	}
 
 	cfg := data.(*cacheData)
-	iptablesRules := DebugRules(cfg, s.mode)
+	iptablesRules := debugRules(cfg, s.mode)
 	ipt, err := iptables.New()
 	if err != nil {
 		return fmt.Errorf("error while execing iptables %s", err)
@@ -275,7 +276,9 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 			case <-time.After(interval):
 				zap.L().Error("Deleting Rule")
 				for _, rule := range iptablesRules {
-					ipt.Delete(rule[0], rule[1], rule[2:]...)
+					if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
+					}
 				}
 			}
 		}
@@ -283,7 +286,7 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 	return nil
 }
 
-func DebugRules(data *cacheData, mode constants.ModeType) [][]string {
+func debugRules(data *cacheData, mode constants.ModeType) [][]string {
 	iptables := [][]string{}
 	if mode == constants.RemoteContainer {
 		iptables = append(iptables, [][]string{

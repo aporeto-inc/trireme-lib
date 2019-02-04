@@ -190,20 +190,14 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
 	statsServer := rpcwrapper.NewRPCWrapper()
-	//debugServer := rpcwrapper.NewRPCWrapper()
 	rpcServer := &StatsServer{
 		rpchdl:    statsServer,
 		collector: s.collector,
 		secret:    s.statsServerSecret,
 	}
-	// debugserverparams := &DebugServer{
-	// 	rpchdl:    statsServer,
-	// 	collector: s.collector,
-	// 	secret:    s.statsServerSecret, // Reusing statsServer secret
-	// }
+
 	// Start the server for statistics collection.
 	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer) // nolint
-	//go debugServer.StartServer(ctx, "unix", rpcwrapper.DebugChannel, debugserverparams) // nolint
 	return nil
 }
 
@@ -329,13 +323,6 @@ func NewDefaultProxyEnforcer(serverID string,
 // StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.
 type StatsServer struct {
 	collector collector.EventCollector
-	rpchdl    rpcwrapper.RPCServer
-	secret    string
-}
-
-// DebugServer is a struct receiver for debugserver to handle debug events from remote enforcer
-type DebugServer struct {
-	collector collector.DebugInfoCollector
 	rpchdl    rpcwrapper.RPCServer
 	secret    string
 }

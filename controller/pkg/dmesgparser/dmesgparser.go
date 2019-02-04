@@ -14,11 +14,6 @@ type dmesgHdl struct {
 	sync.Mutex
 }
 
-func getLastEntryTime(lines []string) float64 {
-	lastLine := lines[len(lines)-1]
-	return getEntryTime(lastLine)
-}
-
 func getEntryTime(line string) float64 {
 	leftindex := strings.Index(line, "[")
 	rightIndex := strings.Index(line, "]")
@@ -34,6 +29,7 @@ func getEntryTime(line string) float64 {
 
 // }
 
+// RunDmesgCommand runs the dmesg command to capture raw dmesg ouput
 func (d *dmesgHdl) RunDmesgCommand() ([]string, error) {
 
 	output, err := exec.Command("dmesg").CombinedOutput()
@@ -59,15 +55,12 @@ func (d *dmesgHdl) RunDmesgCommand() ([]string, error) {
 }
 
 func isTraceOutput(line string) bool {
-	rightIndex := strings.Index(line, "]")
-	substring := line[rightIndex:]
-	if strings.HasPrefix(strings.TrimSpace(substring), "TRACE:") {
-		return true
-	}
-	return false
+	substring := string(line[strings.Index(line, "]")])
+	return strings.HasPrefix(strings.TrimSpace(substring), "TRACE:")
 
 }
 
+// New return an initialized dmesgHdl
 func New() *dmesgHdl {
 	return &dmesgHdl{
 		chanSize:          10000,

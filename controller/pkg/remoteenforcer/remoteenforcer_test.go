@@ -273,7 +273,7 @@ func TestNewServer(t *testing.T) {
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -290,7 +290,7 @@ func TestNewServer(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -328,7 +328,7 @@ func TestInitEnforcer(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, mockStats)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, mockStats, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -414,7 +414,7 @@ func TestInitSupervisor(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -590,7 +590,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -607,7 +607,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -685,7 +685,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -702,7 +702,7 @@ func TestSupervise(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -780,7 +780,7 @@ func TestEnforce(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -797,7 +797,7 @@ func TestEnforce(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -910,7 +910,7 @@ func TestUnEnforce(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -927,7 +927,7 @@ func TestUnEnforce(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {
@@ -1015,7 +1015,7 @@ func TestUnSupervise(t *testing.T) {
 		Convey("When I try to create new server with no env set", func() {
 			var service packetprocessor.PacketProcessor
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -1032,7 +1032,7 @@ func TestUnSupervise(t *testing.T) {
 			pcchan := os.Getenv(constants.EnvStatsChannel)
 			secret := os.Getenv(constants.EnvStatsSecret)
 			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil)
+			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
 			server, ok := remoteIntf.(*RemoteEnforcer)
 
 			Convey("Then I should get no error", func() {

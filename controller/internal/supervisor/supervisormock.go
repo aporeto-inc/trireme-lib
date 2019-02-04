@@ -29,6 +29,7 @@ type mockedMethods struct {
 	// SetTargetNetworksMock  adds the SetTargetNetworks implementation
 	SetTargetNetworksMock func(networks []string) error
 
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
 	EnableIPTablesPacketTracing func(ctx context.Context, contextID string, interval time.Duration) error
 }
 
@@ -94,6 +95,8 @@ func (m *TestSupervisorInst) MockSetTargetNetworks(t *testing.T, impl func(netwo
 
 	m.currentMocks(t).SetTargetNetworksMock = impl
 }
+
+// MockEnableIPTablesPacketTracing mock EnableIPTablesPacketTracing method
 func (m *TestSupervisorInst) MockEnableIPTablesPacketTracing(t *testing.T, impl func(context.Context, string, time.Duration) error) {
 	m.currentMocks(t).EnableIPTablesPacketTracing = impl
 }
