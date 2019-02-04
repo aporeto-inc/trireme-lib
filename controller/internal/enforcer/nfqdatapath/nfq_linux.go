@@ -370,6 +370,13 @@ func (d *Datapath) CollectTCPPacket(msg *debugacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
+	// if tcpConn != nil {
+	// 	packetClaims := d.tokenAccessor.ParsePacketToken(tcpConn.AuthInfo, packet.ReadTCPData())
+	// 	if packetClaims != nil {
+	// 		report.PacketClaims := packetClaims.T.GetSlice()
+	// 	}
+
+	// }
 	d.collector.CollectPacketEvent(report)
 
 }

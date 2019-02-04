@@ -443,7 +443,6 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
-	zap.L().Error("")
 	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
