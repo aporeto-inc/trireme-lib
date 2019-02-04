@@ -571,15 +571,16 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
 func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 
-	go func() {
-		<-time.After(interval)
-		d.packetTracingCache.Remove(contextID) // nolint
-	}()
 	if _, err := d.puFromContextID.Get(contextID); err != nil {
 		return fmt.Errorf("contextID %s does not exist", contextID)
 	}
 	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
 		direction: direction,
 	})
+	go func() {
+		<-time.After(interval)
+		d.packetTracingCache.Remove(contextID) // nolint
+	}()
+
 	return nil
 }
