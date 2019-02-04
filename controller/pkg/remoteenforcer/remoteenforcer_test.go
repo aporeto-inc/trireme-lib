@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -313,7 +314,7 @@ func TestInitEnforcer(t *testing.T) {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
-		mockDebugClient := mockdebugclient.MockDebugClient(ctrl)
+		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
 		mocksupervisor := mocksupervisor.NewMockSupervisor(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {

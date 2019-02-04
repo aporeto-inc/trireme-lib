@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// Dmesg struct handle for the dmesg parser
 type Dmesg struct {
 	chanSize          int
 	lastProcessedTime float64
