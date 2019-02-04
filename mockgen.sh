@@ -43,7 +43,7 @@ goimport_sanitize controller/pkg/remoteenforcer/internal/statsclient/mockstatscl
 
 echo "controller/pkg/remoteenforcer/DebugClient Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient
-mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/statsclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
+mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go
 
 
