@@ -4880,10 +4880,10 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldNotBeNil)
 		})
-		Convey("I enable packettracing on a invalid PU", func() {
-			err := enforcer.EnableDatapathPacketTracing("unknown", packettracing.ApplicationOnly, 10*time.Second)
-			So(err, ShouldNotBeNil)
-		})
+		// Convey("I enable packettracing on a invalid PU", func() {
+		// 	err := enforcer.EnableDatapathPacketTracing("unknown", packettracing.ApplicationOnly, 10*time.Second)
+		// 	So(err, ShouldNotBeNil)
+		// })
 	})
 }
 
