@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -342,6 +343,10 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
+		})
+		Convey("I setup EnableIPTablesTracing on the context", func() {
+			err := s.EnableIPTablesPacketTracing(context.Background(), "serverID", 10*time.Second)
+			So(err, ShouldNotBeNil)
 		})
 	})
 }

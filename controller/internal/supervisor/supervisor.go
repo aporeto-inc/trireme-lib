@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/go-iptables/iptables"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -257,12 +256,9 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 
 	cfg := data.(*cacheData)
 	iptablesRules := debugRules(cfg, s.mode)
-	ipt, err := iptables.New()
-	if err != nil {
-		return fmt.Errorf("error while execing iptables %s", err)
-	}
+	ipt := s.impl.ACLProvider()
+
 	for _, rule := range iptablesRules {
-		zap.L().Error("Installing Rule")
 		if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
 			zap.L().Error("Unable to install rule", zap.Error(err))
 		}
