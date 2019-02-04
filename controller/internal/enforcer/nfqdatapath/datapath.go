@@ -44,7 +44,7 @@ const DefaultExternalIPTimeout = "500ms"
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
 
-type debugacketmessage struct {
+type debugpacketmessage struct {
 	Mark    int
 	p       *packet.Packet
 	tcpConn *connection.TCPConnection
