@@ -85,11 +85,7 @@ type EventCollector interface {
 
 	// CollectUserEvent  collects a user event
 	CollectUserEvent(record *UserRecord)
-	DebugInfoCollector
-}
 
-// DebugInfoCollector is the debug info collection collector. The configuration is through a spearate path
-type DebugInfoCollector interface {
 	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
 	CollectTraceEvent(records []string)
 

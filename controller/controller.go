@@ -274,11 +274,11 @@ func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packet
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
-		zap.L().Warn("Unable to set nf_log_all_netns.container tracing will not work")
+		return fmt.Errorf("sysctl command not found")
 	}
 	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
 	if err := cmd.Run(); err != nil {
-		zap.L().Fatal("Failed to enable log all netns options", zap.Error(err))
+		return fmt.Errorf("remote container iptables tracing will not work %s", err)
 	}
 	t.enablingTrace <- &traceTrigger{
 		duration: interval,
