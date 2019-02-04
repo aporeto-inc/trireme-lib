@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-type dmesg struct {
+type Dmesg struct {
 	chanSize          int
 	lastProcessedTime float64
 	sync.Mutex
@@ -21,20 +21,20 @@ func getEntryTime(line string) float64 {
 	return val
 }
 
-// TODOD move to dmesg -w mode later
-// func (r *dmesg) runDmesgCommandFollowMode(outputChan chan string, interval time.Duration) {
+// TODOD move to Dmesg -w mode later
+// func (r *Dmesg) runDmesgCommandFollowMode(outputChan chan string, interval time.Duration) {
 // 	cmdCtx,cancel := context.WithTimeout(ctx, interval)
 // 	defer cancel()
-// 	cmd := exec.CommandContext(, "dmesg", "-w", "-l", "warn")
+// 	cmd := exec.CommandContext(, "Dmesg", "-w", "-l", "warn")
 
 // }
 
-// RunDmesgCommand runs the dmesg command to capture raw dmesg output
-func (d *dmesg) RunDmesgCommand() ([]string, error) {
+// RunDmesgCommand runs the Dmesg command to capture raw Dmesg output
+func (d *Dmesg) RunDmesgCommand() ([]string, error) {
 
-	output, err := exec.Command("dmesg").CombinedOutput()
+	output, err := exec.Command("Dmesg").CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot run dmesg cmd %s", err)
+		return nil, fmt.Errorf("Cannot run Dmesg cmd %s", err)
 	}
 
 	lines := strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")
@@ -60,9 +60,9 @@ func isTraceOutput(line string) bool {
 
 }
 
-// New return an initialized dmesg
-func New() *dmesg {
-	return &dmesg{
+// New return an initialized Dmesg
+func New() *Dmesg {
+	return &Dmesg{
 		chanSize:          10000,
 		lastProcessedTime: 0,
 	}

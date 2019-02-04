@@ -40,6 +40,13 @@ mkdir -p controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient
 mockgen -source controller/pkg/remoteenforcer/internal/statsclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient/mockstatsclient.go -package mockstatsclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient/mockstatsclient.go
 
+
+echo "controller/pkg/remoteenforcer/DebugClient Mocks"
+mkdir -p controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient
+mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/statsclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
+goimport_sanitize controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go
+
+
 echo "controller/pkg/remoteenforcer/StatsCollector Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector
 mockgen -source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go -package mockstatscollector
