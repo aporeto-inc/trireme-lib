@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -1106,6 +1107,157 @@ func TestUnSupervise(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.EnvStatsSecret, "")
 			So(serr, ShouldBeNil)
+		})
+	})
+}
+
+func TestEnableDatapathPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+	mockEnf := mockenforcer.NewMockEnforcer(ctrl)
+	Convey("Given i start a remote", t, func() {
+		serr := os.Setenv(constants.EnvStatsChannel, pcchan)
+		So(serr, ShouldBeNil)
+		serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+		So(serr, ShouldBeNil)
+		var service packetprocessor.PacketProcessor
+		pcchan := os.Getenv(constants.EnvStatsChannel)
+		secret := os.Getenv(constants.EnvStatsSecret)
+		ctx, cancel := context.WithCancel(context.Background())
+		remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
+		server, ok := remoteIntf.(*RemoteEnforcer)
+		Convey("Then I should get no error", func() {
+			So(ok, ShouldBeTrue)
+			So(server, ShouldNotBeNil)
+			So(err, ShouldBeNil)
+		})
+		Convey("I receive an invalid EnableDatapathTracking message", func() {
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(false)
+			err := server.EnableDatapathPacketTracing(rpcwrapper.Request{}, &rpcwrapper.Response{})
+			So(err, ShouldNotBeNil)
+		})
+		Convey("I receive a valid EnableDatapathTracking message", func() {
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(true)
+
+			var rpcwrperreq rpcwrapper.Request
+			var rpcwrperres rpcwrapper.Response
+
+			rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
+			rpcwrperreq.Payload = initTestEnfPayload()
+			rpcwrperres.Status = ""
+
+			digest := hmac.New(sha256.New, []byte("InvalidSecret"))
+			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
+				So(err, ShouldBeNil)
+			}
+			rpcwrperreq.HashAuth = digest.Sum(nil)
+			server.enforcer = mockEnf
+			mockEnf.EXPECT().Enforce(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			err := server.Enforce(rpcwrperreq, &rpcwrperres)
+			So(err, ShouldBeNil)
+			request := rpcwrapper.Request{
+				Payload: rpcwrapper.EnableDatapathPacketTracingPayLoad{
+					ContextID: "b06f47830f64",
+					Direction: packettracing.NetworkOnly,
+					Interval:  10 * time.Second,
+				},
+			}
+			mockEnf.EXPECT().EnableDatapathPacketTracing("b06f47830f64", packettracing.NetworkOnly, 10*time.Second).Times(1).Return(nil)
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(true)
+			err = server.EnableDatapathPacketTracing(request, &rpcwrapper.Response{})
+			So(err, ShouldBeNil)
+		})
+
+	})
+
+}
+
+func TestEnableIPTablesPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+	mockSup := mocksupervisor.NewMockSupervisor(ctrl)
+	Convey("Given i start a remote", t, func() {
+		serr := os.Setenv(constants.EnvStatsChannel, pcchan)
+		So(serr, ShouldBeNil)
+		serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+		So(serr, ShouldBeNil)
+		var service packetprocessor.PacketProcessor
+		pcchan := os.Getenv(constants.EnvStatsChannel)
+		secret := os.Getenv(constants.EnvStatsSecret)
+		ctx, cancel := context.WithCancel(context.Background())
+		remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
+		server, ok := remoteIntf.(*RemoteEnforcer)
+		Convey("Then I should get no error", func() {
+			So(ok, ShouldBeTrue)
+			So(server, ShouldNotBeNil)
+			So(err, ShouldBeNil)
+		})
+		Convey("I receive an invalid EnableIPTablesPacketTracking message", func() {
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(false)
+			err := server.EnableDatapathPacketTracing(rpcwrapper.Request{}, &rpcwrapper.Response{})
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("I receive a valid EnableIPTablesPacketTracking message", func() {
+			var rpcwrperreq rpcwrapper.Request
+			var rpcwrperres rpcwrapper.Response
+
+			rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
+			rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
+			rpcwrperres.Status = ""
+
+			digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
+			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
+				So(err, ShouldBeNil)
+			}
+			rpcwrperreq.HashAuth = digest.Sum(nil)
+
+			collector := &collector.DefaultCollector{}
+			secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+			prevRawSocket := nfqdatapath.GetUDPRawSocket
+			defer func() {
+				nfqdatapath.GetUDPRawSocket = prevRawSocket
+			}()
+			nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+				return nil, nil
+			}
+
+			server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+			err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
+			mockSup.EXPECT().Supervise("ac0d3577e808", gomock.Any()).Times(1).Return(nil)
+			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+			rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
+			rpcwrperreq.Payload = initTestSupPayload()
+			rpcwrperres.Status = ""
+
+			digest = hmac.New(sha256.New, []byte("InvalidSecret"))
+			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
+				So(err, ShouldBeNil)
+			}
+			server.supervisor = mockSup
+			rpcwrperreq.HashAuth = digest.Sum(nil)
+			err = server.Supervise(rpcwrperreq, &rpcwrperres)
+
+			Convey("Then I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+			Convey("With the supervisor configured if i call enableiptable packet tracing", func() {
+				tracerequest := rpcwrapper.Request{
+					Payload: rpcwrapper.EnableIPTablesPacketTracingPayLoad{
+						IPTablesPacketTracing: true,
+						Interval:              10 * time.Second,
+						ContextID:             "ac0d3577e808",
+					},
+				}
+				mockSup.EXPECT().EnableIPTablesPacketTracing(gomock.Any(), "ac0d3577e808", 10*time.Second)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				err := server.EnableIPTablesPacketTracing(tracerequest, &rpcwrapper.Response{})
+				So(err, ShouldBeNil)
+			})
 		})
 	})
 }

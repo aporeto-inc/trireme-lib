@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -344,9 +345,19 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			})
 
 		})
-		Convey("I setup EnableIPTablesTracing on the context", func() {
+		Convey("I setup EnableIPTablesTracing on an invalid contextID", func() {
 			err := s.EnableIPTablesPacketTracing(context.Background(), "serverID", 10*time.Second)
 			So(err, ShouldNotBeNil)
+		})
+		Convey("I setup EnableIPTablesTracing on an valid contextID", func() {
+			puInfo := createPUInfo()
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
+
+			serr := s.Supervise("contextID", puInfo)
+			So(serr, ShouldBeNil)
+			impl.EXPECT().ACLProvider().Times(1).Return(provider.NewTestIptablesProvider())
+			err := s.EnableIPTablesPacketTracing(context.Background(), "contextID", 10*time.Second)
+			So(err, ShouldBeNil)
 		})
 	})
 }

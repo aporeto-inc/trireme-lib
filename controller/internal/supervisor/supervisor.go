@@ -217,6 +217,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	}
 
 	s.Unlock()
+
 	return nil
 }
 
