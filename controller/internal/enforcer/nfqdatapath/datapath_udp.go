@@ -24,6 +24,8 @@ const (
 	retransmitDelay = 200
 	// rentrasmitRetries is the number of times we will retry
 	retransmitRetries = 3
+	// maxRetries is the maximum number of retries before giving up
+	maxRetries = 7
 )
 
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application.
@@ -393,7 +395,6 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	// err = d.udpSocketWriter.WriteSocket(newPacket.Buffer)
 	err = d.writeWithRetransmit(newPacket.Buffer, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
@@ -693,11 +694,11 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	// clear cache entries.
 	if err := d.udpAppOrigConnectionTracker.Remove(udpPacket.L4ReverseFlowHash()); err != nil {
-		zap.L().Debug("Failed to clean cache appOrigConnectionTracker", zap.Error(err))
+		zap.L().Debug("Failed to clean cache udpappOrigConnectionTracker", zap.Error(err))
 	}
 
 	if err := d.udpSourcePortConnectionCache.Remove(udpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
-		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
+		zap.L().Debug("Failed to clean cache udpsourcePortConnectionCache", zap.Error(err))
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
