@@ -379,7 +379,7 @@ func TestDebugRules(t *testing.T) {
 				tcpPorts: "80",
 			}
 			rules := debugRules(data, constants.LocalServer)
-			So(len(rules), ShouldEqual, 2)
+			So(len(rules), ShouldEqual, 4)
 			for _, rule := range rules {
 				found := strings.Contains(strings.Join(rule, ","), "udp") && strings.Contains(strings.Join(rule, ","), "cgroup")
 				So(found, ShouldBeFalse)
@@ -391,7 +391,7 @@ func TestDebugRules(t *testing.T) {
 				udpPorts: "80",
 			}
 			rules := debugRules(data, constants.LocalServer)
-			So(len(rules), ShouldEqual, 2)
+			So(len(rules), ShouldEqual, 4)
 			for _, rule := range rules {
 				found := strings.Contains(strings.Join(rule, ","), "tcp") && strings.Contains(strings.Join(rule, ","), "cgroup")
 				So(found, ShouldBeFalse)
@@ -403,7 +403,7 @@ func TestDebugRules(t *testing.T) {
 				udpPorts: "80",
 			}
 			rules := debugRules(data, constants.LocalServer)
-			So(len(rules), ShouldEqual, 2)
+			So(len(rules), ShouldEqual, 4)
 			for _, rule := range rules {
 				found := strings.Contains(strings.Join(rule, ","), "cgroup") && strings.Contains(strings.Join(rule, ","), "multiport")
 				So(found, ShouldBeFalse)
