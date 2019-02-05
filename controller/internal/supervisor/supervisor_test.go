@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -359,5 +360,56 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			err := s.EnableIPTablesPacketTracing(context.Background(), "contextID", 10*time.Second)
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func testDebugRules(t *testing.T) {
+	Convey("Given i get debug rules", t, func() {
+		Convey("Debug Rules for container", func() {
+			rules := debugRules(nil, constants.RemoteContainer)
+			So(len(rules), ShouldEqual, 2)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "multiport")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid tcp port", func() {
+			data := &cacheData{
+				tcpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 2)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "udp") && strings.Contains(strings.Join(rule, ","), "cgroup")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid udp port", func() {
+			data := &cacheData{
+				udpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 2)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "tcp") && strings.Contains(strings.Join(rule, ","), "cgroup")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid mark", func() {
+			data := &cacheData{
+				udpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 2)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "cgroup") && strings.Contains(strings.Join(rule, ","), "multiport")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+
 	})
 }
