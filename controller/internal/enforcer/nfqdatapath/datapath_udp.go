@@ -660,7 +660,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	return nil
 }
 
-// sendUDPFinPacket processes a UDP SynAck packet
+// sendUDPFinPacket sends a Fin packet to Peer.
 func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	// Create UDP Option
@@ -671,7 +671,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
 
-	zap.L().Info("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
+	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
 	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
 	if err != nil {
@@ -689,6 +689,15 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// for this flow. There is no need to change the connmark label again.
 	if d.udpFinPacketTracker.AddOrUpdate(udpPacket.L4ReverseFlowHash(), true) {
 		return nil
+	}
+
+	// clear cache entries.
+	if err := d.udpAppOrigConnectionTracker.Remove(udpPacket.L4ReverseFlowHash()); err != nil {
+		zap.L().Debug("Failed to clean cache appOrigConnectionTracker", zap.Error(err))
+	}
+
+	if err := d.udpSourcePortConnectionCache.Remove(udpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
+		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
