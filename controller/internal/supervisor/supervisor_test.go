@@ -363,7 +363,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 	})
 }
 
-func testDebugRules(t *testing.T) {
+func TestDebugRules(t *testing.T) {
 	Convey("Given i get debug rules", t, func() {
 		Convey("Debug Rules for container", func() {
 			rules := debugRules(nil, constants.RemoteContainer)
