@@ -69,7 +69,6 @@ func (d *debugClient) sendPacketReports(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			records := d.collector.GetAllDataPathPacketRecords()
-			zap.L().Debug("Collected All Records", zap.Int("Number", len(records)))
 			if len(records) > 0 {
 				if err := d.sendData(records); err != nil {
 					zap.L().Debug("Unable to send debug packet reports", zap.Error(err))

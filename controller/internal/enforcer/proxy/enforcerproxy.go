@@ -337,6 +337,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 	payload := req.Payload.(rpcwrapper.StatsPayload)
 
 	for _, record := range payload.Flows {
+		zap.L().Error("Flow", zap.String("contextID", record.ContextID), zap.String("PolicyID", record.PolicyID))
 		r.collector.CollectFlowEvent(record)
 	}
 
@@ -355,6 +356,7 @@ func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	payload := req.Payload.(rpcwrapper.DebugPacketPayload)
 	for _, record := range payload.PacketRecords {
+
 		r.collector.CollectPacketEvent(record)
 	}
 	return nil
