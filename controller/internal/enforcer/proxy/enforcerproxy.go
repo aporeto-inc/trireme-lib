@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -144,6 +145,23 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 	return nil
 }
 
+// EnableDatapathPacketTracing enable nfq packet tracing in remote container
+func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnableDatapathPacketTracingPayLoad{
+			Direction: direction,
+			Interval:  interval,
+			ContextID: contextID,
+		},
+	}
+	err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableDatapathPacketTracing, request, resp)
+	if err != nil {
+		return fmt.Errorf("unable to enable datapath packet tracing %s -- %s", err, resp.Status)
+	}
+	return nil
+}
+
 // SetTargetNetworks does the RPC call for SetTargetNetworks to the corresponding
 // remote enforcers
 func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
@@ -172,11 +190,14 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
 	statsServer := rpcwrapper.NewRPCWrapper()
-	rpcServer := &StatsServer{rpchdl: statsServer, collector: s.collector, secret: s.statsServerSecret}
+	rpcServer := &StatsServer{
+		rpchdl:    statsServer,
+		collector: s.collector,
+		secret:    s.statsServerSecret,
+	}
 
 	// Start the server for statistics collection.
 	go statsServer.StartServer(ctx, "unix", rpcwrapper.StatsChannel, rpcServer) // nolint
-
 	return nil
 }
 
@@ -316,6 +337,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 	payload := req.Payload.(rpcwrapper.StatsPayload)
 
 	for _, record := range payload.Flows {
+		zap.L().Error("Flow", zap.String("contextID", record.ContextID), zap.String("PolicyID", record.PolicyID))
 		r.collector.CollectFlowEvent(record)
 	}
 
@@ -323,5 +345,19 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 		r.collector.CollectUserEvent(record)
 	}
 
+	return nil
+}
+
+// PostPacketEvent is called from the remote to post multiple records from the remoteenforcer
+func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.DebugPacketPayload)
+	for _, record := range payload.PacketRecords {
+
+		r.collector.CollectPacketEvent(record)
+	}
 	return nil
 }

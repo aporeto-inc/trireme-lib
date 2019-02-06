@@ -451,6 +451,7 @@ func (p *PUContext) searchRules(
 		}
 		// TODO: Is this if case required ?
 		if packetAction == nil {
+
 			index, action := policies.rejectRules.Search(tags)
 			if index >= 0 {
 				packetAction = action.(*policy.FlowPolicy)

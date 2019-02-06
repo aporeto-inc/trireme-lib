@@ -7,6 +7,7 @@ package mocksupervisor
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	aclprovider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -108,6 +109,20 @@ func (m *MockSupervisor) CleanUp() error {
 // nolint
 func (mr *MockSupervisorMockRecorder) CleanUp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockSupervisor)(nil).CleanUp))
+}
+
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockSupervisor) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockSupervisorMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockSupervisor)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }
 
 // MockImplementor is a mock of Implementor interface

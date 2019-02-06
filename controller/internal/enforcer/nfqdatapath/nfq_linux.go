@@ -10,7 +10,10 @@ import (
 	"time"
 
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.uber.org/zap"
 )
 
@@ -43,6 +46,8 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 			if err != nil {
 				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 			}
+			// Queue started lets start debug loops for capturing packets
+
 		}
 	}
 }
@@ -75,20 +80,44 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
-
+	var processError error
+	var tcpConn *connection.TCPConnection
+	var udpConn *connection.UDPConnection
 	if err != nil {
 		netPacket.Print(packet.PacketFailureCreate)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processNetworkTCPPackets(netPacket)
+		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
-		err = d.ProcessNetworkUDPPacket(netPacket)
+		udpConn, processError = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
-		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
+		processError = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
+
 	}
-	if err != nil {
+
+	if processError != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		if netPacket.IPProto == packet.IPProtocolTCP {
+			d.collectTCPPacket(&debugpacketmessage{
+				Mark:    p.Mark,
+				p:       netPacket,
+				tcpConn: tcpConn,
+				udpConn: nil,
+				err:     processError,
+				network: true,
+			})
+		} else if netPacket.IPProto == packet.IPProtocolUDP {
+			d.collectUDPPacket(&debugpacketmessage{
+				Mark:    p.Mark,
+				p:       netPacket,
+				tcpConn: nil,
+				udpConn: udpConn,
+				err:     processError,
+				network: true,
+			})
+		}
+
 		return
 	}
 
@@ -107,6 +136,26 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
+	if netPacket.IPProto == packet.IPProtocolTCP {
+		d.collectTCPPacket(&debugpacketmessage{
+			Mark:    p.Mark,
+			p:       netPacket,
+			tcpConn: tcpConn,
+			udpConn: nil,
+			err:     nil,
+			network: true,
+		})
+	} else if netPacket.IPProto == packet.IPProtocolUDP {
+		d.collectUDPPacket(&debugpacketmessage{
+			Mark:    p.Mark,
+			p:       netPacket,
+			tcpConn: nil,
+			udpConn: udpConn,
+			err:     nil,
+			network: true,
+		})
+	}
+
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
@@ -117,20 +166,42 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	// lots of things at the ingress to the network
 	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, strconv.Itoa(p.Mark), true)
 
+	var processError error
+	var tcpConn *connection.TCPConnection
+	var udpConn *connection.UDPConnection
 	if err != nil {
 		appPacket.Print(packet.PacketFailureCreate)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processApplicationTCPPackets(appPacket)
+		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
 	} else if appPacket.IPProto == packet.IPProtocolUDP {
-		err = d.ProcessApplicationUDPPacket(appPacket)
+		udpConn, processError = d.ProcessApplicationUDPPacket(appPacket)
 	} else {
-		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
+		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
 	}
-
-	if err != nil {
+	if processError != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		if appPacket.IPProto == packet.IPProtocolTCP {
+
+			d.collectTCPPacket(&debugpacketmessage{
+				Mark:    p.Mark,
+				p:       appPacket,
+				tcpConn: tcpConn,
+				udpConn: nil,
+				err:     processError,
+				network: false,
+			})
+		} else if appPacket.IPProto == packet.IPProtocolUDP {
+			d.collectUDPPacket(&debugpacketmessage{
+				Mark:    p.Mark,
+				p:       appPacket,
+				tcpConn: nil,
+				udpConn: udpConn,
+				err:     processError,
+				network: false,
+			})
+		}
 		return
 	}
 
@@ -142,10 +213,148 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+
 	} else {
 		buffer := make([]byte, len(appPacket.Buffer))
 		copyIndex := copy(buffer, appPacket.Buffer)
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
+	if appPacket.IPProto == packet.IPProtocolTCP {
+		d.collectTCPPacket(&debugpacketmessage{
+			Mark:    p.Mark,
+			p:       appPacket,
+			tcpConn: tcpConn,
+			udpConn: nil,
+			err:     nil,
+			network: false,
+		})
+	} else if appPacket.IPProto == packet.IPProtocolUDP {
+		d.collectUDPPacket(&debugpacketmessage{
+			Mark:    p.Mark,
+			p:       appPacket,
+			tcpConn: nil,
+			udpConn: udpConn,
+			err:     nil,
+			network: false,
+		})
+	}
+
+}
+
+func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{}
+	if msg.udpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Encrypt = false
+
+	} else {
+		//udpConn is not nil
+		if value, err = d.packetTracingCache.Get(msg.udpConn.Context.ID()); err != nil {
+			return
+		}
+		report.Encrypt = msg.udpConn.ServiceConnection
+		report.Claims = msg.udpConn.Context.Identity().GetSlice()
+		report.PUID = msg.udpConn.Context.ManagementID()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+	report.Protocol = int(packet.IPProtocolUDP)
+	report.DestinationIP = msg.p.DestinationAddress.String()
+	report.SourceIP = msg.p.SourceAddress.String()
+	report.DestinationPort = int(msg.p.DestinationPort)
+	report.SourcePort = int(msg.p.SourcePort)
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLength)
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+
+	d.collector.CollectPacketEvent(report)
+}
+
+func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{}
+
+	if msg.tcpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Encrypt = false
+
+	} else {
+
+		if value, err = d.packetTracingCache.Get(msg.tcpConn.Context.ID()); err != nil {
+			//not being traced return
+			return
+		}
+		//tcpConn is not nil
+		report.Encrypt = msg.tcpConn.ServiceConnection
+		report.Claims = msg.tcpConn.Context.Identity().GetSlice()
+		report.PUID = msg.tcpConn.Context.ManagementID()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+
+	report.TCPFlags = int(msg.p.TCPFlags)
+	report.Protocol = int(packet.IPProtocolTCP)
+	report.DestinationIP = msg.p.DestinationAddress.String()
+	report.SourceIP = msg.p.SourceAddress.String()
+	report.DestinationPort = int(msg.p.DestinationPort)
+	report.SourcePort = int(msg.p.SourcePort)
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLength)
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+	// if tcpConn != nil {
+	// 	packetClaims := d.tokenAccessor.ParsePacketToken(tcpConn.AuthInfo, packet.ReadTCPData())
+	// 	if packetClaims != nil {
+	// 		report.PacketClaims := packetClaims.T.GetSlice()
+	// 	}
+
+	// }
+	d.collector.CollectPacketEvent(report)
+
 }

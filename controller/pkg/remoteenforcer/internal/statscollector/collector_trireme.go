@@ -48,3 +48,20 @@ func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
 		c.ProcessedUsers[record.ID] = true
 	}
 }
+
+// CollectTraceEvent collect trace events
+func (c *collectorImpl) CollectTraceEvent(records []string) {
+	//We will leave this unimplemented
+	// trace event collection in done from the main enforcer
+}
+
+// CollectTraceEvent collect trace events
+func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
+	//We will leave this unimplemented
+	// trace event collection in done from the main enforcer
+	c.Lock()
+	defer c.Unlock()
+	zap.L().Debug("Collected Packet Event")
+	c.DatapathPacketReports = append(c.DatapathPacketReports, report)
+
+}

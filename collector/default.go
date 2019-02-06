@@ -26,6 +26,12 @@ func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 // CollectUserEvent is part of the EventCollector interface.
 func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
 
+// CollectTraceEvent collects iptables trace events
+func (d *DefaultCollector) CollectTraceEvent(records []string) {}
+
+// CollectPacketEvent collects packet events from the datapath
+func (d *DefaultCollector) CollectPacketEvent(report *PacketReport) {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()

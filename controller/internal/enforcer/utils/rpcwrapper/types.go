@@ -5,6 +5,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -29,6 +30,7 @@ type Request struct {
 const (
 	SUCCESS      = 0
 	StatsChannel = "/var/run/statschannel.sock"
+	DebugChannel = "/var/run/debugchannel.sock"
 )
 
 //Response is the response for every RPC call. This is used to carry the status of the actual function call
@@ -109,6 +111,11 @@ type StatsPayload struct {
 	Users map[string]*collector.UserRecord `json:",omitempty"`
 }
 
+// DebugPacketPayload is the enforcer packet report from remote enforcers
+type DebugPacketPayload struct {
+	PacketRecords []*collector.PacketReport
+}
+
 //ExcludeIPRequestPayload carries the list of excluded ips
 type ExcludeIPRequestPayload struct {
 	IPs []string `json:",omitempty"`
@@ -117,4 +124,18 @@ type ExcludeIPRequestPayload struct {
 //SetTargetNetworks carries the payload for target networks
 type SetTargetNetworks struct {
 	TargetNetworks []string `json:",omitempty"`
+}
+
+// EnableIPTablesPacketTracingPayLoad is the payload message to enable iptable trace in remote containers
+type EnableIPTablesPacketTracingPayLoad struct {
+	IPTablesPacketTracing bool          `json:",omitempty"`
+	Interval              time.Duration `json:",omitempty"`
+	ContextID             string        `json:",omitempty"`
+}
+
+// EnableDatapathPacketTracingPayLoad is the payload to enable nfq packet tracing in the remote container
+type EnableDatapathPacketTracingPayLoad struct {
+	Direction packettracing.TracingDirection `json:",omitempty"`
+	Interval  time.Duration                  `json:",omitempty"`
+	ContextID string                         `json:",omitempty"`
 }

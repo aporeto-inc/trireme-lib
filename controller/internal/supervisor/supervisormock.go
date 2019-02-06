@@ -1,8 +1,10 @@
 package supervisor
 
 import (
+	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -26,17 +28,22 @@ type mockedMethods struct {
 
 	// SetTargetNetworksMock  adds the SetTargetNetworks implementation
 	SetTargetNetworksMock func(networks []string) error
+
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
+	EnableIPTablesPacketTracing func(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // TestSupervisor is a test implementation for IptablesProvider
 type TestSupervisor interface {
 	Supervisor
+	//DebugInfo
 	MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
 	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
 	MockSetTargetNetworks(t *testing.T, impl func(networks []string) error)
+	MockEnableIPTablesPacketTracing(t *testing.T, impl func(context.Context, string, time.Duration) error)
 }
 
 // A TestSupervisorInst is an empty TransactionalManipulator that can be easily mocked.
@@ -87,6 +94,11 @@ func (m *TestSupervisorInst) MockStop(t *testing.T, impl func() error) {
 func (m *TestSupervisorInst) MockSetTargetNetworks(t *testing.T, impl func(networks []string) error) {
 
 	m.currentMocks(t).SetTargetNetworksMock = impl
+}
+
+// MockEnableIPTablesPacketTracing mock EnableIPTablesPacketTracing method
+func (m *TestSupervisorInst) MockEnableIPTablesPacketTracing(t *testing.T, impl func(context.Context, string, time.Duration) error) {
+	m.currentMocks(t).EnableIPTablesPacketTracing = impl
 }
 
 // Supervise is a test implementation of the Supervise interface
@@ -142,6 +154,15 @@ func (m *TestSupervisorInst) SetTargetNetworks(networks []string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SetTargetNetworksMock != nil {
 		return mock.SetTargetNetworksMock(networks)
+	}
+
+	return nil
+}
+
+// EnableIPTablesPacketTracing enable iptables packet trace
+func (m *TestSupervisorInst) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.EnableIPTablesPacketTracing != nil {
+		return mock.EnableIPTablesPacketTracing(ctx, contextID, interval)
 	}
 
 	return nil
