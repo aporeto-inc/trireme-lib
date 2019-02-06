@@ -24,8 +24,6 @@ const (
 	retransmitDelay = 200
 	// rentrasmitRetries is the number of times we will retry
 	retransmitRetries = 3
-	// maxRetries is the maximum number of retries before giving up
-	maxRetries = 7
 )
 
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application.
@@ -77,7 +75,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 			return nil, err
 		}
 		// drop control packets
-		return fmt.Errorf("dropping udp fin ack control packet")
+		return conn, fmt.Errorf("dropping udp fin ack control packet")
 
 	default:
 		// Process packets that don't have the control header. These are data packets.
@@ -393,7 +391,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.writeWithRetransmit(newPacket.Buffer, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket.Buffer, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -409,7 +407,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 
 }
 
-func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
+func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnection, stop chan bool) error {
 
 	localBuffer := make([]byte, len(buffer))
 	copy(localBuffer, buffer)
@@ -431,6 +429,10 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
 				}
 			}
 		}
+		// retransmits did not succeed. Reset the state machine so that
+		// next packet can try again.
+		conn.SetState(connection.UDPStart)
+
 	}()
 	return nil
 }
@@ -488,7 +490,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.Buffer, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket.Buffer, conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
