@@ -29,6 +29,8 @@ const (
 	// EnvStatsChannel stores the path to the stats channel
 	EnvStatsChannel = "TRIREME_ENV_STATS_CHANNEL_PATH"
 
+	// EnvDebugChannel stores the path to the debug channel
+	EnvDebugChannel = "TRIREME_ENV_DEBUG_CHANNEL_PATH"
 	// EnvRPCClientSecret is the secret used between RPC client/server
 	EnvRPCClientSecret = "TRIREME_ENV_SECRET"
 

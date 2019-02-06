@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -169,6 +170,21 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
 			return fmt.Errorf("unable to add excluded ip list for %s: %s", contextID, err)
 		}
+	}
+	return nil
+}
+
+// EnableIPTablesPacketTracing enable iptables tracing
+func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnableIPTablesPacketTracingPayLoad{
+			IPTablesPacketTracing: true,
+			Interval:              interval,
+			ContextID:             contextID,
+		},
+	}
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableIPTablesPacketTracing, request, &rpcwrapper.Response{}); err != nil {
+		return fmt.Errorf("Unable to enable iptables tracing for contextID %s: %s", contextID, err)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package enforcerproxy
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -357,5 +359,80 @@ func TestUnenforce(t *testing.T) {
 				})
 			})
 		})
+	})
+}
+
+func TestEnableDatapathPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	Convey("When I try to start a proxy enforcer with defaults", t, func() {
+		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
+		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
+		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
+
+		Convey("Then policyEnf should not be nil", func() {
+			So(policyEnf, ShouldNotBeNil)
+		})
+
+		Convey("When I try to call enforce method", func() {
+			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
+
+			Convey("Then I should not get any error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+		Convey("Then i call EnableDatapathpacket tracing with wrong contextID", func() {
+			rpchdl.EXPECT().RemoteCall("doesnotexist", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			err := policyEnf.EnableDatapathPacketTracing("doesnotexist", packettracing.NetworkOnly, 10*time.Second)
+			So(err, ShouldBeNil)
+
+		})
+
+		Convey("Then i call EnableDatapathpacket tracing with correct contextID", func() {
+			rpchdl.EXPECT().RemoteCall("doesnotexist", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("ContextID does not exist"))
+			err := policyEnf.EnableDatapathPacketTracing("doesnotexist", packettracing.NetworkOnly, 10*time.Second)
+			So(err, ShouldNotBeNil)
+
+		})
+
+	})
+
+}
+
+func TestPostPacketEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+	c := eventCollector()
+	packetreport := &collector.PacketReport{
+		DestinationIP: "12.12.12.12",
+		SourceIP:      "1.1.1.1",
+	}
+	request := rpcwrapper.Request{
+		Payload: rpcwrapper.DebugPacketPayload{
+			PacketRecords: []*collector.PacketReport{packetreport},
+		},
+	}
+	statsserver := &StatsServer{
+		rpchdl:    rpchdl,
+		collector: c,
+		secret:    "test",
+	}
+	response := &rpcwrapper.Response{}
+
+	Convey("Given i receive a invalid message from the remote enforcer ", t, func() {
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(false)
+		err := statsserver.PostPacketEvent(request, response)
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Given i receive a valid message from the remote enforcer ", t, func() {
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(true)
+		err := statsserver.PostPacketEvent(request, response)
+		So(err, ShouldBeNil)
 	})
 }

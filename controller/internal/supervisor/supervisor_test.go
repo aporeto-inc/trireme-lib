@@ -3,7 +3,9 @@ package supervisor
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -13,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -307,5 +310,106 @@ func TestStop(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 		})
+	})
+}
+
+func TestEnableIPTablesPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a properly configured supervisor", t, func() {
+		c := &collector.DefaultCollector{}
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		So(s, ShouldNotBeNil)
+
+		impl := mocksupervisor.NewMockImplementor(ctrl)
+		s.impl = impl
+
+		Convey("When I try to start it and the implementor works", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			err := s.Run(context.Background())
+			Convey("I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+
+		})
+		Convey("I setup EnableIPTablesTracing on an invalid contextID", func() {
+			err := s.EnableIPTablesPacketTracing(context.Background(), "serverID", 10*time.Second)
+			So(err, ShouldNotBeNil)
+		})
+		Convey("I setup EnableIPTablesTracing on an valid contextID", func() {
+			puInfo := createPUInfo()
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
+
+			serr := s.Supervise("contextID", puInfo)
+			So(serr, ShouldBeNil)
+			impl.EXPECT().ACLProvider().Times(1).Return(provider.NewTestIptablesProvider())
+			err := s.EnableIPTablesPacketTracing(context.Background(), "contextID", 10*time.Second)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestDebugRules(t *testing.T) {
+	Convey("Given i get debug rules", t, func() {
+		Convey("Debug Rules for container", func() {
+			rules := debugRules(nil, constants.RemoteContainer)
+			So(len(rules), ShouldEqual, 2)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "multiport")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid tcp port", func() {
+			data := &cacheData{
+				tcpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 4)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "udp") && strings.Contains(strings.Join(rule, ","), "cgroup")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid udp port", func() {
+			data := &cacheData{
+				udpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 4)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "tcp") && strings.Contains(strings.Join(rule, ","), "cgroup")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+		Convey("Debug Rules for linux process with valid mark", func() {
+			data := &cacheData{
+				udpPorts: "80",
+			}
+			rules := debugRules(data, constants.LocalServer)
+			So(len(rules), ShouldEqual, 4)
+			for _, rule := range rules {
+				found := strings.Contains(strings.Join(rule, ","), "cgroup") && strings.Contains(strings.Join(rule, ","), "multiport")
+				So(found, ShouldBeFalse)
+
+			}
+		})
+
 	})
 }

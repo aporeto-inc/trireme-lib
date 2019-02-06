@@ -31,3 +31,22 @@ func (m *myMatcher) String() string {
 func MyMatcher(x interface{}) gomock.Matcher {
 	return &myMatcher{x: x}
 }
+
+type packetEventMatcher struct {
+	x interface{}
+}
+
+func (p *packetEventMatcher) Matches(x interface{}) bool {
+	f1 := p.x.(*collector.PacketReport)
+	f2 := x.(*collector.PacketReport)
+	return f1.DestinationIP == f2.DestinationIP
+}
+
+func (p *packetEventMatcher) String() string {
+	return fmt.Sprintf("is equal to %v", p.x)
+}
+
+// PacketEventMatcher return gomock matcher
+func PacketEventMatcher(x interface{}) gomock.Matcher {
+	return &packetEventMatcher{x: x}
+}

@@ -9,9 +9,10 @@ import (
 // NewCollector provides a new collector interface
 func NewCollector() Collector {
 	return &collectorImpl{
-		Flows:          map[string]*collector.FlowRecord{},
-		Users:          map[string]*collector.UserRecord{},
-		ProcessedUsers: map[string]bool{},
+		Flows:                 map[string]*collector.FlowRecord{},
+		Users:                 map[string]*collector.UserRecord{},
+		ProcessedUsers:        map[string]bool{},
+		DatapathPacketReports: []*collector.PacketReport{},
 	}
 }
 
@@ -23,8 +24,9 @@ func NewCollector() Collector {
 // It has a flow entries cache which contains unique flows that are reported
 // back to the controller/launcher process
 type collectorImpl struct {
-	Flows          map[string]*collector.FlowRecord
-	ProcessedUsers map[string]bool
-	Users          map[string]*collector.UserRecord
+	Flows                 map[string]*collector.FlowRecord
+	ProcessedUsers        map[string]bool
+	Users                 map[string]*collector.UserRecord
+	DatapathPacketReports []*collector.PacketReport
 	sync.Mutex
 }

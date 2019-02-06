@@ -4,17 +4,19 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
 type mockedMethods struct {
-	SuperviseMock         func(string, *policy.PUInfo) error
-	UnsuperviseMock       func(string) error
-	RunMock               func(ctx context.Context) error
-	SetTargetNetworksMock func([]string) error
-	CleanUpMock           func() error
+	SuperviseMock                   func(string, *policy.PUInfo) error
+	UnsuperviseMock                 func(string) error
+	RunMock                         func(ctx context.Context) error
+	SetTargetNetworksMock           func([]string) error
+	CleanUpMock                     func() error
+	EnableIPTablesPacketTracingMock func(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // TestSupervisorLauncher is a mock
@@ -53,6 +55,10 @@ func (m *testSupervisorLauncher) currentMocks(t *testing.T) *mockedMethods {
 
 func (m *testSupervisorLauncher) MockSupervise(t *testing.T, impl func(string, *policy.PUInfo) error) {
 	m.currentMocks(t).SuperviseMock = impl
+}
+
+func (m *testSupervisorLauncher) MockEnableIPTablesPacketTracing(t *testing.T, impl func(context.Context, string, time.Duration) error) {
+	m.currentMocks(t).EnableIPTablesPacketTracingMock = impl
 }
 
 func (m *testSupervisorLauncher) MockUnsupervise(t *testing.T, impl func(string) error) {
@@ -103,5 +109,13 @@ func (m *testSupervisorLauncher) CleanUp() error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.CleanUpMock != nil {
 		return mock.CleanUpMock()
 	}
+	return nil
+}
+
+func (m *testSupervisorLauncher) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.EnableIPTablesPacketTracingMock != nil {
+		return mock.EnableIPTablesPacketTracingMock(ctx, contextID, interval)
+	}
+
 	return nil
 }

@@ -7,9 +7,11 @@ package mockenforcer
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
@@ -123,4 +125,59 @@ func (m *MockEnforcer) SetTargetNetworks(networks []string) error {
 // nolint
 func (mr *MockEnforcerMockRecorder) SetTargetNetworks(networks interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), networks)
+}
+
+// EnableDatapathPacketTracing mocks base method
+// nolint
+func (m *MockEnforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
+// nolint
+func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
+}
+
+// MockDebugInfo is a mock of DebugInfo interface
+// nolint
+type MockDebugInfo struct {
+	ctrl     *gomock.Controller
+	recorder *MockDebugInfoMockRecorder
+}
+
+// MockDebugInfoMockRecorder is the mock recorder for MockDebugInfo
+// nolint
+type MockDebugInfoMockRecorder struct {
+	mock *MockDebugInfo
+}
+
+// NewMockDebugInfo creates a new mock instance
+// nolint
+func NewMockDebugInfo(ctrl *gomock.Controller) *MockDebugInfo {
+	mock := &MockDebugInfo{ctrl: ctrl}
+	mock.recorder = &MockDebugInfoMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+// nolint
+func (m *MockDebugInfo) EXPECT() *MockDebugInfoMockRecorder {
+	return m.recorder
+}
+
+// EnableDatapathPacketTracing mocks base method
+// nolint
+func (m *MockDebugInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
+// nolint
+func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
 }

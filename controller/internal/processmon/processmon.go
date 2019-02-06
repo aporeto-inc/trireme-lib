@@ -283,6 +283,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvMountPoint + "=" + procMountPoint,
 		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
 		constants.EnvStatsChannel + "=" + rpcwrapper.StatsChannel,
+		constants.EnvDebugChannel + "=" + rpcwrapper.DebugChannel,
 		constants.EnvRPCClientSecret + "=" + randomkeystring,
 		constants.EnvStatsSecret + "=" + statsServerSecret,
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),

@@ -231,7 +231,6 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// Handling of compressed tags in a backward compatible manner. If there are claims
 		// arriving in the compressed field then we append them to the tags.
-		zap.L().Debug("claims", zap.Reflect("jwt", jwtClaims), zap.String("type", string(c.compressionType)))
 
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {

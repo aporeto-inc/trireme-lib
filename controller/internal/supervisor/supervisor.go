@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -216,6 +217,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	}
 
 	s.Unlock()
+
 	return nil
 }
 
@@ -243,6 +245,135 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Unlock()
 	return nil
+}
+
+// EnableIPTablesPacketTracing enables ip tables packet tracing
+func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+
+	data, err := s.versionTracker.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("cannot find policy version: %s", err)
+	}
+
+	cfg := data.(*cacheData)
+	iptablesRules := debugRules(cfg, s.mode)
+	ipt := s.impl.ACLProvider()
+
+	for _, rule := range iptablesRules {
+		if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
+			zap.L().Error("Unable to install rule", zap.Error(err))
+		}
+	}
+
+	// anonymous go func to flush debug iptables after interval
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+			case <-time.After(interval):
+				for _, rule := range iptablesRules {
+					if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
+					}
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+func debugRules(data *cacheData, mode constants.ModeType) [][]string {
+	iptables := [][]string{}
+	if mode == constants.RemoteContainer {
+		iptables = append(iptables, [][]string{
+			{
+				"raw",
+				"PREROUTING",
+				"-j", "TRACE",
+			},
+			{
+				"raw",
+				"OUTPUT",
+				"-j", "TRACE",
+			},
+		}...)
+	} else {
+		if data.tcpPorts != "0" {
+			iptables = append(iptables,
+				[][]string{
+					{
+						"raw",
+						"PREROUTING",
+						"-p", "tcp",
+						"--match", "multiport",
+						"--destination-ports", data.tcpPorts,
+						"-j", "TRACE",
+					},
+					{
+						"raw",
+						"OUTPUT",
+						"--match", "multiport",
+						"--source-ports", data.tcpPorts,
+						"-j", "TRACE",
+					},
+				}...,
+			)
+
+		} else {
+			iptables = append(iptables, [][]string{
+				{
+					"raw",
+					"PREROUTING",
+					"-p", "tcp",
+					"-j", "TRACE",
+				},
+				{
+					"raw",
+					"OUTPUT",
+					"-m", "cgroup",
+					"--cgroup", data.mark,
+					"-j", "TRACE",
+				},
+			}...)
+		}
+		if data.udpPorts != "0" {
+			iptables = append(iptables, [][]string{
+				{
+					"raw",
+					"PREROUTING",
+					"-p", "udp",
+					"--match", "multiport",
+					"--destination-ports", data.udpPorts,
+					"-j", "TRACE",
+				},
+				{
+					"raw",
+					"OUTPUT",
+					"--match", "multiport",
+					"--source-ports", data.tcpPorts,
+					"-j", "TRACE",
+				},
+			}...)
+		} else {
+			iptables = append(iptables,
+				[][]string{
+					{
+						"raw",
+						"PREROUTING",
+						"-p", "tcp",
+						"-j", "TRACE",
+					},
+					{
+						"raw",
+						"OUTPUT",
+						"-m", "cgroup",
+						"--cgroup", data.mark,
+						"-j", "TRACE",
+					},
+				}...)
+		}
+	}
+	return iptables
 }
 
 func revert(a, b interface{}) interface{} {

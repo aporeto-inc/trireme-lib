@@ -7,6 +7,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -24,6 +25,7 @@ type RemoteEnforcer struct {
 	rpcHandle      rpcwrapper.RPCServer
 	collector      statscollector.Collector
 	statsClient    statsclient.StatsClient
+	debugClient    debugclient.DebugClient
 	procMountPoint string
 	enforcer       enforcer.Enforcer
 	supervisor     supervisor.Supervisor

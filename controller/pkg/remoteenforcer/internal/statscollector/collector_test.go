@@ -105,3 +105,18 @@ func TestCollectFlowEvent(t *testing.T) {
 		})
 	})
 }
+
+func TestGetAllDataPathPacketRecords(t *testing.T) {
+	Convey("Given i collect a new collector", t, func() {
+		c := NewCollector()
+		Convey("I trace single packet", func() {
+			c.CollectPacketEvent(&collector.PacketReport{
+				DestinationIP: "1.2.3.4",
+			})
+			records := c.GetAllDataPathPacketRecords()
+			So(len(records), ShouldEqual, 1)
+		})
+
+	})
+
+}

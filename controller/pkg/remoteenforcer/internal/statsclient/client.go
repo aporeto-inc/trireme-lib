@@ -117,7 +117,6 @@ func (s *statsClient) SendStats() {
 // Start This is an private function called by the remoteenforcer to connect back
 // to the controller over a stats channel
 func (s *statsClient) Run(ctx context.Context) error {
-
 	if err := s.rpchdl.NewRPCClient(statsContextID, s.statsChannel, s.secret); err != nil {
 		zap.L().Error("Stats RPC client cannot connect", zap.Error(err))
 		return err
