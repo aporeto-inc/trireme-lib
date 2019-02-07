@@ -396,7 +396,7 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 	case c.PacketQueue <- copyPacket:
 	default:
 		// connection object is always locked.
-		c.udpQueueFullDropCntr += 1
+		c.udpQueueFullDropCntr++
 		return fmt.Errorf("Queue is full")
 	}
 
