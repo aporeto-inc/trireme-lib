@@ -120,13 +120,15 @@ const (
 	// UDPBeginPos is the location of UDP Header
 	UDPBeginPos = 20
 	// UDPSynMask is a mask for the UDP Syn flags
-	UDPSynMask = 0x20
+	UDPSynMask = 0x10
 	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet
-	UDPSynAckMask = 0x40
+	UDPSynAckMask = 0x20
 	// UDPAckMask mask that identifies ACK packets.
-	UDPAckMask = 0x60
+	UDPAckMask = 0x30
+	// UDPFinAckMask mask that identifies the FinAck packets
+	UDPFinAckMask = 0x40
 	// UDPPacketMask identifies type of UDP packet.
-	UDPPacketMask = 0x60
+	UDPPacketMask = 0x70
 )
 
 const (
