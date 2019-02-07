@@ -300,7 +300,8 @@ type UDPConnection struct {
 	synAckStop chan bool
 	ackStop    chan bool
 
-	TestIgnore bool
+	TestIgnore           bool
+	udpQueueFullDropCntr uint64
 }
 
 // NewUDPConnection returns UDPConnection struct.
@@ -394,6 +395,8 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 	select {
 	case c.PacketQueue <- copyPacket:
 	default:
+		// connection object is always locked.
+		c.udpQueueFullDropCntr += 1
 		return fmt.Errorf("Queue is full")
 	}
 

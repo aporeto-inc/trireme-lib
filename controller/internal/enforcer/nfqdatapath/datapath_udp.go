@@ -307,7 +307,10 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	case connection.UDPStart:
 		// Queue the packet. We will send it after we authorize the session.
 		if err = conn.QueuePackets(p); err != nil {
-			return conn, fmt.Errorf("Unable to queue packets:%s", err)
+			// unable to queue packets, perhaps queue is full. if start
+			// machine is still in start state, we can start authorizaton
+			// again. A drop counter is incremented.
+			zap.L().Debug("udp queue full for connection", zap.String("flow", p.L4FlowHash()))
 		}
 
 		// Process the application packet.
