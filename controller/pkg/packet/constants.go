@@ -129,8 +129,6 @@ const (
 	UDPFinAckMask = 0x40
 	// UDPPacketMask identifies type of UDP packet.
 	UDPPacketMask = 0x70
-
-	UDP
 )
 
 const (
