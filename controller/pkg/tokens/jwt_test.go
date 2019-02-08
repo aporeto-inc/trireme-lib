@@ -36,7 +36,6 @@ var (
 		EK:  []byte{},
 	}
 	validity = time.Second * 10
-	psk      = []byte("I NEED A BETTER KEY")
 
 	keyPEM = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIPkiHqtH372JJdAG/IxJlE1gv03cdwa8Lhg2b3m/HmbyoAoGCCqGSM49
@@ -105,6 +104,7 @@ func createCompactPKISecrets() (*x509.Certificate, secrets.Secrets, error) {
 func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with max server name that violates requirements, it should fail", t, func() {
 		scrts, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+		So(err, ShouldBeNil)
 		_, err = NewJWT(validity, "0123456789012345678901234567890123456789", scrts)
 		So(err, ShouldNotBeNil)
 	})

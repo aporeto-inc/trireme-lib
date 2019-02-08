@@ -212,7 +212,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 	// Parse the JWT token with the public key recovered. If it is an Ack packet
 	// use the previous cert.
-	jwttoken, err := jwt.ParseWithClaims(string(token), jwtClaims, func(token *jwt.Token) (interface{}, error) {
+	jwttoken, err := jwt.ParseWithClaims(string(token), jwtClaims, func(token *jwt.Token) (interface{}, error) { // nolint
 		if ackCert != nil {
 			return ackCert.(*ecdsa.PublicKey), nil
 		}
