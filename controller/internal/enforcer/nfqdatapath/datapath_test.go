@@ -1699,7 +1699,6 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							var dstEndPoint collector.EndPoint
 
 							srcEndPoint.IP = testSrcIP
-							srcEndPoint.ID = "value"
 							dstEndPoint.IP = testDstIP
 							dstEndPoint.Port = 80
 
@@ -1722,7 +1721,6 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							var dstEndPoint collector.EndPoint
 
 							srcEndPoint.IP = testSrcIP
-							srcEndPoint.ID = "value"
 							dstEndPoint.IP = testDstIP
 							dstEndPoint.Port = 80
 
