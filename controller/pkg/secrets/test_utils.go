@@ -1,6 +1,9 @@
 package secrets
 
 import (
+	"crypto/x509"
+
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
@@ -60,4 +63,30 @@ func CreateTxtToken() []byte {
 		panic("can't create token")
 	}
 	return token
+}
+
+// CreateCompactPKITestSecrets creates test secrets
+func CreateCompactPKITestSecrets() (*x509.Certificate, Secrets, error) {
+	txtKey, err := crypto.LoadEllipticCurveKey([]byte(PrivateKeyPEM))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := crypto.LoadCertificate([]byte(PublicPEM))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	issuer := pkiverifier.NewPKIIssuer(txtKey)
+	txtToken, err := issuer.CreateTokenFromCertificate(cert, []string{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	scrts, err := NewCompactPKIWithTokenCA([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), [][]byte{[]byte(PublicPEM)}, txtToken, claimsheader.CompressionTypeNone)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cert, scrts, nil
 }

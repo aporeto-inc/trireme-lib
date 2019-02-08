@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -209,11 +210,16 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		}
 	}
 
-	// Parse the JWT token with the public key recovered
+	// Parse the JWT token with the public key recovered. If it is an Ack packet
+	// use the previous cert.
 	jwttoken, err := jwt.ParseWithClaims(string(token), jwtClaims, func(token *jwt.Token) (interface{}, error) {
-		server := token.Claims.(*JWTClaims).Issuer
-		server = strings.Trim(server, " ")
-		return c.secrets.DecodingKey(server, ackCert, previousCert)
+		if ackCert != nil {
+			return ackCert.(*ecdsa.PublicKey), nil
+		}
+		if previousCert != nil {
+			return previousCert.(*ecdsa.PublicKey), nil
+		}
+		return nil, fmt.Errorf("Unable to find certificate")
 	})
 
 	// If error is returned or the token is not valid, reject it

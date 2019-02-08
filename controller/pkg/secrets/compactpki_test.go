@@ -58,10 +58,6 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 			So(p.TransmittedKey(), ShouldResemble, txKey)
 		})
 
-		Convey("I should get the right CA Auth PEM file", func() {
-			So(p.AuthPEM(), ShouldResemble, []byte(CAPEM))
-		})
-
 		Convey("I should ge the right ack size", func() {
 			So(p.AckSize(), ShouldEqual, compactPKIAckSize)
 		})
@@ -74,23 +70,6 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 			pk, err := p.VerifyPublicKey(txKey)
 			So(err, ShouldBeNil)
 			So(pk.(*pkiverifier.DatapathKey).PublicKey, ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
-		})
-
-		Convey("When I try to get the decoding key when the ack key is nil", func() {
-			key, err := p.DecodingKey("server", nil, txKey)
-			So(err, ShouldBeNil)
-			So(key, ShouldResemble, txKey)
-		})
-
-		Convey("When I try to get the decoding key with the ack", func() {
-			key, err := p.DecodingKey("server", cert.PublicKey, nil)
-			So(err, ShouldBeNil)
-			So(key.(*ecdsa.PublicKey), ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
-		})
-
-		Convey("When I try to get the decoding key and both inputs are nil, I should get an error ", func() {
-			_, err := p.DecodingKey("server", nil, nil)
-			So(err, ShouldNotBeNil)
 		})
 	})
 }

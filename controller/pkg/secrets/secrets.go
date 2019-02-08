@@ -8,8 +8,6 @@ type Secrets interface {
 	Type() PrivateSecretsType
 	// EncodingKey returns the key used to encode the tokens.
 	EncodingKey() interface{}
-	// DecodingKey is the key used to decode the tokens.
-	DecodingKey(server string, ackCert, prevCert interface{}) (interface{}, error)
 	// PublicKey returns the public ket of the secrets.
 	PublicKey() interface{}
 	// TransmittedKey returns the public key as a byte slice and as it is transmitted

@@ -35,12 +35,6 @@ func (p *NullPKI) PublicKey() interface{} {
 	return nil
 }
 
-// DecodingKey returns the public key
-func (p *NullPKI) DecodingKey(server string, ackKey interface{}, prevKey interface{}) (interface{}, error) {
-
-	return jwt.UnsafeAllowNoneSignatureType, nil
-}
-
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *NullPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
 
@@ -61,11 +55,6 @@ func (p *NullPKI) TransmittedKey() []byte {
 // AckSize returns the default size of an ACK packet
 func (p *NullPKI) AckSize() uint32 {
 	return uint32(235)
-}
-
-// AuthPEM returns the Certificate Authority PEM
-func (p *NullPKI) AuthPEM() []byte {
-	return p.AuthorityPEM
 }
 
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.

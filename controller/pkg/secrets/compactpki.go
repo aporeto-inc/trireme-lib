@@ -45,8 +45,6 @@ func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, co
 //    compressionType: is packed with the secrets to indicate compression.
 func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress claimsheader.CompressionType) (*CompactPKI, error) {
 
-	zap.L().Info("Initializing with Compact PKI")
-
 	key, cert, _, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil, err
@@ -95,22 +93,6 @@ func (p *CompactPKI) PublicKey() interface{} {
 	return p.publicKey
 }
 
-// DecodingKey returns the public key
-func (p *CompactPKI) DecodingKey(server string, ackKey interface{}, prevKey interface{}) (interface{}, error) {
-
-	// If we have an inband certificate, return this one
-	if ackKey != nil {
-		return ackKey.(*ecdsa.PublicKey), nil
-	}
-
-	// Otherwise, return the prevCert
-	if prevKey != nil {
-		return prevKey, nil
-	}
-
-	return nil, errors.New("invalid certificate")
-}
-
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *CompactPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
 	return p.verifier.Verify(pkey)
@@ -134,21 +116,6 @@ func (p *CompactPKI) TransmittedKey() []byte {
 // AckSize returns the default size of an ACK packet
 func (p *CompactPKI) AckSize() uint32 {
 	return uint32(compactPKIAckSize)
-}
-
-// AuthPEM returns the Certificate Authority PEM
-func (p *CompactPKI) AuthPEM() []byte {
-	return p.AuthorityPEM
-}
-
-// TokenPEMs returns the Token Certificate Authorities
-func (p *CompactPKI) TokenPEMs() [][]byte {
-
-	if len(p.TokenKeyPEMs) > 0 {
-		return p.TokenKeyPEMs
-	}
-
-	return [][]byte{p.AuthPEM()}
 }
 
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.
