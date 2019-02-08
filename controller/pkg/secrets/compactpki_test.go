@@ -7,6 +7,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
@@ -61,14 +62,6 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 			So(p.AuthPEM(), ShouldResemble, []byte(CAPEM))
 		})
 
-		Convey("I should get the right Certificate PEM", func() {
-			So(p.TransmittedPEM(), ShouldResemble, []byte(PublicPEM))
-		})
-
-		Convey("I Should get the right Key PEM", func() {
-			So(p.EncodingPEM(), ShouldResemble, []byte(PrivateKeyPEM))
-		})
-
 		Convey("I should ge the right ack size", func() {
 			So(p.AckSize(), ShouldEqual, compactPKIAckSize)
 		})
@@ -80,7 +73,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		Convey("When I verify the received public key, it should succeed", func() {
 			pk, err := p.VerifyPublicKey(txKey)
 			So(err, ShouldBeNil)
-			So(pk.(*ecdsa.PublicKey), ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
+			So(pk.(*pkiverifier.DatapathKey).PublicKey, ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
 		})
 
 		Convey("When I try to get the decoding key when the ack key is nil", func() {

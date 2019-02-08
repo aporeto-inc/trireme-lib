@@ -71,10 +71,6 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	case secrets.PKICompactType:
 		signMethod = jwt.SigningMethodES256
 		compressionType = s.(*secrets.CompactPKI).Compressed
-	case secrets.PKIType:
-		signMethod = jwt.SigningMethodES256
-	case secrets.PSKType:
-		signMethod = jwt.SigningMethodHS256
 	default:
 		signMethod = jwt.SigningMethodNone
 	}
@@ -174,6 +170,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
 	var ackCert interface{}
+	var certClaims []string
 
 	token := data
 
@@ -202,7 +199,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
+		ackCert, certClaims, err = c.secrets.KeyAndClaims(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
@@ -235,6 +232,10 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
+		}
+
+		if certClaims != nil {
+			tags = append(tags, certClaims...)
 		}
 
 		// Handle compressed tags

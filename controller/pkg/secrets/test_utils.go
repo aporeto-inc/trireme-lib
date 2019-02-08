@@ -55,7 +55,7 @@ func CreateTxtToken() []byte {
 	}
 
 	p := pkiverifier.NewPKIIssuer(caKey)
-	token, err := p.CreateTokenFromCertificate(clientCert)
+	token, err := p.CreateTokenFromCertificate(clientCert, []string{})
 	if err != nil {
 		panic("can't create token")
 	}

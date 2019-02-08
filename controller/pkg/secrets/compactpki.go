@@ -35,7 +35,14 @@ func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, co
 	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{caPEM}, txKey, compress)
 }
 
-// NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
+// NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding.
+//    keyPEM: is the private key that will be used for signing tokens formated as a PEM file.
+//    certPEM: is the public key that will be used formated as a PEM file.
+//    tokenKeyPEMs: is a list of public keys that can be used to verify the public token that
+//                  that is transmitted over the wire. These are essentially the public CA PEMs
+//                  that were used to sign the txtKey
+//    txKey: is the public key that is send over the wire.
+//    compressionType: is packed with the secrets to indicate compression.
 func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress claimsheader.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Info("Initializing with Compact PKI")
@@ -106,9 +113,16 @@ func (p *CompactPKI) DecodingKey(server string, ackKey interface{}, prevKey inte
 
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *CompactPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
-
 	return p.verifier.Verify(pkey)
+}
 
+//KeyAndClaims returns both the key and any attributes associated with the public key.
+func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
+	kc, err := p.verifier.Verify(pkey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return kc.PublicKey, kc.Tags, nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI
@@ -135,16 +149,6 @@ func (p *CompactPKI) TokenPEMs() [][]byte {
 	}
 
 	return [][]byte{p.AuthPEM()}
-}
-
-// TransmittedPEM returns the PEM certificate that is transmitted
-func (p *CompactPKI) TransmittedPEM() []byte {
-	return p.PublicKeyPEM
-}
-
-// EncodingPEM returns the certificate PEM that is used for encoding
-func (p *CompactPKI) EncodingPEM() []byte {
-	return p.PrivateKeyPEM
 }
 
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.

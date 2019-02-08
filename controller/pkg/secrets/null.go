@@ -45,7 +45,11 @@ func (p *NullPKI) DecodingKey(server string, ackKey interface{}, prevKey interfa
 func (p *NullPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
 
 	return jwt.UnsafeAllowNoneSignatureType, nil
+}
 
+//KeyAndClaims returns both the key and any attributes associated with the public key.
+func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
+	return jwt.UnsafeAllowNoneSignatureType, []string{}, nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI
@@ -64,20 +68,10 @@ func (p *NullPKI) AuthPEM() []byte {
 	return p.AuthorityPEM
 }
 
-// TransmittedPEM returns the PEM certificate that is transmitted
-func (p *NullPKI) TransmittedPEM() []byte {
-	return p.PublicKeyPEM
-}
-
-// EncodingPEM returns the certificate PEM that is used for encoding
-func (p *NullPKI) EncodingPEM() []byte {
-	return p.PrivateKeyPEM
-}
-
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.
 func (p *NullPKI) PublicSecrets() PublicSecrets {
 	return &NullPublicSecrets{
-		Type: PKIType,
+		Type: PKINull,
 	}
 }
 
