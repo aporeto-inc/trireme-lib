@@ -30,7 +30,7 @@ type PKITokenVerifier interface {
 type verifierClaims struct {
 	X    *big.Int
 	Y    *big.Int
-	Tags []string `json:"aud,omitempty"`
+	Tags []string `json:"tags,omitempty"`
 	jwt.StandardClaims
 }
 
