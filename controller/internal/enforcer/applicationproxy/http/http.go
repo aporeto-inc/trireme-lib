@@ -98,7 +98,6 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
-				fmt.Println("Detected custom root certificate")
 				clientCAs = portContext.ClientTrustedRoots
 			}
 			config := p.newBaseTLSConfig()
