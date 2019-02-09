@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	compactPKIAckSize = 256
+	compactPKIAckSize = 300
 )
 
 // CompactPKI holds all PKI information

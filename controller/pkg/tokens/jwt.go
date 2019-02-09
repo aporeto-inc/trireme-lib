@@ -97,8 +97,12 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 		claims,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
-			// Issuer:    c.Issuer,
 		},
+	}
+
+	// For backward compatibility, keep the issuer in Ack packets.
+	if isAck {
+		allclaims.Issuer = c.Issuer
 	}
 
 	if !isAck {
