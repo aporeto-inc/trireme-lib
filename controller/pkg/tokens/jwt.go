@@ -97,7 +97,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 		claims,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
-			Issuer:    c.Issuer,
+			// Issuer:    c.Issuer,
 		},
 	}
 
