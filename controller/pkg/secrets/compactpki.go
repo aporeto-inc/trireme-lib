@@ -93,11 +93,6 @@ func (p *CompactPKI) PublicKey() interface{} {
 	return p.publicKey
 }
 
-// VerifyPublicKey verifies if the inband public key is correct.
-func (p *CompactPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
-	return p.verifier.Verify(pkey)
-}
-
 //KeyAndClaims returns both the key and any attributes associated with the public key.
 func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
 	kc, err := p.verifier.Verify(pkey)

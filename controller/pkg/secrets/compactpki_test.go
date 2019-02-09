@@ -7,7 +7,6 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
@@ -64,12 +63,6 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 
 		Convey("I should get the right public key, ", func() {
 			So(p.PublicKey().(*x509.Certificate), ShouldResemble, cert)
-		})
-
-		Convey("When I verify the received public key, it should succeed", func() {
-			pk, err := p.VerifyPublicKey(txKey)
-			So(err, ShouldBeNil)
-			So(pk.(*pkiverifier.DatapathKey).PublicKey, ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
 		})
 	})
 }

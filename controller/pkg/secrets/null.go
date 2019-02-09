@@ -35,12 +35,6 @@ func (p *NullPKI) PublicKey() interface{} {
 	return nil
 }
 
-// VerifyPublicKey verifies if the inband public key is correct.
-func (p *NullPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
-
-	return jwt.UnsafeAllowNoneSignatureType, nil
-}
-
 //KeyAndClaims returns both the key and any attributes associated with the public key.
 func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
 	return jwt.UnsafeAllowNoneSignatureType, []string{}, nil

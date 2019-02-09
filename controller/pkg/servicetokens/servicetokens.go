@@ -62,14 +62,17 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	// Otherwise we use the public key of the stored secrets.
 	var key *ecdsa.PublicKey
 	var ok bool
+	var enforcerclaims []string
+
 	if len(publicKey) > 0 {
 		// Public keys are cached and verified and they are the compact keys
 		// that we transmit in all other requests signed by the CA. These keys
 		// are not full certificates.
-		gKey, err := p.secrets.VerifyPublicKey([]byte(publicKey))
+		gKey, rootClaims, err := p.secrets.KeyAndClaims([]byte(publicKey))
 		if err != nil {
 			return "", nil, nil, fmt.Errorf("Cannot validate public key: %s", err)
 		}
+		enforcerclaims = rootClaims
 		key, ok = gKey.(*ecdsa.PublicKey)
 		if !ok {
 			return "", nil, nil, fmt.Errorf("Provided public key not supported")
@@ -90,6 +93,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	}); err != nil {
 		return "", nil, nil, err
 	}
+	claims.Profile = append(claims.Profile, enforcerclaims...)
 	if err := p.tokenCache.Set(token, claims); err != nil {
 		zap.L().Error("Failed to cache token", zap.Error(err))
 	}

@@ -13,9 +13,6 @@ type Secrets interface {
 	// TransmittedKey returns the public key as a byte slice and as it is transmitted
 	// on the wire.
 	TransmittedKey() []byte
-	// VerifyPublicKey will verify a public key and whether it is signed by a trusted
-	// authority.
-	VerifyPublicKey(pkey []byte) (interface{}, error)
 	// KeyAndClaims will verify the public key and return any claims that are part of the key.
 	KeyAndClaims(pkey []byte) (interface{}, []string, error)
 	// AckSize calculates the size of the ACK packet based on the keys.

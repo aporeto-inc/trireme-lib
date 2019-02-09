@@ -496,8 +496,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// user credentials, we get the redirect directive.
 	userAttributes, redirect := userCredentials(pctx.Service.ID, r, pctx.Authorizer, p.collector, state)
 
-	// Calculate the Aporeto PU claims by parsing the token if it exists.
-	sourceID, aporetoClaims := pctx.Authorizer.DecodeAporetoClaims(token, key)
+	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
+	// is mepty the DecodeAporetoClaims method will return no error.
+	sourceID, aporetoClaims, err := pctx.Authorizer.DecodeAporetoClaims(token, key)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid Authorization Token"), http.StatusForbidden)
+		state.stats.DropReason = collector.PolicyDrop
+		return
+	}
 	if len(aporetoClaims) > 0 {
 		state.stats.Source.ID = sourceID
 		state.stats.Source.Type = collector.EnpointTypePU
