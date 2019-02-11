@@ -1,6 +1,7 @@
 package nfqdatapath
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -28,8 +29,10 @@ var (
 
 func setupDatapath(collector collector.EventCollector) *Datapath {
 
-	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-	//mock the call
+	_, secret, err := secrets.CreateCompactPKITestSecrets()
+	fmt.Println("ERROR IS ", err)
+
+	// mock the call
 	prevRawSocket := GetUDPRawSocket
 	defer func() {
 		GetUDPRawSocket = prevRawSocket

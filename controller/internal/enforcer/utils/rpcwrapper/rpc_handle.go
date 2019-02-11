@@ -257,8 +257,6 @@ func payloadHash(payload interface{}) ([]byte, error) {
 func RegisterTypes() {
 
 	gob.Register(&secrets.CompactPKIPublicSecrets{})
-	gob.Register(&secrets.PKIPublicSecrets{})
-	gob.Register(&secrets.PSKPublicSecrets{})
 	gob.Register(&pkitokens.PKIJWTVerifier{})
 	gob.Register(&oidc.TokenVerifier{})
 	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))

@@ -416,11 +416,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-		// Since we adjust sequence numbers let's make sure we haven't made a mistake
-		if len(token) != int(d.ackSize) {
-			return fmt.Errorf("protocol error: tokenlen=%d acksize=%d", len(token), int(d.ackSize))
-		}
-
 		// Attach the tags to the packet
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
 			return err
