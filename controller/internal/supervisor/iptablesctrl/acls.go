@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	tcpProto = "tcp"
-	udpProto = "udp"
+	tcpProto     = "tcp"
+	udpProto     = "udp"
+	numPackets   = "100"
+	initialCount = "99"
 )
 
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -612,7 +614,8 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", udpProto,
+		"-p", udpProto, "-m", "statistic", "--mode", "nth",
+		"--every", numPackets, "--packet", initialCount,
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
