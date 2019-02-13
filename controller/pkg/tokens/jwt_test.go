@@ -1,13 +1,22 @@
 package tokens
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/gob"
+	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/crypto"
@@ -34,7 +43,6 @@ var (
 		EK:  []byte{},
 	}
 	validity = time.Second * 10
-	psk      = []byte("I NEED A BETTER KEY")
 
 	keyPEM = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIPkiHqtH372JJdAG/IxJlE1gv03cdwa8Lhg2b3m/HmbyoAoGCCqGSM49
@@ -79,11 +87,32 @@ IG7Nv+YlTVp5qA==
 -----END CERTIFICATE-----`
 )
 
+func createCompactPKISecrets(tags ...string) (*x509.Certificate, secrets.Secrets, error) {
+	txtKey, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	issuer := pkiverifier.NewPKIIssuer(txtKey)
+	txtToken, err := issuer.CreateTokenFromCertificate(cert, tags)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	scrts, err := secrets.NewCompactPKIWithTokenCA([]byte(keyPEM), []byte(certPEM), []byte(caPool), [][]byte{[]byte(certPEM)}, txtToken, claimsheader.CompressionTypeNone)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cert, scrts, nil
+}
+
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
 func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with max server name that violates requirements, it should fail", t, func() {
-		secrets := secrets.NewPSKSecrets(psk)
-		_, err := NewJWT(validity, "0123456789012345678901234567890123456789", secrets)
+		scrts, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+		So(err, ShouldBeNil)
+		_, err = NewJWT(validity, "0123456789012345678901234567890123456789", scrts)
 		So(err, ShouldNotBeNil)
 	})
 
@@ -92,23 +121,13 @@ func TestConstructorNewJWT(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 
-	Convey("Given that I instantiate a new JWT Engine with shared secrets, it should succeed", t, func() {
-
-		j := &JWTConfig{}
-		scrts := secrets.NewPSKSecrets(psk)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-
-		So(jwtConfig, ShouldHaveSameTypeAs, j)
-		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                 ")
-		So(jwtConfig.ValidityPeriod.Seconds(), ShouldEqual, validity.Seconds())
-		So(jwtConfig.signMethod, ShouldEqual, jwt.SigningMethodHS256)
-	})
-
 	Convey("Given that I instantiate a new JWT Engine with PKI secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
-		So(serr, ShouldBeNil)
+
+		_, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
@@ -120,8 +139,10 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT null encryption, it should succeed", t, func() {
 
 		j := &JWTConfig{}
+
 		scrts, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
@@ -132,58 +153,17 @@ func TestConstructorNewJWT(t *testing.T) {
 
 }
 
-func TestCreateAndVerifyPSK(t *testing.T) {
-	Convey("Given a JWT valid engine with pre-shared key ", t, func() {
-		scrts := secrets.NewPSKSecrets(psk)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-		nonce := []byte("1234567890123456")
-		Convey("Given a signature request for a normal packet", func() {
-			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims, recoveredNonce, _, err2 := jwtConfig.Decode(false, token, nil)
-
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
-			So(recoveredClaims, ShouldNotBeNil)
-			lclaims, ok1 := recoveredClaims.T.Get("label1")
-			dclaims, ok2 := recoveredClaims.T.Get("label1")
-			So(ok1, ShouldBeTrue)
-			So(ok2, ShouldBeTrue)
-			So(lclaims, ShouldResemble, dclaims)
-			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
-			So(recoveredNonce, ShouldResemble, nonce)
-		})
-
-		Convey("Given a signature request for an ACK packet", func() {
-			token, err1 := jwtConfig.CreateAndSign(true, &ackClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims, _, _, err2 := jwtConfig.Decode(true, token, nil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
-			So(recoveredClaims, ShouldNotBeNil)
-			So(recoveredClaims.RMT, ShouldResemble, []byte(rmt))
-			So(recoveredClaims.LCL, ShouldResemble, []byte(lcl))
-			So(recoveredClaims.T, ShouldBeNil)
-		})
-
-		Convey("Given a signature request with a bad packet ", func() {
-			recoveredClaims, _, _, err := jwtConfig.Decode(false, nil, nil)
-			So(err, ShouldNotBeNil)
-			So(recoveredClaims, ShouldBeNil)
-		})
-
-	})
-}
-
 func TestCreateAndVerifyPKI(t *testing.T) {
-	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
-		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
-		So(serr, ShouldBeNil)
+	Convey("Given a JWT valid engine with a valid Compact PKI key ", t, func() {
+		cert, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 
 		nonce := []byte("1234567890123456")
 		Convey("Given a signature request for a normal packet", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims, recoveredNonce, key, err2 := jwtConfig.Decode(false, token, nil)
+			recoveredClaims, recoveredNonce, publicKey, err2 := jwtConfig.Decode(false, token, nil)
 
 			So(err2, ShouldBeNil)
 			So(err1, ShouldBeNil)
@@ -196,7 +176,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
 			So(string(recoveredClaims.LCL), ShouldEqual, "")
 			So(nonce, ShouldResemble, recoveredNonce)
-			So(cert, ShouldResemble, key)
+			So(cert.PublicKey, ShouldResemble, publicKey)
 		})
 
 		Convey("Given a signature request that hits the cache ", func() {
@@ -228,8 +208,8 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(string(recoveredClaims2.LCL), ShouldEqual, "")
 			So(nonce, ShouldResemble, recoveredNonce1)
 			So(nonce2, ShouldResemble, recoveredNonce2)
-			So(cert, ShouldResemble, key1)
-			So(cert, ShouldResemble, key2)
+			So(cert.PublicKey, ShouldResemble, key1)
+			So(cert.PublicKey, ShouldResemble, key2)
 		})
 
 		Convey("Given a signature request for an ACK packet", func() {
@@ -248,10 +228,12 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 
 func TestNegativeConditions(t *testing.T) {
 	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
-		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
-		So(serr, ShouldBeNil)
+		_, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		nonce := []byte("012456789123456")
+
 		Convey("Test a token with a bad length ", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
 			_, _, _, err2 := jwtConfig.Decode(false, token[:len(token)-len(certPEM)-1], nil)
@@ -284,8 +266,10 @@ func TestNegativeConditions(t *testing.T) {
 func TestRamdomize(t *testing.T) {
 	Convey("Given a token engine with PKI key and a good token", t, func() {
 		nonce := []byte("012456789123456")
-		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
-		So(serr, ShouldBeNil)
+
+		_, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
 		So(err, ShouldBeNil)
@@ -306,8 +290,9 @@ func TestRamdomize(t *testing.T) {
 
 func TestRetrieveNonce(t *testing.T) {
 	Convey("Given a token engine and a good token", t, func() {
-		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
-		So(serr, ShouldBeNil)
+		_, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		nonce := []byte("0124567890123456")
 		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
@@ -322,5 +307,105 @@ func TestRetrieveNonce(t *testing.T) {
 			_, err := jwtConfig.RetrieveNonce(token[:2])
 			So(err, ShouldNotBeNil)
 		})
+	})
+}
+
+type PublicKeys struct {
+	X *big.Int
+	Y *big.Int
+}
+
+func Test_TokenLengths(t *testing.T) {
+	Convey("Given a JWT valid engine with a valid Compact PKI key ", t, func() {
+		_, scrts, err := createCompactPKISecrets(base64.StdEncoding.EncodeToString(make([]byte, 12)))
+		So(err, ShouldBeNil)
+
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
+
+		nonce := []byte("1234567890123456")
+		Convey("When I try with 64 4-byte tags, the max length must not be exceeded", func() {
+
+			var compressedTags string
+			b := make([]byte, 4)
+			total := []byte{}
+			for i := 0; i < 64; i++ {
+				_, err := rand.Read(b)
+				So(err, ShouldBeNil)
+				total = append(total, b...)
+			}
+			compressedTags = base64.StdEncoding.EncodeToString(total)
+
+			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			So(err, ShouldBeNil)
+
+			publickey := &PublicKeys{
+				X: privatekey.PublicKey.X,
+				Y: privatekey.PublicKey.Y,
+			}
+
+			var data bytes.Buffer
+
+			enc := gob.NewEncoder(&data)
+			err = enc.Encode(publickey)
+			So(err, ShouldBeNil)
+			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
+			Convey(msg, func() {})
+
+			claims := &ConnectionClaims{
+				ID:  "5c5baa93d5f54a3019bede4e",
+				RMT: []byte(rmt),
+				LCL: []byte(lcl),
+				EK:  data.Bytes(),
+				C:   compressedTags,
+				H:   make([]byte, 4),
+			}
+
+			token, err := jwtConfig.CreateAndSign(false, claims, nonce, claimsheader.NewClaimsHeader())
+			So(err, ShouldBeNil)
+			So(len(token), ShouldBeLessThan, 1420)
+		})
+
+		Convey("When I try with 20 12-byte tags, the max length must not be exceeded", func() {
+
+			var compressedTags string
+			b := make([]byte, 12)
+			total := []byte{}
+			for i := 0; i < 20; i++ {
+				_, err := rand.Read(b)
+				So(err, ShouldBeNil)
+				total = append(total, b...)
+			}
+			compressedTags = base64.StdEncoding.EncodeToString(total)
+
+			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			So(err, ShouldBeNil)
+
+			publickey := &PublicKeys{
+				X: privatekey.PublicKey.X,
+				Y: privatekey.PublicKey.Y,
+			}
+
+			var data bytes.Buffer
+
+			enc := gob.NewEncoder(&data)
+			err = enc.Encode(publickey)
+			So(err, ShouldBeNil)
+			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
+			Convey(msg, func() {})
+
+			claims := &ConnectionClaims{
+				ID:  "5c5baa93d5f54a3019bede4e",
+				RMT: []byte(rmt),
+				LCL: []byte(lcl),
+				EK:  data.Bytes(),
+				C:   compressedTags,
+				H:   make([]byte, 4),
+			}
+
+			token, err := jwtConfig.CreateAndSign(false, claims, nonce, claimsheader.NewClaimsHeader())
+			So(err, ShouldBeNil)
+			So(len(token), ShouldBeLessThan, 1420)
+		})
+
 	})
 }

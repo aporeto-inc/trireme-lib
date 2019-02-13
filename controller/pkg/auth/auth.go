@@ -108,17 +108,17 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 }
 
 // DecodeAporetoClaims decodes the Aporeto claims
-func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string) {
+func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string, error) {
 	if len(aporetoToken) == 0 || p.aporetoJWT == nil {
-		return "", []string{}
+		return "", []string{}, nil
 	}
 
 	// Finally we can parse the Aporeto token.
 	id, scopes, profile, err := p.aporetoJWT.ParseToken(aporetoToken, publicKey)
 	if err != nil {
-		return "", []string{}
+		return "", []string{}, fmt.Errorf("Invalid Aporeto Token: %s", err)
 	}
-	return id, append(profile, scopes...)
+	return id, append(profile, scopes...), nil
 }
 
 // Callback is function called by and IDP auth provider will exchange the provided
