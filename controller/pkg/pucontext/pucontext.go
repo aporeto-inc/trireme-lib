@@ -272,7 +272,7 @@ func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.Flow
 	defer p.RUnlock()
 	p.RLock()
 
-	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
+	return p.networkACLs.GetMatchingAction(packet.IpHdr.SourceAddress.To4(), packet.DestPort())
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
@@ -306,7 +306,7 @@ func (p *PUContext) UpdateNetworkACLs(rules policy.IPRuleList) error {
 
 // CacheExternalFlowPolicy will cache an external flow
 func (p *PUContext) CacheExternalFlowPolicy(packet *packet.Packet, plc interface{}) {
-	p.externalIPCache.AddOrUpdate(packet.SourceAddress.String()+":"+strconv.Itoa(int(packet.SourcePort)), plc)
+	p.externalIPCache.AddOrUpdate(packet.IpHdr.SourceAddress.String()+":"+strconv.Itoa(int(packet.SourcePort())), plc)
 }
 
 // GetProcessKeys returns the cache keys for a process

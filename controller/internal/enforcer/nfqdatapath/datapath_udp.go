@@ -43,7 +43,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	//var
 
 	udpPacketType := p.GetUDPType()
-	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.Buffer)))
+	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.IpHdr.Buffer)))
 
 	switch udpPacketType {
 	case packet.UDPSynMask:
@@ -137,7 +137,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
+			err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -156,7 +156,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
 	// Retrieve the context from the packet information.
-	context, err := d.contextFromIP(false, p.Mark, p.DestinationPort, packet.IPProtocolUDP)
+	context, err := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolUDP)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 		return conn.(*connection.UDPConnection), nil
 	}
 
-	context, err := d.contextFromIP(true, p.Mark, p.SourcePort, packet.IPProtocolUDP)
+	context, err := d.contextFromIP(true, p.Mark, p.SourcePort(), packet.IPProtocolUDP)
 	if err != nil {
 		return nil, fmt.Errorf("No context in app processing")
 	}
@@ -374,7 +374,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	if !addressMatch(udpPacket.DestinationAddress, context.UDPNetworks()) {
+	if !addressMatch(udpPacket.IpHdr.DestinationAddress, context.UDPNetworks()) {
 		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
 		return fmt.Errorf("No target found")
 	}
@@ -394,7 +394,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.writeWithRetransmit(newPacket.Buffer, conn, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket.IpHdr.Buffer, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -442,9 +442,10 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnec
 
 func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) {
 	// copy the ip and udp headers.
-	newPacket := make([]byte, packet.UDPDataPos)
-	p.FixupIPHdrOnDataModify(p.IPTotalLength, packet.UDPDataPos)
-	_ = copy(newPacket, p.Buffer[:packet.UDPDataPos])
+	newSize := uint16(packet.MinIPv4HdrSize + packet.UDPDataPos)
+	newPacket := make([]byte, newSize)
+	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, newSize)
+	_ = copy(newPacket, p.IpHdr.Buffer[:newSize])
 
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
@@ -481,7 +482,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress, udpPacket.SourcePort)
+	udpPacket.CreateReverseFlowPacket(udpPacket.IpHdr.SourceAddress, udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
@@ -493,7 +494,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.Buffer, conn, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket.IpHdr.Buffer, conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
@@ -531,7 +532,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -541,10 +542,10 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 		if err = d.conntrackHdl.ConntrackTableUpdateMark(
 			destIP,
-			udpPacket.SourceAddress.String(),
-			udpPacket.IPProto,
+			udpPacket.IpHdr.SourceAddress.String(),
+			udpPacket.IpHdr.IPProto,
 			uint16(destPort),
-			udpPacket.SourcePort,
+			udpPacket.SourcePort(),
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table for flow",
@@ -584,7 +585,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestinationPort)))
+	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestPort())))
 
 	report, pkt := context.SearchRcvRules(claims.T)
 	if pkt.Action.Rejected() {
@@ -648,11 +649,11 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.DestinationAddress.String(),
-			udpPacket.SourceAddress.String(),
-			udpPacket.IPProto,
-			udpPacket.DestinationPort,
-			udpPacket.SourcePort,
+			udpPacket.IpHdr.DestinationAddress.String(),
+			udpPacket.IpHdr.SourceAddress.String(),
+			udpPacket.IpHdr.IPProto,
+			udpPacket.DestPort(),
+			udpPacket.SourcePort(),
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table after ack packet")
@@ -670,14 +671,14 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPFinAckMask)
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress, udpPacket.SourcePort)
+	udpPacket.CreateReverseFlowPacket(udpPacket.IpHdr.SourceAddress, udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
 
 	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return err
@@ -706,11 +707,11 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
 	if err = d.conntrackHdl.ConntrackTableUpdateMark(
-		udpPacket.DestinationAddress.String(),
-		udpPacket.SourceAddress.String(),
-		udpPacket.IPProto,
-		udpPacket.DestinationPort,
-		udpPacket.SourcePort,
+		udpPacket.IpHdr.DestinationAddress.String(),
+		udpPacket.IpHdr.SourceAddress.String(),
+		udpPacket.IpHdr.IPProto,
+		udpPacket.DestPort(),
+		udpPacket.SourcePort(),
 		constants.DeleteConnmark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table for flow",

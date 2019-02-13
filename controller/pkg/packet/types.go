@@ -181,8 +181,8 @@ type Packet struct {
 	Mark string
 
 	IpHdr  iphdr
-	tcpHdr tcphdr
-	udpHdr udphdr
+	TcpHdr tcphdr
+	UdpHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata
