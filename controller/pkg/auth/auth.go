@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 // Processor holds all the local data of the authorization engine. A processor
@@ -67,7 +68,7 @@ func (p *Processor) UpdateServiceAPIs(apis *urisearch.APICache) error {
 func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, string, error) {
 
 	switch p.userAuthorizationType {
-	case policy.UserAuthorizationMutualTLS:
+	case policy.UserAuthorizationMutualTLS, policy.UserAuthorizationJWT:
 		// First parse any incoming certificates and retrieve attributes from them.
 		// This is used in case of client authorization with certificates.
 		attributes := []string{}
@@ -83,10 +84,21 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 				attributes = append(attributes, "OU="+org)
 			}
 		}
+
+		if p.userAuthorizationType == policy.UserAuthorizationJWT && p.userTokenHandler != nil {
+			jwtAttributes, _, _, err := p.userTokenHandler.Validate(r.Context(), userToken)
+			if err != nil {
+				return attributes, false, userToken, fmt.Errorf("Unable to decode JWT: %s", err)
+			}
+			attributes = append(attributes, jwtAttributes...)
+		}
+
 		return attributes, false, userToken, nil
-	case policy.UserAuthorizationOIDC, policy.UserAuthorizationJWT:
+
+	case policy.UserAuthorizationOIDC:
 		// Now we can parse the user claims.
 		if p.userTokenHandler == nil {
+			zap.L().Error("Internal Server Error: OIDC User Token Handler not configured")
 			return []string{}, false, userToken, nil
 		}
 		return p.userTokenHandler.Validate(r.Context(), userToken)
@@ -96,17 +108,17 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 }
 
 // DecodeAporetoClaims decodes the Aporeto claims
-func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string) {
+func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string, error) {
 	if len(aporetoToken) == 0 || p.aporetoJWT == nil {
-		return "", []string{}
+		return "", []string{}, nil
 	}
 
 	// Finally we can parse the Aporeto token.
 	id, scopes, profile, err := p.aporetoJWT.ParseToken(aporetoToken, publicKey)
 	if err != nil {
-		return "", []string{}
+		return "", []string{}, fmt.Errorf("Invalid Aporeto Token: %s", err)
 	}
-	return id, append(profile, scopes...)
+	return id, append(profile, scopes...), nil
 }
 
 // Callback is function called by and IDP auth provider will exchange the provided

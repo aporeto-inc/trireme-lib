@@ -26,6 +26,12 @@ func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 // CollectUserEvent is part of the EventCollector interface.
 func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
 
+// CollectTraceEvent collects iptables trace events
+func (d *DefaultCollector) CollectTraceEvent(records []string) {}
+
+// CollectPacketEvent collects packet events from the datapath
+func (d *DefaultCollector) CollectPacketEvent(report *PacketReport) {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()
@@ -33,10 +39,11 @@ func StatsFlowHash(r *FlowRecord) string {
 	hash.Write([]byte(r.Destination.ID)) // nolint errcheck
 	port := make([]byte, 2)
 	binary.BigEndian.PutUint16(port, r.Destination.Port)
-	hash.Write(port)                      // nolint errcheck
-	hash.Write([]byte(r.Action.String())) // nolint errcheck
-	hash.Write([]byte(r.DropReason))      // nolint errcheck
-	hash.Write([]byte(r.Destination.URI)) // nolint errcheck
+	hash.Write(port)                              // nolint errcheck
+	hash.Write([]byte(r.Action.String()))         // nolint errcheck
+	hash.Write([]byte(r.ObservedAction.String())) // nolint errcheck
+	hash.Write([]byte(r.DropReason))              // nolint errcheck
+	hash.Write([]byte(r.Destination.URI))         // nolint errcheck
 
 	return fmt.Sprintf("%d", hash.Sum64())
 }

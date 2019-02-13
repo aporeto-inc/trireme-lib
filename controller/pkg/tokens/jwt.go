@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -45,6 +46,8 @@ type JWTConfig struct {
 	compressionType claimsheader.CompressionType
 	// compressionTagLength is the length of tags based on compressionType
 	compressionTagLength int
+	// datapathVersion is the current version of the datapath
+	datapathVersion claimsheader.DatapathVersion
 }
 
 // NewJWT creates a new JWT token processor
@@ -69,10 +72,6 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	case secrets.PKICompactType:
 		signMethod = jwt.SigningMethodES256
 		compressionType = s.(*secrets.CompactPKI).Compressed
-	case secrets.PKIType:
-		signMethod = jwt.SigningMethodES256
-	case secrets.PSKType:
-		signMethod = jwt.SigningMethodHS256
 	default:
 		signMethod = jwt.SigningMethodNone
 	}
@@ -85,20 +84,25 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 		compressionType:      compressionType,
 		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
+		datapathVersion:      claimsheader.DatapathVersion1,
 	}, nil
 }
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte) (token []byte, err error) {
+func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
 		claims,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
-			Issuer:    c.Issuer,
 		},
+	}
+
+	// For backward compatibility, keep the issuer in Ack packets.
+	if isAck {
+		allclaims.Issuer = c.Issuer
 	}
 
 	if !isAck {
@@ -121,6 +125,11 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
 		}
 	}
+
+	// Set the appropriate claims header
+	claimsHeader.SetCompressionType(c.compressionType)
+	claimsHeader.SetDatapathVersion(c.datapathVersion)
+	claims.H = claimsHeader.ToBytes()
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
@@ -166,6 +175,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
 	var ackCert interface{}
+	var certClaims []string
 
 	token := data
 
@@ -194,7 +204,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
+
+		ackCert, certClaims, err = c.secrets.KeyAndClaims(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
@@ -204,11 +215,16 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		}
 	}
 
-	// Parse the JWT token with the public key recovered
-	jwttoken, err := jwt.ParseWithClaims(string(token), jwtClaims, func(token *jwt.Token) (interface{}, error) {
-		server := token.Claims.(*JWTClaims).Issuer
-		server = strings.Trim(server, " ")
-		return c.secrets.DecodingKey(server, ackCert, previousCert)
+	// Parse the JWT token with the public key recovered. If it is an Ack packet
+	// use the previous cert.
+	jwttoken, err := jwt.ParseWithClaims(string(token), jwtClaims, func(token *jwt.Token) (interface{}, error) { // nolint
+		if ackCert != nil {
+			return ackCert.(*ecdsa.PublicKey), nil
+		}
+		if previousCert != nil {
+			return previousCert.(*ecdsa.PublicKey), nil
+		}
+		return nil, fmt.Errorf("Unable to find certificate")
 	})
 
 	// If error is returned or the token is not valid, reject it
@@ -223,11 +239,14 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// Handling of compressed tags in a backward compatible manner. If there are claims
 		// arriving in the compressed field then we append them to the tags.
-		zap.L().Debug("claims", zap.Reflect("jwt", jwtClaims), zap.String("type", string(c.compressionType)))
 
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
+		}
+
+		if certClaims != nil {
+			tags = append(tags, certClaims...)
 		}
 
 		// Handle compressed tags
@@ -250,6 +269,12 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 
 		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
+	}
+
+	if jwtClaims.ConnectionClaims.H != nil {
+		if err := c.verifyClaimsHeader(jwtClaims.ConnectionClaims.H.ToClaimsHeader()); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
@@ -280,4 +305,16 @@ func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
 	copy(nonce, token[noncePosition:tokenPosition])
 
 	return nonce, nil
+}
+
+func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {
+
+	switch {
+	case claimsHeader.CompressionType() != c.compressionType:
+		return newErrToken(errCompressedTagMismatch)
+	case claimsHeader.DatapathVersion() != c.datapathVersion:
+		return newErrToken(errDatapathVersionMismatch)
+	}
+
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -94,7 +95,7 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		if err != nil {
 			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
-		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS {
+		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
 				clientCAs = portContext.ClientTrustedRoots
@@ -242,6 +243,9 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
+			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { // nolint
+				return p.cert, nil
+			},
 		},
 		DialContext:         appDialerWithContext,
 		MaxIdleConns:        2000,
@@ -390,7 +394,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		// If it is a secrets request we process it and move on. No need to
 		// validate policy.
-		if p.isSecretsRequest(w, r) {
+		if p.isSecretsRequest(w, r, sctx) {
 			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
 			return
 		}
@@ -491,8 +495,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// user credentials, we get the redirect directive.
 	userAttributes, redirect := userCredentials(pctx.Service.ID, r, pctx.Authorizer, p.collector, state)
 
-	// Calculate the Aporeto PU claims by parsing the token if it exists.
-	sourceID, aporetoClaims := pctx.Authorizer.DecodeAporetoClaims(token, key)
+	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
+	// is mepty the DecodeAporetoClaims method will return no error.
+	sourceID, aporetoClaims, err := pctx.Authorizer.DecodeAporetoClaims(token, key)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid Authorization Token"), http.StatusForbidden)
+		state.stats.DropReason = collector.PolicyDrop
+		return
+	}
 	if len(aporetoClaims) > 0 {
 		state.stats.Source.ID = sourceID
 		state.stats.Source.Type = collector.EnpointTypePU
@@ -584,7 +594,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
-			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access denied by network policy to downstream IP: %s", originalDestination.IP.String()), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
@@ -596,7 +606,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
-func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
+func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *serviceregistry.ServiceContext) bool {
 
 	if r.Host != "169.254.254.1" {
 		return false
@@ -611,6 +621,18 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 		if _, err := w.Write([]byte(p.keyPEM)); err != nil {
 			zap.L().Error("Unable to write response")
 		}
+	case "/health":
+		plc := sctx.PU.Policy.ToPublicPolicy()
+		plc.ServicesCertificate = ""
+		plc.ServicesPrivateKey = ""
+		data, err := json.Marshal(plc)
+		if err != nil {
+			data = []byte("Internal Server Error")
+		}
+		if _, err := w.Write(data); err != nil {
+			zap.L().Error("Unable to write response to health API")
+		}
+
 	default:
 		http.Error(w, fmt.Sprintf("Uknown"), http.StatusBadRequest)
 	}
@@ -642,11 +664,14 @@ func userCredentials(serviceID string, r *http.Request, authorizer *auth.Process
 	}
 
 	userAttributes, redirect, refreshedToken, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
-	if err == nil && len(userAttributes) > 0 {
+	if len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		c.CollectUserEvent(userRecord)
 		state.stats.Source.UserID = userRecord.ID
 		state.stats.Source.Type = collector.EndpointTypeClaims
+	}
+	if err != nil && len(userAttributes) > 0 {
+		zap.L().Warn("Partially failed to extract and decode user claims", zap.Error(err))
 	} else if err != nil {
 		zap.L().Error("Failed to decode user claims", zap.Error(err))
 	}

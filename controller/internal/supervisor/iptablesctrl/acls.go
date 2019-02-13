@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	tcpProto = "tcp"
-	udpProto = "udp"
+	tcpProto     = "tcp"
+	udpProto     = "udp"
+	numPackets   = "100"
+	initialCount = "99"
 )
 
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -357,6 +359,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -456,6 +459,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			"-p", tcpProto,
 			"-m", "set",
 			"--match-set", srvSetName, "src",
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -610,7 +614,8 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", udpProto,
+		"-p", udpProto, "-m", "statistic", "--mode", "nth",
+		"--every", numPackets, "--packet", initialCount,
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
@@ -1615,6 +1620,8 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
+		"-p", "tcp",
+		"-m", "addrtype", "--dst-type", "LOCAL",
 		"-j", natProxyInputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
@@ -1785,7 +1792,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 

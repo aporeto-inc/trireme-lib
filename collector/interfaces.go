@@ -3,6 +3,7 @@ package collector
 import (
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -36,6 +37,12 @@ const (
 	APIPolicyDrop = "api"
 	// UnableToDial indicates that the proxy cannot dial out the connection
 	UnableToDial = "dial"
+	// CompressedTagMismatch indicates that the compressed tag version is dissimilar
+	CompressedTagMismatch = "compressedtagmismatch"
+	// EncryptionMismatch indicates that the policy encryption varies between client and server enforcer
+	EncryptionMismatch = "encryptionmismatch"
+	// DatapathVersionMismatch indicates that the datapath version is dissimilar
+	DatapathVersionMismatch = "datapathversionmismatch"
 )
 
 // Container event description
@@ -78,6 +85,12 @@ type EventCollector interface {
 
 	// CollectUserEvent  collects a user event
 	CollectUserEvent(record *UserRecord)
+
+	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
+	CollectTraceEvent(records []string)
+
+	// CollectPacketEvent collects packet event from nfqdatapath
+	CollectPacketEvent(report *PacketReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -161,4 +174,24 @@ type ContainerRecord struct {
 type UserRecord struct {
 	ID     string
 	Claims []string
+}
+
+// PacketReport is the struct which is used to report packets captured in datapath
+type PacketReport struct {
+	TCPFlags        int
+	Claims          []string
+	DestinationIP   string
+	DestinationPort int
+	DropReason      string
+	Encrypt         bool
+	Event           packettracing.PacketEvent
+	Length          int
+	Mark            int
+	Namespace       string
+	PacketID        int
+	Protocol        int
+	PUID            string
+	SourceIP        string
+	SourcePort      int
+	TriremePacket   bool
 }

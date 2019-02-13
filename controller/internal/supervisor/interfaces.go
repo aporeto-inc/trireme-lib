@@ -2,10 +2,18 @@ package supervisor
 
 import (
 	"context"
+	"time"
 
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/policy"
 )
+
+// DebugInfo is interface that the supervisor implements to configure iptables tracing interface
+// type DebugInfo interface {
+
+// 	// EnableIPTablesPacketTracing enables ip tables packet tracing
+// 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
+// }
 
 // A Supervisor is implementing the node control plane that captures the packets.
 type Supervisor interface {
@@ -24,6 +32,9 @@ type Supervisor interface {
 
 	// CleanUp requests the supervisor to clean up all ACLs
 	CleanUp() error
+
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc

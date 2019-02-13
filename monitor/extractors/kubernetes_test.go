@@ -25,7 +25,9 @@ func TestDefaultKubernetesMetadataExtractor(t *testing.T) {
 	runtimeResult := policy.NewPURuntimeWithDefaults()
 	tags = runtimeResult.Tags()
 	tags.AppendKeyValue("label", "one")
+	tags.AppendKeyValue(UpstreamOldNameIdentifier, "test")
 	tags.AppendKeyValue(UpstreamNameIdentifier, "test")
+	tags.AppendKeyValue(UpstreamOldNamespaceIdentifier, "ns")
 	tags.AppendKeyValue(UpstreamNamespaceIdentifier, "ns")
 
 	runtimeResult.SetTags(tags)

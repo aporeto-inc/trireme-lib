@@ -20,10 +20,12 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -357,6 +359,17 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
 			}
+			// NOTE: For backward compatibility, remove this check later
+			if claims.H != nil {
+				if claims.H.ToClaimsHeader().Encrypt() != packet.Action.Encrypted() {
+					// Here we report If the encrypt flag is mismatched between pus
+					// TODO: This will be removed once we upgrade the connection in future
+					puFlowProperties := flowproperties
+					puFlowProperties.DestType = collector.EnpointTypePU
+					p.reportRejectedFlow(puFlowProperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.EncryptionMismatch, nil, nil)
+					return isEncrypted, errors.New("dropping because of encryption mismatch")
+				}
+			}
 			if packet.Action.Encrypted() {
 				isEncrypted = true
 			}
@@ -427,7 +440,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, tokens.CodeFromErr(err), nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
@@ -450,7 +463,10 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
+			claimsHeader := claimsheader.NewClaimsHeader(
+				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
+			)
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeader)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}

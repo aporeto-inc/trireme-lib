@@ -24,8 +24,12 @@ type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, erro
 func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	tags := policy.NewTagStore()
+	// TODO: Remove OLDTAGS
 	tags.AppendKeyValue("@sys:image", info.Config.Image)
 	tags.AppendKeyValue("@sys:name", info.Name)
+	tags.AppendKeyValue("@app:image", info.Config.Image)
+	tags.AppendKeyValue("@app:extractor", "docker")
+	tags.AppendKeyValue("@app:docker:name", info.Name)
 
 	for k, v := range info.Config.Labels {
 		tags.AppendKeyValue("@usr:"+k, v)

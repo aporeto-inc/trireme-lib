@@ -65,11 +65,8 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		return nil, err
 	}
 
-	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
-	if s.PublicSecrets().SecretsType() != secrets.PSKType {
-		if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
-			return nil, fmt.Errorf("error while adding provided CA")
-		}
+	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
+		return nil, fmt.Errorf("error while adding provided CA")
 	}
 
 	return &AppProxy{
@@ -306,11 +303,8 @@ func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 	if err != nil {
 		return p.systemCAPool
 	}
-	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
-	if p.secrets.PublicSecrets().SecretsType() != secrets.PSKType {
-		if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
-			return p.systemCAPool
-		}
+	if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
+		return p.systemCAPool
 	}
 	for _, ca := range externalCAs {
 		systemPool.AppendCertsFromPEM(ca)

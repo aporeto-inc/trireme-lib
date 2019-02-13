@@ -18,9 +18,11 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -41,6 +43,15 @@ const DefaultExternalIPTimeout = "500ms"
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
+
+type debugpacketmessage struct {
+	Mark    int
+	p       *packet.Packet
+	tcpConn *connection.TCPConnection
+	udpConn *connection.UDPConnection
+	err     error
+	network bool
+}
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -88,11 +99,15 @@ type Datapath struct {
 	udpNetOrigConnectionTracker  cache.DataStore
 	udpNetReplyConnectionTracker cache.DataStore
 	udpNatConnectionTracker      cache.DataStore
+	udpFinPacketTracker          cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
-	// connctrack handle
+	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
+	packetTracingCache cache.DataStore
+
+	// conntrack handle
 	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
@@ -107,6 +122,10 @@ type Datapath struct {
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
 	puToPortsMap    map[string]map[string]bool
+}
+
+type tracingCacheEntry struct {
+	direction packettracing.TracingDirection
 }
 
 func createPolicy(networks []string) policy.IPRuleList {
@@ -208,7 +227,9 @@ func New(
 		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
+		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
 
+		packetTracingCache:     cache.NewCache("PacketTracingCache"),
 		targetNetworks:         acls.NewACLCache(),
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
@@ -267,7 +288,7 @@ func NewWithDefaults(
 
 	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
-		zap.L().Fatal("Cannot create a token engine")
+		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
@@ -473,28 +494,18 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
-		ContextID: context.ID(),
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.EnpointTypePU,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.EnpointTypePU,
-		},
-		Tags:       context.Annotations(),
-		Action:     actual.Action,
-		DropReason: mode,
-		PolicyID:   actual.PolicyID,
-		L4Protocol: p.IPProto,
-		Count:      1,
+		ContextID:   context.ID(),
+		Source:      src,
+		Destination: dst,
+		Tags:        context.Annotations(),
+		Action:      actual.Action,
+		DropReason:  mode,
+		PolicyID:    actual.PolicyID,
+		L4Protocol:  p.IPProto,
+		Count:       1,
 	}
 
 	if report.ObserveAction.Observed() {
@@ -557,4 +568,21 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
 
 	return nil, errInvalidProtocol
+}
+
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+
+	if _, err := d.puFromContextID.Get(contextID); err != nil {
+		return fmt.Errorf("contextID %s does not exist", contextID)
+	}
+	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
+		direction: direction,
+	})
+	go func() {
+		<-time.After(interval)
+		d.packetTracingCache.Remove(contextID) // nolint
+	}()
+
+	return nil
 }

@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +26,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -44,6 +46,7 @@ func newServer(
 	rpcChannel string,
 	secret string,
 	statsClient statsclient.StatsClient,
+	debugClient debugclient.DebugClient,
 ) (s RemoteIntf, err error) {
 
 	var collector statscollector.Collector
@@ -54,7 +57,12 @@ func newServer(
 			return nil, err
 		}
 	}
-
+	if debugClient == nil {
+		debugClient, err = debugclient.NewDebugClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
@@ -68,6 +76,7 @@ func newServer(
 		rpcHandle:      rpcHandle,
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
+		debugClient:    debugClient,
 		ctx:            ctx,
 		cancel:         cancel,
 	}, nil
@@ -212,6 +221,10 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	}
 
 	resp.Status = ""
+	if err := s.debugClient.Run(s.ctx); err != nil {
+		resp.Status = "DebugClient" + err.Error()
+		return errors.New(resp.Status)
+	}
 	return nil
 }
 
@@ -302,6 +315,8 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
+
+	s.statsClient.SendStats()
 
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.enforcer.Unenforce(payload.ContextID)
@@ -396,7 +411,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	var err error
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enforce message auth failed"
+		resp.Status = "updatesecrets auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -419,6 +434,39 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	return nil
 }
 
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enable datapath packet tracing auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
+	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+	return nil
+}
+
+// EnableIPTablesPacketTracing enables iptables trace packet tracing
+func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enable iptable packet tracing auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
+	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+	resp.Status = ""
+	return nil
+}
+
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
@@ -437,7 +485,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil)
+	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
 	if err != nil {
 		return err
 	}
