@@ -21,16 +21,16 @@ func (p *Packet) VerifyIPChecksum() bool {
 
 	sum := p.computeIPChecksum()
 
-	return sum == p.ipHdr.ipChecksum
+	return sum == p.IpHdr.ipChecksum
 }
 
 // UpdateIPChecksum computes the IP header checksum and updates the
 // packet with the value.
 func (p *Packet) UpdateIPChecksum() {
 
-	p.ipHdr.ipChecksum = p.computeIPChecksum()
+	p.IpHdr.ipChecksum = p.computeIPChecksum()
 
-	binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.ipHdr.ipChecksum)
+	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
 }
 
 // VerifyTCPChecksum returns true if the TCP header checksum is correct
@@ -82,15 +82,15 @@ func (p *Packet) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(error)")
 
-	header, err := ipv4.ParseHeader(p.ipHdr.Buffer)
+	header, err := ipv4.ParseHeader(p.IpHdr.Buffer)
 
 	if err == nil {
 		buf.Reset()
 		buf.WriteString(header.String())
 		buf.WriteString(" srcport=")
-		buf.WriteString(p.sourcePort())
+		buf.WriteString(p.SourcePort())
 		buf.WriteString(" dstport=")
-		buf.WriteString(p.destPort())
+		buf.WriteString(p.DestPort())
 		buf.WriteString(" tcpcksum=")
 		buf.WriteString(fmt.Sprintf("0x%0x", p.tcpHdr.TCPChecksum))
 		buf.WriteString(" data")
@@ -103,13 +103,13 @@ func (p *Packet) String() string {
 func (p *Packet) computeIPChecksum() uint16 {
 
 	// IP packet checksum is computed with the checksum value set to zero
-	binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], uint16(0))
+	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], uint16(0))
 
 	// Compute checksum, over IP header only
-	sum := checksum(p.ipHdr.Buffer[0 : p.ipHdr.ipHeaderLen*4])
+	sum := checksum(p.IpHdr.Buffer[0 : p.IpHdr.ipHeaderLen*4])
 
 	// Restore the previous checksum (whether correct or not, as this function doesn't change it)
-	binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.ipHdr.ipChecksum)
+	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
 
 	return sum
 }
@@ -126,8 +126,8 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	p.tcpHdr.Buffer[TCPChecksumPos] = 0
 	p.tcpHdr.Buffer[TCPChecksumPos+1] = 0
 
-	csum := partialChecksum(0, p.ipHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
-	csum = partialChecksum(csum, p.ipHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
+	csum := partialChecksum(0, p.IpHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
+	csum = partialChecksum(csum, p.IpHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
 
 	// reserverd 0 byte
 	buf[0] = 0
@@ -247,10 +247,10 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
-	p.FixupIPHdrOnDataModify(p.ipHdr.IPTotalLength, p.ipHdr.IPTotalLength+packetLenIncrease)
+	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, p.IpHdr.IPTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
+	p.IpHdr.Buffer = append(p.IpHdr.Buffer, p.udpHdr.udpData...)
 
 	p.UpdateUDPChecksum()
 }
@@ -264,9 +264,9 @@ func (p *Packet) UDPDataAttach(udpdata []byte) {
 	packetLenIncrease := uint16(len(udpdata))
 
 	// Attach Data @ the end of current buffer. Add it to the IP header as that will be used when setverdict is called.
-	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
+	p.IpHdr.Buffer = append(p.IpHdr.Buffer, p.udpHdr.udpData...)
 	// IP Header Processing
-	p.FixupIPHdrOnDataModify(p.ipHdr.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
+	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
 	p.UpdateUDPChecksum()
 }
 
@@ -284,24 +284,24 @@ func (p *Packet) UDPDataDetach() {
 func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 
 	srcAddr := binary.BigEndian.Uint32(destIP.To4())
-	destAddr := binary.BigEndian.Uint32(p.ipHdr.Buffer[ipv4DestAddrPos : ipv4DestAddrPos+4])
+	destAddr := binary.BigEndian.Uint32(p.IpHdr.Buffer[ipv4DestAddrPos : ipv4DestAddrPos+4])
 
 	// copy the fields
-	binary.BigEndian.PutUint32(p.ipHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4], destAddr)
-	binary.BigEndian.PutUint32(p.ipHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4], srcAddr)
+	binary.BigEndian.PutUint32(p.IpHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4], destAddr)
+	binary.BigEndian.PutUint32(p.IpHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4], srcAddr)
 	binary.BigEndian.PutUint16(p.udpHdr.Buffer[udpSourcePortPos:udpSourcePortPos+2], p.udpHdr.DestinationPort)
 	binary.BigEndian.PutUint16(p.udpHdr.Buffer[udpDestPortPos:udpDestPortPos+2], destPort)
 
-	p.FixupIPHdrOnDataModify(p.ipHdr.IPTotalLength, minIPv4HdrSize+UDPDataPos)
+	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, minIPv4HdrSize+UDPDataPos)
 
 	// Just get the IP/UDP header. Ignore the rest. No need for packet
 	// validation here.
 	// Extend the ip buffer to include the tcp.
-	p.ipHdr.Buffer = p.ipHdr.Buffer[:minIPv4HdrSize+UDPDataPos]
+	p.IpHdr.Buffer = p.IpHdr.Buffer[:minIPv4HdrSize+UDPDataPos]
 
 	// change the fields
-	p.ipHdr.SourceAddress = p.ipHdr.DestinationAddress
-	p.ipHdr.DestinationAddress = destIP
+	p.IpHdr.SourceAddress = p.IpHdr.DestinationAddress
+	p.IpHdr.DestinationAddress = destIP
 
 	p.udpHdr.SourcePort = p.udpHdr.DestinationPort
 	p.udpHdr.DestinationPort = destPort

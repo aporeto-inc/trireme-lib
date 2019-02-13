@@ -180,7 +180,7 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	ipHdr  iphdr
+	IpHdr  iphdr
 	tcpHdr tcphdr
 	udpHdr udphdr
 	// Service Metadata
