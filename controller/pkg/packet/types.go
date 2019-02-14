@@ -141,7 +141,7 @@ type iphdr struct {
 	Buffer []byte
 
 	// IP Header fields
-	ipHeaderLen        uint8
+	IpHeaderLen        uint8
 	IPProto            uint8
 	IPTotalLength      uint16
 	ipID               uint16
@@ -151,7 +151,6 @@ type iphdr struct {
 }
 
 type tcphdr struct {
-	Buffer     []byte
 	tcpOptions []byte
 	tcpData    []byte
 
@@ -166,7 +165,6 @@ type tcphdr struct {
 }
 
 type udphdr struct {
-	Buffer          []byte
 	SourcePort      uint16
 	DestinationPort uint16
 	UDPChecksum     uint16

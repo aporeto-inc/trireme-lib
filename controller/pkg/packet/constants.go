@@ -6,9 +6,9 @@ const (
 	// minIPPacketLen is the min ip packet size for UDP packet
 	minUDPIPPacketLen = 8
 	// minIPHdrSize
-	MinIPv4HdrSize = 20
+	minIPv4HdrSize = 20
 
-	minIPv4HdrWords = (MinIPv4HdrSize / 4)
+	minIPv4HdrWords = (minIPv4HdrSize / 4)
 )
 
 // IP Header field position constants

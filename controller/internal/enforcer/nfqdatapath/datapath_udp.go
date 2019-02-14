@@ -442,7 +442,7 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnec
 
 func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) {
 	// copy the ip and udp headers.
-	newSize := uint16(packet.MinIPv4HdrSize + packet.UDPDataPos)
+	newSize := uint16(p.IpHdr.IpHeaderLen + packet.UDPDataPos)
 	newPacket := make([]byte, newSize)
 	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, newSize)
 	_ = copy(newPacket, p.IpHdr.Buffer[:newSize])
