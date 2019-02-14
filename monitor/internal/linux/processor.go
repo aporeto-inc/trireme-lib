@@ -73,6 +73,14 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 		return err
 	}
 
+	processes, err := l.netcls.ListCgroupProcesses(nativeID)
+	if err == nil && len(processes) != 0 {
+		//This PU already exists we are getting a duplicate event
+		zap.L().Debug("Duplicate start event for the same PU", zap.String("PUID", nativeID))
+		l.netcls.AddProcess(nativeID, int(eventInfo.PID))
+		return nil
+	}
+
 	// Extract the metadata and create the runtime
 	runtime, err := l.metadataExtractor(eventInfo)
 	if err != nil {
@@ -118,6 +126,13 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	puID, err := l.generateContextID(event)
 	if err != nil {
 		return err
+	}
+
+	processes, err := l.netcls.ListCgroupProcesses(puID)
+	if err == nil && len(processes) != 0 {
+		zap.L().Debug("Received Bogus Stop", zap.Int("Num Processes", len(processes)), zap.Error(err))
+		l.netcls.AddProcess(puID, int(event.PID))
+		return nil
 	}
 
 	if puID == "/trireme" {
