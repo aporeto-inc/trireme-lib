@@ -33,6 +33,7 @@ var ignoreNames = map[string]*struct{}{
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
 	host              bool
+	ssh               bool
 	config            *config.ProcessorConfig
 	metadataExtractor extractors.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
@@ -124,7 +125,11 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	runtime.SetPUType(common.LinuxProcessPU)
+	if l.ssh {
+		runtime.SetPUType(common.SSHSessionPU)
+	} else {
+		runtime.SetPUType(common.LinuxProcessPU)
+	}
 
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
 }
@@ -144,7 +149,11 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	runtime.SetPUType(common.LinuxProcessPU)
+	if l.ssh {
+		runtime.SetPUType(common.SSHSessionPU)
+	} else {
+		runtime.SetPUType(common.LinuxProcessPU)
+	}
 
 	// Send the event upstream
 	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
@@ -248,7 +257,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		}
 
 		runtime := policy.NewPURuntimeWithDefaults()
-		runtime.SetPUType(common.LinuxProcessPU)
+		if l.ssh {
+			runtime.SetPUType(common.SSHSessionPU)
+		} else {
+			runtime.SetPUType(common.LinuxProcessPU)
+		}
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,

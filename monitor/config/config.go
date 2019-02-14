@@ -19,6 +19,7 @@ const (
 	LinuxHost
 	UID
 	Kubernetes
+	SSH
 )
 
 // MonitorConfig specifies the configs for monitors.

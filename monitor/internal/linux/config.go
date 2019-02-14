@@ -11,32 +11,25 @@ type Config struct {
 	StoredPath             string
 	ReleasePath            string
 	Host                   bool
+	SSH                    bool
 }
 
 // DefaultConfig provides a default configuration
-func DefaultConfig(host bool) *Config {
-
-	if host {
-		return &Config{
-			EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
-			ReleasePath:            "/var/lib/aporeto/cleaner",
-			StoredPath:             common.TriremeCgroupPath,
-			Host:                   host,
-		}
-	}
+func DefaultConfig(host bool, ssh bool) *Config {
 
 	return &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
 		ReleasePath:            "/var/lib/aporeto/cleaner",
 		StoredPath:             common.TriremeCgroupPath,
 		Host:                   host,
+		SSH:                    ssh,
 	}
 }
 
 // SetupDefaultConfig adds defaults to a partial configuration
 func SetupDefaultConfig(linuxConfig *Config) *Config {
 
-	defaultConfig := DefaultConfig(linuxConfig.Host)
+	defaultConfig := DefaultConfig(linuxConfig.Host, linuxConfig.SSH)
 
 	if linuxConfig.ReleasePath == "" {
 		linuxConfig.ReleasePath = defaultConfig.ReleasePath

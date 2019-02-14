@@ -108,7 +108,7 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := e.processEvent(r.Context(), event); err != nil {
-		zap.L().Error("Error in processing event")
+		zap.L().Error(fmt.Sprintf("Cannot handle request: %s", err))
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
 		return
 	}

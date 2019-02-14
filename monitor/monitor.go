@@ -83,10 +83,20 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		case config.LinuxProcess:
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Common)
+
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
 			m.monitors[config.LinuxProcess] = mon
+
+		case config.SSH:
+			mon := linuxmonitor.New()
+			mon.SetupHandlers(c.Common)
+			fmt.Println("CONFIG", v)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Process: %s", err.Error())
+			}
+			m.monitors[config.SSH] = mon
 
 		case config.LinuxHost:
 			mon := linuxmonitor.New()

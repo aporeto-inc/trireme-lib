@@ -40,9 +40,10 @@ func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor)
 // optionMonitorLinux provides a way to add a linux monitor and related configuration to be used with New().
 func optionMonitorLinux(
 	host bool,
+	ssh bool,
 	opts ...LinuxMonitorOption,
 ) Options {
-	lc := linuxmonitor.DefaultConfig(host)
+	lc := linuxmonitor.DefaultConfig(host, ssh)
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(lc)
@@ -60,14 +61,14 @@ func optionMonitorLinux(
 func OptionMonitorLinuxHost(
 	opts ...LinuxMonitorOption,
 ) Options {
-	return optionMonitorLinux(true, opts...)
+	return optionMonitorLinux(true, false, opts...)
 }
 
 // OptionMonitorLinuxProcess provides a way to add a linux process monitor and related configuration to be used with New().
 func OptionMonitorLinuxProcess(
 	opts ...LinuxMonitorOption,
 ) Options {
-	return optionMonitorLinux(false, opts...)
+	return optionMonitorLinux(false, false, opts...)
 }
 
 // SubOptionMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.
@@ -109,6 +110,27 @@ func OptionMonitorUID(
 	}
 	return func(cfg *config.MonitorConfig) {
 		cfg.Monitors[config.UID] = uc
+	}
+}
+
+// SubOptionMonitorSSHExtractor provides a way to specify metadata extractor for SSH monitors.
+func SubOptionMonitorSSHExtractor(extractor extractors.EventMetadataExtractor) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
+	}
+}
+
+// OptionMonitorSSH provides a way to add a SSH monitor and related configuration to be used with New().
+func OptionMonitorSSH(
+	opts ...LinuxMonitorOption,
+) Options {
+	sshc := linuxmonitor.DefaultConfig(false, true)
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(sshc)
+	}
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.SSH] = sshc
 	}
 }
 
