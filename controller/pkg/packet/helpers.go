@@ -297,7 +297,7 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 	p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IpHeaderLen+UDPDataPos]
 
 	// change the fields
-	p.IpHdr.SourceAddress = p.IpHdr.DestinationAddress
+	p.IpHdr.SourceAddress = net.IP(p.IpHdr.Buffer[ipv4SourceAddrPos : ipv4SourceAddrPos+4])
 	p.IpHdr.DestinationAddress = destIP
 
 	p.UdpHdr.SourcePort = p.UdpHdr.DestinationPort
