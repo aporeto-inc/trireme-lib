@@ -131,7 +131,6 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	processes, err := l.netcls.ListCgroupProcesses(puID)
 	if err == nil && len(processes) != 0 {
 		zap.L().Debug("Received Bogus Stop", zap.Int("Num Processes", len(processes)), zap.Error(err))
-		l.netcls.AddProcess(puID, int(event.PID))
 		return nil
 	}
 
