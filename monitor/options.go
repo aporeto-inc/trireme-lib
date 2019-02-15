@@ -40,10 +40,9 @@ func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor)
 // optionMonitorLinux provides a way to add a linux monitor and related configuration to be used with New().
 func optionMonitorLinux(
 	host bool,
-	ssh bool,
 	opts ...LinuxMonitorOption,
 ) Options {
-	lc := linuxmonitor.DefaultConfig(host, ssh)
+	lc := linuxmonitor.DefaultConfig(host, false)
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(lc)
@@ -61,14 +60,14 @@ func optionMonitorLinux(
 func OptionMonitorLinuxHost(
 	opts ...LinuxMonitorOption,
 ) Options {
-	return optionMonitorLinux(true, false, opts...)
+	return optionMonitorLinux(true, opts...)
 }
 
 // OptionMonitorLinuxProcess provides a way to add a linux process monitor and related configuration to be used with New().
 func OptionMonitorLinuxProcess(
 	opts ...LinuxMonitorOption,
 ) Options {
-	return optionMonitorLinux(false, false, opts...)
+	return optionMonitorLinux(false, opts...)
 }
 
 // SubOptionMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.

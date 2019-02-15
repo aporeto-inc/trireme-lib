@@ -139,11 +139,11 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
+	puType := common.LinuxProcessPU
 	if l.ssh {
-		runtime.SetPUType(common.SSHSessionPU)
-	} else {
-		runtime.SetPUType(common.LinuxProcessPU)
+		puType = common.SSHSessionPU
 	}
+	runtime.SetPUType(puType)
 
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
 }
@@ -163,11 +163,11 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
+	puType := common.LinuxProcessPU
 	if l.ssh {
-		runtime.SetPUType(common.SSHSessionPU)
-	} else {
-		runtime.SetPUType(common.LinuxProcessPU)
+		puType = common.SSHSessionPU
 	}
+	runtime.SetPUType(puType)
 
 	// Send the event upstream
 	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
@@ -271,11 +271,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		}
 
 		runtime := policy.NewPURuntimeWithDefaults()
+		puType := common.LinuxProcessPU
 		if l.ssh {
-			runtime.SetPUType(common.SSHSessionPU)
-		} else {
-			runtime.SetPUType(common.LinuxProcessPU)
+			puType = common.SSHSessionPU
 		}
+		runtime.SetPUType(puType)
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,

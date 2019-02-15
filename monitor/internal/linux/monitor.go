@@ -50,12 +50,10 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-
 		puType := common.LinuxProcessPU
 		if linuxConfig.SSH {
 			puType = common.SSHSessionPU
 		}
-		fmt.Println(puType)
 		if err := registerer.RegisterProcessor(puType, l.proc); err != nil {
 			return err
 		}
