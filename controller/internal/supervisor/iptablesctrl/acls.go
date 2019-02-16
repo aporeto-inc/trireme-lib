@@ -1779,7 +1779,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) { // nolint
 
 	zap.L().Debug("Called remove ProxyRules",
 		zap.String("natproxyTableContext", natproxyTableContext),
@@ -1836,7 +1836,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	return nil
 }
 
-func (i *Instance) cleanACLs() error {
+func (i *Instance) cleanACLs() error { // nolint
 
 	// Clean the mark rule
 	if err := i.removeMarkRule(); err != nil {
@@ -1872,7 +1872,7 @@ func (i *Instance) cleanACLs() error {
 }
 
 // cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(context string) error {
+func (i *Instance) cleanTriremeChains(context string) error { // nolint
 
 	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
 	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
