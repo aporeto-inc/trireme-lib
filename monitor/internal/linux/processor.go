@@ -29,6 +29,8 @@ var ignoreNames = map[string]*struct{}{
 	"tasks":                 nil,
 }
 
+const sshPrefix = "ssh_"
+
 // linuxProcessor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
@@ -68,7 +70,6 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	// Normalize to a nativeID context. This will become key for any recoveries
 	// and it's an one way function.
 	nativeID, err := l.generateContextID(eventInfo)
-
 	if err != nil {
 		return err
 	}
@@ -88,12 +89,12 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	}
 
 	// We need to send a create event to the policy engine.
-	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventCreate, runtime); err != nil {
+	if err = l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(nativeID), common.EventCreate, runtime); err != nil {
 		return fmt.Errorf("Unable to create PU: %s", err)
 	}
 
 	// We can now send a start event to the policy engine
-	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
+	if err = l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(nativeID), common.EventStart, runtime); err != nil {
 		return fmt.Errorf("Unable to start PU: %s", err)
 	}
 
@@ -145,7 +146,7 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	}
 	runtime.SetPUType(puType)
 
-	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
+	return l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(puID), common.EventStop, runtime)
 }
 
 // Destroy handles a destroy event
@@ -170,7 +171,7 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	runtime.SetPUType(puType)
 
 	// Send the event upstream
-	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
+	if err := l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(puID), common.EventDestroy, runtime); err != nil {
 		zap.L().Warn("Unable to clean trireme ",
 			zap.String("puID", puID),
 			zap.Error(err),
@@ -214,7 +215,7 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
+	return l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(puID), common.EventPause, nil)
 }
 
 func (l *linuxProcessor) resyncHostService(ctx context.Context, e *common.EventInfo) error {
@@ -249,6 +250,13 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
+		// We check If we want to skip SSHPU or LinuxPU
+		if l.skipSSHPU(cgroup) {
+			continue
+		} else if l.skipLinuxPU(cgroup) {
+			continue
+		}
+
 		if _, ok := ignoreNames[cgroup]; ok {
 			continue
 		}
@@ -282,8 +290,8 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		})
 
 		// Processes are still alive. We should enforce policy.
-		if err := l.config.Policy.HandlePUEvent(ctx, cgroup, common.EventStart, runtime); err != nil {
-			zap.L().Error("Failed to restart cgroup control", zap.String("cgroup ID", cgroup), zap.Error(err))
+		if err := l.config.Policy.HandlePUEvent(ctx, stripSSHPrefix(cgroup), common.EventStart, runtime); err != nil {
+			zap.L().Error("Failed to restart cgroup control", zap.String("cgroup ID", stripSSHPrefix(cgroup)), zap.Error(err))
 		}
 
 		if err := l.processLinuxServiceStart(cgroup, nil, runtime); err != nil {
@@ -293,10 +301,35 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 	return nil
 }
 
+// skipSSHPU returns true If SSHPU has to be skipped from processing
+func (l *linuxProcessor) skipSSHPU(nativeID string) bool {
+
+	return !l.ssh && strings.HasPrefix(nativeID, sshPrefix)
+}
+
+// skipLinuxPU returns true If LinuxPU has to be skipped from processing
+func (l *linuxProcessor) skipLinuxPU(nativeID string) bool {
+
+	return l.ssh && !strings.HasPrefix(nativeID, sshPrefix)
+}
+
+// stripSSHPrefix returns stripped nativeID if it has prefix else it returns the nativeID untouched
+func stripSSHPrefix(nativeID string) string {
+
+	return strings.TrimPrefix(nativeID, sshPrefix)
+}
+
 // generateContextID creates the puID from the event information
 func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string, error) {
 
 	puID := eventInfo.PUID
+
+	// This is to differentiate between linux and ssh pu.
+	// NOTE: For internal use only, should be stripped before calling resolver
+	if eventInfo.PUType == common.SSHSessionPU {
+		puID = sshPrefix + puID
+	}
+
 	if eventInfo.Cgroup == "" {
 		return puID, nil
 	}
