@@ -126,7 +126,7 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for TCP.
 	if p.IpHdr.IPProto == IPProtocolTCP {
-		if p.IpHdr.IPTotalLength < minTCPIPPacketLen {
+		if p.IpHdr.IPTotalLength-p.IpHdr.IpHeaderLen < minTCPIPPacketLen {
 			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
 		}
 
@@ -135,7 +135,7 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for UDP.
 	if p.IpHdr.IPProto == IPProtocolUDP {
-		if p.IpHdr.IPTotalLength < minUDPIPPacketLen {
+		if p.IpHdr.IPTotalLength-p.IpHdr.IpHeaderLen < minUDPIPPacketLen {
 			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
 		}
 		p.parseUDP(bytes)
@@ -144,8 +144,42 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 	return nil
 }
 
-func (p *Packet) parseIPv6Packet() (packet *Packet, err error) {
-	return nil, nil
+func (p *Packet) parseIPv6Packet(bytes []byte, lengthValidate bool) (packet *Packet, err error) {
+	// IP Header Processing
+	p.IpHdr.IpHeaderLen = ipv6HeaderLen
+	p.IpHdr.IPProto = bytes[ipv6ProtoPos]
+	p.IpHdr.IPTotalLength = ipv6HeaderLen + binary.BigEndian.Uint16(bytes[ipv6PayloadLenPos:ipv6PayloadLenPos+2])
+	p.IpHdr.SourceAddress = net.IP(bytes[ipv6SourceAddrPos : ipv6SourceAddrPos+16])
+	p.IpHdr.DestinationAddress = net.IP(bytes[ipv6DestAddrPos : ipv6DestAddrPos+16])
+
+	p.IpHdr.Buffer = bytes
+
+	if lengthValidate && p.IpHdr.IPTotalLength != uint16(len(p.IpHdr.Buffer)) {
+		if p.IpHdr.IPTotalLength < uint16(len(p.IpHdr.Buffer)) {
+			p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IPTotalLength]
+		} else {
+			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.IpHdr.IPTotalLength, len(p.IpHdr.Buffer))
+		}
+	}
+
+	// Some sanity checking for TCP.
+	if p.IpHdr.IPProto == IPProtocolTCP {
+		if p.IpHdr.IPTotalLength-p.IpHdr.IpHeaderLen < minTCPIPPacketLen {
+			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
+		}
+
+		p.parseTCP(bytes)
+	}
+
+	// Some sanity checking for UDP.
+	if p.IpHdr.IPProto == IPProtocolUDP {
+		if p.IpHdr.IPTotalLength-p.IpHdr.IpHeaderLen < minUDPIPPacketLen {
+			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
+		}
+		p.parseUDP(bytes)
+	}
+
+	return nil
 }
 
 // IsEmptyTCPPayload returns the TCP data offset

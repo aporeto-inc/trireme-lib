@@ -46,7 +46,8 @@ type BatchProvider struct {
 }
 
 const (
-	restoreCmd = "iptables-restore"
+	restoreCmd  = "iptables-restore"
+	restore6Cmd = "ip6tables-restore"
 )
 
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
@@ -286,6 +287,18 @@ func (b *BatchProvider) restore() error {
 	}
 
 	cmd := exec.Command(restoreCmd, "--wait")
+	cmd.Stdin = buf
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		again, _ := b.createDataBuffer()
+		zap.L().Error("Failed to execute command", zap.Error(err),
+			zap.ByteString("Output", out),
+			zap.String("Output", again.String()),
+		)
+		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
+	}
+
+	cmd := exec.Command(restore6Cmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
