@@ -57,47 +57,12 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 			So(p.TransmittedKey(), ShouldResemble, txKey)
 		})
 
-		Convey("I should get the right CA Auth PEM file", func() {
-			So(p.AuthPEM(), ShouldResemble, []byte(CAPEM))
-		})
-
-		Convey("I should get the right Certificate PEM", func() {
-			So(p.TransmittedPEM(), ShouldResemble, []byte(PublicPEM))
-		})
-
-		Convey("I Should get the right Key PEM", func() {
-			So(p.EncodingPEM(), ShouldResemble, []byte(PrivateKeyPEM))
-		})
-
 		Convey("I should ge the right ack size", func() {
 			So(p.AckSize(), ShouldEqual, compactPKIAckSize)
 		})
 
 		Convey("I should get the right public key, ", func() {
 			So(p.PublicKey().(*x509.Certificate), ShouldResemble, cert)
-		})
-
-		Convey("When I verify the received public key, it should succeed", func() {
-			pk, err := p.VerifyPublicKey(txKey)
-			So(err, ShouldBeNil)
-			So(pk.(*ecdsa.PublicKey), ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
-		})
-
-		Convey("When I try to get the decoding key when the ack key is nil", func() {
-			key, err := p.DecodingKey("server", nil, txKey)
-			So(err, ShouldBeNil)
-			So(key, ShouldResemble, txKey)
-		})
-
-		Convey("When I try to get the decoding key with the ack", func() {
-			key, err := p.DecodingKey("server", cert.PublicKey, nil)
-			So(err, ShouldBeNil)
-			So(key.(*ecdsa.PublicKey), ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
-		})
-
-		Convey("When I try to get the decoding key and both inputs are nil, I should get an error ", func() {
-			_, err := p.DecodingKey("server", nil, nil)
-			So(err, ShouldNotBeNil)
 		})
 	})
 }

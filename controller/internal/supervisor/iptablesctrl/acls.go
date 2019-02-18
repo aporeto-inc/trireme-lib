@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	tcpProto = "tcp"
-	udpProto = "udp"
+	tcpProto     = "tcp"
+	udpProto     = "udp"
+	numPackets   = "100"
+	initialCount = "99"
 )
 
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -612,7 +614,8 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", udpProto,
+		"-p", udpProto, "-m", "statistic", "--mode", "nth",
+		"--every", numPackets, "--packet", initialCount,
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
@@ -1776,7 +1779,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) { // nolint
 
 	zap.L().Debug("Called remove ProxyRules",
 		zap.String("natproxyTableContext", natproxyTableContext),
@@ -1833,7 +1836,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	return nil
 }
 
-func (i *Instance) cleanACLs() error {
+func (i *Instance) cleanACLs() error { // nolint
 
 	// Clean the mark rule
 	if err := i.removeMarkRule(); err != nil {
@@ -1869,7 +1872,7 @@ func (i *Instance) cleanACLs() error {
 }
 
 // cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(context string) error {
+func (i *Instance) cleanTriremeChains(context string) error { // nolint
 
 	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
 	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {

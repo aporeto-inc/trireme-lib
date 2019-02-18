@@ -72,7 +72,7 @@ func TestNewSupervisor(t *testing.T) {
 	Convey("When I try to instantiate a new supervisor ", t, func() {
 
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
+		_, secrets, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -119,7 +119,7 @@ func TestSupervise(t *testing.T) {
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -195,7 +195,7 @@ func TestUnsupervise(t *testing.T) {
 
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -241,7 +241,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -284,7 +284,7 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -319,7 +319,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {

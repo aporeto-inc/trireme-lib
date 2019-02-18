@@ -91,13 +91,14 @@ func TestCreateAndVerify(t *testing.T) {
 		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
 		So(p, ShouldNotBeNil)
 		Convey("When I create a token", func() {
-			token, err1 := p.CreateTokenFromCertificate(cert)
+			token, err1 := p.CreateTokenFromCertificate(cert, []string{"sometag"})
 			So(err1, ShouldBeNil)
 			rxtoken, err2 := v.Verify(token)
 			So(err2, ShouldBeNil)
-			So(*rxtoken.X, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).X)
-			So(*rxtoken.Y, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).Y)
-			So(rxtoken.Curve, ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey).Curve)
+			So(*rxtoken.PublicKey.X, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).X)
+			So(*rxtoken.PublicKey.Y, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).Y)
+			So(rxtoken.PublicKey.Curve, ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey).Curve)
+			So(rxtoken.Tags, ShouldResemble, []string{"sometag"})
 		})
 	})
 
@@ -108,7 +109,7 @@ func TestCreateAndVerify(t *testing.T) {
 		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
 		So(p, ShouldNotBeNil)
 		Convey("When I a receive a bad token, I should get an error", func() {
-			token, err1 := p.CreateTokenFromCertificate(cert)
+			token, err1 := p.CreateTokenFromCertificate(cert, []string{})
 			So(err1, ShouldBeNil)
 			token = token[:len(token)-10]
 			_, err2 := v.Verify(token)
@@ -123,7 +124,7 @@ func TestCreateAndVerify(t *testing.T) {
 		v := NewPKIVerifier([]*ecdsa.PublicKey{nil}, -1)
 		So(p, ShouldNotBeNil)
 		Convey("When I a receive a valid token, I should get an error", func() {
-			token, err1 := p.CreateTokenFromCertificate(cert)
+			token, err1 := p.CreateTokenFromCertificate(cert, []string{})
 			So(err1, ShouldBeNil)
 			_, err2 := v.Verify(token)
 			So(err2, ShouldNotBeNil)
@@ -141,7 +142,7 @@ func TestCaching(t *testing.T) {
 		So(p, ShouldNotBeNil)
 
 		Convey("When I receive a token", func() {
-			token, err1 := p.CreateTokenFromCertificate(cert)
+			token, err1 := p.CreateTokenFromCertificate(cert, []string{})
 			So(err1, ShouldBeNil)
 			_, err2 := v.Verify(token)
 			So(err2, ShouldBeNil)

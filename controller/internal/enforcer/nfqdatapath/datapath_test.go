@@ -1699,9 +1699,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							var dstEndPoint collector.EndPoint
 
 							srcEndPoint.IP = testSrcIP
-							srcEndPoint.ID = "value"
 							dstEndPoint.IP = testDstIP
-							dstEndPoint.ID = "SomeProcessingUnitId2"
 							dstEndPoint.Port = 80
 
 							flowRecord.Count = 1
@@ -1723,10 +1721,8 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							var dstEndPoint collector.EndPoint
 
 							srcEndPoint.IP = testSrcIP
-							srcEndPoint.ID = "value"
 							dstEndPoint.IP = testDstIP
 							dstEndPoint.Port = 80
-							dstEndPoint.ID = "SomeProcessingUnitId2"
 
 							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
@@ -4876,14 +4872,7 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 			So(err, ShouldBeNil)
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
-			// <-time.After(15 * time.Second)
-			// _, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
-			// So(err, ShouldNotBeNil)
 		})
-		// Convey("I enable packettracing on a invalid PU", func() {
-		// 	err := enforcer.EnableDatapathPacketTracing("unknown", packettracing.ApplicationOnly, 10*time.Second)
-		// 	So(err, ShouldNotBeNil)
-		// })
 	})
 }
 

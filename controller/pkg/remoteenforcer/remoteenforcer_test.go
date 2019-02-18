@@ -463,7 +463,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				collector := &collector.DefaultCollector{}
-				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -518,7 +518,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				collector := &collector.DefaultCollector{}
-				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -552,7 +552,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				collector := &collector.DefaultCollector{}
-				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -647,7 +647,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			Convey("When I try to exit the enforcer with supervisor", func() {
 				server.statsClient = nil
 				c := &collector.DefaultCollector{}
-				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -849,7 +849,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				collector := &collector.DefaultCollector{}
-				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -955,7 +955,7 @@ func TestUnEnforce(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				collector := &collector.DefaultCollector{}
-				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -1060,7 +1060,7 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				c := &collector.DefaultCollector{}
-				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				_, scrts, _ := secrets.CreateCompactPKITestSecrets()
 
 				prevRawSocket := nfqdatapath.GetUDPRawSocket
 				defer func() {
@@ -1215,7 +1215,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			rpcwrperreq.HashAuth = digest.Sum(nil)
 
 			collector := &collector.DefaultCollector{}
-			secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+			_, secret, _ := secrets.CreateCompactPKITestSecrets()
 
 			prevRawSocket := nfqdatapath.GetUDPRawSocket
 			defer func() {

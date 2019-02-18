@@ -82,26 +82,23 @@ func (cm compressionTypeMask) toUint32() uint32 {
 // CompressionTypeToTagLength converts CompressionType to length.
 func CompressionTypeToTagLength(t CompressionType) int {
 
-	if t == CompressionTypeNone {
-		return 0
-	}
-
-	if t == CompressionTypeV1 {
+	switch t {
+	case CompressionTypeV2:
+		return CompressedTagLengthV2
+	default:
 		return CompressedTagLengthV1
 	}
-
-	return CompressedTagLengthV2
 }
 
 // String2CompressionType is a helper to convert string to compression type
 func String2CompressionType(s string) CompressionType {
-	if s == CompressionTypeV1.toString() {
+
+	switch s {
+	case CompressionTypeV1.toString():
 		return CompressionTypeV1
-	}
-
-	if s == CompressionTypeV2.toString() {
+	case CompressionTypeV2.toString():
 		return CompressionTypeV2
+	default:
+		return CompressionTypeNone
 	}
-
-	return CompressionTypeNone
 }

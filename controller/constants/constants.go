@@ -22,6 +22,8 @@ const (
 	DefaultRemoteArg = "enforce"
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
+	// DeleteConnmark is the mark used to trigger udp handshake.
+	DeleteConnmark = uint32(0xABCD)
 )
 
 const (

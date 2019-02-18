@@ -1,7 +1,6 @@
 package enforcerproxy
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"testing"
 	"time"
@@ -82,13 +81,9 @@ func eventCollector() collector.EventCollector {
 	return newEvent
 }
 
-func secretGen(keyPEM, certPEM, caPool []byte) secrets.Secrets {
+func secretGen() secrets.Secrets {
 
-	if keyPEM == nil && certPEM == nil && caPool == nil {
-		newSecret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-		return newSecret
-	}
-	newSecret, _ := secrets.NewPKISecrets(keyPEM, certPEM, caPool, map[string]*ecdsa.PublicKey{})
+	_, newSecret, _ := secrets.CreateCompactPKITestSecrets()
 	return newSecret
 }
 
@@ -131,7 +126,7 @@ func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessM
 		mutualAuthorization,
 		fqConfig,
 		eventCollector(),
-		secretGen(nil, nil, nil),
+		secretGen(),
 		"testServerID",
 		validity,
 		rpchdl,
@@ -151,7 +146,7 @@ func TestNewDefaultProxyEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
+		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -174,7 +169,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
+		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)

@@ -125,7 +125,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 	puInfo.Policy = plc
 	pctx, err := pucontext.NewPU(name, puInfo, time.Second*1000)
 	So(err, ShouldBeNil)
-	s := secrets.NewPSKSecrets([]byte("test'"))
+	_, s, _ := secrets.CreateCompactPKITestSecrets()
 	return puInfo, pctx, s
 }
 

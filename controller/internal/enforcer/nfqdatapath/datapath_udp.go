@@ -67,17 +67,16 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 			}
 			return nil, err
 		}
-	case packet.UDPAckMask:
-		conn, err = d.netUDPAckRetrieveState(p)
-		if err != nil {
-			if d.packetLogs {
-				zap.L().Debug("Packet rejected",
-					zap.String("flow", p.L4FlowHash()),
-					zap.Error(err),
-				)
-			}
+
+	case packet.UDPFinAckMask:
+		if err := d.processUDPFinPacket(p); err != nil {
+			zap.L().Debug("unable to process udp fin ack",
+				zap.String("flowhash", p.L4FlowHash()), zap.Error(err))
 			return nil, err
 		}
+		// drop control packets
+		return conn, fmt.Errorf("dropping udp fin ack control packet")
+
 	default:
 		// Process packets that don't have the control header. These are data packets.
 		conn, err = d.netUDPAckRetrieveState(p)
@@ -189,6 +188,11 @@ func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConn
 	if err != nil {
 		conn, err = d.udpNetOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
+			// This might be an existing udp connection.
+			// Send FinAck to reauthorize the connection.
+			if err := d.sendUDPFinPacket(p); err != nil {
+				return nil, fmt.Errorf("net state not found, unable to send fin ack packets: %s", err)
+			}
 			return nil, fmt.Errorf("net state not found: %s", err)
 		}
 	}
@@ -303,7 +307,10 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	case connection.UDPStart:
 		// Queue the packet. We will send it after we authorize the session.
 		if err = conn.QueuePackets(p); err != nil {
-			return conn, fmt.Errorf("Unable to queue packets:%s", err)
+			// unable to queue packets, perhaps queue is full. if start
+			// machine is still in start state, we can start authorisation
+			// again. A drop counter is incremented.
+			zap.L().Debug("udp queue full for connection", zap.String("flow", p.L4FlowHash()))
 		}
 
 		// Process the application packet.
@@ -387,8 +394,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	// err = d.udpSocketWriter.WriteSocket(newPacket.Buffer)
-	err = d.writeWithRetransmit(newPacket.Buffer, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket.Buffer, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -399,13 +405,12 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 	d.udpNatConnectionTracker.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), newPacket.SourcePortHash(packet.PacketTypeNetwork))
-	// Attach the tags to the packet and accept the packet
 
 	return nil
 
 }
 
-func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
+func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnection, stop chan bool) error {
 
 	localBuffer := make([]byte, len(buffer))
 	copy(localBuffer, buffer)
@@ -427,6 +432,10 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
 				}
 			}
 		}
+		// retransmits did not succeed. Reset the state machine so that
+		// next packet can try again.
+		conn.SetState(connection.UDPStart)
+
 	}()
 	return nil
 }
@@ -447,8 +456,7 @@ func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
 	//          Bits 2,3,4 represent version information.
-	//          Bits 5, 6 represent udp packet type,
-	//          Bit 7 represents encryption. (currently unused).
+	//          Bits 5, 6, 7 represent udp packet type,
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.
 
@@ -485,7 +493,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.Buffer, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket.Buffer, conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
@@ -547,6 +555,11 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			)
 		}
 	}
+
+	zap.L().Debug("Clearing fin packet entry in cache", zap.String("flowhash", udpPacket.L4FlowHash()))
+	if err := d.udpFinPacketTracker.Remove(udpPacket.L4FlowHash()); err != nil {
+		zap.L().Debug("Unable to remove entry from udp finack cache")
+	}
 	return nil
 }
 
@@ -600,18 +613,18 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	// Decode the JWT token using the context key
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		d.reportUDPRejectedFlow(udpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil, true)
+		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
 	}
 
 	if claims == nil {
-		d.reportUDPRejectedFlow(udpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil, true)
+		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of no claims")
 	}
 
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 	if pkt.Action.Rejected() {
-		d.reportUDPRejectedFlow(udpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt, true)
+		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, report, pkt, true)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
@@ -647,6 +660,64 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	}
 
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
+
+	return nil
+}
+
+// sendUDPFinPacket sends a Fin packet to Peer.
+func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
+
+	// Create UDP Option
+	udpOptions := d.CreateUDPAuthMarker(packet.UDPFinAckMask)
+
+	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress, udpPacket.SourcePort)
+
+	// Attach the UDP data and token
+	udpPacket.UDPTokenAttach(udpOptions, []byte{})
+
+	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
+	// no need for retransmits here.
+	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
+	if err != nil {
+		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// Update the udp fin cache and delete the connmark.
+func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { // nolint
+
+	// add it to the udp fin cache. If we have already received the fin packet
+	// for this flow. There is no need to change the connmark label again.
+	if d.udpFinPacketTracker.AddOrUpdate(udpPacket.L4ReverseFlowHash(), true) {
+		return nil
+	}
+
+	// clear cache entries.
+	if err := d.udpAppOrigConnectionTracker.Remove(udpPacket.L4ReverseFlowHash()); err != nil {
+		zap.L().Debug("Failed to clean cache udpappOrigConnectionTracker", zap.Error(err))
+	}
+
+	if err := d.udpSourcePortConnectionCache.Remove(udpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
+		zap.L().Debug("Failed to clean cache udpsourcePortConnectionCache", zap.Error(err))
+	}
+
+	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
+	if err = d.conntrackHdl.ConntrackTableUpdateMark(
+		udpPacket.DestinationAddress.String(),
+		udpPacket.SourceAddress.String(),
+		udpPacket.IPProto,
+		udpPacket.DestinationPort,
+		udpPacket.SourcePort,
+		constants.DeleteConnmark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table for flow",
+			zap.String("app-conn", udpPacket.L4FlowHash()),
+			zap.Error(err),
+		)
+	}
 
 	return nil
 }
