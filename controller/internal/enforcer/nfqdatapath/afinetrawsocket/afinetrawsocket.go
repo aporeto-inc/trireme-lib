@@ -31,7 +31,10 @@ type SocketWriter interface {
 
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
-	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+	if err != nil || fd <= 0 {
+		return nil, fmt.Errorf("Error while opening socket %s", err)
+	}
 	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 		syscall.Close(fd) // nolint
 		return nil, fmt.Errorf("Received error %s while setting socket Option SO_MARK", err)

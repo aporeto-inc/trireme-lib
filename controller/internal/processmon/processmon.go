@@ -91,7 +91,7 @@ func contextID2SocketPath(contextID string) string {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", contextID+".sock")
+	return filepath.Join(constants.SocketPath, contextID+".sock")
 }
 
 // processIOReader will read from a reader and print it on the calling process
@@ -266,7 +266,9 @@ func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcer
 		zap.Strings("args", cmdArgs),
 	)
 
-	return exec.Command(cmdName, cmdArgs...)
+	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	return cmd
 }
 
 // getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value

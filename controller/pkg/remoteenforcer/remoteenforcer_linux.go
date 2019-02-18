@@ -13,10 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -144,33 +141,33 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
-	pid := strconv.Itoa(os.Getpid())
-	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	if err != nil {
-		zap.L().Error("Remote enforcer failed: unable to identify namespace",
-			zap.String("nsErr", nsEnterState),
-			zap.String("nsLogs", nsEnterLogMsg),
-			zap.Error(err),
-		)
-		resp.Status = fmt.Sprintf("Remote enforcer failed: unable to identify namespace: %s", err)
-		// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
-		// Could we get rid of status and just always return an error ?
-		//
-		// Dont return error to close RPC channel
-	}
+	// pid := strconv.Itoa(os.Getpid())
+	// netns, err := exec.Command("ip", "netns", "identify", pid).Output()
+	// if err != nil {
+	// 	zap.L().Error("Remote enforcer failed: unable to identify namespace",
+	// 		zap.String("nsErr", nsEnterState),
+	// 		zap.String("nsLogs", nsEnterLogMsg),
+	// 		zap.Error(err),
+	// 	)
+	// 	resp.Status = fmt.Sprintf("Remote enforcer failed: unable to identify namespace: %s", err)
+	// 	// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
+	// 	// Could we get rid of status and just always return an error ?
+	// 	//
+	// 	// Dont return error to close RPC channel
+	// }
 
-	netnsString := strings.TrimSpace(string(netns))
-	if netnsString == "" {
-		zap.L().Error("Remote enforcer failed: not running in a namespace",
-			zap.String("nsErr", nsEnterState),
-			zap.String("nsLogs", nsEnterLogMsg),
-		)
-		resp.Status = "not running in a namespace"
-		// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
-		// Could we get rid of status and just always return an error ?
-		//
-		// Dont return error to close RPC channel
-	}
+	// netnsString := strings.TrimSpace(string(netns))
+	// if netnsString == "" {
+	// 	zap.L().Error("Remote enforcer failed: not running in a namespace",
+	// 		zap.String("nsErr", nsEnterState),
+	// 		zap.String("nsLogs", nsEnterLogMsg),
+	// 	)
+	// 	resp.Status = "not running in a namespace"
+	// 	// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
+	// 	// Could we get rid of status and just always return an error ?
+	// 	//
+	// 	// Dont return error to close RPC channel
+	// }
 
 	zap.L().Debug("Remote enforcer launched",
 		zap.String("nsLogs", nsEnterLogMsg),

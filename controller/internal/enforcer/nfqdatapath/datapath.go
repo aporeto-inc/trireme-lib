@@ -200,7 +200,6 @@ func New(
 
 	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
 	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
-
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 	if err != nil {
 		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
