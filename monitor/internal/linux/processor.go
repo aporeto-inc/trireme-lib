@@ -250,10 +250,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
-		// We check If we want to skip SSHPU or LinuxPU
 		if l.skipSSHPU(cgroup) {
+			// The caller is from linux monitor and it is a SSH PU, so we skip it
 			continue
 		} else if l.skipLinuxPU(cgroup) {
+			// The caller is from ssh monitor and it is a Linux PU, so we skip it
 			continue
 		}
 
