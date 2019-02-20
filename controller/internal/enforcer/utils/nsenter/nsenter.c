@@ -26,7 +26,6 @@ void nsexec(void) {
   char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
   char *netns_path_env = getenv("TRIREME_ENV_NS_PATH");
   char *proc_mountpoint = getenv("TRIREME_ENV_PROC_MOUNTPOINT");
-  printf("NSENTER\n");
   if(container_pid_env == NULL){
     // We are not running as remote enforcer
     setenv("TRIREME_ENV_NSENTER_LOGS", "no container pid", 1);
