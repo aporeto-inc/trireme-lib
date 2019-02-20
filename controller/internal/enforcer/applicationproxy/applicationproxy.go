@@ -301,13 +301,17 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
+		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool
 	}
 	if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
+		zap.L().Error("cannot appen system CA", zap.Error(err))
 		return p.systemCAPool
 	}
 	for _, ca := range externalCAs {
-		systemPool.AppendCertsFromPEM(ca)
+		if ok := systemPool.AppendCertsFromPEM(ca); !ok {
+			zap.L().Error("cannot append external service ca", zap.String("CA", string(ca)))
+		}
 	}
 	return systemPool
 }
