@@ -73,7 +73,8 @@ func TestStop(t *testing.T) {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 
 		p := testLinuxProcessor(puHandler)
-		p.netcls = mockcgnetcls.NewMockCgroupnetcls(ctrl)
+		mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
+		p.netcls = mockcls
 
 		Convey("When I get a stop event that is valid", func() {
 			event := &common.EventInfo{
@@ -81,6 +82,8 @@ func TestStop(t *testing.T) {
 			}
 
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockcls.EXPECT().ListCgroupProcesses("/trireme/1234")
+
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Stop(context.Background(), event)
 				So(err, ShouldBeNil)
@@ -227,6 +230,7 @@ func TestStart(t *testing.T) {
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(errors.New("error"))
+				mockcls.EXPECT().ListCgroupProcesses("12345")
 
 				err := p.Start(context.Background(), event)
 				So(err, ShouldNotBeNil)
@@ -250,6 +254,7 @@ func TestStart(t *testing.T) {
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
 				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
 				mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any())
+				mockcls.EXPECT().ListCgroupProcesses("12345")
 				err := p.Start(context.Background(), event)
 				So(err, ShouldBeNil)
 			})
