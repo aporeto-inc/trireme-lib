@@ -32,6 +32,12 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
+	// If it is a SSH monitor, we don't resync
+	// TODO: Find a better way
+	if l.proc.ssh {
+		return nil
+	}
+
 	return l.Resync(ctx)
 }
 
