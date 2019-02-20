@@ -78,7 +78,12 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	if err == nil && len(processes) != 0 {
 		//This PU already exists we are getting a duplicate event
 		zap.L().Debug("Duplicate start event for the same PU", zap.String("PUID", nativeID))
-		l.netcls.AddProcess(nativeID, int(eventInfo.PID))
+		if err = l.netcls.AddProcess(nativeID, int(eventInfo.PID)); err != nil {
+			if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			}
+			return err
+		}
 		return nil
 	}
 
