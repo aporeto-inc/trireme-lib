@@ -8,7 +8,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
 func testRuntime() *policy.PURuntime {
@@ -21,7 +20,7 @@ func testRuntime() *policy.PURuntime {
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: "/1234",
-		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		CgroupMark: strconv.FormatUint(104, 10),
 		UserID:     "/1234",
 	}
 
@@ -43,10 +42,9 @@ func TestSSHMetadataExtractor(t *testing.T) {
 			pu, err := SSHMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runtime", func() {
 				So(err, ShouldBeNil)
-				So(pu, ShouldNotBeNil)
 				fmt.Println(pu.Options(), "=", testRuntime().Options())
 
-				So(pu.Tags().String(), ShouldEqual, testRuntime().Tags().String())
+				So(pu, ShouldResemble, testRuntime())
 			})
 		})
 	})
