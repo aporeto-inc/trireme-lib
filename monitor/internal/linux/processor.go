@@ -302,7 +302,6 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string, error) {
 
 	puID := eventInfo.PUID
-
 	if eventInfo.Cgroup == "" {
 		return puID, nil
 	}
