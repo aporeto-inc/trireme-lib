@@ -42,7 +42,8 @@ func TestSSHMetadataExtractor(t *testing.T) {
 			pu, err := SSHMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runtime", func() {
 				So(err, ShouldBeNil)
-				So(pu, ShouldResemble, testRuntime())
+				So(pu, ShouldNotBeNil)
+				So(pu.Tags().String(), ShouldEqual, testRuntime().Tags().String())
 			})
 		})
 	})
