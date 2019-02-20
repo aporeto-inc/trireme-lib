@@ -20,6 +20,13 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
+
+		// This means we send something that is for internal purposes only
+		if strings.HasPrefix(tag, "$") {
+			runtimeTags.AppendKeyValue(parts[0], parts[1])
+			continue
+		}
+
 		// TODO: Remove OLDTAGS
 		runtimeTags.AppendKeyValue("@sys:"+parts[0], parts[1])
 		runtimeTags.AppendKeyValue("@app:ssh:"+parts[0], parts[1])
