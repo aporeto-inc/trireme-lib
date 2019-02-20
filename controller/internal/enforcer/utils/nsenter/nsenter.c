@@ -32,6 +32,7 @@ void nsexec(void) {
     droppriveleges();
     return;
   }
+  
   if(netns_path_env == NULL){
     // This means the PID Needs to be used to determine the NetNsPath.
     if(proc_mountpoint == NULL){
@@ -93,11 +94,13 @@ int getgroupid(const char *groupname) {
 void droppriveleges() {
   cap_user_header_t hdr = malloc(sizeof(struct __user_cap_header_struct));
   cap_user_data_t data = malloc(sizeof(struct __user_cap_data_struct));
-  const char *path = "/tmp/netns";
-  int fd =0;
-  int n =0;
-  int w = 0;
-  char buf[100] = {'0'};
+  char *switch_user = getenv("SWITCH_USER");
+  char *switch_group = getenv("SWITCH_GROUP");
+  if (switch_user == NULL || switch_group == NULL){
+    free(hdr);
+    free(data);
+    return;
+  }
   prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
   hdr->pid = getpid();
   hdr->version = 0x20080522;
@@ -108,15 +111,7 @@ void droppriveleges() {
     free(data);
     return;
   }
-  if (fd <= 0){
-      fd = open(path,O_CREAT|O_WRONLY|O_APPEND,0);
-    }
-  n = snprintf(buf,100,"before capset setgid permitted=%x effective=%x inher=%x\n",data[0].permitted,data[0].effective,data[0].inheritable);
-  w = write(fd,buf,n);
-  if (w<0) {
-    printf("Failed to write to file\n");
-  }
-
+  
   data[0].effective = data[0].permitted;
   data[0].inheritable = data[0].permitted;
   err = capset(hdr,data);
@@ -127,24 +122,7 @@ void droppriveleges() {
     return;
   }
 
-  hdr->pid = getpid();
-  hdr->version = 0x20080522;
-  err = capget(hdr,data);
-  if (err <0) {
-    perror("Could Not get cap");
-    free(hdr);
-    free(data);
-    return;
-  }
   
-  if (fd <= 0){
-      fd = open(path,O_CREAT|O_WRONLY|O_APPEND,0);
-  }
-  n = snprintf(buf,100,"after capset  permitted=%x effective=%x inher=%x \n",data[0].permitted,data[0].effective,data[0].inheritable);
-  w = write(fd,buf,n);
-  if (w<0) {
-    printf("Failed to write to file\n");
-  }
   int groupid = getgroupid("aporeto");
   int retval = 0;
   if (groupid == -1){
@@ -155,11 +133,7 @@ void droppriveleges() {
   
   
   if (retval < 0) {
-    if (fd <= 0){
-      fd = open(path,O_CREAT|O_WRONLY|O_APPEND,0);
-    }
-    n = snprintf(buf,100,"setgid %s\n",strerror(errno));
-    w=  write(fd,buf,n);
+    
     
   }
 
@@ -170,11 +144,7 @@ void droppriveleges() {
     retval = setuid(userid);
   }
   if (retval< 0){
-    if (fd <=0){
-    fd = open(path,O_CREAT|O_WRONLY|O_APPEND,0);
-    }
-    n = snprintf(buf,100,"setuid %s\n",strerror(errno));
-    w = write(fd,buf,n);
+    
     
     
   }
@@ -187,16 +157,7 @@ void droppriveleges() {
     free(data);
     return;
   }
-  err = capget(hdr,data);
-  if (err <0) {
-    perror("Could Not get cap");
-  }
-  if (fd <=0) {
-    fd = open(path,O_CREAT|O_WRONLY|O_APPEND,0);
-  }
-  n = snprintf(buf,100,"After setgid effective=%x permitted=%x inheritables=%x\n",data[0].effective,data[0].permitted,data[0].inheritable);
-   w = write(fd,buf,n);
-  close(fd);
+  
   free(hdr);
    free(data);
    return;
