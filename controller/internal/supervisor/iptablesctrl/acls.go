@@ -1096,7 +1096,7 @@ func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []a
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == tcpProto &&
+				if strings.ToLower(proto) == tcpProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(contextID, &rule, intP, netChain, "11", tcpProto, "src", "Insert"); err != nil {
@@ -1178,7 +1178,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []a
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == udpProto &&
+				if strings.ToLower(proto) == udpProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(contextID, &rule, intP, netChain, "11", udpProto, "src", "Insert"); err != nil {

@@ -31,7 +31,7 @@ func TestRejectPrioritizedOverAcceptCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"172.0.0.0/8"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
@@ -39,7 +39,7 @@ func TestRejectPrioritizedOverAcceptCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"0.0.0.0/0"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Reject,
 				PolicyID: "catchAllDrop"},
@@ -71,7 +71,7 @@ func TestEmptyACLWithObserveContinueCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"0.0.0.0/0"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveContinue,
@@ -104,7 +104,7 @@ func TestEmptyACLWithObserveApplyCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"0.0.0.0/0"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveApply,
@@ -137,7 +137,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"172.1.0.0/16"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Reject,
 				ObserveAction: policy.ObserveContinue,
@@ -146,7 +146,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"172.0.0.0/8"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
@@ -154,7 +154,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"172.0.0.0/8"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Accept,
 				ObserveAction: policy.ObserveApply,
@@ -163,7 +163,7 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		policy.IPRule{
 			Addresses: []string{"172.0.0.0/8"},
 			Ports:     []string{"1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
 				Action:        policy.Reject,
 				ObserveAction: policy.ObserveContinue,

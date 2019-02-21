@@ -88,7 +88,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 	}
 
 	for _, proto := range rule.Protocols {
-		if strings.ToLower(proto) == "tcp" {
+		if strings.ToLower(proto) == "6" {
 			for _, address := range rule.Addresses {
 				for _, port := range rule.Ports {
 					if err := ruleAdd(address, port, rule.Policy); err != nil {
