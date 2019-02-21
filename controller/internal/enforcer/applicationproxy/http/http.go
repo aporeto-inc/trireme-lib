@@ -61,6 +61,7 @@ type Config struct {
 	registry         *serviceregistry.Registry
 	fwd              *forward.Forwarder
 	fwdTLS           *forward.Forwarder
+	tlsClientConfig  *tls.Config
 	sync.RWMutex
 }
 
@@ -84,6 +85,9 @@ func NewHTTPProxy(
 		secrets:          secrets,
 		localIPs:         markedconn.GetInterfaces(),
 		registry:         registry,
+		tlsClientConfig: &tls.Config{
+			RootCAs: caPool,
+		},
 	}
 }
 
@@ -229,9 +233,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// Create an encrypted downstream transport. We will mark the downstream connection
 	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs: p.ca,
-		},
+		TLSClientConfig:     p.tlsClientConfig,
 		DialContext:         networkDialerWithContext,
 		MaxIdleConnsPerHost: 2000,
 		MaxIdleConns:        2000,
@@ -310,6 +312,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.secrets = s
 	p.certPEM = certPEM
 	p.keyPEM = keyPEM
+	p.tlsClientConfig.RootCAs = caPool
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
