@@ -18,6 +18,8 @@ import (
 const (
 	tcpProto     = "tcp"
 	udpProto     = "udp"
+	tcpProtoNum  = "6"
+	udpProtoNum  = "17"
 	numPackets   = "100"
 	initialCount = "99"
 )
@@ -827,7 +829,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) erro
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == tcpProto &&
+				if strings.ToLower(proto) == tcpProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(contextID, &rule, intP, chain, "10", tcpProto, "dst", "Insert"); err != nil {
@@ -964,7 +966,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if (strings.ToLower(proto) == udpProto) &&
+				if (strings.ToLower(proto) == udpProtoNum) &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {
@@ -1779,7 +1781,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) { // nolint
 
 	zap.L().Debug("Called remove ProxyRules",
 		zap.String("natproxyTableContext", natproxyTableContext),
@@ -1836,7 +1838,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	return nil
 }
 
-func (i *Instance) cleanACLs() error {
+func (i *Instance) cleanACLs() error { // nolint
 
 	// Clean the mark rule
 	if err := i.removeMarkRule(); err != nil {
@@ -1872,7 +1874,7 @@ func (i *Instance) cleanACLs() error {
 }
 
 // cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(context string) error {
+func (i *Instance) cleanTriremeChains(context string) error { // nolint
 
 	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
 	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
