@@ -12,7 +12,6 @@ import (
 func testRuntime() *policy.PURuntime {
 
 	tags := policy.NewTagStore()
-	tags.AppendKeyValue("@sys:app", "web")
 	tags.AppendKeyValue("@app:ssh:app", "web")
 	tags.AppendKeyValue("$cert", "ss")
 

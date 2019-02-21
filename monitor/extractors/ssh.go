@@ -22,13 +22,12 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		}
 
 		// This means we send something that is for internal purposes only
+		// We add it as it is.
 		if strings.HasPrefix(tag, "$") {
 			runtimeTags.AppendKeyValue(parts[0], parts[1])
 			continue
 		}
 
-		// TODO: Remove OLDTAGS
-		runtimeTags.AppendKeyValue("@sys:"+parts[0], parts[1])
 		runtimeTags.AppendKeyValue("@app:ssh:"+parts[0], parts[1])
 	}
 
