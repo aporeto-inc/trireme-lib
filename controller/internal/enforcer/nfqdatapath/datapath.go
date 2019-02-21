@@ -142,7 +142,7 @@ func createPolicy(networks []string) policy.IPRuleList {
 	iprule := policy.IPRule{
 		Addresses: addresses,
 		Ports:     []string{"0:65535"},
-		Protocols: []string{"tcp"},
+		Protocols: []string{"6"},
 		Policy:    &f,
 	}
 
