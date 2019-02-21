@@ -31,10 +31,6 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		runtimeTags.AppendKeyValue("@app:ssh:"+parts[0], parts[1])
 	}
 
-	if event.Name == "" {
-		event.Name = event.PUID
-	}
-
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
 		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
