@@ -17,7 +17,7 @@ func createDummyPolicy(event *common.EventInfo) *policy.PURuntime {
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
-		CgroupMark: strconv.Itoa(106),
+		CgroupMark: strconv.Itoa(104),
 		UserID:     event.PUID,
 		Services:   nil,
 	}

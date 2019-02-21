@@ -20,7 +20,7 @@ func testRuntime() *policy.PURuntime {
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: "/1234",
-		CgroupMark: strconv.FormatUint(104, 10),
+		CgroupMark: strconv.FormatUint(103, 10),
 		UserID:     "/1234",
 	}
 
