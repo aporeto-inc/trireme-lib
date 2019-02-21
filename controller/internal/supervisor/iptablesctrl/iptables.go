@@ -459,7 +459,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	return i.addChainRules(contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType)
 }
 
-func (i *Instance) deleteProxySets(proxyPortSetName string) error {
+func (i *Instance) deleteProxySets(proxyPortSetName string) error { // nolint
 	dstPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
 	ips := ipset.IPSet{
 		Name: dstPortSetName,

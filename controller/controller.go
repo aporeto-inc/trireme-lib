@@ -207,15 +207,15 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 // doHandleDelete is the detailed implementation of the delete event.
 func (t *trireme) doHandleDelete(contextID string, runtime *policy.PURuntime) error {
 
+	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
+	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
+
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: runtime.IPAddresses(),
 		Tags:      nil,
 		Event:     collector.ContainerDelete,
 	})
-
-	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
-	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
 
 	if errS != nil || errE != nil {
 		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
