@@ -20,7 +20,6 @@ func testRuntime() *policy.PURuntime {
 	options := &policy.OptionsType{
 		CgroupName: "/1234",
 		CgroupMark: strconv.FormatUint(103, 10),
-		UserID:     "/1234",
 	}
 
 	return policy.NewPURuntime("curl", 1234, "", tags, runtimeIps, common.SSHSessionPU, options)
