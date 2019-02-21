@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -124,7 +125,7 @@ func createACLRules(rules policy.IPRuleList, dnsrule *policy.DNSRule, ip string)
 	rules = append(rules, policy.IPRule{
 		Addresses: []string{ip},
 		Ports:     []string{dnsrule.Port},
-		Protocols: []string{"6"},
+		Protocols: []string{constants.TCPProtoNum},
 		Policy:    dnsrule.Policy,
 	})
 

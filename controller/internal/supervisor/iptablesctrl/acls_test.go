@@ -916,14 +916,14 @@ func TestAddAppACLs(t *testing.T) {
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"80"},
-					Protocols: []string{"6"},
+					Protocols: []string{constants.TCPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
 				},
 
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"443"},
-					Protocols: []string{"17"},
+					Protocols: []string{constants.UDPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
 
@@ -1012,14 +1012,14 @@ func TestAddNetACLs(t *testing.T) {
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"80"},
-					Protocols: []string{"6"},
+					Protocols: []string{constants.TCPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
 				},
 
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"443"},
-					Protocols: []string{"17"},
+					Protocols: []string{constants.UDPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
 
