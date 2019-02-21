@@ -1,7 +1,6 @@
 package extractors
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -42,8 +41,6 @@ func TestSSHMetadataExtractor(t *testing.T) {
 			pu, err := SSHMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runtime", func() {
 				So(err, ShouldBeNil)
-				fmt.Println(pu.Options(), "=", testRuntime().Options())
-
 				So(pu, ShouldResemble, testRuntime())
 			})
 		})

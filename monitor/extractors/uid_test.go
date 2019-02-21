@@ -1,7 +1,6 @@
 package extractors
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -67,8 +66,6 @@ func TestUIDMetadataExtractor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := UIDMetadataExtractor(tt.args.event)
 			if (err != nil) != tt.wantErr {
-				fmt.Println(got.Tags().String(), "=", tt.want.Tags().String())
-				fmt.Println(got.Options(), "=", tt.want.Options())
 				t.Errorf("UIDMetadataExtractor() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -77,8 +74,6 @@ func TestUIDMetadataExtractor(t *testing.T) {
 				marshalledwant, _ = tt.want.MarshalJSON()
 			}
 			if !reflect.DeepEqual(marshaledgot, marshalledwant) {
-				fmt.Println(got.Tags().String(), "=", tt.want.Tags().String())
-				fmt.Println(got.Options(), "=", tt.want.Options())
 				t.Errorf("UIDMetadataExtractor() = %v, want %v", got, tt.want)
 			}
 		})
