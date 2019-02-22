@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -13,7 +14,7 @@ var (
 		policy.IPRule{
 			Addresses: []string{"172.0.0.0/8"},
 			Ports:     []string{"400:500"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{constants.TCPProtoNum},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
@@ -21,14 +22,14 @@ var (
 		policy.IPRule{
 			Addresses: []string{"172.17.0.0/16"},
 			Ports:     []string{"400:500"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{constants.TCPProtoNum},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172.17/16"},
 		},
 		policy.IPRule{
 			Addresses: []string{"192.168.100.0/24"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{constants.TCPProtoNum},
 			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
@@ -36,14 +37,14 @@ var (
 		},
 		policy.IPRule{
 			Addresses: []string{"10.1.1.1"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{constants.TCPProtoNum},
 			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp10.1.1.1"}},
 		policy.IPRule{
 			Addresses: []string{"0.0.0.0/0"},
-			Protocols: []string{"tcp"},
+			Protocols: []string{constants.TCPProtoNum},
 			Ports:     []string{"443"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
@@ -144,7 +145,7 @@ func TestObservedLookup(t *testing.T) {
 			policy.IPRule{
 				Addresses: []string{"200.17.0.0/17"},
 				Ports:     []string{"401"},
-				Protocols: []string{"tcp"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveContinue,
@@ -153,7 +154,7 @@ func TestObservedLookup(t *testing.T) {
 			policy.IPRule{
 				Addresses: []string{"200.18.0.0/17"},
 				Ports:     []string{"401"},
-				Protocols: []string{"tcp"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveApply,
@@ -162,7 +163,7 @@ func TestObservedLookup(t *testing.T) {
 			policy.IPRule{
 				Addresses: []string{"200.0.0.0/9"},
 				Ports:     []string{"401"},
-				Protocols: []string{"tcp"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:   policy.Accept,
 					PolicyID: "tcp200/9"},
