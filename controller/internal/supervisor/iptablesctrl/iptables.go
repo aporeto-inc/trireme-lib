@@ -203,12 +203,12 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	}
 
 	if i.isLegacyKernel {
-		if err = i.deleteLegacyNATExclusionACLs(mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+		if err = i.deleteLegacyNATExclusionACLs(mark, username, proxyPortSetName, exclusions, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err = i.deleteNATExclusionACLs(mark, proxyPortSetName, exclusions); err != nil {
+		if err = i.deleteNATExclusionACLs(mark, username, proxyPortSetName, exclusions); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
@@ -285,8 +285,10 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	mark := ""
+	uid := ""
 	if containerInfo.Runtime != nil {
 		mark = containerInfo.Runtime.Options().CgroupMark
+		uid = containerInfo.Runtime.Options().UserID
 	}
 
 	excludedNetworks := []string{}
@@ -295,12 +297,12 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	if i.isLegacyKernel {
-		if err := i.deleteLegacyNATExclusionACLs(mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
+		if err := i.deleteLegacyNATExclusionACLs(mark, uid, proxySetName, excludedNetworks, tcpPorts); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err := i.deleteNATExclusionACLs(mark, proxySetName, excludedNetworks); err != nil {
+		if err := i.deleteNATExclusionACLs(mark, uid, proxySetName, excludedNetworks); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
@@ -724,15 +726,22 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
+	uid := ""
+	mark := ""
+	if containerInfo.Runtime != nil {
+		mark = containerInfo.Runtime.Options().CgroupMark
+		uid = containerInfo.Runtime.Options().UserID
+	}
+
 	if i.isLegacyKernel {
 		// doesn't work for clients.
 		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+		if err := i.addLegacyNATExclusionACLs(mark, uid, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
 			return err
 		}
 
 	} else {
-		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+		if err := i.addNATExclusionACLs(mark, uid, proxySetName, policyrules.ExcludedNetworks()); err != nil {
 			return err
 		}
 	}
