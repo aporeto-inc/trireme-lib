@@ -65,9 +65,11 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 	p.context = context
 
 	if bytes[ipv4HdrLenPos]&ipv4ProtoMask == 0x40 {
+		p.IpHdr.version = v4
 		return &p, p.parseIPv4Packet(bytes, lengthValidate)
 	}
 
+	p.IpHdr.version = v6
 	return &p, p.parseIPv6Packet(bytes, lengthValidate)
 }
 
@@ -352,13 +354,18 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 // FixupIPHdrOnDataModify modifies the IP header fields and checksum
 func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	// IP Header Processing
-	// IP chekcsum fixup.
+	// IP chekcsum fixup. Ipv6 doesn't require any checksum
+
 	p.IpHdr.ipChecksum = incCsum16(p.IpHdr.ipChecksum, old, new)
 	// Update IP Total Length.
-	p.IpHdr.IPTotalLength = p.IpHdr.IPTotalLength + new - old
 
-	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.IpHdr.IPTotalLength)
-	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
+	p.IpHdr.IPTotalLength = p.IpHdr.IPTotalLength + new - old
+	if p.IpHdr.version == v6 {
+		binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv6PayloadLenPos:ipv6PayloadLenPos+2], p.IpHdr.IPTotalLength-uint16(p.IpHdr.IpHeaderLen))
+	} else {
+		binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.IpHdr.IPTotalLength)
+		binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
+	}
 }
 
 // IncreaseTCPSeq increases TCP seq number by incr
@@ -474,7 +481,6 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding
 	// our option last.
 	packetLenIncrease := uint16(len(tcpData) + len(tcpOptions))
-
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, p.IpHdr.IPTotalLength+packetLenIncrease)
 

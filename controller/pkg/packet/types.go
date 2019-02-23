@@ -135,6 +135,13 @@ func TCPFlagsToStr(flags uint8) string {
 	return s
 }
 
+type ipVer int
+
+const (
+	v4 ipVer = iota
+	v6
+)
+
 // Packet is the main structure holding packet information
 
 type iphdr struct {
@@ -146,6 +153,7 @@ type iphdr struct {
 	IPTotalLength      uint16
 	ipID               uint16
 	ipChecksum         uint16
+	version            ipVer
 	SourceAddress      net.IP
 	DestinationAddress net.IP
 }

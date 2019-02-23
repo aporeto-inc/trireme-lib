@@ -202,16 +202,16 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
-	if i.isLegacyKernel {
-		if err = i.deleteLegacyNATExclusionACLs(mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
-			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
-		}
+	// if i.isLegacyKernel {
+	// 	if err = i.deleteLegacyNATExclusionACLs(mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+	// 		zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
+	// 	}
 
-	} else {
-		if err = i.deleteNATExclusionACLs(mark, proxyPortSetName, exclusions); err != nil {
-			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
-		}
-	}
+	// } else {
+	// 	if err = i.deleteNATExclusionACLs(mark, proxyPortSetName, exclusions); err != nil {
+	// 		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
+	// 	}
+	// }
 
 	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
@@ -284,27 +284,28 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		}
 	}
 
-	mark := ""
-	if containerInfo.Runtime != nil {
-		mark = containerInfo.Runtime.Options().CgroupMark
-	}
+	// mark := ""
+	// if containerInfo.Runtime != nil {
+	// 	mark = containerInfo.Runtime.Options().CgroupMark
+	// }
 
-	excludedNetworks := []string{}
-	if oldContainerInfo != nil && oldContainerInfo.Policy != nil {
-		excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
-	}
+	// excludedNetworks := []string{}
+	// if oldContainerInfo != nil && oldContainerInfo.Policy != nil {
+	// 	excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
+	// }
 
-	if i.isLegacyKernel {
-		if err := i.deleteLegacyNATExclusionACLs(mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
-			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
-		}
+	// if i.isLegacyKernel {
+	// 	if err := i.deleteLegacyNATExclusionACLs(mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
+	// 		zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
+	// 	}
 
-	} else {
-		if err := i.deleteNATExclusionACLs(mark, proxySetName, excludedNetworks); err != nil {
-			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
-		}
-	}
-	// Delete the old chain to clean up
+	// } else {
+	// 	if err := i.deleteNATExclusionACLs(mark, proxySetName, excludedNetworks); err != nil {
+	// 		zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
+	// 	}
+	// }
+
+	// // Delete the old chain to clean up
 	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
 		return err
 	}
@@ -494,11 +495,11 @@ func (i *Instance) addToIPset(setname string, data string) error {
 
 	// ipset can not program this rule
 	if data == "0.0.0.0/0" {
-		if err := i.addToIPset(setname, "0.0.0.0/1"); err != nil {
+		if err := i.addToIPset(setname, "::/1"); err != nil {
 			return err
 		}
 
-		if err := i.addToIPset(setname, "128.0.0.0/1"); err != nil {
+		if err := i.addToIPset(setname, "8000::/1"); err != nil {
 			return err
 		}
 
@@ -610,7 +611,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			ipsetName := puPortSetName(contextID, "_extnet_"+hashServiceID(rule.Policy.ServiceID))
 			_, err := i.ipset.NewIpset(ipsetName,
 				"hash:net",
-				&ipset.Params{})
+				&ipset.Params{HashFamily: "inet6"})
 			if err != nil {
 				zap.L().Error("Error creating ipset", zap.Error(err))
 				return nil, err
@@ -736,7 +737,8 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 			return err
 		}
 	}
-	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
+	return nil
+	//i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
 }
 
 // puPortSetName returns the name of the pu portset.

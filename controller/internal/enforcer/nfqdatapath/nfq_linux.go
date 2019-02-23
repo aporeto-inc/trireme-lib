@@ -177,6 +177,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if processError != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
+
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		if appPacket.IpHdr.IPProto == packet.IPProtocolTCP {
 

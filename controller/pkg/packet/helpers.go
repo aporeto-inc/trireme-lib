@@ -18,18 +18,18 @@ import (
 // VerifyIPChecksum returns true if the IP header checksum is correct
 // for this packet, false otherwise. Note that the checksum is not
 // modified.
-func (p *Packet) VerifyIPChecksum() bool {
+func (p *Packet) VerifyIPv4Checksum() bool {
 
-	sum := p.computeIPChecksum()
+	sum := p.computeIPv4Checksum()
 
 	return sum == p.IpHdr.ipChecksum
 }
 
 // UpdateIPChecksum computes the IP header checksum and updates the
 // packet with the value.
-func (p *Packet) UpdateIPChecksum() {
+func (p *Packet) UpdateIPv4Checksum() {
 
-	p.IpHdr.ipChecksum = p.computeIPChecksum()
+	p.IpHdr.ipChecksum = p.computeIPv4Checksum()
 
 	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
 }
@@ -101,7 +101,7 @@ func (p *Packet) String() string {
 }
 
 // Computes the IP header checksum. The packet is not modified.
-func (p *Packet) computeIPChecksum() uint16 {
+func (p *Packet) computeIPv4Checksum() uint16 {
 
 	// IP packet checksum is computed with the checksum value set to zero
 	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], uint16(0))
@@ -117,6 +117,7 @@ func (p *Packet) computeIPChecksum() uint16 {
 
 // Computes the TCP header checksum. The packet is not modified.
 func (p *Packet) computeTCPChecksum() uint16 {
+	var csum uint32
 	var buf [2]byte
 	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
 	tcpBufSize := uint16(len(buffer) + len(p.TcpHdr.tcpData) + len(p.TcpHdr.tcpOptions))
@@ -128,8 +129,13 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buffer[TCPChecksumPos] = 0
 	buffer[TCPChecksumPos+1] = 0
 
-	csum := partialChecksum(0, p.IpHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
-	csum = partialChecksum(csum, p.IpHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
+	if p.IpHdr.version == v4 {
+		csum = partialChecksum(0, p.IpHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
+		csum = partialChecksum(csum, p.IpHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
+	} else {
+		csum = partialChecksum(0, p.IpHdr.Buffer[ipv6SourceAddrPos:ipv6SourceAddrPos+16])
+		csum = partialChecksum(csum, p.IpHdr.Buffer[ipv6DestAddrPos:ipv6DestAddrPos+16])
+	}
 
 	// reserverd 0 byte
 	buf[0] = 0
@@ -303,7 +309,11 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 	p.UdpHdr.SourcePort = p.UdpHdr.DestinationPort
 	p.UdpHdr.DestinationPort = destPort
 
-	p.UpdateIPChecksum()
+	// ipv6 doesn't have a checksum field
+	if p.IpHdr.version == v4 {
+		p.UpdateIPv4Checksum()
+	}
+
 	p.UpdateUDPChecksum()
 }
 
