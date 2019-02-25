@@ -1,4 +1,4 @@
-package kubernetesmonitor
+package podmonitor
 
 import (
 	"testing"

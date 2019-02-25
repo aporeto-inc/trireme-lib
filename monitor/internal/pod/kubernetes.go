@@ -1,4 +1,4 @@
-package kubernetesmonitor
+package podmonitor
 
 // KubernetesPodNameIdentifier is the label used by Docker for the K8S pod name.
 const KubernetesPodNameIdentifier = "@usr:io.kubernetes.pod.name"

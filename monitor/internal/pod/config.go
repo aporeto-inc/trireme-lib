@@ -1,4 +1,4 @@
-package kubernetesmonitor
+package podmonitor
 
 import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
