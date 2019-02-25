@@ -96,6 +96,11 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
 
+	controllerStarted := make(chan struct{})
+	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
+		return fmt.Errorf("kubernetes: %s", err.Error())
+	}
+
 	r := newReconciler(mgr, m.handlers, m.kubernetesExtractor, m.localNode, m.enableHostPods)
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("kubernetes: %s", err.Error())
@@ -109,8 +114,6 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 	// -
 	z := make(chan struct{})
 	errCh := make(chan error, 2)
-	controllerStarted := make(chan struct{})
-	defer close(controllerStarted)
 	go func() {
 		<-ctx.Done()
 		close(z)
@@ -142,5 +145,18 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
+	return nil
+}
+
+type runnable struct {
+	ch chan struct{}
+}
+
+func (r *runnable) Start(z <-chan struct{}) error {
+	// close the indicator channel which means that the manager has been started successfully
+	close(r.ch)
+
+	// stay up and running, the manager needs that
+	<-z
 	return nil
 }
