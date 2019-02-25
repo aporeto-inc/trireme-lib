@@ -119,15 +119,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				runtime,
 			); err != nil {
 				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-			}
-		} else {
-			if err := r.handler.Policy.HandlePUEvent(
-				ctx,
-				puID,
-				common.EventUpdate,
-				runtime,
-			); err != nil {
-				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
 				return reconcile.Result{}, nil
 			}
 			newPod := pod.DeepCopy()
@@ -138,6 +129,15 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			if err := r.client.Update(ctx, newPod); err != nil {
 				zap.L().Error("failed to add annotation to pod", zap.String("puID", puID), zap.Error(err))
 				return reconcile.Result{}, err
+			}
+		} else {
+			if err := r.handler.Policy.HandlePUEvent(
+				ctx,
+				puID,
+				common.EventUpdate,
+				runtime,
+			); err != nil {
+				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
 			}
 		}
 	case corev1.PodRunning:
