@@ -35,7 +35,7 @@ func (w *WatchPodMapper) Map(obj handler.MapObject) []reconcile.Request {
 	}
 
 	return []reconcile.Request{
-		reconcile.Request{
+		{
 			NamespacedName: types.NamespacedName{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
