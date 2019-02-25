@@ -2,16 +2,19 @@ package kubernetesmonitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
-	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	kubecache "k8s.io/client-go/tools/cache"
+
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // KubernetesMonitor implements a monitor that sends pod events upstream
@@ -19,24 +22,19 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
-	dockerMonitor       *dockermonitor.DockerMonitor
-	kubeClient          kubernetes.Interface
 	localNode           string
 	handlers            *config.ProcessorConfig
-	cache               *cache
 	kubernetesExtractor extractors.KubernetesMetadataExtractorType
-
-	podStore          kubecache.Store
-	podController     kubecache.Controller
-	podControllerStop chan struct{}
-
-	enableHostPods bool
+	enableHostPods      bool
+	kubeCfg             *rest.Config
+	eventsCh            chan event.GenericEvent
 }
 
 // New returns a new kubernetes monitor.
 func New() *KubernetesMonitor {
-	kubeMonitor := &KubernetesMonitor{}
-	kubeMonitor.cache = newCache()
+	kubeMonitor := &KubernetesMonitor{
+		eventsCh: make(chan event.GenericEvent),
+	}
 
 	return kubeMonitor
 }
@@ -58,61 +56,81 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
 
-	processorConfig := &config.ProcessorConfig{
-		Policy:    m,
-		Collector: collector.NewDefaultCollector(),
+	// build kubernetes config
+	var kubeCfg *rest.Config
+	if len(kubernetesconfig.Kubeconfig) > 0 {
+		var err error
+		kubeCfg, err = clientcmd.BuildConfigFromFlags("", kubernetesconfig.Kubeconfig)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		kubeCfg, err = rest.InClusterConfig()
+		if err != nil {
+			return err
+		}
 	}
-
-	// As the Kubernetes monitor depends on the DockerMonitor, we setup the Docker monitor first
-	dockerMon := dockermonitor.New()
-	dockerMon.SetupHandlers(processorConfig)
-
-	dockerConfig := dockermonitor.DefaultConfig()
-	dockerConfig.EventMetadataExtractor = kubernetesconfig.DockerExtractor
-
-	// we use the defaultconfig for now
-	if err := dockerMon.SetupConfig(nil, dockerConfig); err != nil {
-		return fmt.Errorf("docker monitor instantiation error: %s", err.Error())
-	}
-
-	m.dockerMonitor = dockerMon
 
 	// Setting up Kubernetes
+	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
-	kubeClient, err := NewKubeClient(kubernetesconfig.Kubeconfig)
-	if err != nil {
-		return fmt.Errorf("kubernetes client instantiation error: %s", err.Error())
-	}
-	m.kubeClient = kubeClient
-
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.kubernetesExtractor = kubernetesconfig.KubernetesExtractor
-
-	m.podStore, m.podController = m.CreateLocalPodController("",
-		m.addPod,
-		m.deletePod,
-		m.updatePod)
-
-	m.podControllerStop = make(chan struct{})
-
-	zap.L().Debug("Pod Controller created")
 
 	return nil
 }
 
 // Run starts the monitor.
 func (m *KubernetesMonitor) Run(ctx context.Context) error {
-	if m.kubeClient == nil {
-		return fmt.Errorf("kubernetes client is not initialized correctly")
+	if m.kubeCfg == nil {
+		return errors.New("kubernetes: missing kubeconfig")
 	}
 
-	// TODO. Give directly the channel to the Kubernetes library
-	go m.podController.Run(ctx.Done())
-	initialPodSync := make(chan struct{})
-	go hasSynced(initialPodSync, m.podController)
-	<-initialPodSync
+	if err := m.handlers.IsComplete(); err != nil {
+		return fmt.Errorf("kubernetes: %s", err.Error())
+	}
 
-	return m.dockerMonitor.Run(ctx)
+	mgr, err := manager.New(m.kubeCfg, manager.Options{})
+	if err != nil {
+		return fmt.Errorf("kubernetes: %s", err.Error())
+	}
+
+	r := newReconciler(mgr, m.handlers, m.kubernetesExtractor, m.localNode, m.enableHostPods)
+	if err := addController(mgr, r, m.eventsCh); err != nil {
+		return fmt.Errorf("kubernetes: %s", err.Error())
+	}
+
+	// starting the manager is a bit awkward:
+	// - it does not use contexts
+	// - we pass in a fake signal handler channel
+	// - we start another go routine which waits for the context to be cancelled
+	//   and closes that channel if that is the case
+	// -
+	z := make(chan struct{})
+	errCh := make(chan error, 2)
+	controllerStarted := make(chan struct{})
+	defer close(controllerStarted)
+	go func() {
+		<-ctx.Done()
+		close(z)
+		errCh <- ctx.Err()
+	}()
+	go func() {
+		if err := mgr.Start(z); err != nil {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("kubernetes: %s", err.Error())
+	case <-time.After(5 * time.Second):
+		// we give the controller 5 seconds to report back
+		return errors.New("kubernetes: controller did not start within 5s")
+	case <-controllerStarted:
+		return nil
+	}
 }
 
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
@@ -124,5 +142,5 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
-	return m.dockerMonitor.Resync(ctx)
+	return nil
 }
