@@ -23,7 +23,7 @@ import (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.KubernetesMetadataExtractorType, nodeName string, enableHostPods bool) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, nodeName string, enableHostPods bool) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -77,7 +77,7 @@ type ReconcilePod struct {
 	client            client.Client
 	scheme            *runtime.Scheme
 	handler           *config.ProcessorConfig
-	metadataExtractor extractors.KubernetesMetadataExtractorType
+	metadataExtractor extractors.PodMetadataExtractor
 	nodeName          string
 	enableHostPods    bool
 }

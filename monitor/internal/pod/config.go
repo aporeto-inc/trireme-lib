@@ -10,16 +10,16 @@ type Config struct { // nolint
 	Nodename       string
 	EnableHostPods bool
 
-	KubernetesExtractor extractors.KubernetesMetadataExtractorType
+	MetadataExtractor extractors.PodMetadataExtractor
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		KubernetesExtractor: extractors.DefaultKubernetesMetadataExtractor,
-		EnableHostPods:      false,
-		Kubeconfig:          "",
-		Nodename:            "",
+		MetadataExtractor: nil,
+		EnableHostPods:    false,
+		Kubeconfig:        "",
+		Nodename:          "",
 	}
 }
 

@@ -23,13 +23,13 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
-	localNode           string
-	handlers            *config.ProcessorConfig
-	kubernetesExtractor extractors.KubernetesMetadataExtractorType
-	enableHostPods      bool
-	kubeCfg             *rest.Config
-	kubeClient          client.Client
-	eventsCh            chan event.GenericEvent
+	localNode         string
+	handlers          *config.ProcessorConfig
+	metadataExtractor extractors.PodMetadataExtractor
+	enableHostPods    bool
+	kubeCfg           *rest.Config
+	kubeClient        client.Client
+	eventsCh          chan event.GenericEvent
 }
 
 // New returns a new kubernetes monitor.
@@ -78,7 +78,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
 	m.enableHostPods = kubernetesconfig.EnableHostPods
-	m.kubernetesExtractor = kubernetesconfig.KubernetesExtractor
+	m.metadataExtractor = kubernetesconfig.MetadataExtractor
 
 	return nil
 }
@@ -98,7 +98,7 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.kubernetesExtractor, m.localNode, m.enableHostPods)
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.localNode, m.enableHostPods)
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
