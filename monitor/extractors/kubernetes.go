@@ -3,9 +3,10 @@ package extractors
 import (
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.uber.org/zap"
-	api "k8s.io/api/core/v1"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // KubernetesPodNameIdentifier is the label used by Docker for the K8S pod name.
@@ -37,59 +38,49 @@ const UpstreamNamespaceIdentifier = "@app:k8s:namespace"
 const UserLabelPrefix = "@usr:"
 
 // KubernetesMetadataExtractorType is an extractor function for Kubernetes.
-// It takes as parameter a standard Docker runtime and a Pod Kubernetes definition and return a PolicyRuntime
-// This extractor also provides an extra boolean parameter that is used as a token to decide if activation is required.
-type KubernetesMetadataExtractorType func(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error)
+// It takes as parameter a Pod Kubernetes definition and returns a PolicyRuntime
+type KubernetesMetadataExtractorType func(pod *corev1.Pod) (*policy.PURuntime, error)
 
 // DefaultKubernetesMetadataExtractor is a default implementation for the medatadata extractor for Kubernetes
-// It only activates the POD//INFRA containers and strips all the labels from docker to only keep the ones from Kubernetes
-func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
-
-	if runtime == nil {
-		return nil, false, fmt.Errorf("empty runtime")
-	}
+func DefaultKubernetesMetadataExtractor(pod *corev1.Pod) (*policy.PURuntime, error) {
+	var ret *policy.PURuntime
 
 	if pod == nil {
-		return nil, false, fmt.Errorf("empty pod")
-	}
-
-	// In this specific metadataExtractor we only want to activate the Infra Container for each pod.
-	if !isPodInfraContainer(runtime) {
-		return nil, false, nil
+		return nil, fmt.Errorf("empty pod")
 	}
 
 	podLabels := pod.GetLabels()
 	if podLabels == nil {
-		zap.L().Debug("couldn't get labels.")
-		return nil, false, nil
+		podLabels = make(map[string]string)
 	}
 
 	tags := policy.NewTagStoreFromMap(podLabels)
-	tags.AppendKeyValue(UpstreamOldNameIdentifier, pod.GetName())
 	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
-	tags.AppendKeyValue(UpstreamOldNamespaceIdentifier, pod.GetNamespace())
 	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
+	tags.AppendKeyValue("@app:k8s:serviceAccountName", pod.Spec.ServiceAccountName)
+	tags.AppendKeyValue("@app:k8s:UID", string(pod.UID))
 
-	originalRuntime, ok := runtime.(*policy.PURuntime)
-	if !ok {
-		return nil, false, fmt.Errorf("Error casting puruntime")
+	podAnnotations := pod.GetAnnotations()
+	if podAnnotations != nil {
+		for k, _v := range podAnnotations {
+			v := _v
+			if len(_v) == 0 {
+				v = "<empty>"
+			}
+			tags.AppendKeyValue(k, v)
+		}
 	}
 
-	newRuntime := originalRuntime.Clone()
-	newRuntime.SetTags(tags)
-
-	zap.L().Debug("kubernetes runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", newRuntime.Tags().GetSlice()))
-
-	return newRuntime, true, nil
-}
-
-// isPodInfraContainer returns true if the runtime represents the infra container for the POD
-func isPodInfraContainer(runtime policy.RuntimeReader) bool {
-	// The Infra container can be found by checking env. variable.
-	tagContent, ok := runtime.Tag(KubernetesContainerNameIdentifier)
-	if !ok || tagContent != KubernetesInfraContainerName {
-		return false
+	ipa := policy.ExtendedMap{
+		"bridge": pod.Status.PodIP,
 	}
 
-	return true
+	// TODO: extract cgroup information
+
+	if pod.Spec.HostNetwork {
+		ret = policy.NewPURuntime(pod.Name, 0, "", tags, ipa, common.LinuxProcessPU, nil)
+	} else {
+		ret = policy.NewPURuntime(pod.Name, 0, "", tags, ipa, common.KubernetesPU, nil)
+	}
+	return ret, nil
 }
