@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -27,6 +28,7 @@ type KubernetesMonitor struct {
 	kubernetesExtractor extractors.KubernetesMetadataExtractorType
 	enableHostPods      bool
 	kubeCfg             *rest.Config
+	kubeClient          client.Client
 	eventsCh            chan event.GenericEvent
 }
 
@@ -96,13 +98,13 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
 
-	controllerStarted := make(chan struct{})
-	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
+	r := newReconciler(mgr, m.handlers, m.kubernetesExtractor, m.localNode, m.enableHostPods)
+	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.kubernetesExtractor, m.localNode, m.enableHostPods)
-	if err := addController(mgr, r, m.eventsCh); err != nil {
+	controllerStarted := make(chan struct{})
+	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
 		return fmt.Errorf("kubernetes: %s", err.Error())
 	}
 
@@ -132,6 +134,7 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 		// we give the controller 5 seconds to report back
 		return errors.New("kubernetes: controller did not start within 5s")
 	case <-controllerStarted:
+		m.kubeClient = mgr.GetClient()
 		return nil
 	}
 }
@@ -145,7 +148,11 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
-	return nil
+	if m.kubeClient == nil {
+		return errors.New("kubernetes: client has not been initialized yet")
+	}
+
+	return ResyncWithAllPods(ctx, m.kubeClient, m.eventsCh)
 }
 
 type runnable struct {
