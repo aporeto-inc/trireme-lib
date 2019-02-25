@@ -85,3 +85,9 @@ const (
 const (
 	CallbackURIExtension = "/aporeto/oidc/callback"
 )
+
+// Protocol constants
+const (
+	TCPProtoNum = "6"
+	UDPProtoNum = "17"
+)
