@@ -19,6 +19,7 @@ const (
 	LinuxHost
 	UID
 	Kubernetes
+	Pod
 )
 
 // MonitorConfig specifies the configs for monitors.

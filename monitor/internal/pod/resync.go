@@ -15,16 +15,16 @@ import (
 // and fire them down the event source (the generic event channel)
 func ResyncWithAllPods(ctx context.Context, c client.Client, evCh chan<- event.GenericEvent) error {
 	if c == nil {
-		return errors.New("kubernetes: no client available")
+		return errors.New("pod: no client available")
 	}
 
 	if evCh == nil {
-		return errors.New("kubernetes: no event source available")
+		return errors.New("pod: no event source available")
 	}
 
 	list := &corev1.PodList{}
 	if err := c.List(ctx, nil, list); err != nil {
-		return fmt.Errorf("kubernetes: %s", err.Error())
+		return fmt.Errorf("pod: %s", err.Error())
 	}
 
 	for _, pod := range list.Items {

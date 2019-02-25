@@ -9,6 +9,7 @@ import (
 	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
+	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
 	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
@@ -79,6 +80,14 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("kubernetes: %s", err.Error())
 			}
 			m.monitors[config.Kubernetes] = mon
+
+		case config.Pod:
+			mon := podmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(nil, v); err != nil {
+				return nil, fmt.Errorf("pod: %s", err.Error())
+			}
+			m.monitors[config.Pod] = mon
 
 		case config.LinuxProcess:
 			mon := linuxmonitor.New()
