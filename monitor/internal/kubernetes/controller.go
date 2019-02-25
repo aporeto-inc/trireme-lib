@@ -131,7 +131,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				return reconcile.Result{}, nil
 			}
 			newPod := pod.DeepCopy()
-			setAnnotation(newPod)
+			if newPod.ObjectMeta.Annotations == nil {
+				newPod.ObjectMeta.Annotations = make(map[string]string)
+			}
+			newPod.ObjectMeta.Annotations["aporeto.io/pu-created"] = ""
 			if err := r.client.Update(ctx, newPod); err != nil {
 				zap.L().Error("failed to add annotation to pod", zap.String("puID", puID), zap.Error(err))
 				return reconcile.Result{}, err
@@ -182,11 +185,4 @@ func hasAnnotation(pod *corev1.Pod) bool {
 	}
 	_, ok := pod.ObjectMeta.Annotations["aporeto.io/pu-created"]
 	return ok
-}
-
-func setAnnotation(pod *corev1.Pod) {
-	if pod.ObjectMeta.Annotations == nil {
-		pod.ObjectMeta.Annotations = make(map[string]string)
-	}
-	pod.ObjectMeta.Annotations["aporeto.io/pu-created"] = ""
 }
