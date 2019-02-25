@@ -192,13 +192,6 @@ func SubOptionMonitorKubernetesExtractor(extractor extractors.KubernetesMetadata
 	}
 }
 
-// SubOptionMonitorKubernetesDockerExtractor provides a way to specify metadata extractor for docker.
-func SubOptionMonitorKubernetesDockerExtractor(extractor extractors.DockerMetadataExtractor) KubernetesMonitorOption {
-	return func(cfg *kubernetesmonitor.Config) {
-		cfg.DockerExtractor = extractor
-	}
-}
-
 // OptionMergeTags provides a way to add merge tags to be used with New().
 func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
