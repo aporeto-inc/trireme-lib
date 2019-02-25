@@ -28,7 +28,7 @@ type DockerMonitorOption func(*dockermonitor.Config)
 // KubernetesMonitorOption is provided using functional arguments.
 type KubernetesMonitorOption func(*kubernetesmonitor.Config)
 
-// KubernetesMonitorOption is provided using functional arguments.
+// PodMonitorOption is provided using functional arguments.
 type PodMonitorOption func(*podmonitor.Config)
 
 // LinuxMonitorOption is provided using functional arguments.
