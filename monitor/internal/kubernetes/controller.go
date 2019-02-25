@@ -111,13 +111,31 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	switch pod.Status.Phase {
 	case corev1.PodPending:
 		zap.L().Info("pod pending", zap.String("puID", puID))
-		if err := r.handler.Policy.HandlePUEvent(
-			ctx,
-			puID,
-			common.EventCreate,
-			runtime,
-		); err != nil {
-			zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+		if !hasAnnotation(pod) {
+			if err := r.handler.Policy.HandlePUEvent(
+				ctx,
+				puID,
+				common.EventCreate,
+				runtime,
+			); err != nil {
+				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+			}
+		} else {
+			if err := r.handler.Policy.HandlePUEvent(
+				ctx,
+				puID,
+				common.EventUpdate,
+				runtime,
+			); err != nil {
+				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+				return reconcile.Result{}, nil
+			}
+			newPod := pod.DeepCopy()
+			setAnnotation(newPod)
+			if err := r.client.Update(ctx, newPod); err != nil {
+				zap.L().Error("failed to add annotation to pod", zap.String("puID", puID), zap.Error(err))
+				return reconcile.Result{}, err
+			}
 		}
 	case corev1.PodRunning:
 		zap.L().Info("pod running", zap.String("puID", puID))
@@ -156,4 +174,19 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func hasAnnotation(pod *corev1.Pod) bool {
+	if pod.ObjectMeta.Annotations == nil {
+		return false
+	}
+	_, ok := pod.ObjectMeta.Annotations["aporeto.io/pu-created"]
+	return ok
+}
+
+func setAnnotation(pod *corev1.Pod) {
+	if pod.ObjectMeta.Annotations == nil {
+		pod.ObjectMeta.Annotations = make(map[string]string)
+	}
+	pod.ObjectMeta.Annotations["aporeto.io/pu-created"] = ""
 }
