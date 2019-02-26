@@ -724,22 +724,15 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	uid := ""
-	mark := ""
-	if containerInfo.Runtime.PUType() == common.UIDLoginPU {
-		mark = containerInfo.Runtime.Options().CgroupMark
-		uid = containerInfo.Runtime.Options().UserID
-	}
-
 	if i.isLegacyKernel {
 		// doesn't work for clients.
 		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(mark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
 			return err
 		}
 
 	} else {
-		if err := i.addNATExclusionACLs(mark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
 			return err
 		}
 	}
