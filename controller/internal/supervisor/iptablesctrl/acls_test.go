@@ -541,7 +541,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -554,7 +554,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -567,7 +567,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -582,7 +582,7 @@ func TestAddNATExclusionACLs(t *testing.T) {
 				}
 				return errors.New("Bad cgroup mark")
 			})
-			err := i.addNATExclusionACLs(ruleType, "", "myset", []string{"10.1.1.3/32"})
+			err := i.addNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -601,7 +601,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -614,7 +614,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -627,7 +627,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs("", "myset", []string{"10.1.1.3/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -642,7 +642,7 @@ func TestDeleteNATExclusionACLs(t *testing.T) {
 				}
 				return errors.New("Bad cgroup mark")
 			})
-			err := i.deleteNATExclusionACLs(ruleType, "", "myset", []string{"10.1.1.3/32"})
+			err := i.deleteNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -661,7 +661,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "1:56")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "1:56")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -674,7 +674,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -687,7 +687,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "8086")
+			err := i.addLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8086")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -702,7 +702,7 @@ func TestAddLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return errors.New("Bad source ports")
 			})
-			err := i.addLegacyNATExclusionACLs(ruleType, "", "myset", []string{"10.1.1.3/32"}, "8086")
+			err := i.addLegacyNATExclusionACLs(ruleType, "myset", []string{"10.1.1.3/32"}, "8086")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -721,7 +721,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "3:56")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "3:56")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -734,7 +734,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -747,7 +747,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.deleteLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -762,7 +762,7 @@ func TestDeleteLegacyNATExclusionACLs(t *testing.T) {
 				}
 				return errors.New("Bad source ports")
 			})
-			err := i.deleteLegacyNATExclusionACLs("", "", "myset", []string{"10.1.1.3/32"}, "8085")
+			err := i.deleteLegacyNATExclusionACLs("", "myset", []string{"10.1.1.3/32"}, "8085")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})

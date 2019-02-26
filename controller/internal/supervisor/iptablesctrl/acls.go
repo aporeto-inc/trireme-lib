@@ -2085,7 +2085,7 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []stri
 	return nil
 }
 
-func (i *Instance) addNATExclusionACLs(cgroupMark, uid, setName string, exclusions []string) error {
+func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
 
@@ -2102,24 +2102,12 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, uid, setName string, exclusio
 			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
 		}
 
-		if cgroupMark == "" && uid == "" {
+		if cgroupMark == "" {
 			if err := i.ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
-				"-d", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
-			}
-		} else if cgroupMark != "" {
-			if err := i.ipt.Insert(
-				i.appProxyIPTableContext, natProxyOutputChain, 1,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "cgroup", "--cgroup", cgroupMark,
 				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
@@ -2131,7 +2119,7 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, uid, setName string, exclusio
 				"-p", tcpProto,
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "owner", "--uid-owner", uid,
+				"-m", "cgroup", "--cgroup", cgroupMark,
 				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
@@ -2144,7 +2132,7 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, uid, setName string, exclusio
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteNATExclusionACLs(cgroupMark, uid, setName string, exclusions []string) error {
+func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
@@ -2160,7 +2148,7 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, uid, setName string, exclu
 		); err != nil {
 			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
 		}
-		if cgroupMark == "" && uid == "" {
+		if cgroupMark == "" {
 			if err := i.ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
@@ -2171,7 +2159,7 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, uid, setName string, exclu
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
-		} else if cgroupMark != "" {
+		} else {
 			if err := i.ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
@@ -2183,25 +2171,13 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, uid, setName string, exclu
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
-		} else { // uid pu
-			if err := i.ipt.Delete(
-				i.appProxyIPTableContext, natProxyOutputChain,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "owner", "--uid-owner", uid,
-				"-d", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
-			}
 		}
 	}
 
 	return nil
 }
 
-func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, uid, setName string, exclusions []string, tcpPorts string) error {
+func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
 
@@ -2218,7 +2194,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, uid, setName string, ex
 			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
 		}
 
-		if cgroupMark == "" && uid == "" {
+		if cgroupMark == "" {
 			if err := i.ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
@@ -2229,7 +2205,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, uid, setName string, ex
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
-		} else if cgroupMark != "" {
+		} else {
 			if err := i.ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
@@ -2242,19 +2218,6 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, uid, setName string, ex
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
-		} else { // uid
-			if err := i.ipt.Insert(
-				i.appProxyIPTableContext, natProxyOutputChain, 1,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "multiport",
-				"-m", "owner", "--uid-owner", uid,
-				"-d", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
-			}
 		}
 	}
 
@@ -2262,7 +2225,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, uid, setName string, ex
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, uid, setName string, exclusions []string, tcpPorts string) error {
+func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
@@ -2278,7 +2241,7 @@ func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, uid, setName string,
 		); err != nil {
 			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
 		}
-		if cgroupMark == "" && uid == "" {
+		if cgroupMark == "" {
 			if err := i.ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
@@ -2289,7 +2252,7 @@ func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, uid, setName string,
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
-		} else if cgroupMark != "" {
+		} else {
 			if err := i.ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
@@ -2297,19 +2260,6 @@ func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, uid, setName string,
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
-				"-d", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
-			}
-		} else { // uid
-			if err := i.ipt.Delete(
-				i.appProxyIPTableContext, natProxyOutputChain,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "multiport",
-				"-m", "owner", "--uid-owner", uid,
 				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
