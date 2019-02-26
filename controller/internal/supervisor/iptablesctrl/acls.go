@@ -116,7 +116,7 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 			"-j", netChain,
 		})
 	}
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark, "")...)
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
@@ -230,7 +230,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 		})
 	}
 
-	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark, "")...)
+	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
 func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -278,7 +278,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		},
 	}
 
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "", uid)...)
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
 // chainRules provides the list of rules that are used to send traffic to
@@ -327,11 +327,11 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 		},
 	}
 
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "", "")...)
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "")...)
 }
 
 // proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string, uid string) [][]string {
+func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 	proxyrules := [][]string{
 		{
@@ -396,7 +396,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 		},
 	}
 
-	if cgroupMark == "" && uid == "" {
+	if cgroupMark == "" {
 		proxyrules = append(proxyrules, []string{
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
@@ -406,7 +406,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		})
-	} else if cgroupMark != "" {
+	} else {
 		proxyrules = append(proxyrules, []string{
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
@@ -417,24 +417,13 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		})
-	} else { // uid
-		proxyrules = append(proxyrules, []string{
-			i.appProxyIPTableContext,
-			natProxyOutputChain,
-			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
-			"-m", "mark", "!", "--mark", proxyMark,
-			"-m", "owner", "--uid-owner", uid,
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		})
 	}
 
 	return proxyrules
 }
 
 // legacyProxyRules creates all the proxy specific rules.
-func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark, uid string) [][]string {
+func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 	proxyrules := [][]string{
 		{
@@ -515,7 +504,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 		},
 	}
 
-	if cgroupMark == "" && uid == "" {
+	if cgroupMark == "" {
 		proxyrules = append(proxyrules, []string{
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
@@ -525,19 +514,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		})
-	} else if cgroupMark != " " {
-		proxyrules = append(proxyrules, []string{
-			i.appProxyIPTableContext,
-			natProxyOutputChain,
-			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
-			"-m", "mark", "!", "--mark", proxyMark,
-			"-m", "multiport",
-			"--source-ports", tcpPorts,
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		})
-	} else { // uid
+	} else {
 		proxyrules = append(proxyrules, []string{
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
