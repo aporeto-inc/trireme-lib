@@ -730,7 +730,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		mark = containerInfo.Runtime.Options().CgroupMark
 		uid = containerInfo.Runtime.Options().UserID
 	}
-	zap.L().Info("cgroup and uid", zap.String("cgroup", mark), zap.String("uid", uid))
+
 	if i.isLegacyKernel {
 		// doesn't work for clients.
 		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
