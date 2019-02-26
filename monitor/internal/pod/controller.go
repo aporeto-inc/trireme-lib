@@ -2,6 +2,7 @@ package podmonitor
 
 import (
 	"context"
+	"time"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -84,7 +85,7 @@ type ReconcilePod struct {
 
 // Reconcile reads that state of the cluster for a pod object
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	puID := request.NamespacedName.String()
 
 	// Fetch the corresponding pod object.
@@ -110,7 +111,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	runtime, err := r.metadataExtractor(pod)
+	extractCtx, extractCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer extractCancel()
+	runtime, err := r.metadataExtractor(extractCtx, pod)
 	if err != nil {
 		zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
 		return reconcile.Result{}, err
@@ -118,38 +121,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		zap.L().Info("pod pending", zap.String("puID", puID))
-		if !hasAnnotation(pod) {
-			if err := r.handler.Policy.HandlePUEvent(
-				ctx,
-				puID,
-				common.EventCreate,
-				runtime,
-			); err != nil {
-				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-				return reconcile.Result{}, nil
-			}
-			newPod := pod.DeepCopy()
-			if newPod.ObjectMeta.Annotations == nil {
-				newPod.ObjectMeta.Annotations = make(map[string]string)
-			}
-			newPod.ObjectMeta.Annotations["aporeto.io/pu-created"] = ""
-			if err := r.client.Update(ctx, newPod); err != nil {
-				zap.L().Error("failed to add annotation to pod", zap.String("puID", puID), zap.Error(err))
-				return reconcile.Result{}, err
-			}
-		} else {
-			if err := r.handler.Policy.HandlePUEvent(
-				ctx,
-				puID,
-				common.EventUpdate,
-				runtime,
-			); err != nil {
-				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
-			}
-		}
+		fallthrough
 	case corev1.PodRunning:
-		zap.L().Info("pod running", zap.String("puID", puID))
+		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID))
 		if err := r.handler.Policy.HandlePUEvent(
 			ctx,
 			puID,
@@ -159,17 +133,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 		}
 	case corev1.PodSucceeded:
-		zap.L().Info("pod succeeded", zap.String("puID", puID))
-		if err := r.handler.Policy.HandlePUEvent(
-			ctx,
-			puID,
-			common.EventStop,
-			runtime,
-		); err != nil {
-			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
-		}
+		fallthrough
 	case corev1.PodFailed:
-		zap.L().Info("pod failed", zap.String("puID", puID))
+		zap.L().Debug("PodSucceeded / PodFailed", zap.String("puID", puID))
 		if err := r.handler.Policy.HandlePUEvent(
 			ctx,
 			puID,
@@ -181,7 +147,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	case corev1.PodUnknown:
 		zap.L().Error("pod is in unknown state", zap.String("puID", puID), zap.Error(err))
 	default:
-		zap.L().Info("unknown pod phase", zap.String("podPhase", string(pod.Status.Phase)))
+		zap.L().Error("unknown pod phase", zap.String("podPhase", string(pod.Status.Phase)))
 	}
 
 	return reconcile.Result{}, nil

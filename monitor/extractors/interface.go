@@ -1,6 +1,8 @@
 package extractors
 
 import (
+	"context"
+
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -13,4 +15,4 @@ type EventMetadataExtractor func(*common.EventInfo) (*policy.PURuntime, error)
 
 // PodMetadataExtractor is a function used to extract a *policy.PURuntime from a given
 // Kubernetes pod.
-type PodMetadataExtractor func(*corev1.Pod) (*policy.PURuntime, error)
+type PodMetadataExtractor func(context.Context, *corev1.Pod) (*policy.PURuntime, error)
