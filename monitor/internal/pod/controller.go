@@ -15,7 +15,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -129,30 +128,8 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				policy.NewPURuntimeWithDefaults(),
 			); err != nil {
 				zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(
-					&corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      request.Name,
-							Namespace: request.Namespace,
-						},
-					},
-					"Warning",
-					"PUDestroy",
-					"PU '%s' failed to get destroyed: %s", puID, err.Error(),
-				)
 				return reconcile.Result{}, ErrHandlePUDestroyEventFailed
 			}
-			r.recorder.Eventf(
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      request.Name,
-						Namespace: request.Namespace,
-					},
-				},
-				"Normal",
-				"PUDestroy",
-				"PU '%s' has been successfully destroyed", puID,
-			)
 			return reconcile.Result{}, nil
 		}
 		// Otherwise, we retry.
@@ -198,6 +175,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// however, the start will fail if no container has been started yet
 		zap.L().Debug("PodPending", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
 		if started {
+			if len(runtime.NSPath()) == 0 && runtime.Pid() == 0 {
+				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...")
+				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, nil
+			}
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
@@ -206,36 +187,48 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			); err != nil {
 				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
-				return reconcile.Result{}, ErrHandlePUStartEventFailed
+				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
 			}
 			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
-		} else {
+		}
+		return reconcile.Result{}, nil
+
+	case corev1.PodRunning:
+		// try to find out if any of the containers have been started yet
+		var started bool
+		for _, status := range pod.Status.InitContainerStatuses {
+			if status.State.Running != nil {
+				started = true
+				break
+			}
+		}
+		if !started {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Running != nil {
+					started = true
+					break
+				}
+			}
+		}
+		zap.L().Debug("PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
+		if started {
+			if len(runtime.NSPath()) == 0 && runtime.Pid() == 0 {
+				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...")
+				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, nil
+			}
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
-				common.EventCreate,
+				common.EventStart,
 				runtime,
 			); err != nil {
-				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", puID, err.Error())
-				return reconcile.Result{}, ErrHandlePUCreateEventFailed
+				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
+				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
 			}
-			r.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' has been successfully created", puID)
+			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
 		}
-
-	case corev1.PodRunning:
-		zap.L().Debug("PodRunning", zap.String("puID", puID))
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventStart,
-			runtime,
-		); err != nil {
-			zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
-			return reconcile.Result{}, ErrHandlePUStartEventFailed
-		}
-		r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
+		return reconcile.Result{}, nil
 
 	case corev1.PodSucceeded:
 		fallthrough
@@ -252,12 +245,13 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			return reconcile.Result{}, ErrHandlePUStopEventFailed
 		}
 		r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
+		return reconcile.Result{}, nil
 
 	case corev1.PodUnknown:
 		zap.L().Error("pod is in unknown state", zap.String("puID", puID), zap.Error(err))
+		return reconcile.Result{}, errs.New("PodUnknown phase")
 	default:
 		zap.L().Error("unknown pod phase", zap.String("podPhase", string(pod.Status.Phase)))
+		return reconcile.Result{}, errs.New("unknown Pod phase")
 	}
-
-	return reconcile.Result{}, nil
 }
