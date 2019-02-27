@@ -94,11 +94,13 @@ int getgroupid(const char *groupname) {
 void droppriveleges() {
   cap_user_header_t hdr = malloc(sizeof(struct __user_cap_header_struct));
   cap_user_data_t data = malloc(sizeof(struct __user_cap_data_struct));
-  char *switch_user = getenv("SWITCH_USER");
-  char *switch_group = getenv("SWITCH_GROUP");
-  if (switch_user == NULL || switch_group == NULL){
-    free(hdr);
-    free(data);
+  char *drop_priveleges = getenv("DROP_PRIVELEGES"); 
+  int groupid = getgroupid("aporeto");
+  int userid = getuserid("enforcerd");
+  int retval = 0;
+  printf("Celled Droppriveleges\n");
+  if (groupid == -1 || userid == -1 || drop_priveleges == NULL) {
+    printf("Returning early\n");
     return;
   }
   prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
@@ -123,8 +125,7 @@ void droppriveleges() {
   }
 
   
-  int groupid = getgroupid("aporeto");
-  int retval = 0;
+  
   if (groupid == -1){
    retval = setgid(65534);
   }else{
@@ -137,17 +138,13 @@ void droppriveleges() {
     
   }
 
-  int userid = getuserid("enforcerd");
+  userid = getuserid("enforcerd");
   if (userid == -1) {
     retval = setuid(65534);
   }else{
     retval = setuid(userid);
   }
-  if (retval< 0){
-    
-    
-    
-  }
+  
   data[0].effective = data[0].permitted;
   data[0].inheritable = data[0].permitted;
   err = capset(hdr,data);
@@ -159,8 +156,8 @@ void droppriveleges() {
   }
   
   free(hdr);
-   free(data);
-   return;
+  free(data);
+  return;
   
 }
 
