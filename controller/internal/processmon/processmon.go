@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -91,7 +92,7 @@ func contextID2SocketPath(contextID string) string {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", contextID+".sock")
+	return filepath.Join("/var/run/", strings.Replace(contextID, "/", "_", -1)+".sock")
 }
 
 // processIOReader will read from a reader and print it on the calling process
@@ -372,7 +373,7 @@ func (p *processMon) LaunchProcess(
 	}
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
-	contextFile := filepath.Join(p.netNSPath, contextID)
+	contextFile := filepath.Join(p.netNSPath, strings.Replace(contextID, "/", "_", -1))
 	// Remove the context file if it already exists.
 	if removeErr := os.RemoveAll(contextFile); err != nil {
 		zap.L().Warn("Failed to remove namespace link",
