@@ -2,7 +2,10 @@ package podmonitor
 
 import (
 	"context"
+	errs "errors"
 	"time"
+
+	"k8s.io/client-go/tools/record"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -12,6 +15,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,22 +27,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+var (
+	// ErrHandlePUCreateEventFailed is the error sent back if a create event fails
+	ErrHandlePUCreateEventFailed = errs.New("Aporeto Enforcer create event failed")
+
+	// ErrHandlePUStartEventFailed is the error sent back if a start event fails
+	ErrHandlePUStartEventFailed = errs.New("Aporeto Enforcer start event failed")
+
+	// ErrHandlePUStopEventFailed is the error sent back if a stop event fails
+	ErrHandlePUStopEventFailed = errs.New("Aporeto Enforcer stop event failed")
+
+	// ErrHandlePUDestroyEventFailed is the error sent back if a create event fails
+	ErrHandlePUDestroyEventFailed = errs.New("Aporeto Enforcer destroy event failed")
+)
+
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, nodeName string, enableHostPods bool) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
+		recorder:          mgr.GetRecorder("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
+
+		// TODO: might move into configuration
+		handlePUEventTimeout:   5 * time.Second,
+		metadataExtractTimeout: 3 * time.Second,
 	}
 }
 
 // addController adds a new Controller to mgr with r as the reconcile.Reconciler
 func addController(mgr manager.Manager, r *ReconcilePod, eventsCh <-chan event.GenericEvent) error {
 	// Create a new controller
-	c, err := controller.New("pod-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("trireme-pod-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -77,10 +100,14 @@ type ReconcilePod struct {
 	// that reads objects from the cache and writes to the apiserver
 	client            client.Client
 	scheme            *runtime.Scheme
+	recorder          record.EventRecorder
 	handler           *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
 	nodeName          string
 	enableHostPods    bool
+
+	metadataExtractTimeout time.Duration
+	handlePUEventTimeout   time.Duration
 }
 
 // Reconcile reads that state of the cluster for a pod object
@@ -92,15 +119,40 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, request.NamespacedName, pod); err != nil {
 		if errors.IsNotFound(err) {
-			zap.L().Info("pod not found", zap.String("puID", puID))
+			zap.L().Debug("Pod IsNotFound", zap.String("puID", puID))
+			handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
+			defer handlePUCancel()
 			if err := r.handler.Policy.HandlePUEvent(
-				ctx,
+				handlePUCtx,
 				puID,
 				common.EventDestroy,
 				policy.NewPURuntimeWithDefaults(),
 			); err != nil {
 				zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(
+					&corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      request.Name,
+							Namespace: request.Namespace,
+						},
+					},
+					"Warning",
+					"PUDestroy",
+					"PU '%s' failed to get destroyed: %s", puID, err.Error(),
+				)
+				return reconcile.Result{}, ErrHandlePUDestroyEventFailed
 			}
+			r.recorder.Eventf(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      request.Name,
+						Namespace: request.Namespace,
+					},
+				},
+				"Normal",
+				"PUDestroy",
+				"PU '%s' has been successfully destroyed", puID,
+			)
 			return reconcile.Result{}, nil
 		}
 		// Otherwise, we retry.
@@ -111,7 +163,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	extractCtx, extractCancel := context.WithTimeout(ctx, 3*time.Second)
+	extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 	defer extractCancel()
 	runtime, err := r.metadataExtractor(extractCtx, pod)
 	if err != nil {
@@ -119,31 +171,88 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
+	handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
+	defer handlePUCancel()
+
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		fallthrough
+		// try to find out if any of the containers have been started yet
+		var started bool
+		for _, status := range pod.Status.InitContainerStatuses {
+			if status.State.Running != nil {
+				started = true
+				break
+			}
+		}
+		if !started {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Running != nil {
+					started = true
+					break
+				}
+			}
+		}
+
+		// now either call start or only create
+		// NOTE: a start event will internall also always do a create
+		// however, the start will fail if no container has been started yet
+		zap.L().Debug("PodPending", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
+		if started {
+			if err := r.handler.Policy.HandlePUEvent(
+				handlePUCtx,
+				puID,
+				common.EventStart,
+				runtime,
+			); err != nil {
+				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
+				return reconcile.Result{}, ErrHandlePUStartEventFailed
+			}
+			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
+		} else {
+			if err := r.handler.Policy.HandlePUEvent(
+				handlePUCtx,
+				puID,
+				common.EventCreate,
+				runtime,
+			); err != nil {
+				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", puID, err.Error())
+				return reconcile.Result{}, ErrHandlePUCreateEventFailed
+			}
+			r.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' has been successfully created", puID)
+		}
+
 	case corev1.PodRunning:
-		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID))
+		zap.L().Debug("PodRunning", zap.String("puID", puID))
 		if err := r.handler.Policy.HandlePUEvent(
-			ctx,
+			handlePUCtx,
 			puID,
 			common.EventStart,
 			runtime,
 		); err != nil {
 			zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
+			r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
+			return reconcile.Result{}, ErrHandlePUStartEventFailed
 		}
+		r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
+
 	case corev1.PodSucceeded:
 		fallthrough
 	case corev1.PodFailed:
 		zap.L().Debug("PodSucceeded / PodFailed", zap.String("puID", puID))
 		if err := r.handler.Policy.HandlePUEvent(
-			ctx,
+			handlePUCtx,
 			puID,
 			common.EventStop,
 			runtime,
 		); err != nil {
 			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
+			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to get stopped: %s", puID, err.Error())
+			return reconcile.Result{}, ErrHandlePUStopEventFailed
 		}
+		r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
+
 	case corev1.PodUnknown:
 		zap.L().Error("pod is in unknown state", zap.String("puID", puID), zap.Error(err))
 	default:
