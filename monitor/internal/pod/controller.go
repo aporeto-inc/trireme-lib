@@ -152,11 +152,3 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	return reconcile.Result{}, nil
 }
-
-func hasAnnotation(pod *corev1.Pod) bool {
-	if pod.ObjectMeta.Annotations == nil {
-		return false
-	}
-	_, ok := pod.ObjectMeta.Annotations["aporeto.io/pu-created"]
-	return ok
-}
