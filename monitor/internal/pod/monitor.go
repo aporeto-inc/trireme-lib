@@ -53,7 +53,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 
 	kubernetesconfig, ok := cfg.(*Config)
 	if !ok {
-		return fmt.Errorf("Invalid configuration specified")
+		return fmt.Errorf("Invalid configuration specified (type '%T')", cfg)
 	}
 
 	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
