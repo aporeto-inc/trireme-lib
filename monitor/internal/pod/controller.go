@@ -27,11 +27,11 @@ import (
 )
 
 var (
-	// ErrHandlePUCreateEventFailed is the error sent back if a create event fails
-	ErrHandlePUCreateEventFailed = errs.New("Aporeto Enforcer create event failed")
-
 	// ErrHandlePUStartEventFailed is the error sent back if a start event fails
 	ErrHandlePUStartEventFailed = errs.New("Aporeto Enforcer start event failed")
+
+	// ErrNetnsExtractionMissing is the error when we are missing a PID or netns path after successful metadata extraction
+	ErrNetnsExtractionMissing = errs.New("Aporeto Enforcer missed to extract PID or netns path")
 
 	// ErrHandlePUStopEventFailed is the error sent back if a stop event fails
 	ErrHandlePUStopEventFailed = errs.New("Aporeto Enforcer stop event failed")
@@ -136,65 +136,44 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
-	if pod.Spec.HostNetwork {
+	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
+	// NOTE: is already done in the mapper, however, this additional check does not hurt
+	if pod.Spec.HostNetwork && !r.enableHostPods {
+		zap.L().Debug("Pod is a HostNetwork pod, but enableHostPods is false", zap.String("puID", puID))
 		return reconcile.Result{}, nil
 	}
 
-	extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
-	defer extractCancel()
-	runtime, err := r.metadataExtractor(extractCtx, pod)
-	if err != nil {
-		zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
-		return reconcile.Result{}, err
-	}
-
+	// every HandlePUEvent call gets done in this context
 	handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 	defer handlePUCancel()
 
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		// try to find out if any of the containers have been started yet
-		var started bool
-		for _, status := range pod.Status.InitContainerStatuses {
-			if status.State.Running != nil {
-				started = true
-				break
-			}
-		}
-		if !started {
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Running != nil {
-					started = true
-					break
-				}
-			}
-		}
-
-		// now either call start or only create
-		// NOTE: a start event will internall also always do a create
-		// however, the start will fail if no container has been started yet
-		zap.L().Debug("PodPending", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
-		if started {
-			if len(runtime.NSPath()) == 0 && runtime.Pid() == 0 {
-				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...")
-				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, nil
-			}
-			if err := r.handler.Policy.HandlePUEvent(
-				handlePUCtx,
-				puID,
-				common.EventStart,
-				runtime,
-			); err != nil {
-				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
-				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
-			}
-			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
-		}
+		// there is nothing yet to do in the PodPending phase
+		// we can just return
+		zap.L().Debug("PodPending", zap.String("puID", puID))
 		return reconcile.Result{}, nil
 
 	case corev1.PodRunning:
+		// first of all, check if this pod is terminating / shutting down
+		//
+		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
+		// however, it will have the deletion timestamp set which is an indicator for us that it is
+		// shutting down. It means for us, that we don't have to do anything yet. We can safely stop
+		// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
+		// that cannot be found any longer.
+		if pod.DeletionTimestamp != nil {
+			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
+			return reconcile.Result{}, nil
+		}
+
 		// try to find out if any of the containers have been started yet
+		//
+		// NOTE: the spec says for PodRunning that at least one container has been starting,
+		// The reality shows us though that we need to check the container states as well:
+		// the containers might still be starting up, and are not necessarily in the running state
+		// Only containers in the running state can guarantee to us that we are going to have access
+		// to the namespace with our remote enforcer.
 		var started bool
 		for _, status := range pod.Status.InitContainerStatuses {
 			if status.State.Running != nil {
@@ -212,15 +191,29 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 		zap.L().Debug("PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
 		if started {
-			if len(runtime.NSPath()) == 0 && runtime.Pid() == 0 {
-				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...")
-				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, nil
+			// now do the metadata extraction
+			extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
+			defer extractCancel()
+			puRuntime, err := r.metadataExtractor(extractCtx, pod)
+			if err != nil {
+				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+				return reconcile.Result{}, err
 			}
+
+			// if the metadata extractor is missing the PID or nspath, we need to try again
+			// we need it for starting the PU.
+			// NOTE: this can happen for example if the containers are not in a running state on their own
+			if len(puRuntime.NSPath()) == 0 && puRuntime.Pid() == 0 {
+				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID))
+				return reconcile.Result{}, ErrNetnsExtractionMissing
+			}
+
+			// now start (and create) the PU
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
 				common.EventStart,
-				runtime,
+				puRuntime,
 			); err != nil {
 				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
@@ -238,7 +231,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			handlePUCtx,
 			puID,
 			common.EventStop,
-			runtime,
+			policy.NewPURuntimeWithDefaults(),
 		); err != nil {
 			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to get stopped: %s", puID, err.Error())
@@ -248,10 +241,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 
 	case corev1.PodUnknown:
-		zap.L().Error("pod is in unknown state", zap.String("puID", puID), zap.Error(err))
+		zap.L().Error("pod is in unknown state", zap.String("puID", puID))
 		return reconcile.Result{}, errs.New("PodUnknown phase")
 	default:
-		zap.L().Error("unknown pod phase", zap.String("podPhase", string(pod.Status.Phase)))
+		zap.L().Error("unknown pod phase", zap.String("puID", puID), zap.String("podPhase", string(pod.Status.Phase)))
 		return reconcile.Result{}, errs.New("unknown Pod phase")
 	}
 }
