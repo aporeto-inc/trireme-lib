@@ -22,7 +22,7 @@ func CleanOldState() {
 
 	ipt, _ := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 
-	if err := ipt.CleanAllSynAckPacketCaptures(); err != nil {
+	if err := ipt.CleanOldState(); err != nil {
 		zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
 	}
 }

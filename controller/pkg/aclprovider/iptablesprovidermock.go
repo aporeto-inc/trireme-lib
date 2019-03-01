@@ -6,14 +6,17 @@ import (
 )
 
 type iptablesProviderMockedMethods struct {
-	appendMock      func(table, chain string, rulespec ...string) error
-	insertMock      func(table, chain string, pos int, rulespec ...string) error
-	deleteMock      func(table, chain string, rulespec ...string) error
-	listChainsMock  func(table string) ([]string, error)
-	clearChainMock  func(table, chain string) error
-	deleteChainMock func(table, chain string) error
-	newChainMock    func(table, chain string) error
-	commitMock      func() error
+	appendMock       func(table, chain string, rulespec ...string) error
+	insertMock       func(table, chain string, pos int, rulespec ...string) error
+	deleteMock       func(table, chain string, rulespec ...string) error
+	listChainsMock   func(table string) ([]string, error)
+	clearChainMock   func(table, chain string) error
+	deleteChainMock  func(table, chain string) error
+	newChainMock     func(table, chain string) error
+	commitMock       func() error
+	setTargetSetMock func(string)
+	getTargetSetMock func() string
+	getExtNetSetMock func() string
 }
 
 // TestIptablesProvider is a test implementation for IptablesProvider
@@ -81,6 +84,18 @@ func (m *testIptablesProvider) MockNewChain(t *testing.T, impl func(table, chain
 
 func (m *testIptablesProvider) MockCommit(t *testing.T, impl func() error) {
 	m.currentMocks(t).commitMock = impl
+}
+
+func (m *testIptablesProvider) MockSetTargetSet(t *testing.T, impl func(string)) {
+	m.currentMocks(t).setTargetSetMock = impl
+}
+
+func (m *testIptablesProvider) MockGetTargetSet(t *testing.T, impl func() string) {
+	m.currentMocks(t).getTargetSetMock = impl
+}
+
+func (m *testIptablesProvider) MockGetExtNetSet(t *testing.T, impl func() string) {
+	m.currentMocks(t).getExtNetSetMock = impl
 }
 
 func (m *testIptablesProvider) Append(table, chain string, rulespec ...string) error {
@@ -153,6 +168,33 @@ func (m *testIptablesProvider) Commit() error {
 	}
 
 	return nil
+}
+
+func (m *testIptablesProvider) SetTargetSet(t string) {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.commitMock != nil {
+		mock.setTargetSetMock(t)
+		return
+	}
+
+}
+
+func (m *testIptablesProvider) GetTargetSet() string {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.commitMock != nil {
+		return mock.getTargetSetMock()
+	}
+
+	return ""
+}
+
+func (m *testIptablesProvider) GetExtNetSet() string {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.getExtNetSetMock != nil {
+		return mock.getExtNetSetMock()
+	}
+
+	return ""
 }
 
 func (m *testIptablesProvider) currentMocks(t *testing.T) *iptablesProviderMockedMethods {

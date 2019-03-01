@@ -3,11 +3,13 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
@@ -23,7 +25,7 @@ const (
 	icmpv6       = "icmpv6"
 )
 
-func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyVIPSet, proxyPortSet string,
 	appSection, netSection string) [][]string {
 
 	iptableCgroupSection := appSection
@@ -117,12 +119,12 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 			"-j", netChain,
 		})
 	}
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.proxyRules(proxyPort, proxyVIPSet, proxyPortSet, mark)...)
 }
 
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
 // consider source ports to identify packets from the process.
-func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyVIPSet, proxyPortSet string,
 	appSection, netSection string, puType string) [][]string {
 
 	iptableCgroupSection := appSection
@@ -231,20 +233,20 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 		})
 	}
 
-	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyVIPSet, proxyPortSet, mark)...)
 }
 
-func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyVIPSet, proxyPortSet string,
 	appSection, netSection string, puType string) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
 	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
-		return i.legacyPuChainRules(contextID, appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
+		return i.legacyPuChainRules(contextID, appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet,
 			appSection, netSection, puType)
 	}
 
-	return i.puChainRules(contextID, appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
+	return i.puChainRules(contextID, appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet,
 		appSection, netSection)
 }
 
@@ -284,7 +286,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(contextID string, appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) chainRules(contextID string, appChain string, netChain string, proxyPort string, proxyVIPSet, proxyPortSet string) [][]string {
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
@@ -328,19 +330,18 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 		},
 	}
 
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "")...)
+	return append(rules, i.proxyRules(proxyPort, proxyVIPSet, proxyPortSet, "")...)
 }
 
 // proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
-	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
+func (i *Instance) proxyRules(proxyPort string, proxyVIPSet, proxyPortSet string, cgroupMark string) [][]string {
 	proxyrules := [][]string{
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -351,7 +352,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			proxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", destSetName, "src,src",
+			"--match-set", proxyVIPSet, "src,src",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -359,7 +360,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			proxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--match-set", proxyPortSet, "src",
 			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
@@ -382,7 +383,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			proxyOutputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--match-set", proxyPortSet, "src",
 			"-j", "ACCEPT",
 		},
 		{
@@ -390,7 +391,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			proxyOutputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
+			"--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -402,7 +403,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
@@ -412,7 +413,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
 			"-m", "cgroup", "--cgroup", cgroupMark,
 			"-j", "REDIRECT",
@@ -424,15 +425,14 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 }
 
 // legacyProxyRules creates all the proxy specific rules.
-func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
-	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
+func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyVIPSet, proxyPortSet string, cgroupMark string) [][]string {
 	proxyrules := [][]string{
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -443,7 +443,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", destSetName, "src,src",
+			"--match-set", proxyVIPSet, "src,src",
 			"-j", "ACCEPT",
 		},
 		{ // Needed for Web sockets
@@ -451,7 +451,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-j", "ACCEPT",
 		},
 		{ // APIServices
@@ -459,7 +459,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--match-set", proxyPortSet, "src",
 			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "ACCEPT",
 		},
@@ -482,7 +482,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyOutputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "src",
+			"--match-set", proxyPortSet, "src",
 			"-j", "ACCEPT",
 		},
 		{ // Needed for websocket support
@@ -490,7 +490,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyOutputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-j", "ACCEPT",
 		},
 		{
@@ -498,7 +498,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			proxyOutputChain,
 			"-p", tcpProto,
 			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
+			"--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -510,7 +510,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
@@ -520,7 +520,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			i.appProxyIPTableContext,
 			natProxyOutputChain,
 			"-p", tcpProto,
-			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 			"-m", "mark", "!", "--mark", proxyMark,
 			"-m", "multiport",
 			"--source-ports", tcpPorts,
@@ -533,7 +533,7 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
+func (i *Instance) trapRules(appChain string, netChain string, targetNetworkSet string, isHostPU bool) [][]string {
 
 	rules := [][]string{}
 
@@ -547,13 +547,6 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 			"-j", "ACCEPT",
 		})
 	}
-
-	// Accept ICMPv6 packets
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-p", icmpv6,
-		"-j", "ACCEPT",
-	})
 
 	// Application Packets - SYN
 	rules = append(rules, []string{
@@ -604,13 +597,6 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 
 	}
 
-	// Accept icmpv6 packets
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-p", icmpv6,
-		"-j", "ACCEPT",
-	})
-
 	// Network Packets - SYN
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
@@ -640,20 +626,20 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func (i *Instance) addContainerChain(appChain string, netChain string) error {
+func (i *Instance) addContainerChain(ipt provider.IptablesProvider, appChain string, netChain string) error {
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+	if err := ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
 	}
 
-	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
+	if err := ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
 	}
 
 	return nil
 }
 
-func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
+func (i *Instance) processRulesFromList(ipt provider.IptablesProvider, rulelist [][]string, methodType string) error {
 	var err error
 	for _, cr := range rulelist {
 		// HACK: Adding a retry loop to avoid iptables error of "invalid argument"
@@ -662,7 +648,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 		for retry := 0; retry < 3; retry++ {
 			switch methodType {
 			case "Append":
-				if err = i.ipt.Append(cr[0], cr[1], cr[2:]...); err == nil {
+				if err = ipt.Append(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
 			case "Insert":
@@ -671,12 +657,12 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 					zap.L().Error("Incorrect format for iptables insert")
 					return errors.New("invalid format")
 				}
-				if err = i.ipt.Insert(cr[0], cr[1], order, cr[3:]...); err == nil {
+				if err = ipt.Insert(cr[0], cr[1], order, cr[3:]...); err == nil {
 					break L
 				}
 
 			case "Delete":
-				if err = i.ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
+				if err = ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
 				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
@@ -723,12 +709,12 @@ func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(contextID string, portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
+func (i *Instance) addChainRules(ipt provider.IptablesProvider, contextID string, portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet string, puType string) error {
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			if udpPorts != "0" {
 				// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, true), "Insert")
+				err := i.processRulesFromList(ipt, i.getUDPNatRule(udpPorts, true), "Insert")
 				if err != nil {
 					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
 				}
@@ -752,25 +738,33 @@ func (i *Instance) addChainRules(contextID string, portSetName string, appChain 
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
+			return i.processRulesFromList(ipt, i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet, appSection, netSection, puType), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
+		return i.processRulesFromList(ipt, i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
 	}
 
-	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
+	return i.processRulesFromList(ipt, i.chainRules(contextID, appChain, netChain, proxyPort, proxyVIPSet, proxyPortSet), "Append")
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, isHostPU bool) error {
+func (i *Instance) addPacketTrap(ipt provider.IptablesProvider, appChain string, netChain string, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
+	return i.processRulesFromList(ipt, i.trapRules(appChain, netChain, ipt.GetTargetSet(), isHostPU), "Append")
 
 }
 
-func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) error {
+func (i *Instance) programRule(ipt provider.IptablesProvider, contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) error {
 	iptRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
+
+	var ipset string
+
+	if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+		ipset = rule.ipsetV4
+	} else {
+		ipset = rule.ipsetV6
+	}
 
 	baseRule := func(insertOrder int, proto string) []string {
 		iptRule := []string{
@@ -778,11 +772,11 @@ func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *in
 			chain,
 			strconv.Itoa(insertOrder),
 			"-p", proto,
-			"-m", "set", "--match-set", rule.ipset, ipMatchDirection}
+			"-m", "set", "--match-set", ipset, ipMatchDirection}
 
 		// only tcp uses target networks
 		if proto == tcpProto {
-			targetNet := []string{"-m", "set", "!", "--match-set", targetNetworkSet, ipMatchDirection}
+			targetNet := []string{"-m", "set", "!", "--match-set", ipt.GetTargetSet(), ipMatchDirection}
 			iptRule = append(iptRule, targetNet...)
 		}
 
@@ -827,15 +821,15 @@ func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *in
 		for i, rule := range iptRules {
 			iptRules[i] = append(rule[:2], rule[3:]...)
 		}
-		return i.processRulesFromList(iptRules, order)
+		return i.processRulesFromList(ipt, iptRules, order)
 	}
 
-	return i.processRulesFromList(iptRules, order)
+	return i.processRulesFromList(ipt, iptRules, order)
 }
 
 type rulePred func(policy *policy.FlowPolicy) bool
 
-func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) error {
+func (i *Instance) addTCPAppACLS(ipt provider.IptablesProvider, contextID, chain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
 
@@ -845,7 +839,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) erro
 				if strings.ToLower(proto) == tcpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, chain, "10", tcpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, chain, "10", tcpProto, "dst", "Insert"); err != nil {
 						return err
 					}
 				}
@@ -902,7 +896,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) erro
 	return nil
 }
 
-func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset) error {
+func (i *Instance) addOtherAppACLs(ipt provider.IptablesProvider, contextID, appChain string, rules []aclIPset) error {
 
 	insertOrder := int(1)
 	intP := &insertOrder
@@ -915,7 +909,7 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset)
 					proto != udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", proto, "dst", "Append"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, appChain, "10", proto, "dst", "Append"); err != nil {
 						return err
 					}
 				}
@@ -972,7 +966,7 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset)
 	return nil
 }
 
-func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addUDPAppACLS(ipt provider.IptablesProvider, contextID, appChain, netChain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
 
@@ -982,16 +976,24 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 				if (strings.ToLower(proto) == udpProto) &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {
 						return err
 					}
 
 					if (rule.policy.Action & policy.Accept) != 0 {
 						// Add a corresponding rule on the top of the network chain.
-						if err := i.ipt.Insert(
+						var ipset string
+
+						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+							ipset = rule.ipsetV4
+						} else {
+							ipset = rule.ipsetV6
+						}
+
+						if err := ipt.Insert(
 							i.netPacketIPTableContext, netChain, 1,
 							"-p", udpProto,
-							"-m", "set", "--match-set", rule.ipset, "src",
+							"-m", "set", "--match-set", ipset, "src",
 							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
 							"-m", "state", "--state", "ESTABLISHED",
 							"-j", "ACCEPT",
@@ -1052,23 +1054,50 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 	return nil
 }
 
-// addAppACLs adds a set of rules to the external services that are initiated
-// by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addAppRulesV4(contextID, appChain string) error {
+	if err := i.iptV4.Append(
+		i.appPacketIPTableContext, appChain,
+		"-d", "0.0.0.0/0",
+		"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT"); err != nil {
 
-	if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
-		return fmt.Errorf("Unable to add tcp app acls: %s", err)
+		return fmt.Errorf("unable to add default tcp acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
 	}
 
-	if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add udp app acls: %s", err)
+	// Log everything else
+	if err := i.iptV4.Append(
+		i.appPacketIPTableContext,
+		appChain,
+		"-d", "0.0.0.0/0",
+		"-m", "state", "--state", "NEW",
+		"-j", "NFLOG", "--nflog-group", "10",
+		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
+	); err != nil {
+		return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 	}
 
-	if err := i.addOtherAppACLs(contextID, appChain, rules); err != nil {
-		return fmt.Errorf("Unable to add other app acls: %s", err)
+	// Drop everything else
+	if err := i.iptV4.Append(
+		i.appPacketIPTableContext, appChain,
+		"-d", "0.0.0.0/0",
+		"-j", "DROP"); err != nil {
+
+		return fmt.Errorf("unable to add default drop acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 	}
 
-	if err := i.ipt.Append(
+	return nil
+}
+
+func (i *Instance) addAppRulesV6(contextID, appChain string) error {
+	// Accept ICMPv6 pcackets
+	if err := i.iptV6.Insert(
+		i.appPacketIPTableContext, appChain, 1,
+		"-p", icmpv6,
+		"-j", "ACCEPT"); err != nil {
+		return fmt.Errorf("unable to add icmp6 accept default rule in the app chain %s error: %s", appChain, err)
+	}
+
+	if err := i.iptV6.Append(
 		i.appPacketIPTableContext, appChain,
 		"-d", "::/0",
 		"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
@@ -1078,7 +1107,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 	}
 
 	// Log everything else
-	if err := i.ipt.Append(
+	if err := i.iptV6.Append(
 		i.appPacketIPTableContext,
 		appChain,
 		"-d", "::/0",
@@ -1090,7 +1119,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 	}
 
 	// Drop everything else
-	if err := i.ipt.Append(
+	if err := i.iptV6.Append(
 		i.appPacketIPTableContext, appChain,
 		"-d", "::/0",
 		"-j", "DROP"); err != nil {
@@ -1101,8 +1130,98 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 	return nil
 }
 
+func (i *Instance) addNetRulesV4(contextID, netChain string) error {
+	// Accept established connections
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext, netChain,
+		"-s", "0.0.0.0/0",
+		"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT",
+	); err != nil {
+		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	// Log everything
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext,
+		netChain,
+		"-s", "0.0.0.0/0",
+		"-m", "state", "--state", "NEW",
+		"-j", "NFLOG", "--nflog-group", "11",
+		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
+	); err != nil {
+		return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	// Drop everything else
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext, netChain,
+		"-s", "0.0.0.0/0",
+		"-j", "DROP",
+	); err != nil {
+		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	return nil
+}
+
+func (i *Instance) addNetRulesV6(contextID, netChain string) error {
+	// Accept established connections
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext, netChain,
+		"-s", "::/0",
+		"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT",
+	); err != nil {
+		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	// Log everything
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext,
+		netChain,
+		"-s", "::/0",
+		"-m", "state", "--state", "NEW",
+		"-j", "NFLOG", "--nflog-group", "11",
+		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
+	); err != nil {
+		return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	// Drop everything else
+	if err := i.iptV4.Append(
+		i.netPacketIPTableContext, netChain,
+		"-s", "::/0",
+		"-j", "DROP",
+	); err != nil {
+
+		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	return nil
+}
+
+// addAppACLs adds a set of rules to the external services that are initiated
+// by an application. The allow rules are inserted with highest priority.
+func (i *Instance) addAppACLs(ipt provider.IptablesProvider, contextID, appChain, netChain string, rules []aclIPset) error {
+
+	if err := i.addTCPAppACLS(ipt, contextID, appChain, rules); err != nil {
+		return fmt.Errorf("Unable to add tcp app acls: %s", err)
+	}
+
+	if err := i.addUDPAppACLS(ipt, contextID, appChain, netChain, rules); err != nil {
+		return fmt.Errorf("Unable to add udp app acls: %s", err)
+	}
+
+	if err := i.addOtherAppACLs(ipt, contextID, appChain, rules); err != nil {
+		return fmt.Errorf("Unable to add other app acls: %s", err)
+	}
+
+	return nil
+}
+
 // addTCPNetACLS adds iptables rules that manage traffic from external services for TCP.
-func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addTCPNetACLS(ipt provider.IptablesProvider, contextID, appChain, netChain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
 
@@ -1112,17 +1231,25 @@ func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []a
 				if strings.ToLower(proto) == tcpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", tcpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", tcpProto, "src", "Insert"); err != nil {
 						return err
 					}
 
 					if (rule.policy.Action & policy.Accept) != 0 {
 						// Add a corresponding rule at the top of appChain.
-						if err := i.ipt.Insert(
+						var ipset string
+
+						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+							ipset = rule.ipsetV4
+						} else {
+							ipset = rule.ipsetV6
+						}
+
+						if err := ipt.Insert(
 							i.appPacketIPTableContext, appChain, 1,
 							"-p", tcpProto,
-							"-m", "set", "--match-set", rule.ipset, "dst",
-							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"-m", "set", "--match-set", ipset, "dst",
+							"-m", "set", "!", "--match-set", ipt.GetTargetSet(), "dst",
 							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
 							"-m", "state", "--state", "ESTABLISHED",
 							"-j", "ACCEPT",
@@ -1184,7 +1311,7 @@ func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []a
 	return nil
 }
 
-func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addUDPNetACLS(ipt provider.IptablesProvider, contextID, appChain, netChain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
 
@@ -1194,16 +1321,24 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []a
 				if strings.ToLower(proto) == udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", udpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", udpProto, "src", "Insert"); err != nil {
 						return err
 					}
 
 					if (rule.policy.Action & policy.Accept) != 0 {
 						// Add a corresponding rule at the top of appChain.
-						if err := i.ipt.Insert(
+						var ipset string
+
+						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+							ipset = rule.ipsetV4
+						} else {
+							ipset = rule.ipsetV6
+						}
+
+						if err := ipt.Insert(
 							i.appPacketIPTableContext, appChain, 1,
 							"-p", udpProto,
-							"-m", "set", "--match-set", rule.ipset, "src",
+							"-m", "set", "--match-set", ipset, "src",
 							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
 							"-m", "state", "--state", "ESTABLISHED",
 							"-j", "ACCEPT",
@@ -1264,7 +1399,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []a
 	return nil
 }
 
-func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset) error {
+func (i *Instance) addOtherNetACLS(ipt provider.IptablesProvider, contextID, netChain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
 
@@ -1276,7 +1411,7 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset)
 					proto != udpProto &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", proto, "src", "Append"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", proto, "src", "Append"); err != nil {
 						return err
 					}
 				}
@@ -1335,72 +1470,31 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset)
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the highest priority since they are direct allows.
-func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addNetACLs(ipt provider.IptablesProvider, contextID, appChain, netChain string, rules []aclIPset) error {
 
-	{
-		if err := i.addTCPNetACLS(contextID, appChain, netChain, rules); err != nil {
-			return fmt.Errorf("Unable to add tcp net acls: %s", err)
-		}
-
-		// Accept established connections
-		if err := i.ipt.Append(
-			i.netPacketIPTableContext, netChain,
-			"-s", "::/0",
-			"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-		}
+	if err := i.addTCPNetACLS(ipt, contextID, appChain, netChain, rules); err != nil {
+		return fmt.Errorf("Unable to add tcp net acls: %s", err)
 	}
 
-	if err := i.addUDPNetACLS(contextID, appChain, netChain, rules); err != nil {
+	if err := i.addUDPNetACLS(ipt, contextID, appChain, netChain, rules); err != nil {
 		return fmt.Errorf("Unable to add udp net acls: %s", err)
 	}
 
-	if err := i.addOtherNetACLS(contextID, netChain, rules); err != nil {
+	if err := i.addOtherNetACLS(ipt, contextID, netChain, rules); err != nil {
 		return fmt.Errorf("Unable to add other net acls: %s", err)
-	}
-
-	// Log everything
-	if err := i.ipt.Append(
-		i.netPacketIPTableContext,
-		netChain,
-		"-s", "::/0",
-		"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", "11",
-		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
-	); err != nil {
-		return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-	}
-
-	// Drop everything else
-	if err := i.ipt.Append(
-		i.netPacketIPTableContext, netChain,
-		"-s", "::/0",
-		"-j", "LOG", "--log-prefix", "DEBUG_MC",
-	); err != nil {
-		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-	}
-	// Drop everything else
-	if err := i.ipt.Append(
-		i.netPacketIPTableContext, netChain,
-		"-s", "::/0",
-		"-j", "DROP",
-	); err != nil {
-		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 	}
 
 	return nil
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
+func (i *Instance) deleteChainRules(ipt provider.IptablesProvider, contextID, portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet, puType string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			if udpPorts != "0" {
 				// Delete the postrouting Nat rule for udp.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, false), "Delete")
+				err := i.processRulesFromList(ipt, i.getUDPNatRule(udpPorts, false), "Delete")
 				if err != nil {
 					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
 				}
@@ -1424,19 +1518,19 @@ func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, 
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
+			return i.processRulesFromList(ipt, i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet, appSection, netSection, puType), "Delete")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
+		return i.processRulesFromList(ipt, i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")
+	return i.processRulesFromList(ipt, i.chainRules(contextID, appChain, netChain, proxyPort, proxyVIPSet, proxyPortSet), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
-func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
+func (i *Instance) deleteAllContainerChains(ipt provider.IptablesProvider, appChain, netChain string) error {
 
-	if err := i.ipt.ClearChain(i.appPacketIPTableContext, appChain); err != nil {
+	if err := ipt.ClearChain(i.appPacketIPTableContext, appChain); err != nil {
 		zap.L().Warn("Failed to clear the container ack packets chain",
 			zap.String("appChain", appChain),
 			zap.String("context", i.appPacketIPTableContext),
@@ -1444,7 +1538,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
+	if err := ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
 		zap.L().Warn("Failed to delete the container ack packets chain",
 			zap.String("appChain", appChain),
 			zap.String("context", i.appPacketIPTableContext),
@@ -1452,7 +1546,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(i.netPacketIPTableContext, netChain); err != nil {
+	if err := ipt.ClearChain(i.netPacketIPTableContext, netChain); err != nil {
 		zap.L().Warn("Failed to clear the container net packets chain",
 			zap.String("netChain", netChain),
 			zap.String("context", i.netPacketIPTableContext),
@@ -1460,7 +1554,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
+	if err := ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
 		zap.L().Warn("Failed to delete the container net packets chain",
 			zap.String("netChain", netChain),
 			zap.String("context", i.netPacketIPTableContext),
@@ -1472,12 +1566,12 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 }
 
 // setGlobalRules installs the global rules
-func (i *Instance) setGlobalRules(appChain, netChain string) error {
+func (i *Instance) setGlobalRules(ipt provider.IptablesProvider, appChain, netChain string) error {
 
 	// Add Trireme/Hostmode OUTPUT chain
 	if i.mode == constants.LocalServer {
 
-		err := i.ipt.Insert(
+		err := ipt.Insert(
 			i.appPacketIPTableContext,
 			appChain, 1,
 			"-j", HostModeOutput)
@@ -1485,7 +1579,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("unable to add default Hostmode-output app chain: %s", err)
 		}
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			appChain, 1,
 			"-j", NetworkSvcOutput)
@@ -1493,7 +1587,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("unable to add default networksvc-output app chain: %s", err)
 		}
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			appChain, 1,
 			"-j", TriremeOutput)
@@ -1503,7 +1597,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	}
 
-	err := i.ipt.Insert(
+	err := ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
@@ -1512,30 +1606,30 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--match-set", ipt.GetTargetSet(), "dst",
 		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--match-set", ipt.GetTargetSet(), "dst",
 		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--match-set", ipt.GetTargetSet(), "dst",
 		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
@@ -1543,7 +1637,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	if i.mode == constants.LocalServer {
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection, 1,
 			"-j", uidchain)
@@ -1552,7 +1646,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		}
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
@@ -1566,7 +1660,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if i.mode == constants.LocalServer {
 		// create a new chain and hang pus out of chain
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			netChain, 1,
 			"-j", HostModeInput)
@@ -1574,7 +1668,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("unable to add default hostmode-input net chain: %s", err)
 		}
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			netChain, 1,
 			"-j", NetworkSvcInput)
@@ -1582,7 +1676,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("unable to add default networkSvc-input net chain: %s", err)
 		}
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			netChain, 1,
 			"-j", TriremeInput)
@@ -1590,7 +1684,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("unable to add default trireme-input net chain: %s", err)
 		}
 
-		err = i.ipt.Insert(
+		err = ipt.Insert(
 			i.appPacketIPTableContext,
 			netChain, 1,
 			"-j", uidInput)
@@ -1599,10 +1693,10 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		}
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-m", "set", "--match-set", ipt.GetTargetSet(), "src",
 		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
 		"34", "-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
 
@@ -1610,7 +1704,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
@@ -1620,7 +1714,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
@@ -1629,10 +1723,10 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(
+	err = ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-m", "set", "--match-set", ipt.GetTargetSet(), "dst",
 		"-p", udpProto,
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
@@ -1640,7 +1734,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-p", "tcp",
 		"-m", "addrtype", "--dst-type", "LOCAL",
@@ -1649,14 +1743,14 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionOutput, 1,
 		"-j", natProxyOutputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = ipt.Insert(i.appProxyIPTableContext,
 		natProxyInputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
@@ -1665,7 +1759,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = ipt.Insert(i.appProxyIPTableContext,
 		natProxyOutputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
@@ -1674,7 +1768,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.netPacketIPTableContext,
+	err = ipt.Insert(i.netPacketIPTableContext,
 		proxyInputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
@@ -1683,7 +1777,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.netPacketIPTableContext,
+	err = ipt.Insert(i.netPacketIPTableContext,
 		proxyOutputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
@@ -1692,7 +1786,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appPacketIPTableContext,
+	err = ipt.Insert(i.appPacketIPTableContext,
 		i.netPacketIPTableSection, 1,
 		"-j", proxyInputChain,
 	)
@@ -1700,7 +1794,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appPacketIPTableContext,
+	err = ipt.Insert(i.appPacketIPTableContext,
 		i.appPacketIPTableSection,
 		1,
 		"-j", proxyOutputChain,
@@ -1709,7 +1803,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add proxy output chain: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appPacketIPTableContext,
+	err = ipt.Insert(i.appPacketIPTableContext,
 		i.appPacketIPTableSection,
 		1,
 		"-m", "mark",
@@ -1723,74 +1817,42 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	return nil
 }
 
-// CleanGlobalRules cleans the capture rules for SynAck packets
-func (i *Instance) CleanGlobalRules() error {
+//CleanOldState cleans the old state of acls
+func (i *Instance) CleanOldState() error {
+	if err := i.CleanAllSynAckPacketCaptures(i.iptV4); err != nil {
+		return err
 
-	if err := i.ipt.Delete(
-		i.appPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueAckStr()); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
-
-	if err := i.ipt.Delete(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr()); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
-	}
-
-	if err := i.ipt.Delete(
-		i.appPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT"); err != nil {
-		zap.L().Debug("Can not clear the global app mark rule", zap.Error(err))
-		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
-	}
-
-	if err := i.ipt.Delete(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT"); err != nil {
-		zap.L().Debug("Can not clear the global net mark rule", zap.Error(err))
-	}
-
-	if err := i.ipset.DestroyAll(); err != nil {
-		zap.L().Debug("Failed to clear targetIPset", zap.Error(err))
+	if err := i.CleanAllSynAckPacketCaptures(i.iptV6); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
-func (i *Instance) CleanAllSynAckPacketCaptures() error {
+func (i *Instance) CleanAllSynAckPacketCaptures(ipt provider.IptablesProvider) error {
 
-	if err := i.ipt.ClearChain(i.appPacketIPTableContext, i.appSynAckIPTableSection); err != nil {
+	if err := ipt.ClearChain(i.appPacketIPTableContext, i.appSynAckIPTableSection); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
-	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
+	if err := ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 	if i.mode == constants.LocalServer {
 		//We installed UID CHAINS with synack lets remove it here
-		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidchain); err != nil {
+		if err := ipt.ClearChain(i.appPacketIPTableContext, uidchain); err != nil {
 			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
 		}
-		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidchain); err != nil {
+		if err := ipt.DeleteChain(i.appPacketIPTableContext, uidchain); err != nil {
 			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
 		}
 
-		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidInput); err != nil {
+		if err := ipt.ClearChain(i.appPacketIPTableContext, uidInput); err != nil {
 			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
 		}
-		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidInput); err != nil {
+		if err := ipt.DeleteChain(i.appPacketIPTableContext, uidInput); err != nil {
 			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
 		}
 	}
@@ -1801,7 +1863,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
+func (i *Instance) removeProxyRules(ipt provider.IptablesProvider, natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
 
 	zap.L().Debug("Called remove ProxyRules",
 		zap.String("natproxyTableContext", natproxyTableContext),
@@ -1814,51 +1876,51 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
+	if err = ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
-	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
+	if err = ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
 	}
 
-	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
+	if err = ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
 	}
 
-	if err = i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
+	if err = ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
 	}
 
-	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
+	if err = ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
 		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
 	}
 
-	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
+	if err = ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
 		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
 	}
 
 	//Nat table is clean
-	if err = i.ipt.ClearChain(proxyTableContext, proxyInputChain); err != nil {
+	if err = ipt.ClearChain(proxyTableContext, proxyInputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
 	}
 
-	if err = i.ipt.DeleteChain(proxyTableContext, proxyInputChain); err != nil {
+	if err = ipt.DeleteChain(proxyTableContext, proxyInputChain); err != nil {
 		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
 	}
 
-	if err = i.ipt.ClearChain(proxyTableContext, proxyOutputChain); err != nil {
+	if err = ipt.ClearChain(proxyTableContext, proxyOutputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
 	}
 
-	if err = i.ipt.DeleteChain(proxyTableContext, proxyOutputChain); err != nil {
+	if err = ipt.DeleteChain(proxyTableContext, proxyOutputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
 	}
 
 	return nil
 }
 
-func (i *Instance) cleanACLs() error {
+func (i *Instance) cleanACLs(ipt provider.IptablesProvider) error {
 
 	// Clean the mark rule
 	if err := i.removeMarkRule(); err != nil {
@@ -1866,17 +1928,17 @@ func (i *Instance) cleanACLs() error {
 	}
 
 	if i.mode == constants.LocalServer {
-		if err := i.CleanAllSynAckPacketCaptures(); err != nil {
+		if err := i.CleanAllSynAckPacketCaptures(ipt); err != nil {
 			zap.L().Warn("Can not clear the SynAck ACLs", zap.Error(err))
 		}
 
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
+	i.cleanACLSection(ipt, i.appPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 
 	// Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
-	if err := i.removeProxyRules(i.appProxyIPTableContext,
+	if err := i.removeProxyRules(ipt, i.appProxyIPTableContext,
 		i.appPacketIPTableContext,
 		ipTableSectionPreRouting,
 		ipTableSectionOutput,
@@ -1887,17 +1949,17 @@ func (i *Instance) cleanACLs() error {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
 
-	i.ipt.Commit() // nolint
+	ipt.Commit() // nolint
 
 	// Always return nil here. No reason to block anything if cleans fail.
 	return nil
 }
 
 // cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(context string) error {
+func (i *Instance) cleanTriremeChains(ipt provider.IptablesProvider, context string) error {
 
 	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
-	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
+	if err := ipt.ClearChain(context, HostModeOutput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", HostModeOutput),
@@ -1905,7 +1967,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, HostModeOutput); err != nil {
+	if err := ipt.DeleteChain(context, HostModeOutput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", HostModeOutput),
@@ -1913,7 +1975,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, HostModeInput); err != nil {
+	if err := ipt.ClearChain(context, HostModeInput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", HostModeInput),
@@ -1921,7 +1983,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, HostModeInput); err != nil {
+	if err := ipt.DeleteChain(context, HostModeInput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", HostModeInput),
@@ -1929,7 +1991,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, NetworkSvcOutput); err != nil {
+	if err := ipt.ClearChain(context, NetworkSvcOutput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", NetworkSvcOutput),
@@ -1937,7 +1999,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, NetworkSvcOutput); err != nil {
+	if err := ipt.DeleteChain(context, NetworkSvcOutput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", NetworkSvcOutput),
@@ -1945,7 +2007,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, NetworkSvcInput); err != nil {
+	if err := ipt.ClearChain(context, NetworkSvcInput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", NetworkSvcInput),
@@ -1953,7 +2015,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, NetworkSvcInput); err != nil {
+	if err := ipt.DeleteChain(context, NetworkSvcInput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", NetworkSvcInput),
@@ -1961,7 +2023,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, TriremeOutput); err != nil {
+	if err := ipt.ClearChain(context, TriremeOutput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", TriremeOutput),
@@ -1969,7 +2031,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, TriremeOutput); err != nil {
+	if err := ipt.DeleteChain(context, TriremeOutput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", TriremeOutput),
@@ -1977,7 +2039,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, TriremeInput); err != nil {
+	if err := ipt.ClearChain(context, TriremeInput); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", TriremeInput),
@@ -1985,7 +2047,7 @@ func (i *Instance) cleanTriremeChains(context string) error {
 		)
 	}
 
-	if err := i.ipt.DeleteChain(context, TriremeInput); err != nil {
+	if err := ipt.DeleteChain(context, TriremeInput); err != nil {
 		zap.L().Warn("Can not delete the section in iptables",
 			zap.String("context", context),
 			zap.String("section", TriremeInput),
@@ -1996,9 +2058,9 @@ func (i *Instance) cleanTriremeChains(context string) error {
 	return nil
 }
 
-func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSection, chainPrefix string) {
+func (i *Instance) cleanACLSection(ipt provider.IptablesProvider, context, netSection, appSection, preroutingSection, chainPrefix string) {
 
-	if err := i.ipt.ClearChain(context, appSection); err != nil {
+	if err := ipt.ClearChain(context, appSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", appSection),
@@ -2006,7 +2068,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, netSection); err != nil {
+	if err := ipt.ClearChain(context, netSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", netSection),
@@ -2014,7 +2076,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 		)
 	}
 
-	if err := i.ipt.ClearChain(context, preroutingSection); err != nil {
+	if err := ipt.ClearChain(context, preroutingSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
 			zap.String("section", netSection),
@@ -2024,14 +2086,14 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 
 	// cleanup the Trireme/hostmode chains in server
 	if i.mode == constants.LocalServer {
-		if err := i.cleanTriremeChains(context); err != nil {
+		if err := i.cleanTriremeChains(ipt, context); err != nil {
 			zap.L().Warn("Can not clear the Trireme/Hostmode chaines in iptables",
 				zap.Error(err),
 			)
 		}
 	}
 
-	rules, err := i.ipt.ListChains(context)
+	rules, err := ipt.ListChains(context)
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
 			zap.String("context", context),
@@ -2043,7 +2105,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 
 		if strings.Contains(rule, chainPrefix) {
 
-			if err := i.ipt.ClearChain(context, rule); err != nil {
+			if err := ipt.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
 					zap.String("context", context),
 					zap.String("section", rule),
@@ -2051,7 +2113,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 				)
 			}
 
-			if err := i.ipt.DeleteChain(context, rule); err != nil {
+			if err := ipt.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),
 					zap.String("section", rule),
@@ -2066,66 +2128,94 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []string) error {
 
 	for _, e := range exclusions {
+		var ip net.IP
+		var ipt provider.IptablesProvider
 
-		if err := i.ipt.Insert(
+		if ip = net.ParseIP(e); ip == nil {
+			ip, _, _ = net.ParseCIDR(e) //nolint
+		}
+
+		if ip.To4() != nil {
+			ipt = i.iptV4
+		} else {
+			ipt = i.iptV6
+		}
+
+		if err := ipt.Insert(
 			i.appPacketIPTableContext, appChain, 1,
 			"-d", e,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.appPacketIPTableContext, appChain, e, err)
+			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.appPacketIPTableContext, appChain, e, err)
 		}
 
-		if err := i.ipt.Insert(
+		if err := ipt.Insert(
 			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.netPacketIPTableContext, netChain, e, err)
+			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.netPacketIPTableContext, netChain, e, err)
 		}
 	}
 
 	return nil
 }
 
-func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
-	destSetName, srvSetName := i.getSetNames(setName)
-	for _, e := range exclusions {
+func (i *Instance) addNATExclusionACLs(contextID, cgroupMark string, exclusions []string) error {
+	vipSetV4, vipSetV6, proxyPortSet := i.getProxySet(contextID)
+	var proxyVIPSet string
 
-		if err := i.ipt.Insert(
+	for _, e := range exclusions {
+		var ip net.IP
+		var ipt provider.IptablesProvider
+
+		if ip = net.ParseIP(e); ip == nil {
+			ip, _, _ = net.ParseCIDR(e) //nolint
+		}
+
+		if ip.To4() != nil {
+			ipt = i.iptV4
+			proxyVIPSet = vipSetV4
+		} else {
+			ipt = i.iptV6
+			proxyVIPSet = vipSetV6
+		}
+
+		if err := ipt.Insert(
 			i.appProxyIPTableContext, natProxyInputChain, 1,
 			"-p", tcpProto,
 			"-m", "set",
 			"-s", e,
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
 		}
 
 		if cgroupMark == "" {
-			if err := i.ipt.Insert(
+			if err := ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//			return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
 		} else {
-			if err := i.ipt.Insert(
+			if err := ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "cgroup", "--cgroup", cgroupMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
 		}
 	}
@@ -2133,45 +2223,61 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []
 	return nil
 }
 
-// addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
+// deleteNATExclusionACLs adds the set of IP addresses that must be excluded
+func (i *Instance) deleteNATExclusionACLs(contextID, cgroupMark string, exclusions []string) error {
+	vipSetV4, vipSetV6, proxyPortSet := i.getProxySet(contextID)
+	var proxyVIPSet string
 
-	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
-		if err := i.ipt.Delete(
+		var ip net.IP
+		var ipt provider.IptablesProvider
+
+		if ip = net.ParseIP(e); ip == nil {
+			ip, _, _ = net.ParseCIDR(e) //nolint
+		}
+
+		if ip.To4() != nil {
+			ipt = i.iptV4
+			proxyVIPSet = vipSetV4
+		} else {
+			ipt = i.iptV6
+			proxyVIPSet = vipSetV6
+		}
+
+		if err := ipt.Delete(
 			i.appProxyIPTableContext, natProxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
 			"-s", e,
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
 		}
 		if cgroupMark == "" {
-			if err := i.ipt.Delete(
+			if err := ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		} else {
-			if err := i.ipt.Delete(
+			if err := ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "cgroup", "--cgroup", cgroupMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		}
 	}
@@ -2179,46 +2285,62 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions
 	return nil
 }
 
-func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
-	destSetName, srvSetName := i.getSetNames(setName)
-	for _, e := range exclusions {
+func (i *Instance) addLegacyNATExclusionACLs(contextID, cgroupMark string, exclusions []string, tcpPorts string) error {
+	vipSetV4, vipSetV6, proxyPortSet := i.getProxySet(contextID)
+	var proxyVIPSet string
 
-		if err := i.ipt.Insert(
+	for _, e := range exclusions {
+		var ip net.IP
+		var ipt provider.IptablesProvider
+
+		if ip = net.ParseIP(e); ip == nil {
+			ip, _, _ = net.ParseCIDR(e) //nolint
+		}
+
+		if ip.To4() != nil {
+			ipt = i.iptV4
+			proxyVIPSet = vipSetV4
+		} else {
+			ipt = i.iptV6
+			proxyVIPSet = vipSetV6
+		}
+
+		if err := ipt.Insert(
 			i.appProxyIPTableContext, natProxyInputChain, 1,
 			"-p", tcpProto,
 			"-m", "set",
 			"-s", e,
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
 		}
 
 		if cgroupMark == "" {
-			if err := i.ipt.Insert(
+			if err := ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
 		} else {
-			if err := i.ipt.Insert(
+			if err := ipt.Insert(
 				i.appProxyIPTableContext, natProxyOutputChain, 1,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
 			}
 		}
 	}
@@ -2226,46 +2348,62 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusi
 	return nil
 }
 
-// addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
+// deleteLegacyNATExclusionACLs deletes the set of IP addresses that must be excluded
+func (i *Instance) deleteLegacyNATExclusionACLs(contextID, cgroupMark string, exclusions []string, tcpPorts string) error {
+	vipSetV4, vipSetV6, proxyPortSet := i.getProxySet(contextID)
+	var proxyVIPSet string
 
-	destSetName, srvSetName := i.getSetNames(setName)
 	for _, e := range exclusions {
-		if err := i.ipt.Delete(
+		var ip net.IP
+		var ipt provider.IptablesProvider
+
+		if ip = net.ParseIP(e); ip == nil {
+			ip, _, _ = net.ParseCIDR(e) //nolint
+		}
+
+		if ip.To4() != nil {
+			ipt = i.iptV4
+			proxyVIPSet = vipSetV4
+		} else {
+			ipt = i.iptV6
+			proxyVIPSet = vipSetV6
+		}
+
+		if err := ipt.Delete(
 			i.appProxyIPTableContext, natProxyInputChain,
 			"-p", tcpProto,
 			"-m", "set",
 			"-s", e,
-			"--match-set", srvSetName, "dst",
+			"--match-set", proxyPortSet, "dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		); err != nil {
-			//			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
+			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
 		}
 		if cgroupMark == "" {
-			if err := i.ipt.Delete(
+			if err := ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		} else {
-			if err := i.ipt.Delete(
+			if err := ipt.Delete(
 				i.appProxyIPTableContext, natProxyOutputChain,
 				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
+				"-m", "set", "--match-set", proxyVIPSet, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				//				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		}
 	}

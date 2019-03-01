@@ -58,7 +58,6 @@ type Config struct {
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
 func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
-
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
 	}
@@ -74,7 +73,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	}
 
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"}
 	}
 
 	return &Config{
@@ -150,7 +149,7 @@ func (s *Config) Run(ctx context.Context) error {
 	}
 
 	if s.service != nil {
-		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+		s.service.Initialize(s.filterQueue, s.impl.ACLProviderV4())
 	}
 
 	return nil
@@ -172,7 +171,7 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 
 	// If there are no target networks, capture all traffic
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"}
 	}
 
 	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
@@ -184,10 +183,14 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	return nil
 }
 
-// ACLProvider returns the ACL provider used by the supervisor that can be
-// shared with other entities.
-func (s *Config) ACLProvider() provider.IptablesProvider {
-	return s.impl.ACLProvider()
+// // ACLProvider returns the ACL provider used by the supervisor that can be
+// // shared with other entities.
+func (s *Config) ACLProviderV4() provider.IptablesProvider {
+	return s.impl.ACLProviderV4()
+}
+
+func (s *Config) ACLProviderV6() provider.IptablesProvider {
+	return s.impl.ACLProviderV6()
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
@@ -257,11 +260,15 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 
 	cfg := data.(*cacheData)
 	iptablesRules := debugRules(cfg, s.mode)
-	ipt := s.impl.ACLProvider()
+	iptV4 := s.impl.ACLProviderV4()
+	iptV6 := s.impl.ACLProviderV6()
 
 	for _, rule := range iptablesRules {
-		if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
-			zap.L().Error("Unable to install rule", zap.Error(err))
+		if err := iptV4.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
+			zap.L().Error("Unable to install rule in iptables", zap.Error(err))
+		}
+		if err := iptV6.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
+			zap.L().Error("Unable to install rule ip6tables", zap.Error(err))
 		}
 	}
 
@@ -272,7 +279,10 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 			case <-ctx.Done():
 			case <-time.After(interval):
 				for _, rule := range iptablesRules {
-					if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+					if err := iptV4.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
+					}
+					if err := iptV6.Delete(rule[0], rule[1], rule[2:]...); err != nil {
 						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
 					}
 				}

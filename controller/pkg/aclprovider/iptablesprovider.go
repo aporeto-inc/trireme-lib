@@ -32,27 +32,39 @@ type IptablesProvider interface {
 	NewChain(table, chain string) error
 	// Commit will commit changes if it is a batch provider.
 	Commit() error
+	// SetTargetSet sets the target networks
+	SetTargetSet(string)
+	// GetTargetSet gets the target networks
+	GetTargetSet() string
+	// GetExtNetSet gets the ipset name substring
+	GetExtNetSet() string
 }
 
 // BatchProvider uses iptables-restore to program ACLs
 type BatchProvider struct {
 	ipt *iptables.IPTables
 
+	restoreCmd string
 	//        TABLE      CHAIN    RULES
 	rules       map[string]map[string][]string
 	batchTables map[string]bool
 
+	targetNetworks string
+	extNetString   string
 	sync.Mutex
 }
 
 const (
-	restoreCmd = "ip6tables-restore"
+	restoreCmdV4   = "iptables-restore"
+	restoreCmdV6   = "ip6tables-restore"
+	extNetStringV4 = "_extnetV4_"
+	extNetStringV6 = "_extnetV6_"
 )
 
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.New()
+func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, err
 	}
@@ -61,17 +73,57 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 	// We will only support the batch method if there is iptables-restore and iptables
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
-	if restoreHasWait() {
+	if restoreHasWait(restoreCmdV4) {
 		for _, t := range batchTables {
 			batchTablesMap[t] = true
 		}
 	}
 
 	return &BatchProvider{
-		ipt:         ipt,
-		rules:       map[string]map[string][]string{},
-		batchTables: batchTablesMap,
+		ipt:          ipt,
+		rules:        map[string]map[string][]string{},
+		batchTables:  batchTablesMap,
+		restoreCmd:   restoreCmdV4,
+		extNetString: extNetStringV4,
 	}, nil
+}
+
+func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+	if err != nil {
+		return nil, err
+	}
+
+	batchTablesMap := map[string]bool{}
+	// We will only support the batch method if there is iptables-restore and iptables
+	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
+	// This will allow us to support older kernel versions.
+	if restoreHasWait(restoreCmdV6) {
+		for _, t := range batchTables {
+			batchTablesMap[t] = true
+		}
+	}
+
+	return &BatchProvider{
+		ipt:          ipt,
+		rules:        map[string]map[string][]string{},
+		batchTables:  batchTablesMap,
+		restoreCmd:   restoreCmdV6,
+		extNetString: extNetStringV6,
+	}, nil
+}
+
+//
+func (b *BatchProvider) SetTargetSet(targetSet string) {
+	b.targetNetworks = targetSet
+}
+
+func (b *BatchProvider) GetTargetSet() string {
+	return b.targetNetworks
+}
+
+func (b *BatchProvider) GetExtNetSet() string {
+	return b.extNetString
 }
 
 // Append will append the provided rule to the local cache or call
@@ -285,7 +337,7 @@ func (b *BatchProvider) restore() error {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	cmd := exec.Command(restoreCmd, "--wait")
+	cmd := exec.Command(b.restoreCmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -296,11 +348,10 @@ func (b *BatchProvider) restore() error {
 		)
 		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
 	}
-
 	return nil
 }
 
-func restoreHasWait() bool {
+func restoreHasWait(restoreCmd string) bool {
 	cmd := exec.Command(restoreCmd, "--version")
 	cmd.Stdin = bytes.NewReader([]byte{})
 	bytes, err := cmd.CombinedOutput()
