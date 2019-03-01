@@ -1,7 +1,6 @@
 package iptablesctrl
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -9,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"sync"
 	"text/template"
 
@@ -399,25 +397,21 @@ func (i *Instance) InitializeChains() error {
 		UIDOutput:        uidchain,
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(triremChains).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
 	}).Parse(triremChains))
 
-	if err := tmpl.Execute(buffer, localChains); err != nil {
-		return fmt.Errorf("unable to create new chains: %s", err)
+	rules, err := extractRulesFromTemplate(tmpl, localChains)
+	if err != nil {
+		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
 
-	fmt.Println("buffer is", buffer.String())
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule))
+	for _, rule := range rules {
 		if len(rule) != 4 {
 			continue
 		}
-
 		if err := i.ipt.NewChain(rule[1], rule[3]); err != nil {
 			return err
 		}

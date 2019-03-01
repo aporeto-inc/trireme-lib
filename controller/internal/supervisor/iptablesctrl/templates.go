@@ -1,5 +1,31 @@
 package iptablesctrl
 
+import (
+	"bytes"
+	"fmt"
+	"strings"
+	"text/template"
+)
+
+func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
+
+	buffer := bytes.NewBuffer([]byte{})
+	if err := tmpl.Execute(buffer, data); err != nil {
+		return [][]string{}, fmt.Errorf("unable to execute template:%s", err)
+	}
+
+	rules := [][]string{}
+	for _, m := range strings.Split(buffer.String(), "\n") {
+		rule := strings.Split(m, " ")
+		// ignore empty lines in the buffer
+		if len(rule) <= 1 {
+			continue
+		}
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
 // Chains struct keeps track of trireme chains
 type Chains struct {
 	Table                     string

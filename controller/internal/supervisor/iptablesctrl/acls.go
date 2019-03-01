@@ -1,12 +1,11 @@
 package iptablesctrl
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
@@ -40,8 +39,6 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 		TCPPortSet:  tcpPortSet,
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
-
 	tmpl := template.Must(template.New(cgroupRules).Funcs(template.FuncMap{
 		"ifUDPPorts": func() bool {
 			return udpPorts != "0"
@@ -54,136 +51,12 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 		},
 	}).Parse(cgroupRules))
 
-	if err := tmpl.Execute(buffer, cgroupChains); err != nil {
-		zap.L().Warn("Unable to add pu trap rules. We will fail")
-	}
-
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines in the buffer
-		if len(rule) <= 1 {
-			continue
-		}
-		rules = append(rules, rule)
+	rules, err := extractRulesFromTemplate(tmpl, cgroupChains)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
 	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
-}
-
-// This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
-// consider source ports to identify packets from the process.
-func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
-	appSection, netSection string, puType string) [][]string {
-
-	iptableCgroupSection := appSection
-	iptableNetSection := netSection
-	rules := [][]string{}
-
-	if tcpPorts != "0" {
-		rules = append(rules, [][]string{
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-p", tcpProto,
-				"-m", "multiport",
-				"--source-ports", tcpPorts,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", "MARK", "--set-mark", mark,
-			},
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-p", tcpProto,
-				"-m", "multiport",
-				"--source-ports", tcpPorts,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", appChain,
-			},
-			{
-				i.netPacketIPTableContext,
-				iptableNetSection,
-				"-p", tcpProto,
-				"-m", "multiport",
-				"--destination-ports", tcpPorts,
-				"-m", "comment", "--comment", "Container-specific-chain",
-				"-j", netChain,
-			}}...)
-	}
-
-	if udpPorts != "0" {
-		rules = append(rules, [][]string{
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-p", udpProto,
-				"-m", "multiport",
-				"--source-ports", udpPorts,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", "MARK", "--set-mark", mark,
-			},
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-p", udpProto, "-m", "mark", "--mark", mark,
-				"-m", "addrtype", "--src-type", "LOCAL",
-				"-m", "addrtype", "--dst-type", "LOCAL",
-				"-m", "state", "--state", "NEW",
-				"-j", "NFLOG", "--nflog-group", "10",
-				"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
-			},
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-m", "comment", "--comment", "traffic-same-pu",
-				"-p", udpProto, "-m", "mark", "--mark", mark,
-				"-m", "addrtype", "--src-type", "LOCAL",
-				"-m", "addrtype", "--dst-type", "LOCAL",
-				"-j", "ACCEPT",
-			},
-			{
-				i.appPacketIPTableContext,
-				iptableCgroupSection,
-				"-p", udpProto,
-				"-m", "multiport",
-				"--source-ports", udpPorts,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", appChain,
-			},
-			{
-				i.netPacketIPTableContext,
-				iptableNetSection,
-				"-m", "comment", "--comment", "traffic-same-pu",
-				"-p", udpProto, "-m", "mark", "--mark", mark,
-				"-m", "addrtype", "--src-type", "LOCAL",
-				"-m", "addrtype", "--dst-type", "LOCAL",
-				"-j", "ACCEPT",
-			},
-			{
-				i.netPacketIPTableContext,
-				iptableNetSection,
-				"-p", udpProto,
-				"-m", "multiport",
-				"--destination-ports", udpPorts,
-				"-m", "comment", "--comment", "Container-specific-chain",
-				"-j", netChain,
-			}}...)
-	}
-
-	if puType == extractors.HostPU {
-		// Add a capture all traffic rule for host pu. This traps all traffic going out
-		// of the box.
-
-		rules = append(rules, []string{
-			i.appPacketIPTableContext,
-			iptableCgroupSection,
-			"-m", "comment", "--comment", "capture all outgoing traffic",
-			"-j", appChain,
-		})
-	}
-
-	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
 func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
@@ -212,22 +85,11 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		UID:        uid,
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(uidPuRules).Parse(uidPuRules))
 
-	if err := tmpl.Execute(buffer, uidRules); err != nil {
-		zap.L().Warn("Unable to add uid rules. We will fail")
-	}
-
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines in the buffer
-		if len(rule) <= 1 {
-			continue
-		}
-		rules = append(rules, rule)
+	rules, err := extractRulesFromTemplate(tmpl, uidRules)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 	return rules
 }
@@ -245,22 +107,11 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(containerPuRules).Parse(containerPuRules))
 
-	if err := tmpl.Execute(buffer, containerRules); err != nil {
-		zap.L().Warn("Unable to add uid rules. We will fail")
-	}
-
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines in the buffer
-		if len(rule) <= 1 {
-			continue
-		}
-		rules = append(rules, rule)
+	rules, err := extractRulesFromTemplate(tmpl, containerRules)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
 	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "")...)
@@ -284,26 +135,15 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 		ProxyMark:           proxyMark,
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(proxyChainRules).Funcs(template.FuncMap{
 		"ifCgroupSet": func() bool {
 			return cgroupMark != ""
 		},
 	}).Parse(proxyChainRules))
 
-	if err := tmpl.Execute(buffer, proxyRules); err != nil {
-		zap.L().Warn("Unable to add proxy rules. We will fail")
-	}
-
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines in the buffer
-		if len(rule) <= 1 {
-			continue
-		}
-		rules = append(rules, rule)
+	rules, err := extractRulesFromTemplate(tmpl, proxyRules)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 	return rules
 }
@@ -324,27 +164,15 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 		InitialCount:       initialCount,
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(trapRules).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
 			return i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel
 		},
 	}).Parse(trapRules))
 
-	if err := tmpl.Execute(buffer, puChains); err != nil {
-		zap.L().Warn("Unable to add pu trap rules. We will fail")
-	}
-
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines
-		if len(rule) <= 1 {
-			continue
-			//return fmt.Errorf("unable to create new chains, invalid command:%s", m)
-		}
-		rules = append(rules, rule)
+	rules, err := extractRulesFromTemplate(tmpl, puChains)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
 	return rules
@@ -1201,36 +1029,23 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 	}
 
-	buffer := bytes.NewBuffer([]byte{})
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
 	}).Parse(globalRules))
 
-	if err := tmpl.Execute(buffer, globalChains); err != nil {
-		return fmt.Errorf("unable to create new chains: %s", err)
+	rules, err := extractRulesFromTemplate(tmpl, globalChains)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
-	rules := [][]string{}
-	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
-		zap.L().Info("Rules are", zap.Strings("rule", rule), zap.Reflect("len", len(rule)))
-		// ignore empty lines
-		if len(rule) <= 1 {
-			continue
-			//return fmt.Errorf("unable to create new chains, invalid command:%s", m)
-		}
-		rules = append(rules, rule)
-	}
-
-	fmt.Println("Rules to be processsed are", rules)
 	if err := i.processRulesFromList(rules, "Append"); err != nil {
 		return fmt.Errorf("unable to install global rules:%s", err)
 	}
 
 	// iptables nat rule. can also be shifted.
-	err := i.ipt.Insert(i.appProxyIPTableContext,
+	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-p", "tcp",
 		"-m", "addrtype", "--dst-type", "LOCAL",
