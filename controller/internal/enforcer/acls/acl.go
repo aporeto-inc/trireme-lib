@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -166,7 +167,7 @@ func (a *v6) ipv6ruleAdd(address, port string, policy *policy.FlowPolicy) error 
 func (a *acl) addRule(rule policy.IPRule) (err error) {
 
 	for _, proto := range rule.Protocols {
-		if strings.ToLower(proto) == "tcp" {
+		if strings.ToLower(proto) == constants.TCPProtoNum {
 			for _, address := range rule.Addresses {
 				for _, port := range rule.Ports {
 

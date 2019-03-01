@@ -8,7 +8,7 @@ const (
 	DatapathVersion1 DatapathVersion = iota
 )
 
-func (dv DatapathVersion) toMask() datapathVersionMask {
+func (dv DatapathVersion) toMask() datapathVersionMask { // nolint
 
 	if dv == DatapathVersion1 {
 		return datapathVersion

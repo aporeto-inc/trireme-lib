@@ -589,9 +589,8 @@ func (i *Instance) configureLinuxRules(ipt provider.IptablesProvider, contextID,
 	return i.addChainRules(ipt, contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSet, proxyPortSet, puType)
 }
 
-func (i *Instance) deleteProxySets(contextID string) error {
+func (i *Instance) deleteProxySets(contextID string) error { // nolint
 	proxyVIPSetV4, proxyVIPSetV6, proxyPortSet := i.getProxySet(contextID)
-
 	ips := ipset.IPSet{
 		Name: proxyVIPSetV4,
 	}

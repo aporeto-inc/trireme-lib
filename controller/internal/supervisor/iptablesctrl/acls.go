@@ -775,13 +775,13 @@ func (i *Instance) programRule(ipt provider.IptablesProvider, contextID string, 
 			"-m", "set", "--match-set", ipset, ipMatchDirection}
 
 		// only tcp uses target networks
-		if proto == tcpProto {
+		if proto == constants.TCPProtoNum {
 			targetNet := []string{"-m", "set", "!", "--match-set", ipt.GetTargetSet(), ipMatchDirection}
 			iptRule = append(iptRule, targetNet...)
 		}
 
 		// port match is required only for tcp and udp protocols
-		if proto == tcpProto || proto == udpProto {
+		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum {
 			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.ports, ",")}
 			iptRule = append(iptRule, portMatchSet...)
 		}
@@ -836,10 +836,10 @@ func (i *Instance) addTCPAppACLS(ipt provider.IptablesProvider, contextID, chain
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == tcpProto &&
+				if proto == constants.TCPProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(ipt, contextID, &rule, intP, chain, "10", tcpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, chain, "10", constants.TCPProtoNum, "dst", "Insert"); err != nil {
 						return err
 					}
 				}
@@ -904,9 +904,8 @@ func (i *Instance) addOtherAppACLs(ipt provider.IptablesProvider, contextID, app
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				proto = strings.ToLower(proto)
-				if proto != tcpProto &&
-					proto != udpProto &&
+				if proto != constants.TCPProtoNum &&
+					proto != constants.UDPProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(ipt, contextID, &rule, intP, appChain, "10", proto, "dst", "Append"); err != nil {
@@ -973,10 +972,10 @@ func (i *Instance) addUDPAppACLS(ipt provider.IptablesProvider, contextID, appCh
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if (strings.ToLower(proto) == udpProto) &&
+				if (proto == constants.UDPProtoNum) &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(ipt, contextID, &rule, intP, appChain, "10", udpProto, "dst", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, appChain, "10", constants.UDPProtoNum, "dst", "Insert"); err != nil {
 						return err
 					}
 
@@ -1228,10 +1227,10 @@ func (i *Instance) addTCPNetACLS(ipt provider.IptablesProvider, contextID, appCh
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == tcpProto &&
+				if proto == constants.TCPProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", tcpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", constants.TCPProtoNum, "src", "Insert"); err != nil {
 						return err
 					}
 
@@ -1318,10 +1317,10 @@ func (i *Instance) addUDPNetACLS(ipt provider.IptablesProvider, contextID, appCh
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				if strings.ToLower(proto) == udpProto &&
+				if proto == constants.UDPProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
-					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", udpProto, "src", "Insert"); err != nil {
+					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", constants.UDPProtoNum, "src", "Insert"); err != nil {
 						return err
 					}
 
@@ -1406,9 +1405,8 @@ func (i *Instance) addOtherNetACLS(ipt provider.IptablesProvider, contextID, net
 	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
 		for _, rule := range rules {
 			for _, proto := range rule.protocols {
-				proto = strings.ToLower(proto)
-				if proto != tcpProto &&
-					proto != udpProto &&
+				if proto != constants.TCPProtoNum &&
+					proto != constants.UDPProtoNum &&
 					actionPredicate(rule.policy) &&
 					observePredicate(rule.policy) {
 					if err := i.programRule(ipt, contextID, &rule, intP, netChain, "11", proto, "src", "Append"); err != nil {
@@ -1863,7 +1861,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(ipt provider.IptablesProvider, natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
+func (i *Instance) removeProxyRules(ipt provider.IptablesProvider, natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) { // nolint
 
 	zap.L().Debug("Called remove ProxyRules",
 		zap.String("natproxyTableContext", natproxyTableContext),
@@ -1920,7 +1918,7 @@ func (i *Instance) removeProxyRules(ipt provider.IptablesProvider, natproxyTable
 	return nil
 }
 
-func (i *Instance) cleanACLs(ipt provider.IptablesProvider) error {
+func (i *Instance) cleanACLs(ipt provider.IptablesProvider) error { // nolint
 
 	// Clean the mark rule
 	if err := i.removeMarkRule(); err != nil {
@@ -1956,7 +1954,7 @@ func (i *Instance) cleanACLs(ipt provider.IptablesProvider) error {
 }
 
 // cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(ipt provider.IptablesProvider, context string) error {
+func (i *Instance) cleanTriremeChains(ipt provider.IptablesProvider, context string) error { // nolint
 
 	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
 	if err := ipt.ClearChain(context, HostModeOutput); err != nil {
