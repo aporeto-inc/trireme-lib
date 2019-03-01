@@ -1,6 +1,7 @@
 package iptablesctrl
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -8,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
@@ -380,33 +383,47 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 // InitializeChains initializes the chains.
 func (i *Instance) InitializeChains() error {
 
-	if i.mode == constants.LocalServer {
+	// install rules for Local Server
 
-		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
-			return err
-		}
-
-		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidInput); err != nil {
-			return err
-		}
-
-		// add Trireme-Input and Trireme-Output chains.
-		if err := i.addContainerChain(TriremeOutput, TriremeInput); err != nil {
-			return fmt.Errorf("Unable to create trireme input/output chains:%s", err)
-		}
-
-		// add NetworkSvc-Input and NetworkSvc-output chains
-		if err := i.addContainerChain(NetworkSvcOutput, NetworkSvcInput); err != nil {
-			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
-		}
-
-		// add HostMode-Input and HostMode-output chains
-		if err := i.addContainerChain(HostModeOutput, HostModeInput); err != nil {
-			return fmt.Errorf("Unable to create hostmode input/output chains:%s", err)
-		}
-
+	localChains := Chains{
+		Table:            i.appPacketIPTableContext,
+		HostInput:        HostModeInput,
+		HostOutput:       HostModeOutput,
+		NetworkSvcInput:  NetworkSvcInput,
+		NetworkSvcOutput: NetworkSvcOutput,
+		TriremeInput:     TriremeInput,
+		TriremeOutput:    TriremeOutput,
+		ProxyInput:       proxyInputChain,
+		ProxyOutput:      proxyOutputChain,
+		UIDInput:         uidInput,
+		UIDOutput:        uidchain,
 	}
 
+	buffer := bytes.NewBuffer([]byte{})
+	tmpl := template.Must(template.New(triremChains).Funcs(template.FuncMap{
+		"isLocalServer": func() bool {
+			return i.mode == constants.LocalServer
+		},
+	}).Parse(triremChains))
+
+	if err := tmpl.Execute(buffer, localChains); err != nil {
+		return fmt.Errorf("unable to create new chains: %s", err)
+	}
+
+	fmt.Println("buffer is", buffer.String())
+	for _, m := range strings.Split(buffer.String(), "\n") {
+		rule := strings.Split(m, " ")
+		zap.L().Info("Rules are", zap.Strings("rule", rule))
+		if len(rule) != 4 {
+			continue
+		}
+
+		if err := i.ipt.NewChain(rule[1], rule[3]); err != nil {
+			return err
+		}
+	}
+
+	// nat rules are not templated.
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
 		return err
 	}
@@ -415,11 +432,7 @@ func (i *Instance) InitializeChains() error {
 		return err
 	}
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyOutputChain); err != nil {
-		return err
-	}
-
-	return i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain)
+	return nil
 }
 
 // ACLProvider returns the current ACL provider that can be re-used by other entities.
