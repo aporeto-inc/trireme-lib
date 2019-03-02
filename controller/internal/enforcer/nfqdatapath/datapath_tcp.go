@@ -199,7 +199,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				// we monitor. This is possible only if IP is in the external
 				// networks or excluded networks. Let this packet go through
 				// for any of these cases. Drop for everything else.
-				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IpHdr.DestinationAddress.To4(), p.SourcePort())
+				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IpHdr.DestinationAddress, p.SourcePort())
 				if perr == nil && policy.Action.Accepted() {
 					return conn, nil
 				}
@@ -304,10 +304,10 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.IpHdr.DestinationAddress.To4(), tcpPacket.DestPort())
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
 
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress.To4(), tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil

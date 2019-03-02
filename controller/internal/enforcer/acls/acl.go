@@ -105,7 +105,6 @@ func (a *v6) ipv6ruleAdd(address, port string, policy *policy.FlowPolicy) error 
 	var mask [16]byte
 	var err error
 
-	fmt.Println("Adding ", address, port)
 	parts := strings.Split(address, "/")
 	subnet := net.ParseIP(parts[0]).To16()
 
