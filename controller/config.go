@@ -259,6 +259,7 @@ func newTrireme(c *config) TriremeController {
 	if c.linuxProcess {
 		t.puTypeToEnforcerType[common.LinuxProcessPU] = constants.LocalServer
 		t.puTypeToEnforcerType[common.UIDLoginPU] = constants.LocalServer
+		t.puTypeToEnforcerType[common.SSHSessionPU] = constants.LocalServer
 	}
 
 	if t.config.mode == constants.RemoteContainer {
