@@ -14,6 +14,8 @@ const (
 	KubernetesPU
 	// UIDLoginPU -- PU representing a user session
 	UIDLoginPU
+	// SSHSessionPU -- PU representing a ssh session
+	SSHSessionPU
 	// TransientPU PU -- placeholder to run processing. This should not
 	// be inserted in any cache. This is valid only for processing a packet
 	TransientPU
