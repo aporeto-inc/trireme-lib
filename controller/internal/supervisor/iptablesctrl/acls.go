@@ -2257,7 +2257,7 @@ func (i *Instance) deleteNATExclusionACLs(contextID, cgroupMark string, exclusio
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
+			return fmt.Errorf("unable to delete exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
 		}
 		if cgroupMark == "" {
 			if err := ipt.Delete(
@@ -2268,7 +2268,7 @@ func (i *Instance) deleteNATExclusionACLs(contextID, cgroupMark string, exclusio
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to delete exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		} else {
 			if err := ipt.Delete(
@@ -2280,7 +2280,7 @@ func (i *Instance) deleteNATExclusionACLs(contextID, cgroupMark string, exclusio
 				"-s", e,
 				"-j", "ACCEPT",
 			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
+				return fmt.Errorf("unable to delete exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
 			}
 		}
 	}

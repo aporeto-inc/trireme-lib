@@ -248,6 +248,21 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
+	if i.isLegacyKernel {
+		// doesn't work for clients.
+		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
+		if err := i.addLegacyNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, containerInfo.Policy.ExcludedNetworks(), tcpPorts); err != nil {
+			return err
+		}
+
+	} else {
+		if err := i.addNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, containerInfo.Policy.ExcludedNetworks()); err != nil {
+			return err
+		}
+	}
+
+	i.addExclusionACLs(appChain, netChain, containerInfo.Policy.ExcludedNetworks())
+
 	return nil
 }
 
@@ -353,6 +368,21 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if err := i.installIPv6Rules(contextID, appChain, netChain, containerInfo, appACLIPset, netACLIPset); err != nil {
 		return err
 	}
+
+	if i.isLegacyKernel {
+		// doesn't work for clients.
+		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
+		if err := i.addLegacyNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+			return err
+		}
+
+	} else {
+		if err := i.addNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, policyrules.ExcludedNetworks()); err != nil {
+			return err
+		}
+	}
+
+	i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
@@ -860,7 +890,6 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 
 // Install rules will install all the rules and update the port sets.
 func (i *Instance) installRules(ipt provider.IptablesProvider, contextID, appChain, netChain, proxyVIPSet, proxyPortSet string, containerInfo *policy.PUInfo, appACLIPset, netACLIPset []aclIPset) error {
-	policyrules := containerInfo.Policy
 
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(ipt, appChain, netChain); err != nil {
@@ -895,19 +924,7 @@ func (i *Instance) installRules(ipt provider.IptablesProvider, contextID, appCha
 		return err
 	}
 
-	if i.isLegacyKernel {
-		// doesn't work for clients.
-		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
-			return err
-		}
-
-	} else {
-		if err := i.addNATExclusionACLs(contextID, containerInfo.Runtime.Options().CgroupMark, policyrules.ExcludedNetworks()); err != nil {
-			return err
-		}
-	}
-	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
+	return nil
 }
 
 // puPortSetName returns the name of the pu portset.
