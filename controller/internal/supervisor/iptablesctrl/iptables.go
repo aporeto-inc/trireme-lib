@@ -254,13 +254,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 // DeleteRules implements the DeleteRules interface
 func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string, exclusions []string) error {
 
-	tcpPortSetName := i.getPortSet(contextID)
-
 	proxyVIPSetV4, proxyVIPSetV6, proxyPortSet := i.getProxySet(contextID)
-
-	if tcpPortSetName == "" {
-		zap.L().Error("port set name can not be nil")
-	}
 
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
@@ -268,11 +262,11 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if err := i.deleteChainRules(i.iptV4, contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
+	if err := i.deleteChainRules(i.iptV4, contextID, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
-	if err := i.deleteChainRules(i.iptV6, contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
+	if err := i.deleteChainRules(i.iptV6, contextID, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
@@ -325,14 +319,9 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if policyrules == nil {
 		return errors.New("policy rules cannot be nil")
 	}
-	portSetName := i.getPortSet(contextID)
 
 	proxyPort := containerInfo.Policy.ServicesListeningPort()
 	proxyVIPSetV4, proxyVIPSetV6, proxyPortSet := i.getProxySet(contextID)
-
-	if portSetName == "" {
-		zap.L().Error("port set name for contextID does not exist. This should not happen")
-	}
 
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
@@ -367,21 +356,21 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(i.iptV4, contextID, portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
+		if err := i.deleteChainRules(i.iptV4, contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
 			return err
 		}
-		if err := i.deleteChainRules(i.iptV6, contextID, portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
+		if err := i.deleteChainRules(i.iptV6, contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
 			return err
 		}
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		username := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(i.iptV4, contextID, portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
+		if err := i.deleteChainRules(i.iptV4, contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV4, proxyPortSet, puType); err != nil {
 			return err
 		}
 
-		if err := i.deleteChainRules(i.iptV6, contextID, portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
+		if err := i.deleteChainRules(i.iptV6, contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSetV6, proxyPortSet, puType); err != nil {
 			return err
 		}
 	}
@@ -562,7 +551,7 @@ func (i *Instance) configureContainerRules(ipt provider.IptablesProvider, contex
 
 	proxyPort := puInfo.Policy.ServicesListeningPort()
 
-	return i.addChainRules(ipt, contextID, "", appChain, netChain, "", "", "", "", proxyPort, proxyVIPSet, proxyPortSet, "")
+	return i.addChainRules(ipt, contextID, appChain, netChain, "", "", "", "", proxyPort, proxyVIPSet, proxyPortSet, "")
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
@@ -579,14 +568,9 @@ func (i *Instance) configureLinuxRules(ipt provider.IptablesProvider, contextID,
 	puType := extractors.GetPuType(puInfo.Runtime)
 
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
-	tcpPortSetName := i.getPortSet(contextID)
-
-	if tcpPortSetName == "" {
-		return fmt.Errorf("port set was not found for the contextID. This should not happen")
-	}
 
 	username := puInfo.Runtime.Options().UserID
-	return i.addChainRules(ipt, contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSet, proxyPortSet, puType)
+	return i.addChainRules(ipt, contextID, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyVIPSet, proxyPortSet, puType)
 }
 
 func (i *Instance) deleteProxySets(contextID string) error { // nolint
@@ -768,7 +752,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 		if i.serviceIDToIPsets[rule.Policy.ServiceID] == nil {
 			ips := map[string]bool{}
 
-			ipsetNameV4 := puPortSetName(contextID, i.iptV4.GetExtNetSet()+hashServiceID(rule.Policy.ServiceID))
+			ipsetNameV4 := puPortSetName(contextID, "_extnet"+i.iptV4.GetIpsetString()+hashServiceID(rule.Policy.ServiceID))
 			_, err := i.ipset.NewIpset(ipsetNameV4,
 				"hash:net",
 				&ipset.Params{})
@@ -777,7 +761,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 				return nil, err
 			}
 
-			ipsetNameV6 := puPortSetName(contextID, i.iptV6.GetExtNetSet()+hashServiceID(rule.Policy.ServiceID))
+			ipsetNameV6 := puPortSetName(contextID, "_extnet"+i.iptV6.GetIpsetString()+hashServiceID(rule.Policy.ServiceID))
 			_, err = i.ipset.NewIpset(ipsetNameV6,
 				"hash:net",
 				&ipset.Params{HashFamily: "inet6"})

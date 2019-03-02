@@ -36,8 +36,8 @@ type IptablesProvider interface {
 	SetTargetSet(string)
 	// GetTargetSet gets the target networks
 	GetTargetSet() string
-	// GetExtNetSet gets the ipset name substring
-	GetExtNetSet() string
+	// GetIpsetString gets the ipset name substring
+	GetIpsetString() string
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -50,15 +50,15 @@ type BatchProvider struct {
 	batchTables map[string]bool
 
 	targetNetworks string
-	extNetString   string
+	ipsetString    string
 	sync.Mutex
 }
 
 const (
-	restoreCmdV4   = "iptables-restore"
-	restoreCmdV6   = "ip6tables-restore"
-	extNetStringV4 = "_extnetV4_"
-	extNetStringV6 = "_extnetV6_"
+	restoreCmdV4  = "iptables-restore"
+	restoreCmdV6  = "ip6tables-restore"
+	ipsetStringV4 = "IPV4"
+	ipsetStringV6 = "IPV6"
 )
 
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
@@ -80,11 +80,11 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	}
 
 	return &BatchProvider{
-		ipt:          ipt,
-		rules:        map[string]map[string][]string{},
-		batchTables:  batchTablesMap,
-		restoreCmd:   restoreCmdV4,
-		extNetString: extNetStringV4,
+		ipt:         ipt,
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+		restoreCmd:  restoreCmdV4,
+		ipsetString: ipsetStringV4,
 	}, nil
 }
 
@@ -105,11 +105,11 @@ func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
 	}
 
 	return &BatchProvider{
-		ipt:          ipt,
-		rules:        map[string]map[string][]string{},
-		batchTables:  batchTablesMap,
-		restoreCmd:   restoreCmdV6,
-		extNetString: extNetStringV6,
+		ipt:         ipt,
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+		restoreCmd:  restoreCmdV6,
+		ipsetString: ipsetStringV6,
 	}, nil
 }
 
@@ -122,8 +122,8 @@ func (b *BatchProvider) GetTargetSet() string {
 	return b.targetNetworks
 }
 
-func (b *BatchProvider) GetExtNetSet() string {
-	return b.extNetString
+func (b *BatchProvider) GetIpsetString() string {
+	return b.ipsetString
 }
 
 // Append will append the provided rule to the local cache or call

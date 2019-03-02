@@ -709,7 +709,10 @@ func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(ipt provider.IptablesProvider, contextID string, portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet string, puType string) error {
+func (i *Instance) addChainRules(ipt provider.IptablesProvider, contextID string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet string, puType string) error {
+
+	portSetName := i.getPortSet(ipt, contextID)
+
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			if udpPorts != "0" {
@@ -760,7 +763,7 @@ func (i *Instance) programRule(ipt provider.IptablesProvider, contextID string, 
 
 	var ipset string
 
-	if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+	if strings.Contains(rule.ipsetV4, ipt.GetIpsetString()) {
 		ipset = rule.ipsetV4
 	} else {
 		ipset = rule.ipsetV6
@@ -983,7 +986,7 @@ func (i *Instance) addUDPAppACLS(ipt provider.IptablesProvider, contextID, appCh
 						// Add a corresponding rule on the top of the network chain.
 						var ipset string
 
-						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+						if strings.Contains(rule.ipsetV4, ipt.GetIpsetString()) {
 							ipset = rule.ipsetV4
 						} else {
 							ipset = rule.ipsetV6
@@ -1238,7 +1241,7 @@ func (i *Instance) addTCPNetACLS(ipt provider.IptablesProvider, contextID, appCh
 						// Add a corresponding rule at the top of appChain.
 						var ipset string
 
-						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+						if strings.Contains(rule.ipsetV4, ipt.GetIpsetString()) {
 							ipset = rule.ipsetV4
 						} else {
 							ipset = rule.ipsetV6
@@ -1328,7 +1331,7 @@ func (i *Instance) addUDPNetACLS(ipt provider.IptablesProvider, contextID, appCh
 						// Add a corresponding rule at the top of appChain.
 						var ipset string
 
-						if strings.Contains(rule.ipsetV4, ipt.GetExtNetSet()) {
+						if strings.Contains(rule.ipsetV4, ipt.GetIpsetString()) {
 							ipset = rule.ipsetV4
 						} else {
 							ipset = rule.ipsetV6
@@ -1486,7 +1489,9 @@ func (i *Instance) addNetACLs(ipt provider.IptablesProvider, contextID, appChain
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(ipt provider.IptablesProvider, contextID, portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet, puType string) error {
+func (i *Instance) deleteChainRules(ipt provider.IptablesProvider, contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyVIPSet, proxyPortSet, puType string) error {
+
+	tcpPortSet := i.getPortSet(ipt, contextID)
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
@@ -1516,10 +1521,10 @@ func (i *Instance) deleteChainRules(ipt provider.IptablesProvider, contextID, po
 				netSection = TriremeInput
 			}
 
-			return i.processRulesFromList(ipt, i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet, appSection, netSection, puType), "Delete")
+			return i.processRulesFromList(ipt, i.cgroupChainRules(contextID, appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyVIPSet, proxyPortSet, appSection, netSection, puType), "Delete")
 		}
 
-		return i.processRulesFromList(ipt, i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
+		return i.processRulesFromList(ipt, i.uidChainRules(tcpPortSet, appChain, netChain, mark, uid), "Delete")
 	}
 
 	return i.processRulesFromList(ipt, i.chainRules(contextID, appChain, netChain, proxyPort, proxyVIPSet, proxyPortSet), "Delete")

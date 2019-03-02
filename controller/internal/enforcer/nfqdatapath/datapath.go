@@ -445,10 +445,9 @@ func (d *Datapath) Unenforce(contextID string) error {
 // SetTargetNetworks sets new target networks used by datapath
 func (d *Datapath) SetTargetNetworks(networks []string) error {
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"}
 	}
 
-	networks = append(networks, "::/0")
 	d.targetNetworks = acls.NewACLCache()
 	targetacl := createPolicy(networks)
 	return d.targetNetworks.AddRuleList(targetacl)

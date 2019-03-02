@@ -188,7 +188,7 @@ func (m *testIptablesProvider) GetTargetSet() string {
 	return ""
 }
 
-func (m *testIptablesProvider) GetExtNetSet() string {
+func (m *testIptablesProvider) GetIpsetString() string {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.getExtNetSetMock != nil {
 		return mock.getExtNetSetMock()
