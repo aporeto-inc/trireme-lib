@@ -32,6 +32,12 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
+	// If it is a SSH monitor, we don't resync
+	// TODO: Find a better way
+	if l.proc.ssh {
+		return nil
+	}
+
 	return l.Resync(ctx)
 }
 
@@ -39,7 +45,7 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 // can have its own config type.
 func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
-	defaultConfig := DefaultConfig(false)
+	defaultConfig := DefaultConfig(false, false)
 	if cfg == nil {
 		cfg = defaultConfig
 	}
@@ -50,7 +56,11 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
+		puType := common.LinuxProcessPU
+		if linuxConfig.SSH {
+			puType = common.SSHSessionPU
+		}
+		if err := registerer.RegisterProcessor(puType, l.proc); err != nil {
 			return err
 		}
 	}
@@ -60,6 +70,7 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 
 	// Setup config
 	l.proc.host = linuxConfig.Host
+	l.proc.ssh = linuxConfig.SSH
 	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_]{1,11}$")

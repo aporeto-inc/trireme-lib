@@ -167,7 +167,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			iprules := policy.IPRuleList{policy.IPRule{
 				Addresses: []string{"10.1.10.76/32"},
 				Ports:     []string{"80"},
-				Protocols: []string{"tcp"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:   policy.Accept,
 					PolicyID: "tcp172/8"},
@@ -4635,7 +4635,7 @@ func TestDNS(t *testing.T) {
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
-			Protocol: "tcp",
+			Protocol: constants.TCPProtoNum,
 			Policy:   &policy.FlowPolicy{Action: policy.Accept},
 		}})
 
@@ -4715,7 +4715,7 @@ func TestDNSWithError(t *testing.T) {
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
-			Protocol: "tcp",
+			Protocol: constants.TCPProtoNum,
 			Policy:   &policy.FlowPolicy{Action: policy.Accept},
 		}})
 
