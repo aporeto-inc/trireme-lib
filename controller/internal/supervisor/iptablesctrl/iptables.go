@@ -353,6 +353,10 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	puType := extractors.GetPuType(containerInfo.Runtime)
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 
+	if err := i.updateProxySet(contextID, containerInfo.Policy); err != nil {
+		return err
+	}
+
 	if appACLIPset, err = i.createACLIPSets(contextID, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
