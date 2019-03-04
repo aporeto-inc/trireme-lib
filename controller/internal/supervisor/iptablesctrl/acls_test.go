@@ -887,11 +887,6 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 				}
 				return errors.New("error")
 			})
-
-			err := i.CleanGlobalRules()
-			Convey("I should get no error if iptables succeeds", func() {
-				So(err, ShouldBeNil)
-			})
 		})
 	})
 }

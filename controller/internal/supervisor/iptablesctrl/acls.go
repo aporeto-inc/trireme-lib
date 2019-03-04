@@ -26,8 +26,8 @@ const (
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string) [][]string {
 
-	cgroupChains := CgroupChains{
-		Table:       i.appPacketIPTableContext,
+	aclInfo := ACLInfo{
+		MangleTable: i.appPacketIPTableContext,
 		AppSection:  appSection,
 		NetSection:  netSection,
 		AppChain:    appChain,
@@ -51,7 +51,7 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 		},
 	}).Parse(cgroupRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, cgroupChains)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -75,19 +75,19 @@ func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string,
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string) [][]string {
 
-	uidRules := UIDRules{
-		Table:      i.appPacketIPTableContext,
-		PreRouting: ipTableSectionPreRouting,
-		AppChain:   appChain,
-		NetChain:   netChain,
-		Mark:       mark,
-		PortSet:    portSetName,
-		UID:        uid,
+	aclInfo := ACLInfo{
+		MangleTable: i.appPacketIPTableContext,
+		PreRouting:  ipTableSectionPreRouting,
+		AppChain:    appChain,
+		NetChain:    netChain,
+		Mark:        mark,
+		PortSet:     portSetName,
+		UID:         uid,
 	}
 
 	tmpl := template.Must(template.New(uidPuRules).Parse(uidPuRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, uidRules)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -98,8 +98,8 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 // a particular chain
 func (i *Instance) chainRules(contextID string, appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
 
-	containerRules := ContainerRules{
-		Table:       i.appPacketIPTableContext,
+	aclInfo := ACLInfo{
+		MangleTable: i.appPacketIPTableContext,
 		AppSection:  i.appPacketIPTableSection,
 		NetSection:  i.netPacketIPTableSection,
 		AppChain:    appChain,
@@ -109,7 +109,7 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 
 	tmpl := template.Must(template.New(containerPuRules).Parse(containerPuRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, containerRules)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -121,7 +121,7 @@ func (i *Instance) chainRules(contextID string, appChain string, netChain string
 func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 
-	proxyRules := ProxyRules{
+	aclInfo := ACLInfo{
 		MangleTable:         i.appPacketIPTableContext,
 		NatTable:            i.appProxyIPTableContext,
 		MangleProxyAppChain: proxyOutputChain,
@@ -141,7 +141,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 		},
 	}).Parse(proxyChainRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, proxyRules)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -151,8 +151,8 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
 
-	puChains := PUChains{
-		Table:              i.appPacketIPTableContext,
+	aclInfo := ACLInfo{
+		MangleTable:        i.appPacketIPTableContext,
 		AppChain:           appChain,
 		NetChain:           netChain,
 		QueueBalanceNetSyn: i.fqc.GetNetworkQueueSynStr(),
@@ -170,7 +170,7 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 		},
 	}).Parse(trapRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, puChains)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -1006,8 +1006,8 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
-	globalChains := GlobalChains{
-		Table:                 i.appPacketIPTableContext,
+	aclInfo := ACLInfo{
+		MangleTable:           i.appPacketIPTableContext,
 		HostInput:             HostModeInput,
 		HostOutput:            HostModeOutput,
 		NetworkSvcInput:       NetworkSvcInput,
@@ -1035,7 +1035,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		},
 	}).Parse(globalRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, globalChains)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -1100,169 +1100,90 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	return nil
 }
 
-// CleanGlobalRules cleans the capture rules for SynAck packets
-func (i *Instance) CleanGlobalRules() error {
+func (i *Instance) removeNatRules() error {
 
-	if err := i.ipt.Delete(
-		i.appPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueAckStr()); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
+	aclInfo := ACLInfo{
+
+		NatTable:         i.appProxyIPTableContext,
+		NatProxyNetChain: natProxyInputChain,
+		NatProxyAppChain: natProxyOutputChain,
 	}
 
-	if err := i.ipt.Delete(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", tcpProto, "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr()); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+	tmpl := template.Must(template.New(DeleteNatRules).Funcs(template.FuncMap{
+		"isLocalServer": func() bool {
+			return i.mode == constants.LocalServer
+		},
+	}).Parse(DeleteNatRules))
+
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	if err != nil {
+		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
 
-	if err := i.ipt.Delete(
-		i.appPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT"); err != nil {
-		zap.L().Debug("Can not clear the global app mark rule", zap.Error(err))
-		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
-	}
-
-	if err := i.ipt.Delete(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT"); err != nil {
-		zap.L().Debug("Can not clear the global net mark rule", zap.Error(err))
-	}
-
-	if err := i.ipset.DestroyAll(); err != nil {
-		zap.L().Debug("Failed to clear targetIPset", zap.Error(err))
-	}
-
-	return nil
-}
-
-// CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
-func (i *Instance) CleanAllSynAckPacketCaptures() error {
-
-	if err := i.ipt.ClearChain(i.appPacketIPTableContext, i.appSynAckIPTableSection); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
-	}
-
-	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
-		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
-	}
-	if i.mode == constants.LocalServer {
-		//We installed UID CHAINS with synack lets remove it here
-		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidchain); err != nil {
-			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
-		}
-		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidchain); err != nil {
-			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
-		}
-
-		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidInput); err != nil {
-			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
-		}
-		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidInput); err != nil {
-			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
-		}
-	}
-	return nil
-}
-
-func (i *Instance) removeMarkRule() error {
-	return nil
-}
-
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) { // nolint
-
-	zap.L().Debug("Called remove ProxyRules",
-		zap.String("natproxyTableContext", natproxyTableContext),
-		zap.String("proxyTableContext", proxyTableContext),
-		zap.String("inputProxySection", inputProxySection),
-		zap.String("outputProxySection", outputProxySection),
-		zap.String("natProxyInputChain", natProxyInputChain),
-		zap.String("natProxyOutputChain", natProxyOutputChain),
-		zap.String("proxyInputChain", proxyInputChain),
-		zap.String("proxyOutputChain", proxyOutputChain),
-	)
-
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-p", "tcp", "-m", "addrtype", "--dst-type", "LOCAL", "-j", natProxyInputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
-	}
-
-	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
-	}
-
-	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
-	}
-
-	if err = i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
-	}
-
-	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
-	}
-
-	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
-	}
-
-	//Nat table is clean
-	if err = i.ipt.ClearChain(proxyTableContext, proxyInputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
-	}
-
-	if err = i.ipt.DeleteChain(proxyTableContext, proxyInputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
-	}
-
-	if err = i.ipt.ClearChain(proxyTableContext, proxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
-	}
-
-	if err = i.ipt.DeleteChain(proxyTableContext, proxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
-	}
-
+	zap.L().Info("Deleting nat rules", zap.Reflect("rules", rules))
+	i.processRulesFromList(rules, "Delete")
 	return nil
 }
 
 func (i *Instance) cleanACLs() error { // nolint
 
-	// Clean the mark rule
-	if err := i.removeMarkRule(); err != nil {
-		zap.L().Warn("Can not clear the mark rules", zap.Error(err))
+	// First clear the nat rules
+	if err := i.removeNatRules(); err != nil {
+		zap.L().Error("unable to remove nat proxy rules")
 	}
 
-	if i.mode == constants.LocalServer {
-		if err := i.CleanAllSynAckPacketCaptures(); err != nil {
-			zap.L().Warn("Can not clear the SynAck ACLs", zap.Error(err))
+	aclInfo := ACLInfo{
+		MangleTable:         i.appPacketIPTableContext,
+		NatTable:            i.appProxyIPTableContext,
+		HostInput:           HostModeInput,
+		HostOutput:          HostModeOutput,
+		NetworkSvcInput:     NetworkSvcInput,
+		NetworkSvcOutput:    NetworkSvcOutput,
+		TriremeInput:        TriremeInput,
+		TriremeOutput:       TriremeOutput,
+		UIDInput:            uidInput,
+		UIDOutput:           uidchain,
+		MangleProxyAppChain: proxyOutputChain,
+		MangleProxyNetChain: proxyInputChain,
+		NatProxyNetChain:    natProxyInputChain,
+		NatProxyAppChain:    natProxyOutputChain,
+	}
+
+	tmpl := template.Must(template.New(DeleteChains).Funcs(template.FuncMap{
+		"isLocalServer": func() bool {
+			return i.mode == constants.LocalServer
+		},
+	}).Parse(DeleteChains))
+
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	if err != nil {
+		return fmt.Errorf("unable to create trireme chains:%s", err)
+	}
+
+	for _, rule := range rules {
+		if len(rule) != 4 {
+			continue
+		}
+
+		// Flush the chains
+		if rule[2] == "-F" {
+			if err := i.ipt.ClearChain(rule[1], rule[3]); err != nil {
+				zap.L().Error("unable to flush chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
+			}
+		}
+
+		// Flush the chains
+		// Delete the chains
+		if rule[2] == "-X" {
+			if err := i.ipt.DeleteChain(rule[1], rule[3]); err != nil {
+				zap.L().Error("unable to delete chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
+			}
 		}
 
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
-
-	// Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
-	if err := i.removeProxyRules(i.appProxyIPTableContext,
-		i.appPacketIPTableContext,
-		ipTableSectionPreRouting,
-		ipTableSectionOutput,
-		natProxyInputChain,
-		natProxyOutputChain,
-		proxyInputChain,
-		proxyOutputChain); err != nil {
-		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
-	}
+	i.cleanACLSection(i.appPacketIPTableContext, chainPrefix)
 
 	i.ipt.Commit() // nolint
 
@@ -1270,143 +1191,8 @@ func (i *Instance) cleanACLs() error { // nolint
 	return nil
 }
 
-// cleanTriremeChains clear the trireme/hostmode chains.
-func (i *Instance) cleanTriremeChains(context string) error { // nolint
-
-	// clear Trireme-Input/Trireme-Output/NetworkSvc-Input/NetworkSvc-Output/Hostmode-Input/Hostmode-Output
-	if err := i.ipt.ClearChain(context, HostModeOutput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", HostModeOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, HostModeOutput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", HostModeOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, HostModeInput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", HostModeInput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, HostModeInput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", HostModeInput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, NetworkSvcOutput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", NetworkSvcOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, NetworkSvcOutput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", NetworkSvcOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, NetworkSvcInput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", NetworkSvcInput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, NetworkSvcInput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", NetworkSvcInput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, TriremeOutput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", TriremeOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, TriremeOutput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", TriremeOutput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, TriremeInput); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", TriremeInput),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.DeleteChain(context, TriremeInput); err != nil {
-		zap.L().Warn("Can not delete the section in iptables",
-			zap.String("context", context),
-			zap.String("section", TriremeInput),
-			zap.Error(err),
-		)
-	}
-
-	return nil
-}
-
-func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSection, chainPrefix string) {
-
-	if err := i.ipt.ClearChain(context, appSection); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", appSection),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, netSection); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", netSection),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.ipt.ClearChain(context, preroutingSection); err != nil {
-		zap.L().Warn("Can not clear the section in iptables",
-			zap.String("context", context),
-			zap.String("section", netSection),
-			zap.Error(err),
-		)
-	}
-
-	// cleanup the Trireme/hostmode chains in server
-	if i.mode == constants.LocalServer {
-		if err := i.cleanTriremeChains(context); err != nil {
-			zap.L().Warn("Can not clear the Trireme/Hostmode chaines in iptables",
-				zap.Error(err),
-			)
-		}
-	}
+// cleanACLSection flushes and deletes all chains with Prefix - Trireme
+func (i *Instance) cleanACLSection(context, chainPrefix string) {
 
 	rules, err := i.ipt.ListChains(context)
 	if err != nil {
@@ -1419,7 +1205,7 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 	for _, rule := range rules {
 
 		if strings.Contains(rule, chainPrefix) {
-
+			zap.L().Info("clearing chains as of", zap.String("rule", rule))
 			if err := i.ipt.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
 					zap.String("context", context),

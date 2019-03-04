@@ -26,9 +26,12 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 	return rules, nil
 }
 
-// Chains struct keeps track of trireme chains
-type Chains struct {
-	Table                     string
+// ACLInfo keeps track of all information to create ACLs
+type ACLInfo struct {
+
+	// Chains
+	MangleTable               string
+	NatTable                  string
 	HostInput                 string
 	HostOutput                string
 	NetworkSvcInput           string
@@ -41,88 +44,51 @@ type Chains struct {
 	ProxyOutput               string
 	UIDInput                  string
 	UIDOutput                 string
-}
+	NatProxyNetChain          string
+	NatProxyAppChain          string
+	MangleProxyNetChain       string
+	MangleProxyAppChain       string
+	PreRouting                string
 
-type GlobalChains struct {
-	Table                 string
-	HostInput             string
-	HostOutput            string
-	NetworkSvcInput       string
-	NetworkSvcOutput      string
-	TriremeInput          string
-	TriremeOutput         string
-	ProxyInput            string
-	ProxyOutput           string
-	UIDInput              string
-	UIDOutput             string
-	UDPSignature          string
+	AppChain   string
+	NetChain   string
+	AppSection string
+	NetSection string
+
+	// common info
 	DefaultConnmark       string
 	QueueBalanceAppSyn    string
 	QueueBalanceAppSynAck string
+	QueueBalanceAppAck    string
 	QueueBalanceNetSyn    string
 	QueueBalanceNetSynAck string
+	QueueBalanceNetAck    string
 	targetNetworkSet      string
 	InitialMarkVal        string
 	RawSocketMark         string
 	TargetNetSet          string
-}
 
-type PUChains struct {
-	Table              string
-	QueueBalanceAppSyn string
-	QueueBalanceAppAck string
-	QueueBalanceNetSyn string
-	QueueBalanceNetAck string
-	AppChain           string
-	NetChain           string
-	TargetNetSet       string
-	Numpackets         string
-	InitialCount       string
-}
+	// UDP rules
+	Numpackets   string
+	InitialCount string
+	UDPSignature string
 
-type CgroupChains struct {
-	Table        string
-	AppSection   string
-	NetSection   string
-	AppChain     string
-	NetChain     string
-	TargetNetSet string
-	Mark         string
-	NFLOGPrefix  string
-	TCPPorts     string
-	UDPPorts     string
-	TCPPortSet   string
-}
+	// Linux PUs
+	TCPPorts   string
+	UDPPorts   string
+	TCPPortSet string
 
-type ProxyRules struct {
-	MangleTable         string
-	NatTable            string
-	DestIPSet           string
-	SrvIPSet            string
-	NatProxyNetChain    string
-	NatProxyAppChain    string
-	MangleProxyNetChain string
-	MangleProxyAppChain string
-	ProxyPort           string
-	CgroupMark          string
-	ProxyMark           string
-}
+	// ProxyRules
+	DestIPSet  string
+	SrvIPSet   string
+	ProxyPort  string
+	CgroupMark string
+	ProxyMark  string
 
-type UIDRules struct {
-	Table      string
-	AppChain   string
-	NetChain   string
-	PreRouting string
-	Mark       string
-	UID        string
-	PortSet    string
-}
+	// UID PUs
+	Mark    string
+	UID     string
+	PortSet string
 
-type ContainerRules struct {
-	Table       string
-	AppSection  string
-	NetSection  string
-	AppChain    string
-	NetChain    string
 	NFLOGPrefix string
 }

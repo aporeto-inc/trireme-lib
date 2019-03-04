@@ -383,8 +383,8 @@ func (i *Instance) InitializeChains() error {
 
 	// install rules for Local Server
 
-	localChains := Chains{
-		Table:            i.appPacketIPTableContext,
+	aclInfo := ACLInfo{
+		MangleTable:      i.appPacketIPTableContext,
 		HostInput:        HostModeInput,
 		HostOutput:       HostModeOutput,
 		NetworkSvcInput:  NetworkSvcInput,
@@ -403,7 +403,7 @@ func (i *Instance) InitializeChains() error {
 		},
 	}).Parse(triremChains))
 
-	rules, err := extractRulesFromTemplate(tmpl, localChains)
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
