@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -198,7 +199,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				// we monitor. This is possible only if IP is in the external
 				// networks or excluded networks. Let this packet go through
 				// for any of these cases. Drop for everything else.
-				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IpHdr.DestinationAddress.To4(), p.SourcePort())
+				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IpHdr.DestinationAddress, p.SourcePort())
 				if perr == nil && policy.Action.Accepted() {
 					return conn, nil
 				}
@@ -303,10 +304,10 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.IpHdr.DestinationAddress.To4(), tcpPacket.DestPort())
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
 
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress.To4(), tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
@@ -460,32 +461,52 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external services approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress.To4(), tcpPacket.DestPort())
-		if perr == nil {
-			if policy.Action.Rejected() {
-				return errors.New("Reject the packet")
-			}
+		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
 
-			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.IpHdr.SourceAddress.String(),
-				tcpPacket.IpHdr.DestinationAddress.String(),
-				tcpPacket.IpHdr.IPProto,
-				tcpPacket.SourcePort(),
-				tcpPacket.DestPort(),
-				constants.DefaultConnMark,
-			); err != nil {
-				zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
-					zap.String("context", string(conn.Auth.LocalContext)),
-					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-				)
+		if perr != nil {
+			// If it is an SSH PU, we let the connection go through
+			// It means it is a new SSH Session connection, we mark
+			// the packet and let it go through.
+			if context.Type() == common.SSHSessionPU {
+				if err := d.conntrackHdl.ConntrackTableUpdateMark(
+					tcpPacket.IpHdr.SourceAddress.String(),
+					tcpPacket.IpHdr.DestinationAddress.String(),
+					tcpPacket.IpHdr.IPProto,
+					tcpPacket.SourcePort(),
+					tcpPacket.DestPort(),
+					constants.DefaultConnMark,
+				); err != nil {
+					zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
+						zap.String("context", string(conn.Auth.LocalContext)),
+						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+						zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+					)
+				}
+				return nil
 			}
-			return nil
+			// Convert Ack to FinAck for all other pus
+			return tcpPacket.ConvertAcktoFinAck()
 		}
 
-		err := tcpPacket.ConvertAcktoFinAck()
-		return err
+		if policy.Action.Rejected() {
+			return errors.New("Reject the packet")
+		}
 
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.IpHdr.SourceAddress.String(),
+			tcpPacket.IpHdr.DestinationAddress.String(),
+			tcpPacket.IpHdr.IPProto,
+			tcpPacket.SourcePort(),
+			tcpPacket.DestPort(),
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+			)
+		}
+		return nil
 	}
 
 	// Here we capture the first data packet after an ACK packet by modyfing the
@@ -635,7 +656,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 
 		// Never seen this IP before, let's parse them.
-		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.SourceAddress.To4(), tcpPacket.SourcePort())
+		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.SourceAddress, tcpPacket.SourcePort())
 		if perr != nil || pkt.Action.Rejected() {
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
