@@ -63,7 +63,6 @@ type ACLInfo struct {
 	QueueBalanceNetSyn    string
 	QueueBalanceNetSynAck string
 	QueueBalanceNetAck    string
-	targetNetworkSet      string
 	InitialMarkVal        string
 	RawSocketMark         string
 	TargetNetSet          string

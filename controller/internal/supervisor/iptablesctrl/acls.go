@@ -1004,7 +1004,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 }
 
 // setGlobalRules installs the global rules
-func (i *Instance) setGlobalRules(appChain, netChain string) error {
+func (i *Instance) setGlobalRules() error {
 
 	aclInfo := ACLInfo{
 		MangleTable:           i.appPacketIPTableContext,
@@ -1121,7 +1121,7 @@ func (i *Instance) removeNatRules() error {
 	}
 
 	zap.L().Info("Deleting nat rules", zap.Reflect("rules", rules))
-	i.processRulesFromList(rules, "Delete")
+	i.processRulesFromList(rules, "Delete") // nolint
 	return nil
 }
 

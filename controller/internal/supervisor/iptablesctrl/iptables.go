@@ -371,7 +371,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	}
 
 	// Insert the ACLS that point to the target networks
-	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
+	if err := i.setGlobalRules(); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
 
