@@ -149,7 +149,6 @@ func TestConfigureRules(t *testing.T) {
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
 			err := i.ConfigureRules(1, "Context", containerinfo)
-			fmt.Println(err)
 			Convey("I should receive an error", func() {
 				So(err, ShouldNotBeNil)
 			})
