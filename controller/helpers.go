@@ -20,10 +20,13 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 // CleanOldState ensures all state in trireme is cleaned up.
 func CleanOldState() {
 
-	ipt, _ := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
-
-	if err := ipt.CleanOldState(); err != nil {
-		zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
+	if ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer); err == nil {
+		if err := ipt.CleanOldState(); err != nil {
+			zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
+		}
+		return
+	} else {
+		zap.L().Error("could not instantiate iptables instance", zap.Error(err))
 	}
 }
 
