@@ -29,8 +29,6 @@ var (
 
 var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
 var errTCPAuthOption = errors.New("tcp authentication option not found")
-var errTCPShort = errors.New("tcp packet is less than minimum 20 bytes")
-var errNonTCPUDPPacket = errors.New("packet is neither TCP nor UDP")
 
 func init() {
 	PacketLogLevel = false
@@ -73,7 +71,7 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 	return p.parseIPv6Packet()
 }
 
-func (p *Packet) parseTCP(bytes []byte) error {
+func (p *Packet) parseTCP(bytes []byte) {
 	// TCP Header Processing
 	tcpBuffer := bytes[p.IPHdr.IPHeaderLen:]
 
@@ -88,8 +86,6 @@ func (p *Packet) parseTCP(bytes []byte) error {
 	// Options and Payload that maybe added
 	p.TCPHdr.tcpOptions = []byte{}
 	p.TCPHdr.tcpData = []byte{}
-
-	return nil
 }
 
 func (p *Packet) parseUDP(bytes []byte) {

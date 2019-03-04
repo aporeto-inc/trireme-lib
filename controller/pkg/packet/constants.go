@@ -7,8 +7,6 @@ const (
 	minUDPIPPacketLen = 8
 	// minIPHdrSize
 	minIPv4HdrSize = 20
-
-	minIPv4HdrWords = (minIPv4HdrSize / 4)
 )
 
 // IP Header field position constants

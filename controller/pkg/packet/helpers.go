@@ -131,7 +131,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	csum := partialChecksum(0, p.IPHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
 	csum = partialChecksum(csum, p.IPHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
 
-	// reserverd 0 byte
+	// reserved 0 byte
 	buf[0] = 0
 	// tcp option 6
 	buf[1] = 6
@@ -178,7 +178,7 @@ func csumConvert32To16bit(sum uint32) uint16 {
 // Computes a sum of 16 bit numbers
 func checksumDelta(init uint32, buf []byte) uint32 {
 
-	sum := uint32(init)
+	sum := init
 
 	for ; len(buf) >= 2; buf = buf[2:] {
 		sum += uint32(buf[0])<<8 | uint32(buf[1])
