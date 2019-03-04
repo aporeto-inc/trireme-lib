@@ -146,11 +146,11 @@ func TestAddresses(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	src := pkt.IpHdr.SourceAddress.String()
+	src := pkt.IPHdr.SourceAddress.String()
 	if src != "127.0.0.1" {
 		t.Errorf("Unexpected source address %s", src)
 	}
-	dest := pkt.IpHdr.DestinationAddress.String()
+	dest := pkt.IPHdr.DestinationAddress.String()
 	if dest != "127.0.0.1" {
 		t.Errorf("Unexpected destination address %s", src)
 	}
@@ -161,7 +161,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.IpHdr.Buffer
+	data := pkt.IPHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -196,7 +196,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.IpHdr.Buffer
+	bytes := pkt.IPHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)

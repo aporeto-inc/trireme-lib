@@ -171,6 +171,7 @@ type udphdr struct {
 	udpData         []byte
 }
 
+//Packet structure
 type Packet struct {
 	// Metadata
 	context uint64
@@ -178,9 +179,9 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	IpHdr  iphdr
-	TcpHdr tcphdr
-	UdpHdr udphdr
+	IPHdr  iphdr
+	TCPHdr tcphdr
+	UDPHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata

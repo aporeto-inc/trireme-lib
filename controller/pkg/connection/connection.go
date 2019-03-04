@@ -384,8 +384,8 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
-	buffer := make([]byte, len(udpPacket.IpHdr.Buffer))
-	copy(buffer, udpPacket.IpHdr.Buffer)
+	buffer := make([]byte, len(udpPacket.IPHdr.Buffer))
+	copy(buffer, udpPacket.IPHdr.Buffer)
 
 	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark, true)
 	if err != nil {

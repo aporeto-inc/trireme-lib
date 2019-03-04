@@ -43,7 +43,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	//var
 
 	udpPacketType := p.GetUDPType()
-	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.IpHdr.Buffer)))
+	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.IPHdr.Buffer)))
 
 	switch udpPacketType {
 	case packet.UDPSynMask:
@@ -137,7 +137,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
+			err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -374,7 +374,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	if !addressMatch(udpPacket.IpHdr.DestinationAddress, context.UDPNetworks()) {
+	if !addressMatch(udpPacket.IPHdr.DestinationAddress, context.UDPNetworks()) {
 		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
 		return fmt.Errorf("No target found")
 	}
@@ -394,7 +394,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.writeWithRetransmit(newPacket.IpHdr.Buffer, conn, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket.IPHdr.Buffer, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -442,10 +442,10 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnec
 
 func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) {
 	// copy the ip and udp headers.
-	newSize := uint16(p.IpHdr.IpHeaderLen + packet.UDPDataPos)
+	newSize := uint16(p.IPHdr.IPHeaderLen + packet.UDPDataPos)
 	newPacket := make([]byte, newSize)
-	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, newSize)
-	_ = copy(newPacket, p.IpHdr.Buffer[:newSize])
+	p.FixupIPHdrOnDataModify(p.IPHdr.IPTotalLength, newSize)
+	_ = copy(newPacket, p.IPHdr.Buffer[:newSize])
 
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
@@ -482,7 +482,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.IpHdr.SourceAddress, udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket(udpPacket.IPHdr.SourceAddress, udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
@@ -494,7 +494,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.IpHdr.Buffer, conn, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket.IPHdr.Buffer, conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
@@ -532,7 +532,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -542,8 +542,8 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 		if err = d.conntrackHdl.ConntrackTableUpdateMark(
 			destIP,
-			udpPacket.IpHdr.SourceAddress.String(),
-			udpPacket.IpHdr.IPProto,
+			udpPacket.IPHdr.SourceAddress.String(),
+			udpPacket.IPHdr.IPProto,
 			uint16(destPort),
 			udpPacket.SourcePort(),
 			constants.DefaultConnMark,
@@ -649,9 +649,9 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.IpHdr.DestinationAddress.String(),
-			udpPacket.IpHdr.SourceAddress.String(),
-			udpPacket.IpHdr.IPProto,
+			udpPacket.IPHdr.DestinationAddress.String(),
+			udpPacket.IPHdr.SourceAddress.String(),
+			udpPacket.IPHdr.IPProto,
 			udpPacket.DestPort(),
 			udpPacket.SourcePort(),
 			constants.DefaultConnMark,
@@ -671,14 +671,14 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPFinAckMask)
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.IpHdr.SourceAddress, udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket(udpPacket.IPHdr.SourceAddress, udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
 
 	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.IpHdr.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return err
@@ -707,9 +707,9 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
 	if err = d.conntrackHdl.ConntrackTableUpdateMark(
-		udpPacket.IpHdr.DestinationAddress.String(),
-		udpPacket.IpHdr.SourceAddress.String(),
-		udpPacket.IpHdr.IPProto,
+		udpPacket.IPHdr.DestinationAddress.String(),
+		udpPacket.IPHdr.SourceAddress.String(),
+		udpPacket.IPHdr.IPProto,
 		udpPacket.DestPort(),
 		udpPacket.SourcePort(),
 		constants.DeleteConnmark,
