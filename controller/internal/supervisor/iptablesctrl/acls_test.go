@@ -458,34 +458,6 @@ func TestAcceptMarkedPackets(t *testing.T) {
 	})
 }
 
-func TestRemoveMarkRule(t *testing.T) {
-
-	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I delete the rule for marked packets and it succeeds ", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.removeMarkRule()
-			Convey("I should get no error ", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-		Convey("When I delete the rule for marked packets and it fails  ", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return errors.New("error")
-			})
-			err := i.removeMarkRule()
-			Convey("I should STILL get no error ", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-	})
-}
-
 func TestAddExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)

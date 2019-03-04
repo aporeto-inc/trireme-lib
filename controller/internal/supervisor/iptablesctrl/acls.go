@@ -1109,11 +1109,11 @@ func (i *Instance) removeNatRules() error {
 		NatProxyAppChain: natProxyOutputChain,
 	}
 
-	tmpl := template.Must(template.New(DeleteNatRules).Funcs(template.FuncMap{
+	tmpl := template.Must(template.New(deleteNatRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
-	}).Parse(DeleteNatRules))
+	}).Parse(deleteNatRules))
 
 	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {
@@ -1149,11 +1149,11 @@ func (i *Instance) cleanACLs() error { // nolint
 		NatProxyAppChain:    natProxyOutputChain,
 	}
 
-	tmpl := template.Must(template.New(DeleteChains).Funcs(template.FuncMap{
+	tmpl := template.Must(template.New(deleteChains).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
-	}).Parse(DeleteChains))
+	}).Parse(deleteChains))
 
 	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
 	if err != nil {

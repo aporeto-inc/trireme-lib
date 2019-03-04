@@ -119,7 +119,7 @@ var proxyChainRules = `
 
 {{.NatTable}} {{.NatProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}`
 
-var DeleteChains = `
+var deleteChains = `
 -t {{.MangleTable}} -F INPUT
 -t {{.MangleTable}} -F OUTPUT
 -t {{.MangleTable}} -F PREROUTING
@@ -164,7 +164,7 @@ var DeleteChains = `
 -t {{.NatTable}} -X {{.NatProxyNetChain}}
 `
 
-var DeleteNatRules = `
+var deleteNatRules = `
 {{.NatTable}} PREROUTING -p tcp -m addrtype --dst-type LOCAL -j {{.NatProxyNetChain}}
 {{.NatTable}} OUTPUT -j {{.NatProxyAppChain}}
 `
