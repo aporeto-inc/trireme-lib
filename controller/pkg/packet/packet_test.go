@@ -73,11 +73,11 @@ func TestGoodPacket(t *testing.T) {
 		t.Error("TCP checksum failed")
 	}
 
-	if pkt.DestinationPort != 99 {
+	if pkt.DestPort() != 99 {
 		t.Error("Unexpected destination port")
 	}
 
-	if pkt.SourcePort != 35968 {
+	if pkt.SourcePort() != 35968 {
 		t.Error("Unexpected source port")
 	}
 }
@@ -100,11 +100,11 @@ func TestAddresses(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	src := pkt.SourceAddress.String()
+	src := pkt.IpHdr.SourceAddress.String()
 	if src != "127.0.0.1" {
 		t.Errorf("Unexpected source address %s", src)
 	}
-	dest := pkt.DestinationAddress.String()
+	dest := pkt.IpHdr.DestinationAddress.String()
 	if dest != "127.0.0.1" {
 		t.Errorf("Unexpected destination address %s", src)
 	}
@@ -115,7 +115,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.Buffer
+	data := pkt.IpHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -150,7 +150,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.Buffer
+	bytes := pkt.IpHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)

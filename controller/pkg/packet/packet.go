@@ -29,6 +29,8 @@ var (
 
 var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
 var errTCPAuthOption = errors.New("tcp authentication option not found")
+var errTCPShort = errors.New("tcp packet is less than minimum 20 bytes")
+var errNonTCPUDPPacket = errors.New("packet is neither TCP nor UDP")
 
 func init() {
 	PacketLogLevel = false
@@ -71,7 +73,7 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 	return p.parseIPv6Packet()
 }
 
-func (p *Packet) parseTCP(bytes []byte) {
+func (p *Packet) parseTCP(bytes []byte) error {
 	// TCP Header Processing
 	tcpBuffer := bytes[p.IpHdr.IpHeaderLen:]
 
@@ -86,6 +88,8 @@ func (p *Packet) parseTCP(bytes []byte) {
 	// Options and Payload that maybe added
 	p.TcpHdr.tcpOptions = []byte{}
 	p.TcpHdr.tcpData = []byte{}
+
+	return nil
 }
 
 func (p *Packet) parseUDP(bytes []byte) {
@@ -126,7 +130,7 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for TCP.
 	if p.IpHdr.IPProto == IPProtocolTCP {
-		if p.IpHdr.IPTotalLength < minTCPIPPacketLen {
+		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IpHeaderLen) < minTCPIPPacketLen {
 			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
 		}
 
@@ -135,9 +139,10 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for UDP.
 	if p.IpHdr.IPProto == IPProtocolUDP {
-		if p.IpHdr.IPTotalLength < minUDPIPPacketLen {
+		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IpHeaderLen) < minUDPIPPacketLen {
 			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
 		}
+
 		p.parseUDP(bytes)
 	}
 
