@@ -141,7 +141,7 @@ type iphdr struct {
 	Buffer []byte
 
 	// IP Header fields
-	IpHeaderLen        uint8
+	IPHeaderLen        uint8
 	IPProto            uint8
 	IPTotalLength      uint16
 	ipID               uint16

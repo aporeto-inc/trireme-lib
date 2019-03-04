@@ -75,7 +75,7 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 
 func (p *Packet) parseTCP(bytes []byte) error {
 	// TCP Header Processing
-	tcpBuffer := bytes[p.IpHdr.IpHeaderLen:]
+	tcpBuffer := bytes[p.IpHdr.IPHeaderLen:]
 
 	p.TcpHdr.TCPChecksum = binary.BigEndian.Uint16(tcpBuffer[TCPChecksumPos : TCPChecksumPos+2])
 	p.TcpHdr.SourcePort = binary.BigEndian.Uint16(tcpBuffer[tcpSourcePortPos : tcpSourcePortPos+2])
@@ -94,7 +94,7 @@ func (p *Packet) parseTCP(bytes []byte) error {
 
 func (p *Packet) parseUDP(bytes []byte) {
 	// UDP Header Processing
-	udpBuffer := bytes[p.IpHdr.IpHeaderLen:]
+	udpBuffer := bytes[p.IpHdr.IPHeaderLen:]
 
 	p.UdpHdr.UDPChecksum = binary.BigEndian.Uint16(udpBuffer[UDPChecksumPos : UDPChecksumPos+2])
 	p.UdpHdr.udpData = []byte{}
@@ -106,7 +106,7 @@ func (p *Packet) parseUDP(bytes []byte) {
 func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) {
 
 	// IP Header Processing
-	p.IpHdr.IpHeaderLen = (bytes[ipv4HdrLenPos] & ipv4HdrLenMask) * 4
+	p.IpHdr.IPHeaderLen = (bytes[ipv4HdrLenPos] & ipv4HdrLenMask) * 4
 	p.IpHdr.IPProto = bytes[ipv4ProtoPos]
 	p.IpHdr.IPTotalLength = binary.BigEndian.Uint16(bytes[ipv4LengthPos : ipv4LengthPos+2])
 	p.IpHdr.ipID = binary.BigEndian.Uint16(bytes[IPv4IDPos : IPv4IDPos+2])
@@ -114,8 +114,8 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 	p.IpHdr.SourceAddress = net.IP(bytes[ipv4SourceAddrPos : ipv4SourceAddrPos+4])
 	p.IpHdr.DestinationAddress = net.IP(bytes[ipv4DestAddrPos : ipv4DestAddrPos+4])
 
-	if p.IpHdr.IpHeaderLen != minIPv4HdrSize {
-		return fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.IpHdr.IpHeaderLen)
+	if p.IpHdr.IPHeaderLen != minIPv4HdrSize {
+		return fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.IpHdr.IPHeaderLen)
 	}
 
 	p.IpHdr.Buffer = bytes
@@ -130,8 +130,8 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for TCP.
 	if p.IpHdr.IPProto == IPProtocolTCP {
-		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IpHeaderLen) < minTCPIPPacketLen {
-			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
+		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IPHeaderLen) < minTCPIPPacketLen {
+			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IpHdr.IPHeaderLen)
 		}
 
 		p.parseTCP(bytes)
@@ -139,8 +139,8 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 	// Some sanity checking for UDP.
 	if p.IpHdr.IPProto == IPProtocolUDP {
-		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IpHeaderLen) < minUDPIPPacketLen {
-			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IpHdr.IpHeaderLen)
+		if p.IpHdr.IPTotalLength-uint16(p.IpHdr.IPHeaderLen) < minUDPIPPacketLen {
+			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IpHdr.IPHeaderLen)
 		}
 
 		p.parseUDP(bytes)
@@ -155,7 +155,7 @@ func (p *Packet) parseIPv6Packet() (packet *Packet, err error) {
 
 // IsEmptyTCPPayload returns the TCP data offset
 func (p *Packet) IsEmptyTCPPayload() bool {
-	return p.TCPDataStartBytes() == uint16(len(p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]))
+	return p.TCPDataStartBytes() == uint16(len(p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]))
 }
 
 // GetTCPData returns any additional data in the packet
@@ -165,7 +165,7 @@ func (p *Packet) GetTCPData() []byte {
 
 // GetUDPData return additional data in packet
 func (p *Packet) GetUDPData() []byte {
-	return p.IpHdr.Buffer[p.IpHdr.IpHeaderLen+UDPDataPos:]
+	return p.IpHdr.Buffer[p.IpHdr.IPHeaderLen+UDPDataPos:]
 }
 
 // GetUDPDataStartBytes return start of UDP data
@@ -243,7 +243,7 @@ func (p *Packet) Print(context uint64) {
 			offset = 1
 		}
 
-		expAck := p.TcpHdr.TCPSeq + uint32(uint16(len(p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]))-p.TCPDataStartBytes()) + uint32(offset)
+		expAck := p.TcpHdr.TCPSeq + uint32(uint16(len(p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]))-p.TCPDataStartBytes()) + uint32(offset)
 		ccsum := p.computeTCPChecksum()
 		csumValidationStr := ""
 
@@ -258,7 +258,7 @@ func (p *Packet) Print(context uint64) {
 			p.IpHdr.SourceAddress.To4().String(), p.TcpHdr.SourcePort,
 			p.IpHdr.DestinationAddress.To4().String(), p.TcpHdr.DestinationPort,
 			tcpFlagsToStr(p.TcpHdr.TCPFlags),
-			p.TcpHdr.TCPSeq, p.TcpHdr.TCPAck, uint16(len(p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]))-p.TCPDataStartBytes(),
+			p.TcpHdr.TCPSeq, p.TcpHdr.TCPAck, uint16(len(p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]))-p.TCPDataStartBytes(),
 			expAck, expAck, p.TcpHdr.tcpDataOffset,
 			p.TcpHdr.TCPChecksum, ccsum, csumValidationStr)
 		print = true
@@ -297,7 +297,7 @@ func (p *Packet) ReadTCPDataString() string {
 // ReadTCPData returns ths payload in a string variable
 // It does not remove the payload from the packet
 func (p *Packet) ReadTCPData() []byte {
-	return p.IpHdr.Buffer[uint16(p.IpHdr.IpHeaderLen)+p.TCPDataStartBytes():]
+	return p.IpHdr.Buffer[uint16(p.IpHdr.IPHeaderLen)+p.TCPDataStartBytes():]
 }
 
 // CheckTCPAuthenticationOption ensures authentication option exists at the offset provided
@@ -310,7 +310,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	}
 
 	optionLength := uint16(iOptionLength)
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	// Our option was not found in the right place. We don't do anything
 	// for this packet.
 	if buffer[tcpDataStart-optionLength] != TCPAuthenticationOption {
@@ -334,28 +334,28 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 
 // IncreaseTCPSeq increases TCP seq number by incr
 func (p *Packet) IncreaseTCPSeq(incr uint32) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.TCPSeq = p.TcpHdr.TCPSeq + incr
 	binary.BigEndian.PutUint32(buffer[tcpSeqPos:tcpSeqPos+4], p.TcpHdr.TCPSeq)
 }
 
 // DecreaseTCPSeq decreases TCP seq number by decr
 func (p *Packet) DecreaseTCPSeq(decr uint32) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.TCPSeq = p.TcpHdr.TCPSeq - decr
 	binary.BigEndian.PutUint32(buffer[tcpSeqPos:tcpSeqPos+4], p.TcpHdr.TCPSeq)
 }
 
 // IncreaseTCPAck increases TCP ack number by incr
 func (p *Packet) IncreaseTCPAck(incr uint32) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.TCPAck = p.TcpHdr.TCPAck + incr
 	binary.BigEndian.PutUint32(buffer[tcpAckPos:tcpAckPos+4], p.TcpHdr.TCPAck)
 }
 
 // DecreaseTCPAck decreases TCP ack number by decr
 func (p *Packet) DecreaseTCPAck(decr uint32) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.TCPAck = p.TcpHdr.TCPAck - decr
 	binary.BigEndian.PutUint32(buffer[tcpAckPos:tcpAckPos+4], p.TcpHdr.TCPAck)
 }
@@ -364,7 +364,7 @@ func (p *Packet) DecreaseTCPAck(decr uint32) {
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
 	// Update DataOffset
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.tcpDataOffset = p.TcpHdr.tcpDataOffset - uint8(optionLength/4)
 	buffer[tcpDataOffsetPos] = p.TcpHdr.tcpDataOffset << 4
 }
@@ -372,7 +372,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint
 // tcpDataDetach splits the p.Buffer into p.Buffer (header + some options), p.tcpOptions (optionLength) and p.TCPData (dataLength)
 func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err error) {
 
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	// Setup buffer for Options, Data and reduce the original buffer
 	if dataLength != 0 {
 		p.TcpHdr.tcpData = buffer[p.TCPDataStartBytes():]
@@ -382,7 +382,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		p.TcpHdr.tcpOptions = buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
 	}
 
-	p.IpHdr.Buffer = p.IpHdr.Buffer[:uint16(p.IpHdr.IpHeaderLen)+p.TCPDataStartBytes()-optionLength]
+	p.IpHdr.Buffer = p.IpHdr.Buffer[:uint16(p.IpHdr.IPHeaderLen)+p.TCPDataStartBytes()-optionLength]
 
 	return
 }
@@ -395,7 +395,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// Length
-	dataLength := uint16(len(p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:])) - p.TCPDataStartBytes()
+	dataLength := uint16(len(p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:])) - p.TCPDataStartBytes()
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
@@ -413,7 +413,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	numberOfOptions := len(tcpOptions) / 4
 
 	// Modify the fields
@@ -425,7 +425,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 // tcpDataAttach splits the p.Buffer into p.Buffer (header + some options), p.tcpOptions (optionLength) and p.TCPData (dataLength)
 func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 
-	if p.TCPDataStartBytes() != uint16(len(p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:])) && len(options) != 0 {
+	if p.TCPDataStartBytes() != uint16(len(p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:])) && len(options) != 0 {
 		return fmt.Errorf("cannot insert options with existing data: optionlength=%d, iptotallength=%d", len(options), p.IpHdr.IPTotalLength)
 	}
 
@@ -489,6 +489,7 @@ func (p *Packet) TCPDataLength() int {
 	return len(p.TcpHdr.tcpData)
 }
 
+//SourcePort -- returns the appropriate source port
 func (p *Packet) SourcePort() uint16 {
 	if p.IpHdr.IPProto == IPProtocolTCP {
 		return p.TcpHdr.SourcePort
@@ -497,6 +498,7 @@ func (p *Packet) SourcePort() uint16 {
 	return p.UdpHdr.SourcePort
 }
 
+//DestPort -- returns the appropriate destination port
 func (p *Packet) DestPort() uint16 {
 	if p.IpHdr.IPProto == IPProtocolTCP {
 		return p.TcpHdr.DestinationPort

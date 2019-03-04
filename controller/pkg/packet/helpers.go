@@ -47,14 +47,14 @@ func (p *Packet) VerifyTCPChecksum() bool {
 // UpdateTCPChecksum computes the TCP header checksum and updates the
 // packet with the value.
 func (p *Packet) UpdateTCPChecksum() {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	p.TcpHdr.TCPChecksum = p.computeTCPChecksum()
 	binary.BigEndian.PutUint16(buffer[TCPChecksumPos:TCPChecksumPos+2], p.TcpHdr.TCPChecksum)
 }
 
 // UpdateTCPFlags
 func (p *Packet) updateTCPFlags(tcpFlags uint8) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	buffer[tcpFlagsOffsetPos] = tcpFlags
 }
 
@@ -107,7 +107,7 @@ func (p *Packet) computeIPChecksum() uint16 {
 	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], uint16(0))
 
 	// Compute checksum, over IP header only
-	sum := checksum(p.IpHdr.Buffer[:p.IpHdr.IpHeaderLen])
+	sum := checksum(p.IpHdr.Buffer[:p.IpHdr.IPHeaderLen])
 
 	// Restore the previous checksum (whether correct or not, as this function doesn't change it)
 	binary.BigEndian.PutUint16(p.IpHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IpHdr.ipChecksum)
@@ -118,7 +118,7 @@ func (p *Packet) computeIPChecksum() uint16 {
 // Computes the TCP header checksum. The packet is not modified.
 func (p *Packet) computeTCPChecksum() uint16 {
 	var buf [2]byte
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	tcpBufSize := uint16(len(buffer) + len(p.TcpHdr.tcpData) + len(p.TcpHdr.tcpOptions))
 
 	oldCsumLow := buffer[TCPChecksumPos]
@@ -215,7 +215,7 @@ func finalizeChecksum(csum32 uint32) uint16 {
 func (p *Packet) UpdateUDPChecksum() {
 
 	// checksum set to 0, ignored by the stack
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	ignoreCheckSum := []byte{0, 0}
 	p.UdpHdr.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
 
@@ -230,7 +230,7 @@ func (p *Packet) UpdateUDPChecksum() {
 
 // ReadUDPToken returnthe UDP token. Gets called only during the handshake process.
 func (p *Packet) ReadUDPToken() []byte {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	// 8 byte udp header, 20 byte udp marker
 	if len(buffer) <= UDPJwtTokenOffset {
 		return []byte{}
@@ -273,14 +273,14 @@ func (p *Packet) UDPDataAttach(udpdata []byte) {
 // UDPDataDetach detaches UDP payload from the Buffer. Called only during Encrypt/Decrypt.
 func (p *Packet) UDPDataDetach() {
 	// Create constants for IP header + UDP header. copy ?
-	p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IpHeaderLen+UDPDataPos]
+	p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IPHeaderLen+UDPDataPos]
 	p.UdpHdr.udpData = []byte{}
 	// IP header/checksum updated on DataAttach.
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
 func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 
 	srcAddr := binary.BigEndian.Uint32(destIP.To4())
 	destAddr := binary.BigEndian.Uint32(p.IpHdr.Buffer[ipv4DestAddrPos : ipv4DestAddrPos+4])
@@ -291,10 +291,10 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 	binary.BigEndian.PutUint16(buffer[udpSourcePortPos:udpSourcePortPos+2], p.UdpHdr.DestinationPort)
 	binary.BigEndian.PutUint16(buffer[udpDestPortPos:udpDestPortPos+2], destPort)
 
-	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, uint16(p.IpHdr.IpHeaderLen+UDPDataPos))
+	p.FixupIPHdrOnDataModify(p.IpHdr.IPTotalLength, uint16(p.IpHdr.IPHeaderLen+UDPDataPos))
 
 	// Just get the IP/UDP header. Ignore the rest. No need for packet
-	p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IpHeaderLen+UDPDataPos]
+	p.IpHdr.Buffer = p.IpHdr.Buffer[:p.IpHdr.IPHeaderLen+UDPDataPos]
 
 	// change the fields
 	p.IpHdr.SourceAddress = net.IP(p.IpHdr.Buffer[ipv4SourceAddrPos : ipv4SourceAddrPos+4])
@@ -309,7 +309,7 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 
 // GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {
-	buffer := p.IpHdr.Buffer[p.IpHdr.IpHeaderLen:]
+	buffer := p.IpHdr.Buffer[p.IpHdr.IPHeaderLen:]
 	// Every UDP control packet has a 20 byte packet signature. The
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
