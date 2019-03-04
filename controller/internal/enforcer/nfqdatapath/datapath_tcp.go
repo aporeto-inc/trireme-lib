@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -459,8 +460,28 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 
 		if perr != nil {
-			err := tcpPacket.ConvertAcktoFinAck()
-			return err
+			// If it is an SSH PU, we let the connection go through
+			// It means it is a new SSH Session connection, we mark
+			// the packet and let it go through.
+			if context.Type() == common.SSHSessionPU {
+				if err := d.conntrackHdl.ConntrackTableUpdateMark(
+					tcpPacket.SourceAddress.String(),
+					tcpPacket.DestinationAddress.String(),
+					tcpPacket.IPProto,
+					tcpPacket.SourcePort,
+					tcpPacket.DestinationPort,
+					constants.DefaultConnMark,
+				); err != nil {
+					zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
+						zap.String("context", string(conn.Auth.LocalContext)),
+						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+						zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+					)
+				}
+				return nil
+			}
+			// Convert Ack to FinAck for all other pus
+			return tcpPacket.ConvertAcktoFinAck()
 		}
 
 		if policy.Action.Rejected() {

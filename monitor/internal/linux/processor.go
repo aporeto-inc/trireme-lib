@@ -33,6 +33,7 @@ var ignoreNames = map[string]*struct{}{
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
 	host              bool
+	ssh               bool
 	config            *config.ProcessorConfig
 	metadataExtractor extractors.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
@@ -67,9 +68,21 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	// Normalize to a nativeID context. This will become key for any recoveries
 	// and it's an one way function.
 	nativeID, err := l.generateContextID(eventInfo)
-
 	if err != nil {
 		return err
+	}
+
+	processes, err := l.netcls.ListCgroupProcesses(nativeID)
+	if err == nil && len(processes) != 0 {
+		//This PU already exists we are getting a duplicate event
+		zap.L().Debug("Duplicate start event for the same PU", zap.String("PUID", nativeID))
+		if err = l.netcls.AddProcess(nativeID, int(eventInfo.PID)); err != nil {
+			if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			}
+			return err
+		}
+		return nil
 	}
 
 	// Extract the metadata and create the runtime
@@ -119,12 +132,22 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 		return err
 	}
 
+	processes, err := l.netcls.ListCgroupProcesses(puID)
+	if err == nil && len(processes) != 0 {
+		zap.L().Debug("Received Bogus Stop", zap.Int("Num Processes", len(processes)), zap.Error(err))
+		return nil
+	}
+
 	if puID == "/trireme" {
 		return nil
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	runtime.SetPUType(common.LinuxProcessPU)
+	puType := common.LinuxProcessPU
+	if l.ssh {
+		puType = common.SSHSessionPU
+	}
+	runtime.SetPUType(puType)
 
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
 }
@@ -144,7 +167,11 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	runtime.SetPUType(common.LinuxProcessPU)
+	puType := common.LinuxProcessPU
+	if l.ssh {
+		puType = common.SSHSessionPU
+	}
+	runtime.SetPUType(puType)
 
 	// Send the event upstream
 	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
@@ -226,6 +253,7 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
+
 		if _, ok := ignoreNames[cgroup]; ok {
 			continue
 		}
@@ -248,7 +276,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		}
 
 		runtime := policy.NewPURuntimeWithDefaults()
-		runtime.SetPUType(common.LinuxProcessPU)
+		puType := common.LinuxProcessPU
+		if l.ssh {
+			puType = common.SSHSessionPU
+		}
+		runtime.SetPUType(puType)
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,
