@@ -1,6 +1,9 @@
 package packet
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+)
 
 type SamplePacketName int
 
@@ -93,6 +96,49 @@ func TestBadTCPChecknum(t *testing.T) {
 	if pkt.VerifyTCPChecksum() {
 		t.Error("Expected TCP checksum failure")
 	}
+}
+
+func TestPartialChecksum(t *testing.T) {
+	// Computes a checksum over the given slice.
+	checksum := func(buf []byte) uint16 {
+		checksumDelta := func(buf []byte) uint16 {
+
+			sum := uint32(0)
+
+			for ; len(buf) >= 2; buf = buf[2:] {
+				sum += uint32(buf[0])<<8 | uint32(buf[1])
+			}
+			if len(buf) > 0 {
+				sum += uint32(buf[0]) << 8
+			}
+			for sum > 0xffff {
+				sum = (sum >> 16) + (sum & 0xffff)
+			}
+			return uint16(sum)
+		}
+
+		sum := checksumDelta(buf)
+		csum := ^sum
+		return csum
+	}
+
+	for i := 0; i < 1000; i++ {
+		var randBytes [1500]byte
+
+		rand.Read(randBytes[:])
+
+		csum := checksum(randBytes[:])
+
+		pCsum := partialChecksum(0, randBytes[:500])
+		pCsum = partialChecksum(pCsum, randBytes[500:1000])
+		pCsum = partialChecksum(pCsum, randBytes[1000:])
+		fCSum := finalizeChecksum(pCsum)
+
+		if csum != fCSum {
+			t.Error("Checksum failed")
+		}
+	}
+
 }
 
 func TestAddresses(t *testing.T) {
