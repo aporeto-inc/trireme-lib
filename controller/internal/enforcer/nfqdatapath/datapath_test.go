@@ -4136,7 +4136,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(errp, ShouldBeNil)
 
 							//changing the option length
-							outPacket.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
+							outPacket.IPHdr.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 							So(err, ShouldNotBeNil)
@@ -4843,8 +4843,8 @@ func TestCollectTCPPacket(t *testing.T) {
 			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
-				DestinationIP: tcpPacket.DestinationAddress.String(),
-				SourceIP:      tcpPacket.SourceAddress.String(),
+				DestinationIP: tcpPacket.IPHdr.DestinationAddress.String(),
+				SourceIP:      tcpPacket.IPHdr.SourceAddress.String(),
 			}
 			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
 			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext))
