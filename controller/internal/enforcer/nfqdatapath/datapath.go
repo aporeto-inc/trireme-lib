@@ -447,7 +447,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 // SetTargetNetworks sets new target networks used by datapath
 func (d *Datapath) SetTargetNetworks(networks []string) error {
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
 	}
 
 	d.targetNetworks = acls.NewACLCache()
@@ -506,7 +506,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 		Action:      actual.Action,
 		DropReason:  mode,
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IpHdr.IPProto,
+		L4Protocol:  p.IPHdr.IPProto,
 		Count:       1,
 	}
 

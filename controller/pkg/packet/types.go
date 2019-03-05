@@ -148,7 +148,7 @@ type iphdr struct {
 	Buffer []byte
 
 	// IP Header fields
-	IpHeaderLen        uint8
+	IPHeaderLen        uint8
 	IPProto            uint8
 	IPTotalLength      uint16
 	ipID               uint16
@@ -179,6 +179,7 @@ type udphdr struct {
 	udpData         []byte
 }
 
+//Packet structure
 type Packet struct {
 	// Metadata
 	context uint64
@@ -186,9 +187,9 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	IpHdr  iphdr
-	TcpHdr tcphdr
-	UdpHdr udphdr
+	IPHdr  iphdr
+	TCPHdr tcphdr
+	UDPHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata

@@ -105,6 +105,8 @@ func (a *v6) ipv6ruleAdd(address, port string, policy *policy.FlowPolicy) error 
 	var mask [16]byte
 	var err error
 
+	fmt.Println(address, port)
+
 	parts := strings.Split(address, "/")
 	subnet := net.ParseIP(parts[0]).To16()
 
@@ -129,7 +131,7 @@ func (a *v6) ipv6ruleAdd(address, port string, policy *policy.FlowPolicy) error 
 	createMask := func(maskValue int, mask []byte) {
 		index := 0
 
-		for maskValue >= 8 {
+		for maskValue > 8 {
 			mask[index] = 0xff
 			index++
 			maskValue -= 8

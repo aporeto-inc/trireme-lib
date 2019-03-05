@@ -36,12 +36,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+			zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 		)
 
 		defer zap.L().Debug("Finished Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+			zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 			zap.Error(err),
 		)
 	}
@@ -50,7 +50,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
-	switch p.TcpHdr.TCPFlags & packet.TCPSynAckMask {
+	switch p.TCPHdr.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		conn, err = d.netSynRetrieveState(p)
 
@@ -63,7 +63,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 				if d.packetLogs {
 					zap.L().Debug("Packet rejected",
 						zap.String("flow", p.L4FlowHash()),
-						zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+						zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 						zap.Error(err),
 					)
 				}
@@ -87,7 +87,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+					zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 					zap.Error(err),
 				)
 			}
@@ -116,7 +116,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		if d.packetLogs {
 			zap.L().Debug("Rejecting packet ",
 				zap.String("flow", p.L4FlowHash()),
-				zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+				zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 				zap.Error(err),
 			)
 		}
@@ -150,24 +150,24 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+			zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 		)
 
 		defer zap.L().Debug("Finished Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+			zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 			zap.Error(err),
 		)
 	}
 
-	switch p.TcpHdr.TCPFlags & packet.TCPSynAckMask {
+	switch p.TCPHdr.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		conn, err = d.appSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+					zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 					zap.Error(err),
 				)
 			}
@@ -179,7 +179,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 			if d.packetLogs {
 				zap.L().Debug("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+					zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 				)
 			}
 
@@ -199,12 +199,13 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				// we monitor. This is possible only if IP is in the external
 				// networks or excluded networks. Let this packet go through
 				// for any of these cases. Drop for everything else.
-				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IpHdr.DestinationAddress, p.SourcePort())
+				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.IPHdr.DestinationAddress, p.SourcePort())
+
 				if perr == nil && policy.Action.Accepted() {
 					return conn, nil
 				}
 
-				if ctx.IPinExcludedNetworks(p.IpHdr.DestinationAddress) {
+				if ctx.IPinExcludedNetworks(p.IPHdr.DestinationAddress) {
 					return conn, nil
 				}
 				// Drop this synack as it belongs to PU
@@ -223,7 +224,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
-					zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+					zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 					zap.Error(err),
 				)
 			}
@@ -235,7 +236,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	defer conn.Unlock()
 
 	p.Print(packet.PacketStageIncoming)
-
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, conn.Context, conn) {
@@ -243,7 +243,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 			return conn, errors.New("pre service processing failed for application packet")
 		}
 	}
-
 	p.Print(packet.PacketStageAuth)
 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
@@ -252,7 +251,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 		if d.packetLogs {
 			zap.L().Debug("Dropping packet  ",
 				zap.String("flow", p.L4FlowHash()),
-				zap.String("Flags", packet.TCPFlagsToStr(p.TcpHdr.TCPFlags)),
+				zap.String("Flags", packet.TCPFlagsToStr(p.TCPHdr.TCPFlags)),
 				zap.Error(err),
 			)
 		}
@@ -284,7 +283,7 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 	}
 
 	// State machine based on the flags
-	switch tcpPacket.TcpHdr.TCPFlags & packet.TCPSynAckMask {
+	switch tcpPacket.TCPHdr.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		return d.processApplicationSynPacket(tcpPacket, context, conn)
 
@@ -304,10 +303,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
+	dstAddr := make([]byte, len(tcpPacket.IPHdr.DestinationAddress))
+	copy(dstAddr, tcpPacket.IPHdr.DestinationAddress)
 
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, tcpPacket.DestPort())
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, tcpPacket.DestPort())
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
@@ -317,7 +318,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet")
 	}
 
-	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.IpHdr.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestPort()))); err == nil {
+	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.IPHdr.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestPort()))); err == nil {
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 		return policy, nil
@@ -359,9 +360,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// packets from this connection.
 	if conn.GetState() == connection.TCPData && !conn.ServiceConnection {
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.IpHdr.SourceAddress.String(),
-			tcpPacket.IpHdr.DestinationAddress.String(),
-			tcpPacket.IpHdr.IPProto,
+			tcpPacket.IPHdr.SourceAddress.String(),
+			tcpPacket.IPHdr.DestinationAddress.String(),
+			tcpPacket.IPHdr.IPProto,
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
@@ -432,12 +433,12 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// packets after the first data packet, that might be already in the queue
 		// will be transmitted through the kernel directly. Service connections are
 		// delegated to the service module
-		if !conn.ServiceConnection && tcpPacket.IpHdr.SourceAddress.String() != tcpPacket.IpHdr.DestinationAddress.String() &&
-			!(tcpPacket.IpHdr.SourceAddress.IsLoopback() && tcpPacket.IpHdr.DestinationAddress.IsLoopback()) {
+		if !conn.ServiceConnection && tcpPacket.IPHdr.SourceAddress.String() != tcpPacket.IPHdr.DestinationAddress.String() &&
+			!(tcpPacket.IPHdr.SourceAddress.IsLoopback() && tcpPacket.IPHdr.DestinationAddress.IsLoopback()) {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.IpHdr.SourceAddress.String(),
-				tcpPacket.IpHdr.DestinationAddress.String(),
-				tcpPacket.IpHdr.IPProto,
+				tcpPacket.IPHdr.SourceAddress.String(),
+				tcpPacket.IPHdr.DestinationAddress.String(),
+				tcpPacket.IPHdr.IPProto,
 				tcpPacket.SourcePort(),
 				tcpPacket.DestPort(),
 				constants.DefaultConnMark,
@@ -461,7 +462,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external services approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.DestinationAddress, tcpPacket.DestPort())
+		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IPHdr.DestinationAddress, tcpPacket.DestPort())
 
 		if perr != nil {
 			// If it is an SSH PU, we let the connection go through
@@ -469,9 +470,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			// the packet and let it go through.
 			if context.Type() == common.SSHSessionPU {
 				if err := d.conntrackHdl.ConntrackTableUpdateMark(
-					tcpPacket.IpHdr.SourceAddress.String(),
-					tcpPacket.IpHdr.DestinationAddress.String(),
-					tcpPacket.IpHdr.IPProto,
+					tcpPacket.IPHdr.SourceAddress.String(),
+					tcpPacket.IPHdr.DestinationAddress.String(),
+					tcpPacket.IPHdr.IPProto,
 					tcpPacket.SourcePort(),
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
@@ -493,9 +494,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		}
 
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.IpHdr.SourceAddress.String(),
-			tcpPacket.IpHdr.DestinationAddress.String(),
-			tcpPacket.IpHdr.IPProto,
+			tcpPacket.IPHdr.SourceAddress.String(),
+			tcpPacket.IPHdr.DestinationAddress.String(),
+			tcpPacket.IPHdr.IPProto,
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
@@ -528,7 +529,7 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *pu
 	}
 
 	// Update connection state in the internal state machine tracker
-	switch tcpPacket.TcpHdr.TCPFlags & packet.TCPSynAckMask {
+	switch tcpPacket.TCPHdr.TCPFlags & packet.TCPSynAckMask {
 
 	case packet.TCPSynMask:
 		return d.processNetworkSynPacket(context, conn, tcpPacket)
@@ -648,7 +649,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			return nil, nil, fmt.Errorf("PU is already dead - drop SynAck packet")
 		}
 
-		flowHash := tcpPacket.IpHdr.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
+		flowHash := tcpPacket.IPHdr.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
 			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
@@ -656,7 +657,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 
 		// Never seen this IP before, let's parse them.
-		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IpHdr.SourceAddress.To4(), tcpPacket.SourcePort())
+		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.IPHdr.SourceAddress, tcpPacket.SourcePort())
 		if perr != nil || pkt.Action.Rejected() {
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
@@ -687,9 +688,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Revert the connmarks - dealing with retransmissions
 		if cerr := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.IpHdr.DestinationAddress.String(),
-			tcpPacket.IpHdr.SourceAddress.String(),
-			tcpPacket.IpHdr.IPProto,
+			tcpPacket.IPHdr.DestinationAddress.String(),
+			tcpPacket.IPHdr.SourceAddress.String(),
+			tcpPacket.IPHdr.IPProto,
 			tcpPacket.DestPort(),
 			tcpPacket.SourcePort(),
 			0,
@@ -794,7 +795,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		_, plcy, perr := context.NetworkACLPolicy(tcpPacket)
 
 		// Ignore FIN packets. Let them go through.
-		if tcpPacket.TcpHdr.TCPFlags&packet.TCPFinMask != 0 {
+		if tcpPacket.TCPHdr.TCPFlags&packet.TCPFinMask != 0 {
 			return nil, nil, nil
 		}
 		if perr != nil {
@@ -808,9 +809,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		}
 
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.IpHdr.DestinationAddress.String(),
-			tcpPacket.IpHdr.SourceAddress.String(),
-			tcpPacket.IpHdr.IPProto,
+			tcpPacket.IPHdr.DestinationAddress.String(),
+			tcpPacket.IPHdr.SourceAddress.String(),
+			tcpPacket.IPHdr.IPProto,
 			tcpPacket.DestPort(),
 			tcpPacket.SourcePort(),
 			constants.DefaultConnMark,
@@ -865,9 +866,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		if !conn.ServiceConnection {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.IpHdr.DestinationAddress.String(),
-				tcpPacket.IpHdr.SourceAddress.String(),
-				tcpPacket.IpHdr.IPProto,
+				tcpPacket.IPHdr.DestinationAddress.String(),
+				tcpPacket.IPHdr.SourceAddress.String(),
+				tcpPacket.IPHdr.IPProto,
 				tcpPacket.DestPort(),
 				tcpPacket.SourcePort(),
 				constants.DefaultConnMark,
@@ -966,7 +967,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		return conn.(*connection.TCPConnection), nil
 	}
 
-	if p.TcpHdr.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+	if p.TCPHdr.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 		// Let's try if its an existing connection
 		context, err := d.contextFromIP(true, p.Mark, p.SourcePort(), packet.IPProtocolTCP)
 		if err != nil {
@@ -1061,7 +1062,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 	// We reach in this state for a client PU only when the service connection(encrypt) sends data sparsely.
 	// Packets are dropped when this happens, and that is a BUG!!!
 	// For the server PU we mark the connection in the unknown state.
-	if p.TcpHdr.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+	if p.TCPHdr.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 		// Let's try if its an existing connection
 		context, cerr := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolTCP)
 		if cerr != nil {
@@ -1098,9 +1099,9 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 	}
 
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
-		tcpPacket.IpHdr.DestinationAddress.String(),
-		tcpPacket.IpHdr.SourceAddress.String(),
-		tcpPacket.IpHdr.IPProto,
+		tcpPacket.IPHdr.DestinationAddress.String(),
+		tcpPacket.IPHdr.SourceAddress.String(),
+		tcpPacket.IPHdr.IPProto,
 		tcpPacket.DestPort(),
 		tcpPacket.SourcePort(),
 		constants.DefaultConnMark,
@@ -1116,9 +1117,9 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
 	zap.L().Debug("Releasing flow", zap.String("flow", tcpPacket.L4FlowHash()))
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
-		tcpPacket.IpHdr.DestinationAddress.String(),
-		tcpPacket.IpHdr.SourceAddress.String(),
-		tcpPacket.IpHdr.IPProto,
+		tcpPacket.IPHdr.DestinationAddress.String(),
+		tcpPacket.IPHdr.SourceAddress.String(),
+		tcpPacket.IPHdr.IPProto,
 		tcpPacket.DestPort(),
 		tcpPacket.SourcePort(),
 		constants.DefaultConnMark,
