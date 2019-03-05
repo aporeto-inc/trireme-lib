@@ -273,7 +273,7 @@ func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.Flow
 	defer p.RUnlock()
 	p.RLock()
 
-	return p.networkACLs.GetMatchingAction(packet.IPHdr.SourceAddress.To4(), packet.DestPort())
+	return p.networkACLs.GetMatchingAction(packet.IPHdr.SourceAddress, packet.DestPort())
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
