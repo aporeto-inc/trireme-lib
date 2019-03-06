@@ -72,7 +72,8 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		return nil, fmt.Errorf("Failed to initialize provider: %s", err)
 	}
 	oidConfig := &oidc.Config{
-		ClientID: v.ClientID,
+		ClientID:          v.ClientID,
+		SkipClientIDCheck: true,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
 	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
@@ -178,22 +179,25 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		return []string{}, true, token, fmt.Errorf("Invalid token presented")
 	}
 
+	var tokenData *clientData
+
 	// If it is not found in the cache initiate a call back process.
 	data, err := tokenCache.Get(token)
-	if err != nil {
-		// No token in the cache. Force authorization.
-		return []string{}, true, token, fmt.Errorf("No cached data - request authorization")
-	}
+	if err == nil {
+		var ok bool
+		tokenData, ok = data.(*clientData)
+		if !ok {
+			return nil, true, token, fmt.Errorf("Internal server error")
+		}
 
-	tokenData, ok := data.(*clientData)
-	if !ok {
-		return nil, true, token, fmt.Errorf("Internal server error")
-	}
-
-	// If the cached token hasn't expired yet, we can just accept it and not
-	// go through a whole verification process. Nothing new.
-	if tokenData.expiry.After(time.Now()) && len(tokenData.attributes) > 0 {
-		return tokenData.attributes, false, token, nil
+		// If the cached token hasn't expired yet, we can just accept it and not
+		// go through a whole verification process. Nothing new.
+		if tokenData.expiry.After(time.Now()) && len(tokenData.attributes) > 0 {
+			return tokenData.attributes, false, token, nil
+		}
+	} else { // No token in the cache. Let's try to see if it is valid and we can cache it now.
+		//
+		tokenData = &clientData{}
 	}
 
 	// The token has expired. Let's try to refresh it.
@@ -206,8 +210,13 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	// attributes were empty.
 	idToken, err := v.oauthVerifier.Verify(ctx, token)
 	if err != nil {
+		var ok bool
 		// Token is expired. Let's try to refresh it if we have something
-		// in the cache.'
+		// in the cache. If we don't have a refresh token, we reject it
+		// and ask the client to validate again.
+		if tokenData.tokenSource == nil {
+			return []string{}, true, token, fmt.Errorf("No cached data and expired token - request authorization: %s", err)
+		}
 		refreshedToken, err := tokenData.tokenSource.Token()
 		if err != nil {
 			return []string{}, true, token, fmt.Errorf("Token validation failed and cannot refresh: %s", err)

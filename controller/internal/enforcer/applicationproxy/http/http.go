@@ -502,7 +502,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// is mepty the DecodeAporetoClaims method will return no error.
 	sourceID, aporetoClaims, err := pctx.Authorizer.DecodeAporetoClaims(token, key)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid Authorization Token"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("Invalid Authorization Token: %s", err), http.StatusForbidden)
 		state.stats.DropReason = collector.PolicyDrop
 		return
 	}
@@ -725,7 +725,7 @@ func processHeaders(r *http.Request) (string, string) {
 	}
 	key := r.Header.Get("X-APORETO-KEY")
 	if key != "" {
-		r.Header.Del("X-APORETO-LEN")
+		r.Header.Del("X-APORETO-KEY")
 	}
 	return token, key
 }
