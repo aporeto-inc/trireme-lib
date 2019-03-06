@@ -247,8 +247,8 @@ func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string,
 		appSection, netSection)
 }
 
-func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string) [][]string {
-	str := [][]string{
+func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
 			uidchain,
@@ -278,7 +278,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		},
 	}
 
-	return str
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
 // chainRules provides the list of rules that are used to send traffic to
@@ -527,7 +527,6 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 			"--to-port", proxyPort,
 		})
 	}
-
 	return proxyrules
 }
 
@@ -740,7 +739,7 @@ func (i *Instance) addChainRules(contextID string, portSetName string, appChain 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Append")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
@@ -1403,7 +1402,7 @@ func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")
@@ -2086,7 +2085,7 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []
 				"-p", tcpProto,
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
@@ -2098,7 +2097,7 @@ func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "cgroup", "--cgroup", cgroupMark,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
@@ -2132,7 +2131,7 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions
 				"-p", tcpProto,
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
@@ -2144,7 +2143,7 @@ func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions
 				"-m", "set", "--match-set", destSetName, "dst,dst",
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "cgroup", "--cgroup", cgroupMark,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
@@ -2191,7 +2190,7 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusi
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
@@ -2238,7 +2237,7 @@ func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, excl
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
