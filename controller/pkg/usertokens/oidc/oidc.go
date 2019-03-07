@@ -211,7 +211,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	// it now. This is possible if the token was created earlier
 	// but we never had a chance to verify it. In this case, the
 	// attributes were empty.
-	idToken, err := v.oauthVerifier.Verify(ctx, token)
+	idToken, err := v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
 	if err != nil {
 		var ok bool
 		// Token is expired. Let's try to refresh it if we have something
