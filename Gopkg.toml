@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "master"
+  branch = "release-3.8.0"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
@@ -35,4 +35,3 @@ required = ["github.com/docker/distribution"]
 [prune]
   go-tests = true
   unused-packages = true
-
