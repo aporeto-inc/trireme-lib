@@ -2,9 +2,7 @@ package acls
 
 import (
 	"errors"
-	"fmt"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -54,20 +52,6 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 // AddRuleList adds a list of rules to the cache
 func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 
-	f := policy.FlowPolicy{
-		Action: policy.Accept,
-	}
-
-	ruleGoogle := policy.IPRule{
-		Addresses: []string{"2607:f8b0:4005:806::200e"},
-		Ports:     []string{"0:65535"},
-		Protocols: []string{constants.TCPProtoNum},
-		Policy:    &f,
-	}
-
-	fmt.Println("adding google\n\n")
-
-	rules = append(rules, ruleGoogle)
 	for _, rule := range rules {
 		if err = c.AddRule(rule); err != nil {
 			return
