@@ -69,12 +69,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	// Create a new generic OIDC provider based on the provider URL.
 	// The library will auto-discover the configuration of the provider.
 	// If it is not a compliant provider we should report and error here.
-	dialContext, err := dialContextPolicyBypass(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	provider, err := oidc.NewProvider(dialContext, v.ProviderURL)
+	provider, err := oidc.NewProvider(dialContextPolicyBypass(ctx), v.ProviderURL)
 	if err != nil {
 		zap.L().Error("Failed to initialize OIDC provider", zap.Error(err), zap.String("Provider URL", v.ProviderURL))
 		return nil, fmt.Errorf("Failed to initialize provider: %s", err)
@@ -153,11 +148,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
-	dialContext, err := dialContextPolicyBypass(r.Context())
-	if err != nil {
-		return "", "", http.StatusInternalServerError, fmt.Errorf("unable to validate with OIDC provider: %s", err)
-	}
-	oauth2Token, err := v.clientConfig.Exchange(dialContext, r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
+	oauth2Token, err := v.clientConfig.Exchange(dialContextPolicyBypass(r.Context()), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
 	if err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("Bad code: %s", err)
 	}
@@ -237,11 +228,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		if !ok {
 			return []string{}, true, token, fmt.Errorf("Failed to find id_token - initiate re-authorization")
 		}
-		dialContext, err := dialContextPolicyBypass(ctx)
-		if err != nil {
-			return nil, false, token, fmt.Errorf("unable to validate with OIDC provider: %s", err)
-		}
-		idToken, err = v.oauthVerifier.Verify(dialContext, token)
+		idToken, err = v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
 		if err != nil {
 			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required: %s", err)
 		}
@@ -289,7 +276,7 @@ func randomSha1(nonceSourceSize int) (string, error) {
 	return base64.StdEncoding.EncodeToString(sha[:]), nil
 }
 
-func dialContextPolicyBypass(ctx context.Context) (context.Context, error) {
+func dialContextPolicyBypass(ctx context.Context) context.Context {
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -303,7 +290,7 @@ func dialContextPolicyBypass(ctx context.Context) (context.Context, error) {
 		},
 	}
 
-	return context.WithValue(ctx, oauth2.HTTPClient, client), nil
+	return context.WithValue(ctx, oauth2.HTTPClient, client)
 }
 
 func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
