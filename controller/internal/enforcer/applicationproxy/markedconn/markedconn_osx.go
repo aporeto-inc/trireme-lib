@@ -7,8 +7,8 @@ import (
 	"net"
 )
 
-// DialMarkedTCPWithContext dials a TCP connection and associates a mark. Propagates the context.
-func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
+// DialMarkedWithContext dials a TCP connection and associates a mark. Propagates the context.
+func DialMarkedWithContext(ctx context.Context, network string, addr string, mark int) (net.Conn, error) {
 	return nil, nil
 }
 

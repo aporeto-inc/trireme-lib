@@ -280,17 +280,21 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 
+	plc, err := payload.Policy.ToPrivatePolicy(false)
+	if err != nil {
+		return err
+	}
+
 	puInfo := &policy.PUInfo{
 		ContextID: payload.ContextID,
-		Policy:    payload.Policy.ToPrivatePolicy(false),
+		Policy:    plc,
 		Runtime:   policy.NewPURuntimeWithDefaults(),
 	}
 
 	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
 
-	err := s.supervisor.Supervise(payload.ContextID, puInfo)
-	if err != nil {
+	if err = s.supervisor.Supervise(payload.ContextID, puInfo); err != nil {
 		zap.L().Error("unable to initialize supervisor",
 			zap.String("ContextID", payload.ContextID),
 			zap.Error(err),
@@ -370,9 +374,14 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
+	plc, err := payload.Policy.ToPrivatePolicy(true)
+	if err != nil {
+		return err
+	}
+
 	puInfo := &policy.PUInfo{
 		ContextID: payload.ContextID,
-		Policy:    payload.Policy.ToPrivatePolicy(true),
+		Policy:    plc,
 		Runtime:   policy.NewPURuntimeWithDefaults(),
 	}
 
