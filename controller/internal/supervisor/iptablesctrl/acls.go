@@ -83,7 +83,7 @@ func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string,
 		appSection, netSection)
 }
 
-func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string) [][]string {
+func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
 	aclInfo := ACLInfo{
 		MangleTable: i.appPacketIPTableContext,
@@ -101,7 +101,8 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
-	return rules
+
+	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
 // chainRules provides the list of rules that are used to send traffic to
@@ -308,7 +309,7 @@ func (i *Instance) addChainRules(contextID string, portSetName string, appChain 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Append")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Append")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
@@ -321,7 +322,7 @@ func (i *Instance) addPacketTrap(contextID, appChain string, netChain string, is
 
 }
 
-func (i *Instance) GetRules(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) [][]string {
+func (i *Instance) getRules(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) [][]string {
 	iptRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
@@ -385,7 +386,7 @@ func (i *Instance) GetRules(contextID string, rule *aclIPset, insertOrder *int, 
 	return iptRules
 }
 
-func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) error {
+func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
 
 	insertOrder := int(1)
 	intP := &insertOrder
@@ -414,7 +415,7 @@ func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []a
 
 		for _, proto := range rule.protocols {
 
-			appACLS := i.GetRules(contextID, &rule, intP, appChain, "10", proto, "dst", "Append")
+			appACLS := i.getRules(contextID, &rule, intP, appChain, "10", proto, "dst", "Append")
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
 				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
@@ -521,10 +522,9 @@ func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []a
 		}
 	}
 
-	return nil
 }
 
-func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) error {
+func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
 
 	insertOrder := int(1)
 	intP := &insertOrder
@@ -555,7 +555,7 @@ func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []a
 
 		for _, proto := range rule.protocols {
 
-			netACLS := i.GetRules(contextID, &rule, intP, netChain, "11", proto, "src", "Append")
+			netACLS := i.getRules(contextID, &rule, intP, netChain, "11", proto, "src", "Append")
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
 
@@ -775,7 +775,6 @@ func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []a
 		}
 	}
 
-	return nil
 }
 
 // addAppACLs adds a set of rules to the external services that are initiated
@@ -792,9 +791,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 		AcceptObserveContinue: [][]string{},
 	}
 
-	if err := i.addAllAppACLS(contextID, appChain, netChain, rules, rulesBucket); err != nil {
-		return fmt.Errorf("Unable to add app acls: %s", err)
-	}
+	i.addAllAppACLS(contextID, appChain, netChain, rules, rulesBucket)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
@@ -805,7 +802,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 
 	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
 	if err != nil {
-		zap.L().Warn("unable to extract rules", zap.Error(err))
+		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
 
 	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
@@ -829,9 +826,7 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclI
 		AcceptObserveContinue: [][]string{},
 	}
 
-	if err := i.addAllNetACLS(contextID, appChain, netChain, rules, rulesBucket); err != nil {
-		return fmt.Errorf("Unable to add net acls: %s", err)
-	}
+	i.addAllNetACLS(contextID, appChain, netChain, rules, rulesBucket)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
@@ -842,7 +837,7 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclI
 
 	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
 	if err != nil {
-		zap.L().Warn("unable to extract rules", zap.Error(err))
+		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
 
 	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
@@ -886,7 +881,7 @@ func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid), "Delete")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")

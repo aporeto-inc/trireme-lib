@@ -7,11 +7,12 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 )
 
 // newServer is a fake implementation for building on darwin.
-func newServer(ctx context.Context, cancel context.CancelFunc, service packetprocessor.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string, stats statsclient.StatsClient) (RemoteIntf, error) {
+func newServer(ctx context.Context, cancel context.CancelFunc, service packetprocessor.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string, stats statsclient.StatsClient, debugClient debugclient.DebugClient) (RemoteIntf, error) {
 	return nil, nil
 }
 
@@ -53,5 +54,15 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // EnforcerExit this method is called when  we received a killrpocess message from the controller
 // This allows a graceful exit of the enforcer
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	return nil
+}
+
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	return nil
+}
+
+// EnableIPTablesPacketTracing enables iptables trace packet tracing
+func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
 }
