@@ -365,16 +365,16 @@ func updateConntrack(tcpPacket *packet.Packet, reverse bool, mark uint32) error 
 		srcPort = tcpPacket.DestPort()
 		dstPort = tcpPacket.SourcePort()
 	} else {
-		src = tcpPacket.IPHdr.SourceAddress
-		dst = tcpPacket.IPHdr.DestinationAddress
+		srcIP = tcpPacket.IPHdr.SourceAddress
+		dstIP = tcpPacket.IPHdr.DestinationAddress
 		srcPort = tcpPacket.SourcePort()
 		dstPort = tcpPacket.DestPort()
 	}
 
 	f := conntrack.NewFlow(
 		6, 0,
-		src,
-		dst,
+		srcIP,
+		dstIP,
 		srcPort,
 		dstPort,
 		0, mark)
@@ -466,7 +466,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		if !conn.ServiceConnection && tcpPacket.IPHdr.SourceAddress.String() != tcpPacket.IPHdr.DestinationAddress.String() &&
 			!(tcpPacket.IPHdr.SourceAddress.IsLoopback() && tcpPacket.IPHdr.DestinationAddress.IsLoopback()) {
 
-			if err := updateConntrack(tcpPacket, false); err != nil {
+			if err := updateConntrack(tcpPacket, false, constants.DefaultConnMark); err != nil {
 				zap.L().Error("Failed to update conntrack table for flow",
 					zap.String("context", string(conn.Auth.LocalContext)),
 					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -493,7 +493,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			// It means it is a new SSH Session connection, we mark
 			// the packet and let it go through.
 			if context.Type() == common.SSHSessionPU {
-				if err := updateConntrack(tcpPacket, false); err != nil {
+				if err := updateConntrack(tcpPacket, false, constants.DefaultConnMark); err != nil {
 					zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 						zap.String("context", string(conn.Auth.LocalContext)),
 						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -510,7 +510,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			return errors.New("Reject the packet")
 		}
 
-		if err := updateConntrack(tcpPacket, false); err != nil {
+		if err := updateConntrack(tcpPacket, false, constants.DefaultConnMark); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -810,7 +810,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		}
 
-		if err := updateConntrack(tcpPacket, reverse, constants.DefaultConnMark); err != nil {
+		if err := updateConntrack(tcpPacket, true, constants.DefaultConnMark); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
