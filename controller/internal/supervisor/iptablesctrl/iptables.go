@@ -725,6 +725,10 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
+	if err := i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks()); err != nil {
+		return err
+	}
+
 	if err := i.addNetACLs(contextID, appChain, netChain, netACLIPset); err != nil {
 		return err
 	}
