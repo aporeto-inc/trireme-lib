@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,6 +15,8 @@ import (
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -66,13 +69,14 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	// Create a new generic OIDC provider based on the provider URL.
 	// The library will auto-discover the configuration of the provider.
 	// If it is not a compliant provider we should report and error here.
-	provider, err := oidc.NewProvider(ctx, v.ProviderURL)
+	provider, err := oidc.NewProvider(dialContextPolicyBypass(ctx), v.ProviderURL)
 	if err != nil {
 		zap.L().Error("Failed to initialize OIDC provider", zap.Error(err), zap.String("Provider URL", v.ProviderURL))
 		return nil, fmt.Errorf("Failed to initialize provider: %s", err)
 	}
 	oidConfig := &oidc.Config{
-		ClientID: v.ClientID,
+		ClientID:          v.ClientID,
+		SkipClientIDCheck: true,
 	}
 	v.oauthVerifier = provider.Verifier(oidConfig)
 	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
@@ -138,21 +142,21 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 	receivedState := r.URL.Query().Get("state")
 	originURL, err := stateCache.Get(receivedState)
 	if err != nil {
-		return "", "", http.StatusBadRequest, fmt.Errorf("Bad state")
+		return "", "", http.StatusBadRequest, fmt.Errorf("bad state")
 	}
 	stateCache.Remove(receivedState)
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
-	oauth2Token, err := v.clientConfig.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
+	oauth2Token, err := v.clientConfig.Exchange(dialContextPolicyBypass(r.Context()), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
 	if err != nil {
-		return "", "", http.StatusInternalServerError, fmt.Errorf("Bad code: %s", err)
+		return "", "", http.StatusInternalServerError, fmt.Errorf("bad code: %s", err)
 	}
 
 	// We extract the rawID token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return "", "", http.StatusInternalServerError, fmt.Errorf("Bad ID")
+		return "", "", http.StatusInternalServerError, fmt.Errorf("bad ID")
 	}
 
 	if err := tokenCache.SetWithExpire(
@@ -163,7 +167,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 		},
 		time.Until(oauth2Token.Expiry.Add(3600*time.Second)),
 	); err != nil {
-		return "", "", http.StatusInternalServerError, fmt.Errorf("Failed to insert token in the cache: %s", err)
+		return "", "", http.StatusInternalServerError, fmt.Errorf("failed to insert token in the cache: %s", err)
 	}
 
 	return rawIDToken, originURL.(string), http.StatusTemporaryRedirect, nil
@@ -175,25 +179,28 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, bool, string, error) {
 
 	if len(token) == 0 {
-		return []string{}, true, token, fmt.Errorf("Invalid token presented")
+		return []string{}, true, token, fmt.Errorf("invalid token presented")
 	}
+
+	var tokenData *clientData
 
 	// If it is not found in the cache initiate a call back process.
 	data, err := tokenCache.Get(token)
-	if err != nil {
-		// No token in the cache. Force authorization.
-		return []string{}, true, token, fmt.Errorf("No cached data - request authorization")
-	}
+	if err == nil {
+		var ok bool
+		tokenData, ok = data.(*clientData)
+		if !ok {
+			return nil, true, token, fmt.Errorf("internal server error")
+		}
 
-	tokenData, ok := data.(*clientData)
-	if !ok {
-		return nil, true, token, fmt.Errorf("Internal server error")
-	}
-
-	// If the cached token hasn't expired yet, we can just accept it and not
-	// go through a whole verification process. Nothing new.
-	if tokenData.expiry.After(time.Now()) && len(tokenData.attributes) > 0 {
-		return tokenData.attributes, false, token, nil
+		// If the cached token hasn't expired yet, we can just accept it and not
+		// go through a whole verification process. Nothing new.
+		if tokenData.expiry.After(time.Now()) && len(tokenData.attributes) > 0 {
+			return tokenData.attributes, false, token, nil
+		}
+	} else { // No token in the cache. Let's try to see if it is valid and we can cache it now.
+		//
+		tokenData = &clientData{}
 	}
 
 	// The token has expired. Let's try to refresh it.
@@ -204,19 +211,24 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	// it now. This is possible if the token was created earlier
 	// but we never had a chance to verify it. In this case, the
 	// attributes were empty.
-	idToken, err := v.oauthVerifier.Verify(ctx, token)
+	idToken, err := v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
 	if err != nil {
+		var ok bool
 		// Token is expired. Let's try to refresh it if we have something
-		// in the cache.'
+		// in the cache. If we don't have a refresh token, we reject it
+		// and ask the client to validate again.
+		if tokenData.tokenSource == nil {
+			return []string{}, true, token, fmt.Errorf("no cached data and expired token - request authorization: %s", err)
+		}
 		refreshedToken, err := tokenData.tokenSource.Token()
 		if err != nil {
-			return []string{}, true, token, fmt.Errorf("Token validation failed and cannot refresh: %s", err)
+			return []string{}, true, token, fmt.Errorf("token validation failed and cannot refresh: %s", err)
 		}
 		token, ok = refreshedToken.Extra("id_token").(string)
 		if !ok {
-			return []string{}, true, token, fmt.Errorf("Failed to find id_token - initiate re-authorization")
+			return []string{}, true, token, fmt.Errorf("failed to find id_token - initiate re-authorization")
 		}
-		idToken, err = v.oauthVerifier.Verify(ctx, token)
+		idToken, err = v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
 		if err != nil {
 			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required: %s", err)
 		}
@@ -228,7 +240,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		IDTokenClaims map[string]interface{} // ID Token payload is just JSON.
 	}{map[string]interface{}{}}
 	if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
-		return []string{}, true, token, fmt.Errorf("Unable to process claims: %s", err)
+		return []string{}, true, token, fmt.Errorf("unable to process claims: %s", err)
 	}
 
 	// Flatten the claims in a generic format.
@@ -243,7 +255,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	// Cache the token and attributes to avoid multiple validations and update the
 	// expiration time.
 	if err := tokenCache.SetWithExpire(token, tokenData, time.Until(idToken.Expiry.Add(3600*time.Second))); err != nil {
-		return []string{}, false, token, fmt.Errorf("Cannot cache token")
+		return []string{}, false, token, fmt.Errorf("cannot cache token: %s", err)
 	}
 
 	return attributes, false, token, nil
@@ -262,4 +274,46 @@ func randomSha1(nonceSourceSize int) (string, error) {
 	}
 	sha := sha1.Sum(nonceSource)
 	return base64.StdEncoding.EncodeToString(sha[:]), nil
+}
+
+func dialContextPolicyBypass(ctx context.Context) context.Context {
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				ipAddr, err := resolveDNSMarked(ctx, addr)
+				if err != nil {
+					return nil, err
+				}
+				return markedconn.DialMarkedWithContext(ctx, network, ipAddr, int(constants.DefaultConnMark))
+			},
+		},
+	}
+
+	return context.WithValue(ctx, oauth2.HTTPClient, client)
+}
+
+func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
+	r := net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			return markedconn.DialMarkedWithContext(ctx, "udp", address, int(constants.DefaultConnMark))
+		},
+	}
+
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("invalid address: %s", addr)
+	}
+
+	addresses, err := r.LookupHost(ctx, host)
+	if err != nil {
+		return "", fmt.Errorf("unable to resolve address %s: %s", addr, err)
+	}
+
+	if len(addresses) == 0 {
+		return "", fmt.Errorf("unable to resolve to a valid address for address %s", addr)
+	}
+
+	return addresses[0] + ":" + port, nil
 }
