@@ -23,6 +23,16 @@ const (
 	initialCount = "99"
 )
 
+type rulesInfo struct {
+	RejectObserveApply    [][]string
+	RejectNotObserved     [][]string
+	RejectObserveContinue [][]string
+
+	AcceptObserveApply    [][]string
+	AcceptNotObserved     [][]string
+	AcceptObserveContinue [][]string
+}
+
 func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string) [][]string {
 
@@ -149,7 +159,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
+func (i *Instance) trapRules(contextID, appChain string, netChain string, isHostPU bool) [][]string {
 
 	aclInfo := ACLInfo{
 		MangleTable:        i.appPacketIPTableContext,
@@ -162,8 +172,10 @@ func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) []
 		TargetNetSet:       targetNetworkSet,
 		Numpackets:         numPackets,
 		InitialCount:       initialCount,
+		NFLOGPrefix:        policy.DefaultLogPrefix(contextID),
 	}
 
+	zap.L().Info("appchain netchain", zap.String("appchain", appChain), zap.String("netchain", netChain))
 	tmpl := template.Must(template.New(trapRules).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
 			return i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel
@@ -303,13 +315,13 @@ func (i *Instance) addChainRules(contextID string, portSetName string, appChain 
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, isHostPU bool) error {
+func (i *Instance) addPacketTrap(contextID, appChain string, netChain string, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
+	return i.processRulesFromList(i.trapRules(contextID, appChain, netChain, isHostPU), "Append")
 
 }
 
-func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) error {
+func (i *Instance) GetRules(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) [][]string {
 	iptRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
@@ -368,33 +380,15 @@ func (i *Instance) programRule(contextID string, rule *aclIPset, insertOrder *in
 		for i, rule := range iptRules {
 			iptRules[i] = append(rule[:2], rule[3:]...)
 		}
-		return i.processRulesFromList(iptRules, order)
+		return iptRules
 	}
-
-	return i.processRulesFromList(iptRules, order)
+	return iptRules
 }
 
-type rulePred func(policy *policy.FlowPolicy) bool
+func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) error {
 
-func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) error {
 	insertOrder := int(1)
 	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if proto == constants.TCPProtoNum &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, chain, "10", constants.TCPProtoNum, "dst", "Insert"); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	}
 
 	testObserveContinue := func(p *policy.FlowPolicy) bool {
 		return p.ObserveAction.ObserveContinue()
@@ -416,54 +410,125 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules []aclIPset) erro
 		return (p.Action&policy.Accept != 0)
 	}
 
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
+	for _, rule := range rules {
 
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
+		for _, proto := range rule.protocols {
 
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
+			appACLS := i.GetRules(contextID, &rule, intP, appChain, "10", proto, "dst", "Append")
 
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
+			if testReject(rule.policy) && testObserveApply(rule.policy) {
+				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
+					appACLS...)
 
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+			}
 
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
+			if testReject(rule.policy) && testNotObserved(rule.policy) {
+				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved,
+					appACLS...)
+
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+
+			}
+
+			if testReject(rule.policy) && testObserveContinue(rule.policy) {
+				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue,
+					appACLS...)
+
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+			}
+
+			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
+				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue,
+					appACLS...)
+
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+			}
+
+			if testAccept(rule.policy) && testNotObserved(rule.policy) {
+				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved,
+					appACLS...)
+
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+			}
+
+			if testAccept(rule.policy) && testObserveApply(rule.policy) {
+				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply,
+					appACLS...)
+
+				if (rule.policy.Action&policy.Accept) != 0 && (proto == constants.UDPProtoNum) {
+					// Add a corresponding rule at the top of netChain.
+					rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, []string{
+						i.appPacketIPTableContext, netChain,
+						"-p", proto,
+						"-m", "set", "--match-set", rule.ipset, "src",
+						"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+						"-m", "state", "--state", "ESTABLISHED",
+						"-j", "ACCEPT",
+					})
+				}
+			}
+		}
 	}
 
 	return nil
 }
 
-func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset) error {
+func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) error {
 
 	insertOrder := int(1)
 	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if proto != constants.TCPProtoNum &&
-					proto != constants.UDPProtoNum &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", proto, "dst", "Append"); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	}
+	var acceptRules []string
 
 	testObserveContinue := func(p *policy.FlowPolicy) bool {
 		return p.ObserveAction.ObserveContinue()
@@ -485,108 +550,229 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules []aclIPset)
 		return (p.Action&policy.Accept != 0)
 	}
 
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
+	zap.L().Info("Net ACL rules got:", zap.Reflect("netACLS", rules))
+	for _, rule := range rules {
 
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
+		for _, proto := range rule.protocols {
 
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
+			netACLS := i.GetRules(contextID, &rule, intP, netChain, "11", proto, "src", "Append")
 
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
+			if testReject(rule.policy) && testObserveApply(rule.policy) {
 
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
+				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
+					netACLS...)
 
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
-	}
+				if (rule.policy.Action & policy.Accept) != 0 {
 
-	return nil
-}
-
-func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []aclIPset) error {
-	insertOrder := int(1)
-	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if (proto == constants.UDPProtoNum) &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, appChain, "10", constants.UDPProtoNum, "dst", "Insert"); err != nil {
-						return err
-					}
-
-					if (rule.policy.Action & policy.Accept) != 0 {
-						// Add a corresponding rule on the top of the network chain.
-						if err := i.ipt.Insert(
-							i.netPacketIPTableContext, netChain, 1,
-							"-p", udpProto,
-							"-m", "set", "--match-set", rule.ipset, "src",
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
 							"-m", "state", "--state", "ESTABLISHED",
 							"-j", "ACCEPT",
-						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
 					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// Add a corresponding rule at the top of appChain for traffic in other direction.
+					rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
+						acceptRules)
 				}
 			}
+
+			if testReject(rule.policy) && testNotObserved(rule.policy) {
+				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved,
+					netACLS...)
+
+				if (rule.policy.Action & policy.Accept) != 0 {
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+					// Add a corresponding rule at the top of appChain.
+					rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved,
+						acceptRules)
+
+				}
+			}
+
+			if testReject(rule.policy) && testObserveContinue(rule.policy) {
+				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue,
+					netACLS...)
+
+				if (rule.policy.Action & policy.Accept) != 0 {
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+					// Add a corresponding rule at the top of appChain.
+					rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue,
+						acceptRules)
+
+				}
+
+			}
+
+			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
+
+				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue,
+					netACLS...)
+
+				if (rule.policy.Action & policy.Accept) != 0 {
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+					// Add a corresponding rule at the top of appChain.
+					rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue,
+						acceptRules)
+
+				}
+			}
+
+			if testAccept(rule.policy) && testNotObserved(rule.policy) {
+				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved,
+					netACLS...)
+
+				if (rule.policy.Action & policy.Accept) != 0 {
+
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+					// Add a corresponding rule at the top of appChain.
+					rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved,
+						acceptRules)
+
+				}
+			}
+
+			if testAccept(rule.policy) && testObserveApply(rule.policy) {
+				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply,
+					netACLS...)
+
+				if (rule.policy.Action & policy.Accept) != 0 {
+					if proto == constants.TCPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+
+					// not targetNetSet match for udp.
+					if proto == constants.UDPProtoNum {
+						acceptRules = []string{
+							i.appPacketIPTableContext, appChain,
+							"-p", proto,
+							"-m", "set", "--match-set", rule.ipset, "dst",
+							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
+							"-m", "state", "--state", "ESTABLISHED",
+							"-j", "ACCEPT",
+						}
+					}
+					// Add a corresponding rule at the top of appChain.
+					rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply,
+						acceptRules)
+
+				}
+			}
+
 		}
-		return nil
-	}
-
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
-	}
-
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
-	}
-
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
 	}
 
 	return nil
@@ -596,277 +782,34 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules []a
 // by an application. The allow rules are inserted with highest priority.
 func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclIPset) error {
 
-	if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
-		return fmt.Errorf("Unable to add tcp app acls: %s", err)
+	rulesBucket := &rulesInfo{
+		RejectObserveApply:    [][]string{},
+		RejectNotObserved:     [][]string{},
+		RejectObserveContinue: [][]string{},
+
+		AcceptObserveApply:    [][]string{},
+		AcceptNotObserved:     [][]string{},
+		AcceptObserveContinue: [][]string{},
 	}
 
-	if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add udp app acls: %s", err)
+	if err := i.addAllAppACLS(contextID, appChain, netChain, rules, rulesBucket); err != nil {
+		return fmt.Errorf("Unable to add app acls: %s", err)
 	}
 
-	if err := i.addOtherAppACLs(contextID, appChain, rules); err != nil {
-		return fmt.Errorf("Unable to add other app acls: %s", err)
+	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
+		"joinRule": func(rule []string) string {
+			zap.L().Info("rules is", zap.Strings("rule", rule))
+			return strings.Join(rule, " ")
+		},
+	}).Parse(acls))
+
+	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
-	if err := i.ipt.Append(
-		i.appPacketIPTableContext, appChain,
-		"-d", "0.0.0.0/0",
-		"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
-		"-j", "ACCEPT"); err != nil {
-
-		return fmt.Errorf("unable to add default tcp acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
-	}
-
-	// Log everything else
-	if err := i.ipt.Append(
-		i.appPacketIPTableContext,
-		appChain,
-		"-d", "0.0.0.0/0",
-		"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", "10",
-		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
-	); err != nil {
-		return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-	}
-
-	// Drop everything else
-	if err := i.ipt.Append(
-		i.appPacketIPTableContext, appChain,
-		"-d", "0.0.0.0/0",
-		"-j", "DROP"); err != nil {
-
-		return fmt.Errorf("unable to add default drop acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-	}
-
-	return nil
-}
-
-// addTCPNetACLS adds iptables rules that manage traffic from external services for TCP.
-func (i *Instance) addTCPNetACLS(contextID, appChain, netChain string, rules []aclIPset) error {
-	insertOrder := int(1)
-	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if proto == constants.TCPProtoNum &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", constants.TCPProtoNum, "src", "Insert"); err != nil {
-						return err
-					}
-
-					if (rule.policy.Action & policy.Accept) != 0 {
-						// Add a corresponding rule at the top of appChain.
-						if err := i.ipt.Insert(
-							i.appPacketIPTableContext, appChain, 1,
-							"-p", tcpProto,
-							"-m", "set", "--match-set", rule.ipset, "dst",
-							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
-							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
-							"-m", "state", "--state", "ESTABLISHED",
-							"-j", "ACCEPT",
-						); err != nil {
-							return fmt.Errorf("unable to add net acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-
-				}
-			}
-		}
-		return nil
-	}
-
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
-	}
-
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
-	}
-
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules []aclIPset) error {
-	insertOrder := int(1)
-	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if proto == constants.UDPProtoNum &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", constants.UDPProtoNum, "src", "Insert"); err != nil {
-						return err
-					}
-
-					if (rule.policy.Action & policy.Accept) != 0 {
-						// Add a corresponding rule at the top of appChain.
-						if err := i.ipt.Insert(
-							i.appPacketIPTableContext, appChain, 1,
-							"-p", udpProto,
-							"-m", "set", "--match-set", rule.ipset, "src",
-							"--match", "multiport", "--sports", strings.Join(rule.ports, ","),
-							"-m", "state", "--state", "ESTABLISHED",
-							"-j", "ACCEPT",
-						); err != nil {
-							return fmt.Errorf("unable to add net acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-				}
-			}
-		}
-		return nil
-	}
-
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
-	}
-
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
-	}
-
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset) error {
-	insertOrder := int(1)
-	intP := &insertOrder
-
-	programACLs := func(actionPredicate rulePred, observePredicate rulePred) error {
-		for _, rule := range rules {
-			for _, proto := range rule.protocols {
-				if proto != constants.TCPProtoNum &&
-					proto != constants.UDPProtoNum &&
-					actionPredicate(rule.policy) &&
-					observePredicate(rule.policy) {
-					if err := i.programRule(contextID, &rule, intP, netChain, "11", proto, "src", "Append"); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	}
-
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
-	}
-
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
-	}
-
-	if err := programACLs(testReject, testObserveApply); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testReject, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveContinue); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testNotObserved); err != nil {
-		return err
-	}
-
-	if err := programACLs(testAccept, testObserveApply); err != nil {
-		return err
+	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
+		return fmt.Errorf("unable to install appACL rules:%s", err)
 	}
 
 	return nil
@@ -876,50 +819,34 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules []aclIPset)
 // explicit rules are added with the highest priority since they are direct allows.
 func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclIPset) error {
 
-	{
-		if err := i.addTCPNetACLS(contextID, appChain, netChain, rules); err != nil {
-			return fmt.Errorf("Unable to add tcp net acls: %s", err)
-		}
+	rulesBucket := &rulesInfo{
+		RejectObserveApply:    [][]string{},
+		RejectNotObserved:     [][]string{},
+		RejectObserveContinue: [][]string{},
 
-		// Accept established connections
-		if err := i.ipt.Append(
-			i.netPacketIPTableContext, netChain,
-			"-s", "0.0.0.0/0",
-			"-p", tcpProto, "-m", "state", "--state", "ESTABLISHED",
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-		}
+		AcceptObserveApply:    [][]string{},
+		AcceptNotObserved:     [][]string{},
+		AcceptObserveContinue: [][]string{},
 	}
 
-	if err := i.addUDPNetACLS(contextID, appChain, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add udp net acls: %s", err)
+	if err := i.addAllNetACLS(contextID, appChain, netChain, rules, rulesBucket); err != nil {
+		return fmt.Errorf("Unable to add net acls: %s", err)
 	}
 
-	if err := i.addOtherNetACLS(contextID, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add other net acls: %s", err)
+	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
+		"joinRule": func(rule []string) string {
+			zap.L().Info("rules is", zap.Strings("rule", rule))
+			return strings.Join(rule, " ")
+		},
+	}).Parse(acls))
+
+	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
-	// Log everything
-	if err := i.ipt.Append(
-		i.netPacketIPTableContext,
-		netChain,
-		"-s", "0.0.0.0/0",
-		"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", "11",
-		"--nflog-prefix", policy.DefaultLogPrefix(contextID),
-	); err != nil {
-		return fmt.Errorf("unable to add net log rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-	}
-
-	// Drop everything else
-	if err := i.ipt.Append(
-		i.netPacketIPTableContext, netChain,
-		"-s", "0.0.0.0/0",
-		"-j", "DROP",
-	); err != nil {
-
-		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
+		return fmt.Errorf("unable to install appACL rules:%s", err)
 	}
 
 	return nil
@@ -1044,7 +971,7 @@ func (i *Instance) setGlobalRules() error {
 		return fmt.Errorf("unable to install global rules:%s", err)
 	}
 
-	// iptables nat rule. can also be shifted.
+	// nat rules cannot be templated, since they interfere with Docker.
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-p", "tcp",
@@ -1120,7 +1047,6 @@ func (i *Instance) removeNatRules() error {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
 
-	zap.L().Info("Deleting nat rules", zap.Reflect("rules", rules))
 	i.processRulesFromList(rules, "Delete") // nolint
 	return nil
 }
@@ -1228,116 +1154,79 @@ func (i *Instance) cleanACLSection(context, chainPrefix string) {
 // addExclusionACLs adds the set of IP addresses that must be excluded
 func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []string) error {
 
-	for _, e := range exclusions {
-
-		if err := i.ipt.Insert(
-			i.appPacketIPTableContext, appChain, 1,
-			"-d", e,
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.appPacketIPTableContext, appChain, e, err)
-		}
-
-		if err := i.ipt.Insert(
-			i.netPacketIPTableContext, netChain, 1,
-			"-s", e,
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.netPacketIPTableContext, netChain, e, err)
-		}
+	aclInfo := ACLInfo{
+		MangleTable: i.appPacketIPTableContext,
+		AppChain:    appChain,
+		NetChain:    netChain,
+		Exclusions:  exclusions,
 	}
 
-	return nil
+	tmpl := template.Must(template.New(excludedACLs).Parse(excludedACLs))
+
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	if err != nil {
+		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
+	}
+
+	return i.processRulesFromList(rules, "Append")
+
 }
 
 func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 	destSetName, srvSetName := i.getSetNames(setName)
-	for _, e := range exclusions {
 
-		if err := i.ipt.Insert(
-			i.appProxyIPTableContext, natProxyInputChain, 1,
-			"-p", tcpProto,
-			"-m", "set",
-			"-s", e,
-			"--match-set", srvSetName, "dst",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s", i.appProxyIPTableContext, natProxyInputChain)
-		}
-
-		if cgroupMark == "" {
-			if err := i.ipt.Insert(
-				i.appProxyIPTableContext, natProxyOutputChain, 1,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-s", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
-			}
-		} else {
-			if err := i.ipt.Insert(
-				i.appProxyIPTableContext, natProxyOutputChain, 1,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "cgroup", "--cgroup", cgroupMark,
-				"-s", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s", i.appProxyIPTableContext, natProxyOutputChain)
-			}
-		}
+	aclInfo := ACLInfo{
+		NatTable:   i.appProxyIPTableContext,
+		NetChain:   natProxyInputChain,
+		AppChain:   natProxyOutputChain,
+		Exclusions: exclusions,
+		DestIPSet:  destSetName,
+		SrvIPSet:   srvSetName,
+		CgroupMark: cgroupMark,
+		ProxyMark:  proxyMark,
 	}
 
-	return nil
+	tmpl := template.Must(template.New(excludedNatACLs).Funcs(template.FuncMap{
+		"isCgroupSet": func() bool {
+			return cgroupMark != ""
+		},
+	}).Parse(excludedNatACLs))
+
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	if err != nil {
+		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
+	}
+
+	return i.processRulesFromList(rules, "Append")
+
 }
 
-// addExclusionACLs adds the set of IP addresses that must be excluded
+// deleteExclusionACLs adds the set of IP addresses that must be excluded
 func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
 
 	destSetName, srvSetName := i.getSetNames(setName)
-	for _, e := range exclusions {
-		if err := i.ipt.Delete(
-			i.appProxyIPTableContext, natProxyInputChain,
-			"-p", tcpProto,
-			"-m", "set",
-			"-s", e,
-			"--match-set", srvSetName, "dst",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-j", "ACCEPT",
-		); err != nil {
-			return fmt.Errorf("unable to add exclusion NAT ACL for table %s chain %s: %s", i.appProxyIPTableContext, natProxyInputChain, err)
-		}
-		if cgroupMark == "" {
-			if err := i.ipt.Delete(
-				i.appProxyIPTableContext, natProxyOutputChain,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-s", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
-			}
-		} else {
-			if err := i.ipt.Delete(
-				i.appProxyIPTableContext, natProxyOutputChain,
-				"-p", tcpProto,
-				"-m", "set", "--match-set", destSetName, "dst,dst",
-				"-m", "mark", "!", "--mark", proxyMark,
-				"-m", "cgroup", "--cgroup", cgroupMark,
-				"-s", e,
-				"-j", "ACCEPT",
-			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)
-			}
-		}
+
+	aclInfo := ACLInfo{
+		NatTable:   i.appProxyIPTableContext,
+		NetChain:   natProxyInputChain,
+		AppChain:   natProxyOutputChain,
+		Exclusions: exclusions,
+		DestIPSet:  destSetName,
+		SrvIPSet:   srvSetName,
+		CgroupMark: cgroupMark,
+		ProxyMark:  proxyMark,
 	}
 
-	return nil
+	tmpl := template.Must(template.New(excludedNatACLs).Funcs(template.FuncMap{
+		"isCgroupSet": func() bool {
+			return cgroupMark != ""
+		},
+	}).Parse(excludedNatACLs))
+
+	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	if err != nil {
+		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
+	}
+
+	return i.processRulesFromList(rules, "Delete")
 }

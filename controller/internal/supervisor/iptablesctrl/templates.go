@@ -16,7 +16,7 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 
 	rules := [][]string{}
 	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Split(m, " ")
+		rule := strings.Fields(m)
 		// ignore empty lines in the buffer
 		if len(rule) <= 1 {
 			continue
@@ -90,4 +90,7 @@ type ACLInfo struct {
 	PortSet string
 
 	NFLOGPrefix string
+
+	// ExcludedACLS
+	Exclusions []string
 }

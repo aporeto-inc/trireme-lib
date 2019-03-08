@@ -81,6 +81,51 @@ var uidPuRules = `
 
 {{.MangleTable}} UIDInput -p tcp -m mark --mark {{.Mark}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
 
+var excludedACLs = `
+{{$root := .}}
+{{range .Exclusions}}
+{{$root.MangleTable}} {{$root.AppChain}} -d {{.}} -j ACCEPT
+{{$root.MangleTable}} {{$root.NetChain}} -s {{.}} -j ACCEPT
+{{end}}
+`
+var excludedNatACLs = `
+{{$root := .}}
+{{range .Exclusions}}
+	{{$root.NatTable}} {{$root.NetChain}} -p tcp -m set --match-set {{$root.SrvIPSet}} dst -m mark ! --mark {{$root.ProxyMark}} -s {{.}} -j ACCEPT
+		{{if isCgroupSet}}
+			{{$root.NatTable}} {{$root.AppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -m cgroup --cgroup {{$root.CgroupMark}} -d {{.}} -j ACCEPT
+		{{else}}
+			{{$root.NatTable}} {{$root.AppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -d {{.}} -j ACCEPT
+		{{end}}
+{{end}}
+`
+
+var acls = `
+{{range .RejectObserveApply}}
+{{joinRule .}}
+{{end}}
+
+{{range .RejectNotObserved}}
+{{joinRule .}}
+{{end}}
+
+{{range .RejectObserveContinue}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptObserveContinue}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptNotObserved}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptObserveApply}}
+{{joinRule .}}
+{{end}}
+`
+
 var trapRules = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
@@ -90,7 +135,8 @@ var trapRules = `
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set TargetNetSet dst -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -j ACCEPT
-
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
 
 {{if needDnsRules}}
 {{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
@@ -99,6 +145,8 @@ var trapRules = `
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set TargetNetSet src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p udp -m set --match-set TargetNetSet src -m statistic --mode nth --every {{.Numpackets}} --packet {{.InitialCount}} -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -j ACCEPT
+{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
 `
 
 var proxyChainRules = `

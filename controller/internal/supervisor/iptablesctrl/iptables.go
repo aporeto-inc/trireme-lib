@@ -719,7 +719,15 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addPacketTrap(appChain, netChain, isHostPU); err != nil {
+	if err := i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks()); err != nil {
+		return err
+	}
+
+	if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+		return err
+	}
+
+	if err := i.addNetACLs(contextID, appChain, netChain, netACLIPset); err != nil {
 		return err
 	}
 
@@ -727,7 +735,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, appChain, netChain, netACLIPset); err != nil {
+	if err := i.addPacketTrap(contextID, appChain, netChain, isHostPU); err != nil {
 		return err
 	}
 
@@ -738,12 +746,8 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 			return err
 		}
 
-	} else {
-		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
-			return err
-		}
 	}
-	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
+	return nil
 }
 
 // puPortSetName returns the name of the pu portset.
