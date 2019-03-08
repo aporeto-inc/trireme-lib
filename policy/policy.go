@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -491,12 +492,16 @@ type PUPolicyPublic struct {
 }
 
 // ToPrivatePolicy converts the object to a private object.
-func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
+func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
+	var err error
 
 	exposedServices := ApplicationServicesList{}
 	for _, e := range p.ExposedServices {
 		if convert {
-			e.UserAuthorizationHandler = usertokens.NewVerifier(e.UserAuthorizationHandler)
+			e.UserAuthorizationHandler, err = usertokens.NewVerifier(e.UserAuthorizationHandler)
+			if err != nil {
+				return nil, fmt.Errorf("unable to initialize user authorization handler for service: %s - error %s", e.ID, err)
+			}
 		}
 		exposedServices = append(exposedServices, e)
 	}
@@ -522,5 +527,5 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 		servicesCA:            p.ServicesCA,
 		servicesCertificate:   p.ServicesCertificate,
 		servicesPrivateKey:    p.ServicesPrivateKey,
-	}
+	}, nil
 }

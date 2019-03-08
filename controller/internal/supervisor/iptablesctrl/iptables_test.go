@@ -115,7 +115,6 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			err := i.ConfigureRules(1, "Context", containerinfo)
-
 			Convey("It should succeed", func() {
 				// This is erroring since ipset creation is not available to a unpriveleged user
 				So(err.Error(), ShouldContainSubstring, "Proxy")

@@ -19,6 +19,7 @@ const (
 	LinuxHost
 	UID
 	Kubernetes
+	SSH
 	Pod
 )
 

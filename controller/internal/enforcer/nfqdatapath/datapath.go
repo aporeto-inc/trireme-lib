@@ -142,7 +142,7 @@ func createPolicy(networks []string) policy.IPRuleList {
 	iprule := policy.IPRule{
 		Addresses: addresses,
 		Ports:     []string{"0:65535"},
-		Protocols: []string{"tcp"},
+		Protocols: []string{constants.TCPProtoNum},
 		Policy:    &f,
 	}
 
@@ -321,7 +321,9 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
+	if pu.Type() == common.LinuxProcessPU ||
+		pu.Type() == common.UIDLoginPU ||
+		pu.Type() == common.SSHSessionPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 

@@ -199,21 +199,21 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("context", "appchain", "netchain", "0", "0", "0", "1001", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "0", "0", "0", "100", "1001", "5000", "proxyPortSet", "")
 			So(err, ShouldBeNil)
 
 		})
 
 		Convey("When i add chain rules with non-zero uid and port 0 rules are added to the UID Chain", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == natProxyInputChain || chain == natProxyOutputChain || chain == proxyInputChain || chain == proxyOutputChain ||
-					chain == TriremeInput || chain == TriremeOutput {
+				if chain == "UIDCHAIN" || chain == "UIDInput" || chain == "OUTPUT" || chain == natProxyInputChain || chain == natProxyOutputChain || chain == proxyInputChain || chain == proxyOutputChain ||
+					chain == TriremeInput || chain == TriremeOutput || chain == ipTableSectionPreRouting {
 					return nil
 				}
 
 				return fmt.Errorf("added to different chain: %s", chain)
 			})
-			err := i.addChainRules("context", "appchain", "netchain", "80", "0", "0", "1001", "", "5000", "proxyPortSet", "")
+			err := i.addChainRules("context", "appchain", "netchain", "80", "0", "0", "100", "1001", "5000", "proxyPortSet", "")
 			So(err, ShouldBeNil)
 
 		})
@@ -916,14 +916,14 @@ func TestAddAppACLs(t *testing.T) {
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"80"},
-					Protocols: []string{"TCP"},
+					Protocols: []string{constants.TCPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
 				},
 
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"443"},
-					Protocols: []string{"UDP"},
+					Protocols: []string{constants.UDPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
 
@@ -1012,14 +1012,14 @@ func TestAddNetACLs(t *testing.T) {
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"80"},
-					Protocols: []string{"TCP"},
+					Protocols: []string{constants.TCPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: (policy.Reject | policy.Log)},
 				},
 
 				policy.IPRule{
 					Addresses: []string{"192.30.253.0/24"},
 					Ports:     []string{"443"},
-					Protocols: []string{"UDP"},
+					Protocols: []string{constants.UDPProtoNum},
 					Policy:    &policy.FlowPolicy{Action: policy.Accept},
 				},
 
