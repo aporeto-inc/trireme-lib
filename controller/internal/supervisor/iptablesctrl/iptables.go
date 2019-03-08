@@ -381,20 +381,21 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 // InitializeChains initializes the chains.
 func (i *Instance) InitializeChains() error {
 
-	// install rules for Local Server
-
 	aclInfo := ACLInfo{
-		MangleTable:      i.appPacketIPTableContext,
-		HostInput:        HostModeInput,
-		HostOutput:       HostModeOutput,
-		NetworkSvcInput:  NetworkSvcInput,
-		NetworkSvcOutput: NetworkSvcOutput,
-		TriremeInput:     TriremeInput,
-		TriremeOutput:    TriremeOutput,
-		ProxyInput:       proxyInputChain,
-		ProxyOutput:      proxyOutputChain,
-		UIDInput:         uidInput,
-		UIDOutput:        uidchain,
+		MangleTable:         i.appPacketIPTableContext,
+		NatTable:            i.appProxyIPTableContext,
+		HostInput:           HostModeInput,
+		HostOutput:          HostModeOutput,
+		NetworkSvcInput:     NetworkSvcInput,
+		NetworkSvcOutput:    NetworkSvcOutput,
+		TriremeInput:        TriremeInput,
+		TriremeOutput:       TriremeOutput,
+		UIDInput:            uidInput,
+		UIDOutput:           uidchain,
+		MangleProxyNetChain: proxyInputChain,
+		MangleProxyAppChain: proxyOutputChain,
+		NatProxyAppChain:    natProxyOutputChain,
+		NatProxyNetChain:    natProxyInputChain,
 	}
 
 	tmpl := template.Must(template.New(triremChains).Funcs(template.FuncMap{
@@ -415,15 +416,6 @@ func (i *Instance) InitializeChains() error {
 		if err := i.ipt.NewChain(rule[1], rule[3]); err != nil {
 			return err
 		}
-	}
-
-	// nat rules are not templated.
-	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
-		return err
-	}
-
-	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
-		return err
 	}
 
 	return nil
@@ -698,6 +690,20 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
+	// Install the nat ACLs as they need to be at the top
+	if i.isLegacyKernel {
+		// doesn't work for clients, as ports for the clients are not known
+		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
+		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+			return err
+		}
+
+	} else {
+		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+			return err
+		}
+	}
+
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(appChain, netChain); err != nil {
 		return err
@@ -719,14 +725,6 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks()); err != nil {
-		return err
-	}
-
-	if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
-		return err
-	}
-
 	if err := i.addNetACLs(contextID, appChain, netChain, netACLIPset); err != nil {
 		return err
 	}
@@ -739,14 +737,6 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if i.isLegacyKernel {
-		// doesn't work for clients.
-		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
-			return err
-		}
-
-	}
 	return nil
 }
 

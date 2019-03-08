@@ -30,25 +30,21 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 type ACLInfo struct {
 
 	// Chains
-	MangleTable               string
-	NatTable                  string
-	HostInput                 string
-	HostOutput                string
-	NetworkSvcInput           string
-	NetworkSvcOutput          string
-	TriremeInput              string
-	TriremeOutput             string
-	EncryptNetworkService     string
-	EncryptApplicationService string
-	ProxyInput                string
-	ProxyOutput               string
-	UIDInput                  string
-	UIDOutput                 string
-	NatProxyNetChain          string
-	NatProxyAppChain          string
-	MangleProxyNetChain       string
-	MangleProxyAppChain       string
-	PreRouting                string
+	MangleTable         string
+	NatTable            string
+	HostInput           string
+	HostOutput          string
+	NetworkSvcInput     string
+	NetworkSvcOutput    string
+	TriremeInput        string
+	TriremeOutput       string
+	UIDInput            string
+	UIDOutput           string
+	NatProxyNetChain    string
+	NatProxyAppChain    string
+	MangleProxyNetChain string
+	MangleProxyAppChain string
+	PreRouting          string
 
 	AppChain   string
 	NetChain   string

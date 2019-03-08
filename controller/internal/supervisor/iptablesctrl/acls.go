@@ -50,10 +50,10 @@ func (i *Instance) puChainRules(contextID, appChain string, netChain string, mar
 	}
 
 	tmpl := template.Must(template.New(cgroupRules).Funcs(template.FuncMap{
-		"ifUDPPorts": func() bool {
+		"isUDPPorts": func() bool {
 			return udpPorts != "0"
 		},
-		"ifTCPPorts": func() bool {
+		"isTCPPorts": func() bool {
 			return tcpPorts != "0"
 		},
 		"isHostPU": func() bool {
@@ -83,7 +83,7 @@ func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string,
 		appSection, netSection)
 }
 
-func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) uidChainRules(tcpPorts, portSetName, appChain string, netChain string, mark string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
 	aclInfo := ACLInfo{
 		MangleTable: i.appPacketIPTableContext,
@@ -102,6 +102,9 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
+	if i.isLegacyKernel {
+		return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
+	}
 	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
 }
 
@@ -147,7 +150,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 	}
 
 	tmpl := template.Must(template.New(proxyChainRules).Funcs(template.FuncMap{
-		"ifCgroupSet": func() bool {
+		"isCgroupSet": func() bool {
 			return cgroupMark != ""
 		},
 	}).Parse(proxyChainRules))
@@ -176,7 +179,6 @@ func (i *Instance) trapRules(contextID, appChain string, netChain string, isHost
 		NFLOGPrefix:        policy.DefaultLogPrefix(contextID),
 	}
 
-	zap.L().Info("appchain netchain", zap.String("appchain", appChain), zap.String("netchain", netChain))
 	tmpl := template.Must(template.New(trapRules).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
 			return i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel
@@ -309,7 +311,7 @@ func (i *Instance) addChainRules(contextID string, portSetName string, appChain 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Append")
+		return i.processRulesFromList(i.uidChainRules(tcpPorts, portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Append")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
@@ -550,7 +552,6 @@ func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []a
 		return (p.Action&policy.Accept != 0)
 	}
 
-	zap.L().Info("Net ACL rules got:", zap.Reflect("netACLS", rules))
 	for _, rule := range rules {
 
 		for _, proto := range rule.protocols {
@@ -881,7 +882,7 @@ func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, 
 			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Delete")
+		return i.processRulesFromList(i.uidChainRules(tcpPorts, portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
 	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")
@@ -930,16 +931,19 @@ func (i *Instance) setGlobalRules() error {
 
 	aclInfo := ACLInfo{
 		MangleTable:           i.appPacketIPTableContext,
+		NatTable:              i.appProxyIPTableContext,
 		HostInput:             HostModeInput,
 		HostOutput:            HostModeOutput,
 		NetworkSvcInput:       NetworkSvcInput,
 		NetworkSvcOutput:      NetworkSvcOutput,
 		TriremeInput:          TriremeInput,
 		TriremeOutput:         TriremeOutput,
-		ProxyInput:            proxyInputChain,
-		ProxyOutput:           proxyOutputChain,
 		UIDInput:              uidInput,
 		UIDOutput:             uidchain,
+		MangleProxyAppChain:   proxyOutputChain,
+		MangleProxyNetChain:   proxyInputChain,
+		NatProxyAppChain:      natProxyOutputChain,
+		NatProxyNetChain:      natProxyInputChain,
 		UDPSignature:          packet.UDPAuthMarker,
 		DefaultConnmark:       strconv.Itoa(int(constants.DefaultConnMark)),
 		QueueBalanceNetSyn:    i.fqc.GetNetworkQueueSynStr(),
@@ -949,6 +953,7 @@ func (i *Instance) setGlobalRules() error {
 		TargetNetSet:          targetNetworkSet,
 		InitialMarkVal:        strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		ProxyMark:             proxyMark,
 	}
 
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
@@ -979,42 +984,6 @@ func (i *Instance) setGlobalRules() error {
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionOutput, 1,
 		"-j", natProxyOutputChain)
-	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
-	}
-
-	err = i.ipt.Insert(i.appProxyIPTableContext,
-		natProxyInputChain, 1,
-		"-m", "mark",
-		"--mark", proxyMark,
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
-	}
-
-	err = i.ipt.Insert(i.appProxyIPTableContext,
-		natProxyOutputChain, 1,
-		"-m", "mark",
-		"--mark", proxyMark,
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
-	}
-
-	err = i.ipt.Insert(i.netPacketIPTableContext,
-		proxyInputChain, 1,
-		"-m", "mark",
-		"--mark", proxyMark,
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
-	}
-
-	err = i.ipt.Insert(i.netPacketIPTableContext,
-		proxyOutputChain, 1,
-		"-m", "mark",
-		"--mark", proxyMark,
-		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
@@ -1126,7 +1095,6 @@ func (i *Instance) cleanACLSection(context, chainPrefix string) {
 	for _, rule := range rules {
 
 		if strings.Contains(rule, chainPrefix) {
-			zap.L().Info("clearing chains as of", zap.String("rule", rule))
 			if err := i.ipt.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
 					zap.String("context", context),
