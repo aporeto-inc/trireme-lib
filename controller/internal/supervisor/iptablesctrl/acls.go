@@ -528,7 +528,6 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyVIPS
 			"--to-port", proxyPort,
 		})
 	}
-
 	return proxyrules
 }
 
@@ -2403,7 +2402,7 @@ func (i *Instance) deleteLegacyNATExclusionACLs(contextID, cgroupMark string, ex
 				"-m", "mark", "!", "--mark", proxyMark,
 				"-m", "multiport",
 				"--source-ports", tcpPorts,
-				"-s", e,
+				"-d", e,
 				"-j", "ACCEPT",
 			); err != nil {
 				return fmt.Errorf("unable to add exclusion rule for table %s , chain %s: %s", i.appProxyIPTableContext, natProxyOutputChain, err)

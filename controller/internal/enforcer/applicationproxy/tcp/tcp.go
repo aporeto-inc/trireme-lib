@@ -278,7 +278,7 @@ func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Co
 		Port: port,
 	}
 
-	return markedconn.DialMarkedTCPWithContext(ctx, "tcp4", raddr, proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), proxyMarkInt)
 
 }
 

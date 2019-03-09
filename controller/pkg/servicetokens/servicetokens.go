@@ -21,9 +21,9 @@ var (
 // JWTClaims is the structure of the claims we are sending on the wire.
 type JWTClaims struct {
 	jwt.StandardClaims
-	SourceID string
-	Scopes   []string
-	Profile  []string
+	Scopes  []string
+	Profile []string
+	Data    map[string]string
 }
 
 // Verifier keeps all the structures for processing tokens.
@@ -46,7 +46,7 @@ func NewVerifier(s secrets.Secrets, globalCertificate *x509.Certificate) *Verifi
 }
 
 // ParseToken parses and validates the JWT token, give the publicKey. It returns the scopes
-// the identity and the sourceID of the provided token. These tokens are strictly
+// the identity and the subject of the provided token. These tokens are strictly
 // signed with EC.
 // TODO: We can be more flexible with the algorithm selection here.
 func (p *Verifier) ParseToken(token string, publicKey string) (string, []string, []string, error) {
@@ -55,7 +55,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 
 	if data, _ := p.tokenCache.Get(token); data != nil {
 		claims := data.(*JWTClaims)
-		return claims.SourceID, claims.Scopes, claims.Profile, nil
+		return claims.Subject, claims.Scopes, claims.Profile, nil
 	}
 
 	// if a public key is transmitted in the wire, we need to verify its validity and use it.
@@ -97,7 +97,11 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	if err := p.tokenCache.Set(token, claims); err != nil {
 		zap.L().Error("Failed to cache token", zap.Error(err))
 	}
-	return claims.SourceID, claims.Scopes, claims.Profile, nil
+
+	for k, v := range claims.Data {
+		claims.Scopes = append(claims.Scopes, "data:"+k+"="+v)
+	}
+	return claims.Subject, claims.Scopes, claims.Profile, nil
 }
 
 // UpdateSecrets updates the secrets of the token Verifier.
@@ -122,10 +126,10 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    server,
 			ExpiresAt: time.Now().Add(validity).Unix(),
+			Subject:   id,
 		},
-		Profile:  profile,
-		Scopes:   scopes,
-		SourceID: id,
+		Profile: profile,
+		Scopes:  scopes,
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)

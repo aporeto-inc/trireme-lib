@@ -2,6 +2,7 @@ package usertokens
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
@@ -22,26 +23,25 @@ type Verifier interface {
 
 // NewVerifier initializes data structures based on the interface that
 // is transmitted over the RPC between main and remote enforcers.
-func NewVerifier(v Verifier) Verifier {
+func NewVerifier(v Verifier) (Verifier, error) {
 	if v == nil {
-		return nil
+		return nil, nil
 	}
 	switch v.VerifierType() {
 	case common.PKI:
 		p := v.(*pkitokens.PKIJWTVerifier)
 		v, err := pkitokens.NewVerifier(p)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return v
+		return v, nil
 	case common.OIDC:
 		p := v.(*oidc.TokenVerifier)
 		verifier, err := oidc.NewClient(context.Background(), p)
-		// TODO figure out error handling
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return verifier
+		return verifier, nil
 	}
-	return nil
+	return nil, fmt.Errorf("uknown verifier type")
 }
