@@ -72,6 +72,10 @@ type ApplicationService struct {
 	// Tags are the tags of the service.
 	Tags *TagStore
 
+	// FallbackJWTAuthorizationCert is the certificate that has been used to sign
+	// JWTs if they are not signed by the datapath
+	FallbackJWTAuthorizationCert string
+
 	// UserAuthorizationType is the type of user authorization that must be used.
 	UserAuthorizationType UserAuthorizationTypeValues
 

@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 
+	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
@@ -294,6 +295,15 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 
 func (r *Registry) createOrUpdateAuthProcessor(sctx *ServiceContext, service *policy.ApplicationService, secrets secrets.Secrets) (*auth.Processor, error) {
 
+	var cert *x509.Certificate
+	if len(service.FallbackJWTAuthorizationCert) > 0 {
+		var err error
+		cert, err = tglib.ParseCertificate([]byte(service.FallbackJWTAuthorizationCert))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	portContext, _ := r.indexByPort.FindListeningServicesForPU(sctx.PU.ContextID)
 	var authProcessor *auth.Processor
 	if portContext != nil {
@@ -302,9 +312,9 @@ func (r *Registry) createOrUpdateAuthProcessor(sctx *ServiceContext, service *po
 			return nil, fmt.Errorf("Internal error - unusable data structure")
 		}
 		authProcessor = existingPortCtx.Authorizer
-		authProcessor.UpdateSecrets(secrets, nil)
+		authProcessor.UpdateSecrets(secrets, cert)
 	} else {
-		authProcessor = auth.NewProcessor(secrets, nil)
+		authProcessor = auth.NewProcessor(secrets, cert)
 	}
 
 	authProcessor.AddOrUpdateService(

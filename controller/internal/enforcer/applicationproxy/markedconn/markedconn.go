@@ -18,9 +18,9 @@ const (
 	sockOptOriginalDst = 80
 )
 
-// DialMarkedTCPWithContext will dial a TCP connection to the provide address and mark the socket
+// DialMarkedWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.
-func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCPAddr, mark int) (net.Conn, error) {
+func DialMarkedWithContext(ctx context.Context, network string, addr string, mark int) (net.Conn, error) {
 	d := net.Dialer{
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
@@ -38,11 +38,11 @@ func DialMarkedTCPWithContext(ctx context.Context, network string, addr *net.TCP
 		},
 	}
 
-	conn, err := d.DialContext(ctx, network, addr.String())
+	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
 		zap.L().Error("Failed to dial to downstream node",
 			zap.Error(err),
-			zap.String("Address", addr.String()),
+			zap.String("Address", addr),
 			zap.String("Network type", network),
 		)
 	}
