@@ -178,7 +178,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				)
 			}
 
-			d.findPorts()
 			cid, err := d.contextIDFromTCPPort.GetSpecValueFromPort(p.SourcePort)
 
 			if err == nil {

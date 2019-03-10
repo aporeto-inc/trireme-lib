@@ -2,19 +2,16 @@ package iptablesctrl
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
 	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -133,50 +130,28 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 	return i, nil
 }
 
-// chainPrefix returns the chain name for the specific PU.
-func (i *Instance) chainName(contextID string, version int) (app, net string, err error) {
-	hash := md5.New()
-
-	if _, err := io.WriteString(hash, contextID); err != nil {
-		return "", "", err
-	}
-	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
-	if len(contextID) > 4 {
-		contextID = contextID[:4] + output[:6]
-	} else {
-		contextID = contextID + output[:6]
-	}
-
-	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
-	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
-
-	return app, net, nil
-}
-
 // ConfigureRules implments the ConfigureRules interface. It will create the
 // port sets and then it will call install rules to create all the ACLs for
 // the given chains. PortSets are only created here. Updates will use the
 // exact same logic.
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 
-	appChain, netChain, err := i.chainName(contextID, version)
-	if err != nil {
-		return err
-	}
-
-	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
-
-	// Create the proxy sets.
-	if err := i.createProxySets(proxySetName); err != nil {
-		return err
-	}
-
 	if err := i.createPortSet(contextID, containerInfo); err != nil {
 		return err
 	}
 
+	cfg, err := i.newACLInfo(version, contextID, containerInfo, "")
+	if err != nil {
+		return err
+	}
+
+	// Create the proxy sets.
+	if err := i.createProxySets(cfg.ProxySetName); err != nil {
+		return err
+	}
+
 	// Install all the rules
-	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+	if err := i.installRules(cfg, containerInfo); err != nil {
 		return err
 	}
 
@@ -186,35 +161,37 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 // DeleteRules implements the DeleteRules interface
 func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string, exclusions []string) error {
 
-	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
-	tcpPortSetName := i.getPortSet(contextID)
-
-	if tcpPortSetName == "" {
-		zap.L().Error("port set name can not be nil")
-	}
-
-	appChain, netChain, err := i.chainName(contextID, version)
+	cfg, err := i.newACLInfo(version, contextID, nil, puType)
 	if err != nil {
-		// Don't return here we can still try and reclaims portset and targetnetwork sets
-		zap.L().Error("Count not generate chain name", zap.Error(err))
+		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
+		return err
 	}
 
-	if err := i.deleteChainRules(contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType); err != nil {
+	cfg.UDPPorts = udpPorts
+	cfg.TCPPorts = tcpPorts
+	cfg.CgroupMark = mark
+	cfg.Mark = mark
+	cfg.UID = username
+	cfg.PUType = puType
+	cfg.ProxyPort = proxyPort
+	cfg.Exclusions = exclusions
+
+	if err := i.deleteChainRules(cfg); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
 	}
 
 	if i.isLegacyKernel {
-		if err = i.deleteLegacyNATExclusionACLs(mark, proxyPortSetName, exclusions, tcpPorts); err != nil {
+		if err = i.deleteLegacyNATExclusionACLs(cfg); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err = i.deleteNATExclusionACLs(mark, proxyPortSetName, exclusions); err != nil {
+		if err = i.deleteNATExclusionACLs(cfg); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
 
-	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
+	if err = i.deleteAllContainerChains(cfg.AppChain, cfg.NetChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
@@ -226,7 +203,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to remove port set")
 	}
 
-	if err := i.deleteProxySets(proxyPortSetName); err != nil {
+	if err := i.deleteProxySets(cfg.ProxySetName); err != nil {
 		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
 	}
 
@@ -244,69 +221,44 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return errors.New("policy rules cannot be nil")
 	}
 
-	proxyPort := containerInfo.Policy.ServicesListeningPort()
-	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
-
-	portSetName := i.getPortSet(contextID)
-	if portSetName == "" {
-		zap.L().Error("port set name for contextID does not exist. This should not happen")
-	}
-
-	appChain, netChain, err := i.chainName(contextID, version)
+	newCfg, err := i.newACLInfo(version, contextID, containerInfo, "")
 	if err != nil {
 		return err
 	}
 
-	oldAppChain, oldNetChain, err := i.chainName(contextID, version^1)
-
+	oldCfg, err := i.newACLInfo(version^1, contextID, oldContainerInfo, "")
 	if err != nil {
 		return err
 	}
 
-	// If local server, install pu specific chains in Trireme/Hostmode chains.
-	puType := extractors.GetPuType(containerInfo.Runtime)
-	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 	// Install the new rules
-	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+	if err := i.installRules(newCfg, containerInfo); err != nil {
 		return nil
 	}
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(contextID, portSetName, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(oldCfg); err != nil {
 			return err
 		}
 	} else {
-		mark := containerInfo.Runtime.Options().CgroupMark
-		username := containerInfo.Runtime.Options().UserID
-
-		if err := i.deleteChainRules(contextID, portSetName, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, username, proxyPort, proxySetName, puType); err != nil {
+		if err := i.deleteChainRules(oldCfg); err != nil {
 			return err
 		}
 	}
 
-	mark := ""
-	if containerInfo.Runtime != nil {
-		mark = containerInfo.Runtime.Options().CgroupMark
-	}
-
-	excludedNetworks := []string{}
-	if oldContainerInfo != nil && oldContainerInfo.Policy != nil {
-		excludedNetworks = oldContainerInfo.Policy.ExcludedNetworks()
-	}
-
 	if i.isLegacyKernel {
-		if err := i.deleteLegacyNATExclusionACLs(mark, proxySetName, excludedNetworks, tcpPorts); err != nil {
+		if err := i.deleteLegacyNATExclusionACLs(oldCfg); err != nil {
 			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
 		}
 
 	} else {
-		if err := i.deleteNATExclusionACLs(mark, proxySetName, excludedNetworks); err != nil {
+		if err := i.deleteNATExclusionACLs(oldCfg); err != nil {
 			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
 		}
 	}
 	// Delete the old chain to clean up
-	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
+	if err := i.deleteAllContainerChains(oldCfg.AppChain, oldCfg.NetChain); err != nil {
 		return err
 	}
 
@@ -381,21 +333,9 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 // InitializeChains initializes the chains.
 func (i *Instance) InitializeChains() error {
 
-	aclInfo := ACLInfo{
-		MangleTable:         i.appPacketIPTableContext,
-		NatTable:            i.appProxyIPTableContext,
-		HostInput:           HostModeInput,
-		HostOutput:          HostModeOutput,
-		NetworkSvcInput:     NetworkSvcInput,
-		NetworkSvcOutput:    NetworkSvcOutput,
-		TriremeInput:        TriremeInput,
-		TriremeOutput:       TriremeOutput,
-		UIDInput:            uidInput,
-		UIDOutput:           uidchain,
-		MangleProxyNetChain: proxyInputChain,
-		MangleProxyAppChain: proxyOutputChain,
-		NatProxyAppChain:    natProxyOutputChain,
-		NatProxyNetChain:    natProxyInputChain,
+	cfg, err := i.newACLInfo(0, "", nil, "")
+	if err != nil {
+		return err
 	}
 
 	tmpl := template.Must(template.New(triremChains).Funcs(template.FuncMap{
@@ -404,7 +344,7 @@ func (i *Instance) InitializeChains() error {
 		},
 	}).Parse(triremChains))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
@@ -427,35 +367,23 @@ func (i *Instance) ACLProvider() provider.IptablesProvider {
 }
 
 // configureContainerRules adds the chain rules for a container.
-func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
+func (i *Instance) configureContainerRules(cfg *ACLInfo) error {
 
-	proxyPort := puInfo.Policy.ServicesListeningPort()
-
-	return i.addChainRules(contextID, "", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName, "")
+	return i.addChainRules(cfg)
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
-func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
+func (i *Instance) configureLinuxRules(cfg *ACLInfo) error {
 
-	proxyPort := puInfo.Policy.ServicesListeningPort()
-
-	mark := puInfo.Runtime.Options().CgroupMark
-
-	if mark == "" {
+	if cfg.CgroupMark == "" {
 		return errors.New("no mark value found")
 	}
 
-	puType := extractors.GetPuType(puInfo.Runtime)
-
-	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
-	tcpPortSetName := i.getPortSet(contextID)
-
-	if tcpPortSetName == "" {
+	if cfg.TCPPortSet == "" {
 		return fmt.Errorf("port set was not found for the contextID. This should not happen")
 	}
 
-	username := puInfo.Runtime.Options().UserID
-	return i.addChainRules(contextID, tcpPortSetName, appChain, netChain, tcpPorts, udpPorts, mark, username, proxyPort, proxyPortSetName, puType)
+	return i.addChainRules(cfg)
 }
 
 func (i *Instance) deleteProxySets(proxyPortSetName string) error { // nolint
@@ -673,71 +601,70 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 }
 
 // Install rules will install all the rules and update the port sets.
-func (i *Instance) installRules(contextID, appChain, netChain, proxySetName string, containerInfo *policy.PUInfo) error {
+func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
 	var err error
 	var appACLIPset, netACLIPset []aclIPset
 	policyrules := containerInfo.Policy
 
-	if err := i.updateProxySet(containerInfo.Policy, proxySetName); err != nil {
+	if err := i.updateProxySet(containerInfo.Policy, cfg.ProxySetName); err != nil {
 		return err
 	}
 
-	if appACLIPset, err = i.createACLIPSets(contextID, policyrules.ApplicationACLs()); err != nil {
+	if appACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if netACLIPset, err = i.createACLIPSets(contextID, policyrules.NetworkACLs()); err != nil {
+	if netACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
 	// Install the nat ACLs as they need to be at the top
 	if i.isLegacyKernel {
 		// doesn't work for clients, as ports for the clients are not known
-		tcpPorts, _ := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
-		if err := i.addLegacyNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks(), tcpPorts); err != nil {
+		if err := i.addLegacyNATExclusionACLs(cfg.CgroupMark, cfg.ProxySetName, cfg.Exclusions, cfg.TCPPorts); err != nil {
 			return err
 		}
 
 	} else {
-		if err := i.addNATExclusionACLs(containerInfo.Runtime.Options().CgroupMark, proxySetName, policyrules.ExcludedNetworks()); err != nil {
+		if err := i.addNATExclusionACLs(cfg); err != nil {
 			return err
 		}
 	}
 
 	// Install the PU specific chain first.
-	if err := i.addContainerChain(appChain, netChain); err != nil {
+	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
 		return err
 	}
 
 	// If its a remote and thus container, configure container rules.
 	if i.mode == constants.RemoteContainer || i.mode == constants.Sidecar {
-		if err := i.configureContainerRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+		if err := i.configureContainerRules(cfg); err != nil {
 			return err
 		}
 	}
 
 	// If its a Linux process configure the Linux rules.
 	if i.mode == constants.LocalServer {
-		if err := i.configureLinuxRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+		if err := i.configureLinuxRules(cfg); err != nil {
 			return err
 		}
 	}
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks()); err != nil {
+	if err := i.addExclusionACLs(cfg); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, appChain, netChain, netACLIPset); err != nil {
+	if err := i.addNetACLs(cfg.ContextID, cfg.AppChain, cfg.NetChain, netACLIPset); err != nil {
 		return err
 	}
 
-	if err := i.addAppACLs(contextID, appChain, netChain, appACLIPset); err != nil {
+	if err := i.addAppACLs(cfg.ContextID, cfg.AppChain, cfg.NetChain, appACLIPset); err != nil {
 		return err
 	}
 
-	if err := i.addPacketTrap(contextID, appChain, netChain, isHostPU); err != nil {
+	if err := i.addPacketTrap(cfg, isHostPU); err != nil {
 		return err
 	}
 

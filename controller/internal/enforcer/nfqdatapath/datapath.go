@@ -255,10 +255,6 @@ func New(
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
-	if mode != constants.RemoteContainer {
-		go d.autoPortDiscovery()
-	}
-
 	return d
 }
 

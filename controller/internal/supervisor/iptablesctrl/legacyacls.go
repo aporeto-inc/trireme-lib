@@ -184,28 +184,15 @@ func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusi
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
-
-	destSetName, srvSetName := i.getSetNames(setName)
-	aclInfo := ACLInfo{
-		NatTable:   i.appProxyIPTableContext,
-		NetChain:   natProxyInputChain,
-		AppChain:   natProxyOutputChain,
-		Exclusions: exclusions,
-		DestIPSet:  destSetName,
-		SrvIPSet:   srvSetName,
-		CgroupMark: cgroupMark,
-		ProxyMark:  proxyMark,
-		TCPPorts:   tcpPorts,
-	}
+func (i *Instance) deleteLegacyNATExclusionACLs(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(legacyExcludedNatACLs).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
-			return cgroupMark != ""
+			return cfg.CgroupMark != ""
 		},
 	}).Parse(legacyExcludedNatACLs))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
 	}

@@ -8,11 +8,8 @@ import (
 	"text/template"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 
@@ -33,129 +30,90 @@ type rulesInfo struct {
 	AcceptObserveContinue [][]string
 }
 
-func (i *Instance) puChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
-	appSection, netSection string) [][]string {
-
-	aclInfo := ACLInfo{
-		MangleTable: i.appPacketIPTableContext,
-		AppSection:  appSection,
-		NetSection:  netSection,
-		AppChain:    appChain,
-		NetChain:    netChain,
-		Mark:        mark,
-		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
-		TCPPorts:    tcpPorts,
-		UDPPorts:    udpPorts,
-		TCPPortSet:  tcpPortSet,
-	}
+func (i *Instance) puChainRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(cgroupRules).Funcs(template.FuncMap{
 		"isUDPPorts": func() bool {
-			return udpPorts != "0"
+			return cfg.UDPPorts != "0"
 		},
 		"isTCPPorts": func() bool {
-			return tcpPorts != "0"
+			return cfg.TCPPorts != "0"
 		},
 		"isHostPU": func() bool {
-			return appSection == HostModeOutput && netSection == HostModeInput
+			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
 		},
 	}).Parse(cgroupRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.proxyRules(cfg)...)
 }
 
-func (i *Instance) cgroupChainRules(contextID, appChain string, netChain string, mark string, tcpPortSet, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
-	appSection, netSection string, puType string) [][]string {
+func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
-	if i.isLegacyKernel && (puType == extractors.HostModeNetworkPU || puType == extractors.HostPU) {
-		return i.legacyPuChainRules(contextID, appChain, netChain, mark, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
-			appSection, netSection, puType)
+	if i.isLegacyKernel && (cfg.PUType == extractors.HostModeNetworkPU || cfg.PUType == extractors.HostPU) {
+		return i.legacyPuChainRules(
+			cfg.ContextID,
+			cfg.AppChain,
+			cfg.NetChain,
+			cfg.CgroupMark,
+			cfg.TCPPorts,
+			cfg.UDPPorts,
+			cfg.ProxyPort,
+			cfg.ProxySetName,
+			cfg.AppSection,
+			cfg.NetSection,
+			cfg.PUType,
+		)
 	}
 
-	return i.puChainRules(contextID, appChain, netChain, mark, tcpPortSet, tcpPorts, udpPorts, proxyPort, proxyPortSetName,
-		appSection, netSection)
+	return i.puChainRules(cfg)
 }
 
-func (i *Instance) uidChainRules(tcpPorts, portSetName, appChain string, netChain string, mark string, uid string, proxyPort string, proxyPortSetName string) [][]string {
-
-	aclInfo := ACLInfo{
-		MangleTable: i.appPacketIPTableContext,
-		PreRouting:  ipTableSectionPreRouting,
-		AppChain:    appChain,
-		NetChain:    netChain,
-		Mark:        mark,
-		PortSet:     portSetName,
-		UID:         uid,
-	}
+func (i *Instance) uidChainRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(uidPuRules).Parse(uidPuRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
 	if i.isLegacyKernel {
-		return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
+		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark)...)
 	}
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.proxyRules(cfg)...)
 }
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(contextID string, appChain string, netChain string, proxyPort string, proxyPortSetName string) [][]string {
-
-	aclInfo := ACLInfo{
-		MangleTable: i.appPacketIPTableContext,
-		AppSection:  i.appPacketIPTableSection,
-		NetSection:  i.netPacketIPTableSection,
-		AppChain:    appChain,
-		NetChain:    netChain,
-		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
-	}
+func (i *Instance) chainRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(containerPuRules).Parse(containerPuRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 
-	return append(rules, i.proxyRules(proxyPort, proxyPortSetName, "")...)
+	return append(rules, i.proxyRules(cfg)...)
 }
 
 // proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
-	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
-
-	aclInfo := ACLInfo{
-		MangleTable:         i.appPacketIPTableContext,
-		NatTable:            i.appProxyIPTableContext,
-		MangleProxyAppChain: proxyOutputChain,
-		MangleProxyNetChain: proxyInputChain,
-		NatProxyNetChain:    natProxyInputChain,
-		NatProxyAppChain:    natProxyOutputChain,
-		CgroupMark:          cgroupMark,
-		DestIPSet:           destSetName,
-		SrvIPSet:            srvSetName,
-		ProxyPort:           proxyPort,
-		ProxyMark:           proxyMark,
-	}
+func (i *Instance) proxyRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(proxyChainRules).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
-			return cgroupMark != ""
+			return cfg.CgroupMark != ""
 		},
 	}).Parse(proxyChainRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -163,21 +121,7 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string, cgroupM
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(contextID, appChain string, netChain string, isHostPU bool) [][]string {
-
-	aclInfo := ACLInfo{
-		MangleTable:        i.appPacketIPTableContext,
-		AppChain:           appChain,
-		NetChain:           netChain,
-		QueueBalanceNetSyn: i.fqc.GetNetworkQueueSynStr(),
-		QueueBalanceNetAck: i.fqc.GetNetworkQueueAckStr(),
-		QueueBalanceAppSyn: i.fqc.GetApplicationQueueSynStr(),
-		QueueBalanceAppAck: i.fqc.GetApplicationQueueAckStr(),
-		TargetNetSet:       targetNetworkSet,
-		Numpackets:         numPackets,
-		InitialCount:       initialCount,
-		NFLOGPrefix:        policy.DefaultLogPrefix(contextID),
-	}
+func (i *Instance) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 
 	tmpl := template.Must(template.New(trapRules).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
@@ -185,7 +129,7 @@ func (i *Instance) trapRules(contextID, appChain string, netChain string, isHost
 		},
 	}).Parse(trapRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -235,7 +179,6 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 				if err = i.ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
-				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
 
 			default:
 				return errors.New("invalid method type")
@@ -279,48 +222,31 @@ func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(contextID string, portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
-	if i.mode == constants.LocalServer {
-		if uid == "" {
-			if udpPorts != "0" {
-				// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, true), "Insert")
-				if err != nil {
-					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
-				}
-			}
+func (i *Instance) addChainRules(cfg *ACLInfo) error {
 
-			// choose correct chains based on puType
-			appSection := ""
-			netSection := ""
-			switch puType {
-			case extractors.LinuxPU:
-				appSection = TriremeOutput
-				netSection = TriremeInput
-			case extractors.HostModeNetworkPU:
-				appSection = NetworkSvcOutput
-				netSection = NetworkSvcInput
-			case extractors.HostPU:
-				appSection = HostModeOutput
-				netSection = HostModeInput
-			default:
-				appSection = TriremeOutput
-				netSection = TriremeInput
-			}
-
-			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Append")
-		}
-
-		return i.processRulesFromList(i.uidChainRules(tcpPorts, portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Append")
+	if i.mode != constants.LocalServer {
+		return i.processRulesFromList(i.chainRules(cfg), "Append")
 	}
 
-	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Append")
+	if cfg.UID != "" {
+		return i.processRulesFromList(i.uidChainRules(cfg), "Append")
+	}
+
+	if cfg.UDPPorts != "0" {
+		// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
+		err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, true), "Insert")
+		if err != nil {
+			return fmt.Errorf("Unable to add nat rule for udp: %s", err)
+		}
+	}
+
+	return i.processRulesFromList(i.cgroupChainRules(cfg), "Append")
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(contextID, appChain string, netChain string, isHostPU bool) error {
+func (i *Instance) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(contextID, appChain, netChain, isHostPU), "Append")
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 
 }
 
@@ -849,43 +775,25 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclI
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(contextID, portSetName, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string, puType string) error {
+func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 
-	if i.mode == constants.LocalServer {
-		if uid == "" {
-			if udpPorts != "0" {
-				// Delete the postrouting Nat rule for udp.
-				err := i.processRulesFromList(i.getUDPNatRule(udpPorts, false), "Delete")
-				if err != nil {
-					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
-				}
-			}
-
-			// choose correct chains based on puType
-			appSection := ""
-			netSection := ""
-			switch puType {
-			case extractors.LinuxPU:
-				appSection = TriremeOutput
-				netSection = TriremeInput
-			case extractors.HostModeNetworkPU:
-				appSection = NetworkSvcOutput
-				netSection = NetworkSvcInput
-			case extractors.HostPU:
-				appSection = HostModeOutput
-				netSection = HostModeInput
-			default:
-				appSection = TriremeOutput
-				netSection = TriremeInput
-			}
-
-			return i.processRulesFromList(i.cgroupChainRules(contextID, appChain, netChain, mark, portSetName, tcpPorts, udpPorts, proxyPort, proxyPortSetName, appSection, netSection, puType), "Delete")
-		}
-
-		return i.processRulesFromList(i.uidChainRules(tcpPorts, portSetName, appChain, netChain, mark, uid, proxyPort, proxyPortSetName), "Delete")
+	if i.mode != constants.LocalServer {
+		return i.processRulesFromList(i.chainRules(cfg), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(contextID, appChain, netChain, proxyPort, proxyPortSetName), "Delete")
+	if cfg.UID != "" {
+		return i.processRulesFromList(i.uidChainRules(cfg), "Delete")
+	}
+
+	if cfg.UDPPorts != "0" {
+		// Delete the postrouting Nat rule for udp.
+		err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, false), "Delete")
+		if err != nil {
+			return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
+		}
+	}
+
+	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
@@ -929,31 +837,9 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules() error {
 
-	aclInfo := ACLInfo{
-		MangleTable:           i.appPacketIPTableContext,
-		NatTable:              i.appProxyIPTableContext,
-		HostInput:             HostModeInput,
-		HostOutput:            HostModeOutput,
-		NetworkSvcInput:       NetworkSvcInput,
-		NetworkSvcOutput:      NetworkSvcOutput,
-		TriremeInput:          TriremeInput,
-		TriremeOutput:         TriremeOutput,
-		UIDInput:              uidInput,
-		UIDOutput:             uidchain,
-		MangleProxyAppChain:   proxyOutputChain,
-		MangleProxyNetChain:   proxyInputChain,
-		NatProxyAppChain:      natProxyOutputChain,
-		NatProxyNetChain:      natProxyInputChain,
-		UDPSignature:          packet.UDPAuthMarker,
-		DefaultConnmark:       strconv.Itoa(int(constants.DefaultConnMark)),
-		QueueBalanceNetSyn:    i.fqc.GetNetworkQueueSynStr(),
-		QueueBalanceNetSynAck: i.fqc.GetNetworkQueueSynAckStr(),
-		QueueBalanceAppSyn:    i.fqc.GetApplicationQueueSynStr(),
-		QueueBalanceAppSynAck: i.fqc.GetApplicationQueueSynAckStr(),
-		TargetNetSet:          targetNetworkSet,
-		InitialMarkVal:        strconv.Itoa(cgnetcls.Initialmarkval - 1),
-		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
-		ProxyMark:             proxyMark,
+	cfg, err := i.newACLInfo(0, "", nil, "")
+	if err != nil {
+		return err
 	}
 
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
@@ -962,7 +848,7 @@ func (i *Instance) setGlobalRules() error {
 		},
 	}).Parse(globalRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
@@ -991,14 +877,7 @@ func (i *Instance) setGlobalRules() error {
 	return nil
 }
 
-func (i *Instance) removeNatRules() error {
-
-	aclInfo := ACLInfo{
-
-		NatTable:         i.appProxyIPTableContext,
-		NatProxyNetChain: natProxyInputChain,
-		NatProxyAppChain: natProxyOutputChain,
-	}
+func (i *Instance) removeNatRules(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(deleteNatRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
@@ -1006,7 +885,7 @@ func (i *Instance) removeNatRules() error {
 		},
 	}).Parse(deleteNatRules))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
@@ -1016,27 +895,14 @@ func (i *Instance) removeNatRules() error {
 }
 
 func (i *Instance) cleanACLs() error { // nolint
-
-	// First clear the nat rules
-	if err := i.removeNatRules(); err != nil {
-		zap.L().Error("unable to remove nat proxy rules")
+	cfg, err := i.newACLInfo(0, "", nil, "")
+	if err != nil {
+		return err
 	}
 
-	aclInfo := ACLInfo{
-		MangleTable:         i.appPacketIPTableContext,
-		NatTable:            i.appProxyIPTableContext,
-		HostInput:           HostModeInput,
-		HostOutput:          HostModeOutput,
-		NetworkSvcInput:     NetworkSvcInput,
-		NetworkSvcOutput:    NetworkSvcOutput,
-		TriremeInput:        TriremeInput,
-		TriremeOutput:       TriremeOutput,
-		UIDInput:            uidInput,
-		UIDOutput:           uidchain,
-		MangleProxyAppChain: proxyOutputChain,
-		MangleProxyNetChain: proxyInputChain,
-		NatProxyNetChain:    natProxyInputChain,
-		NatProxyAppChain:    natProxyOutputChain,
+	// First clear the nat rules
+	if err := i.removeNatRules(cfg); err != nil {
+		zap.L().Error("unable to remove nat proxy rules")
 	}
 
 	tmpl := template.Must(template.New(deleteChains).Funcs(template.FuncMap{
@@ -1045,7 +911,7 @@ func (i *Instance) cleanACLs() error { // nolint
 		},
 	}).Parse(deleteChains))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
@@ -1115,18 +981,11 @@ func (i *Instance) cleanACLSection(context, chainPrefix string) {
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []string) error {
-
-	aclInfo := ACLInfo{
-		MangleTable: i.appPacketIPTableContext,
-		AppChain:    appChain,
-		NetChain:    netChain,
-		Exclusions:  exclusions,
-	}
+func (i *Instance) addExclusionACLs(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(excludedACLs).Parse(excludedACLs))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
 	}
@@ -1135,58 +994,32 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []stri
 
 }
 
-func (i *Instance) addNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
-	destSetName, srvSetName := i.getSetNames(setName)
-
-	aclInfo := ACLInfo{
-		NatTable:   i.appProxyIPTableContext,
-		NetChain:   natProxyInputChain,
-		AppChain:   natProxyOutputChain,
-		Exclusions: exclusions,
-		DestIPSet:  destSetName,
-		SrvIPSet:   srvSetName,
-		CgroupMark: cgroupMark,
-		ProxyMark:  proxyMark,
-	}
+func (i *Instance) addNATExclusionACLs(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(excludedNatACLs).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
-			return cgroupMark != ""
+			return cfg.CgroupMark != ""
 		},
 	}).Parse(excludedNatACLs))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
 	}
 
 	return i.processRulesFromList(rules, "Append")
-
 }
 
 // deleteExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteNATExclusionACLs(cgroupMark, setName string, exclusions []string) error {
-
-	destSetName, srvSetName := i.getSetNames(setName)
-
-	aclInfo := ACLInfo{
-		NatTable:   i.appProxyIPTableContext,
-		NetChain:   natProxyInputChain,
-		AppChain:   natProxyOutputChain,
-		Exclusions: exclusions,
-		DestIPSet:  destSetName,
-		SrvIPSet:   srvSetName,
-		CgroupMark: cgroupMark,
-		ProxyMark:  proxyMark,
-	}
+func (i *Instance) deleteNATExclusionACLs(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(excludedNatACLs).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
-			return cgroupMark != ""
+			return cfg.CgroupMark != ""
 		},
 	}).Parse(excludedNatACLs))
 
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
 	}

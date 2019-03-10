@@ -98,11 +98,11 @@ var excludedACLs = `
 var excludedNatACLs = `
 {{$root := .}}
 {{range .Exclusions}}
-	{{$root.NatTable}} {{$root.NetChain}} -p tcp -m set --match-set {{$root.SrvIPSet}} dst -m mark ! --mark {{$root.ProxyMark}} -s {{.}} -j ACCEPT
+	{{$root.NatTable}} {{$root.NatProxyNetChain}} -p tcp -m set --match-set {{$root.SrvIPSet}} dst -m mark ! --mark {{$root.ProxyMark}} -s {{.}} -j ACCEPT
 		{{if isCgroupSet}}
-			{{$root.NatTable}} {{$root.AppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -m cgroup --cgroup {{$root.CgroupMark}} -d {{.}} -j ACCEPT
+			{{$root.NatTable}} {{$root.NatProxyAppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -m cgroup --cgroup {{$root.CgroupMark}} -d {{.}} -j ACCEPT
 		{{else}}
-			{{$root.NatTable}} {{$root.AppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -d {{.}} -j ACCEPT
+			{{$root.NatTable}} {{$root.NatProxyAppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -d {{.}} -j ACCEPT
 		{{end}}
 {{end}}
 `
