@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -39,7 +40,7 @@ type config struct {
 	validity               time.Duration
 	procMountPoint         string
 	externalIPcacheTimeout time.Duration
-	targetNetworks         []string
+	runtimeCfg             *runtime.Configuration
 	runtimeErrorChannel    chan *policy.RuntimeError
 }
 
@@ -88,10 +89,10 @@ func OptionDisableMutualAuth() Option {
 	}
 }
 
-// OptionTargetNetworks is an option to provide target network configuration.
-func OptionTargetNetworks(n []string) Option {
+// OptionRuntimeConfiguration is an option to provide target network configuration.
+func OptionRuntimeConfiguration(c *runtime.Configuration) Option {
 	return func(cfg *config) {
-		cfg.targetNetworks = n
+		cfg.runtimeCfg = c
 	}
 }
 
@@ -133,7 +134,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
-			t.config.targetNetworks,
+			t.config.runtimeCfg,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
@@ -154,7 +155,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
-			t.config.targetNetworks,
+			t.config.runtimeCfg,
 			t.config.runtimeErrorChannel,
 		)
 	}
@@ -173,7 +174,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
-			t.config.targetNetworks,
+			t.config.runtimeCfg,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -190,7 +191,7 @@ func (t *trireme) newSupervisors() error {
 			t.config.collector,
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
-			t.config.targetNetworks,
+			t.config.runtimeCfg,
 			t.config.service,
 		)
 		if err != nil {
@@ -203,6 +204,7 @@ func (t *trireme) newSupervisors() error {
 		s, err := supervisorproxy.NewProxySupervisor(
 			t.config.collector,
 			t.enforcers[constants.RemoteContainer],
+			t.config.runtimeCfg,
 			t.rpchdl,
 		)
 		if err != nil {
@@ -217,7 +219,7 @@ func (t *trireme) newSupervisors() error {
 			t.config.collector,
 			t.enforcers[constants.Sidecar],
 			constants.Sidecar,
-			t.config.targetNetworks,
+			t.config.runtimeCfg,
 			t.config.service,
 		)
 		if err != nil {

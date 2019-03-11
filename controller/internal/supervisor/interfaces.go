@@ -5,6 +5,7 @@ import (
 	"time"
 
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -28,7 +29,7 @@ type Supervisor interface {
 	Run(ctx context.Context) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// CleanUp requests the supervisor to clean up all ACLs
 	CleanUp() error
@@ -47,10 +48,10 @@ type Implementor interface {
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string, exclusions []string) error
+	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string, []string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// Start initializes any defaults
 	Run(ctx context.Context) error

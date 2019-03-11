@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
@@ -26,7 +27,7 @@ type ProxyInfo struct {
 	versionTracker cache.DataStore
 	collector      collector.EventCollector
 	filterQueue    *fqconfig.FilterQueue
-	ExcludedIPs    []string
+	cfg            *runtime.Configuration
 	prochdl        processmon.ProcessManager
 	rpchdl         rpcwrapper.RPCClient
 	initDone       map[string]bool
@@ -39,9 +40,10 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 	s.Lock()
 	_, ok := s.initDone[contextID]
+	cfg := s.cfg.DeepCopy()
 	s.Unlock()
 	if !ok {
-		err := s.InitRemoteSupervisor(contextID, puInfo)
+		err := s.initRemoteSupervisor(contextID, cfg)
 		if err != nil {
 			return err
 		}
@@ -76,18 +78,16 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 }
 
 // SetTargetNetworks sets the target networks in case of an  update
-func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 	s.Lock()
 	defer s.Unlock()
 	for contextID, done := range s.initDone {
 		if done {
 			request := &rpcwrapper.Request{
-				Payload: &rpcwrapper.InitSupervisorPayload{
-					TriremeNetworks: networks,
-					CaptureMethod:   rpcwrapper.IPTables,
+				Payload: &rpcwrapper.SetTargetNetworksPayload{
+					Configuration: cfg,
 				},
 			}
-
 			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
 				return fmt.Errorf("unable to initialize remote supervisor for contextid %s: %s", contextID, err)
 			}
@@ -111,7 +111,7 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Enforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
+func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Enforcer, cfg *runtime.Configuration, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
 
 	if collector == nil {
 		return nil, errors.New("collector cannot be nil")
@@ -128,7 +128,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.En
 		prochdl:        processmon.GetProcessManagerHdl(),
 		rpchdl:         rpchdl,
 		initDone:       make(map[string]bool),
-		ExcludedIPs:    []string{},
+		cfg:            cfg,
 	}
 
 	return s, nil
@@ -136,12 +136,12 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.En
 }
 
 //InitRemoteSupervisor calls initsupervisor method on the remote
-func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo) error {
+func (s *ProxyInfo) initRemoteSupervisor(contextID string, cfg *runtime.Configuration) error {
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitSupervisorPayload{
-			TriremeNetworks: puInfo.Policy.TriremeNetworks(),
-			CaptureMethod:   rpcwrapper.IPTables,
+			Configuration: cfg,
+			CaptureMethod: rpcwrapper.IPTables,
 		},
 	}
 
@@ -155,23 +155,6 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 	return nil
 
-}
-
-//AddExcludedIPs call addexcluded ip on the remote supervisor
-func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
-	s.ExcludedIPs = ips
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.ExcludeIPRequestPayload{
-			IPs: ips,
-		},
-	}
-
-	for _, contextID := range s.rpchdl.ContextList() {
-		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
-			return fmt.Errorf("unable to add excluded ip list for %s: %s", contextID, err)
-		}
-	}
-	return nil
 }
 
 // EnableIPTablesPacketTracing enable iptables tracing

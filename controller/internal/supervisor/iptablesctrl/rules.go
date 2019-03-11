@@ -16,11 +16,12 @@ var triremChains = `
 `
 
 var globalRules = `
+{{.MangleTable}} INPUT -m set --match-set {{.ExclusionsSet}} src -j ACCEPT
 {{.MangleTable}} INPUT -j {{ .MangleProxyNetChain }}
-{{.MangleTable}} INPUT -p udp -m set --match-set {{.TargetNetSet}} dst -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
+{{.MangleTable}} INPUT -p udp -m set --match-set {{.TargetTCPNetSet}} dst -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
 {{.MangleTable}} INPUT -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
 {{.MangleTable}} INPUT -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
-{{.MangleTable}} INPUT -p tcp -m set --match-set {{.TargetNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
+{{.MangleTable}} INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
 {{if isLocalServer}}
 {{.MangleTable}} INPUT -j {{.UIDInput}}
 {{.MangleTable}} INPUT -j {{.TriremeInput}}
@@ -28,14 +29,14 @@ var globalRules = `
 {{.MangleTable}} INPUT -j {{.HostInput}}
 {{end}}
 
-
-{{.MangleTable}} OUTPUT -m mark --mark {{.RawSocketMark}} -j ACCEPT
+{{.MangleTable}} OUTPUT -m set --match-set {{.ExclusionsSet}} dst -j ACCEPT
 {{.MangleTable}} OUTPUT -j {{.MangleProxyAppChain}}
+{{.MangleTable}} OUTPUT -m mark --mark {{.RawSocketMark}} -j ACCEPT
 {{.MangleTable}} OUTPUT -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
 {{if isLocalServer}}
 {{.MangleTable}} OUTPUT -j {{.UIDOutput}}{{end}}
-{{.MangleTable}} OUTPUT -p tcp -m set --match-set {{.TargetNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}
-{{.MangleTable}} OUTPUT -p tcp -m set --match-set {{.TargetNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}} --queue-bypass
+{{.MangleTable}} OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}
+{{.MangleTable}} OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}} --queue-bypass
 {{if isLocalServer}}
 {{.MangleTable}} OUTPUT -j {{.TriremeOutput}}
 {{.MangleTable}} OUTPUT -j {{.NetworkSvcOutput}}
@@ -95,17 +96,6 @@ var excludedACLs = `
 {{$root.MangleTable}} {{$root.NetChain}} -s {{.}} -j ACCEPT
 {{end}}
 `
-var excludedNatACLs = `
-{{$root := .}}
-{{range .Exclusions}}
-	{{$root.NatTable}} {{$root.NatProxyNetChain}} -p tcp -m set --match-set {{$root.SrvIPSet}} dst -m mark ! --mark {{$root.ProxyMark}} -s {{.}} -j ACCEPT
-		{{if isCgroupSet}}
-			{{$root.NatTable}} {{$root.NatProxyAppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -m cgroup --cgroup {{$root.CgroupMark}} -d {{.}} -j ACCEPT
-		{{else}}
-			{{$root.NatTable}} {{$root.NatProxyAppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -d {{.}} -j ACCEPT
-		{{end}}
-{{end}}
-`
 
 var acls = `
 {{range .RejectObserveApply}}
@@ -137,10 +127,11 @@ var trapRules = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
 {{end}}
+{{.MangleTable}} {{.AppChain}} -p udp -m state --state ESTABLISHED -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
-{{.MangleTable}} {{.AppChain}} -p udp -m set --match-set TargetNetSet dst -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
+{{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
@@ -148,9 +139,10 @@ var trapRules = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
 {{end}}
-{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set TargetNetSet src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
-{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set TargetNetSet src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
-{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set TargetNetSet src -m statistic --mode nth --every {{.Numpackets}} --packet {{.InitialCount}} -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
+{{.MangleTable}} {{.NetChain}} -p udp -m state --state ESTABLISHED -j ACCEPT
+{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
+{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
+{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m statistic --mode nth --every {{.Numpackets}} --packet {{.InitialCount}} -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
@@ -222,19 +214,6 @@ var deleteChains = `
 var deleteNatRules = `
 {{.NatTable}} PREROUTING -p tcp -m addrtype --dst-type LOCAL -j {{.NatProxyNetChain}}
 {{.NatTable}} OUTPUT -j {{.NatProxyAppChain}}
-`
-
-// Legacy ACLs for kernels with no cgroup match.
-var legacyExcludedNatACLs = `
-{{$root := .}}
-{{range .Exclusions}}
-	{{$root.NatTable}} {{$root.NetChain}} -p tcp -m set --match-set {{$root.SrvIPSet}} dst -m mark ! --mark {{$root.ProxyMark}} -s {{.}} -j ACCEPT
-		{{if isCgroupSet}}
-			{{$root.NatTable}} {{$root.AppChain}} -p tcp -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -m multiport --source-ports {{$root.TCPPorts}} -d {{.}} -j ACCEPT
-		{{else}}
-			{{$root.NatTable}} {{$root.AppChain}} -m set --match-set {{$root.DestIPSet}} dst,dst -m mark ! --mark {{$root.ProxyMark}} -d {{.}} -j ACCEPT
-		{{end}}
-{{end}}
 `
 
 var legacyProxyRules = `

@@ -74,7 +74,9 @@ type ACLInfo struct {
 	QueueBalanceNetAck    string
 	InitialMarkVal        string
 	RawSocketMark         string
-	TargetNetSet          string
+	TargetTCPNetSet       string
+	TargetUDPNetSet       string
+	ExclusionsSet         string
 
 	// UDP rules
 	Numpackets   string
@@ -100,9 +102,6 @@ type ACLInfo struct {
 	PortSet string
 
 	NFLOGPrefix string
-
-	// ExcludedACLS
-	Exclusions []string
 }
 
 func chainName(contextID string, version int) (app, net string, err error) {
@@ -143,14 +142,12 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 
 	var tcpPorts, udpPorts string
 	var servicePort, mark, uid string
-	var excludedNetworks []string
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
 		puType = extractors.GetPuType(p.Runtime)
 		servicePort = p.Policy.ServicesListeningPort()
 		mark = p.Runtime.Options().CgroupMark
 		uid = p.Runtime.Options().UserID
-		excludedNetworks = p.Policy.ExcludedNetworks()
 	}
 
 	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
@@ -210,7 +207,9 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		QueueBalanceNetAck:    i.fqc.GetNetworkQueueAckStr(),
 		InitialMarkVal:        strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
-		TargetNetSet:          targetNetworkSet,
+		TargetTCPNetSet:       targetTCPNetworkSet,
+		TargetUDPNetSet:       targetUDPNetworkSet,
+		ExclusionsSet:         excludedNetworkSet,
 
 		// UDP rules
 		Numpackets:   numPackets,
@@ -236,9 +235,6 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		PortSet: proxySetName,
 
 		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
-
-		// ExcludedACLS
-		Exclusions: excludedNetworks,
 	}
 
 	return cfg, nil

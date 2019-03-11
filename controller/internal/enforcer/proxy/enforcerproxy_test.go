@@ -19,6 +19,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -312,7 +313,7 @@ func TestSetTargetNetworks(t *testing.T) {
 
 		Convey("When I try to call SetTargetNetworks method without enforcer running", func() {
 			rpchdl.EXPECT().ContextList()
-			err := policyEnf.(*ProxyInfo).SetTargetNetworks([]string{"0.0.0.0/0"})
+			err := policyEnf.(*ProxyInfo).SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}})
 
 			Convey("Then I should not get any error", func() {
 				So(err, ShouldBeNil)

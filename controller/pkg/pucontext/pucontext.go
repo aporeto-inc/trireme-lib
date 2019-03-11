@@ -44,12 +44,10 @@ type PUContext struct {
 	ApplicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
-	udpNetworks       []*net.IPNet
 	DNSACLs           cache.DataStore
 	mark              string
 	tcpPorts          []string
 	udpPorts          []string
-	excludedNetworks  []string
 	puType            common.PUType
 	synToken          []byte
 	synServiceContext []byte
@@ -68,20 +66,19 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
-		id:               contextID,
-		username:         puInfo.Runtime.Options().UserID,
-		autoport:         puInfo.Runtime.Options().AutoPort,
-		managementID:     puInfo.Policy.ManagementID(),
-		puType:           puInfo.Runtime.PUType(),
-		identity:         puInfo.Policy.Identity(),
-		annotations:      puInfo.Policy.Annotations(),
-		externalIPCache:  cache.NewCacheWithExpiration("External IP Cache", timeout),
-		ApplicationACLs:  acls.NewACLCache(),
-		networkACLs:      acls.NewACLCache(),
-		mark:             puInfo.Runtime.Options().CgroupMark,
-		scopes:           puInfo.Policy.Scopes(),
-		CancelFunc:       cancelFunc,
-		excludedNetworks: puInfo.Policy.ExcludedNetworks(),
+		id:              contextID,
+		username:        puInfo.Runtime.Options().UserID,
+		autoport:        puInfo.Runtime.Options().AutoPort,
+		managementID:    puInfo.Policy.ManagementID(),
+		puType:          puInfo.Runtime.PUType(),
+		identity:        puInfo.Policy.Identity(),
+		annotations:     puInfo.Policy.Annotations(),
+		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
+		ApplicationACLs: acls.NewACLCache(),
+		networkACLs:     acls.NewACLCache(),
+		mark:            puInfo.Runtime.Options().CgroupMark,
+		scopes:          puInfo.Policy.Scopes(),
+		CancelFunc:      cancelFunc,
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -91,17 +88,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
-
-	udpNetworks := []*net.IPNet{}
-	for _, n := range puInfo.Policy.UDPNetworks() {
-		_, cidr, err := net.ParseCIDR(n)
-		if err != nil {
-			zap.L().Error("Invalid UDP Network", zap.String("Network", n))
-			return nil, fmt.Errorf("Invalid udp network: %s", n)
-		}
-		udpNetworks = append(udpNetworks, cidr)
-	}
-	pu.udpNetworks = udpNetworks
 
 	if err := pu.UpdateApplicationACLs(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
@@ -226,11 +212,6 @@ func (p *PUContext) Autoport() bool {
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
-}
-
-// UDPNetworks returns the target UDP networks.
-func (p *PUContext) UDPNetworks() []*net.IPNet {
-	return p.udpNetworks
 }
 
 // Type return the pu type
@@ -532,17 +513,4 @@ func (p *PUContext) SearchRcvRules(
 	tags *policy.TagStore,
 ) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.rcv, tags, false)
-}
-
-// IPinExcludedNetworks searches if the IP belongs to any of the configured excluded networks
-func (p *PUContext) IPinExcludedNetworks(ip net.IP) bool {
-	for _, network := range p.excludedNetworks {
-		if _, net, err := net.ParseCIDR(network); err == nil {
-			if net.Contains(ip) {
-				return true
-			}
-		}
-	}
-
-	return false
 }

@@ -2,7 +2,6 @@ package iptablesctrl
 
 // legacyProxyRules creates all the proxy specific rules.
 import (
-	"fmt"
 	"text/template"
 
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -153,49 +152,4 @@ func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
 	return rules
-}
-
-func (i *Instance) addLegacyNATExclusionACLs(cgroupMark, setName string, exclusions []string, tcpPorts string) error {
-	destSetName, srvSetName := i.getSetNames(setName)
-	aclInfo := ACLInfo{
-		NatTable:   i.appProxyIPTableContext,
-		NetChain:   natProxyInputChain,
-		AppChain:   natProxyOutputChain,
-		Exclusions: exclusions,
-		DestIPSet:  destSetName,
-		SrvIPSet:   srvSetName,
-		CgroupMark: cgroupMark,
-		ProxyMark:  proxyMark,
-		TCPPorts:   tcpPorts,
-	}
-
-	tmpl := template.Must(template.New(legacyExcludedNatACLs).Funcs(template.FuncMap{
-		"isCgroupSet": func() bool {
-			return cgroupMark != ""
-		},
-	}).Parse(legacyExcludedNatACLs))
-
-	rules, err := extractRulesFromTemplate(tmpl, aclInfo)
-	if err != nil {
-		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
-	}
-
-	return i.processRulesFromList(rules, "Append")
-}
-
-// addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) deleteLegacyNATExclusionACLs(cfg *ACLInfo) error {
-
-	tmpl := template.Must(template.New(legacyExcludedNatACLs).Funcs(template.FuncMap{
-		"isCgroupSet": func() bool {
-			return cfg.CgroupMark != ""
-		},
-	}).Parse(legacyExcludedNatACLs))
-
-	rules, err := extractRulesFromTemplate(tmpl, cfg)
-	if err != nil {
-		return fmt.Errorf("unable to add extract exclusion rules: %s", err)
-	}
-
-	return i.processRulesFromList(rules, "Delete")
 }

@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -27,7 +28,9 @@ const (
 	chainPrefix              = "TRIREME-"
 	appChainPrefix           = chainPrefix + "App-"
 	netChainPrefix           = chainPrefix + "Net-"
-	targetNetworkSet         = "TargetNetSet"
+	targetTCPNetworkSet      = "TargetNetSet"
+	targetUDPNetworkSet      = "TargetUDPSet"
+	excludedNetworkSet       = "ExcludedSet"
 	uidPortSetPrefix         = "UIDPort-"
 	processPortSetPrefix     = "ProcessPort-"
 	proxyPortSetPrefix       = "Proxy-"
@@ -63,7 +66,9 @@ type Instance struct {
 	fqc                     *fqconfig.FilterQueue
 	ipt                     provider.IptablesProvider
 	ipset                   provider.IpsetProvider
-	targetSet               provider.Ipset
+	targetTCPSet            provider.Ipset
+	targetUDPSet            provider.Ipset
+	excludedNetworksSet     provider.Ipset
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
 	appPacketIPTableSection string
@@ -78,6 +83,7 @@ type Instance struct {
 	isLegacyKernel          bool
 	serviceIDToIPsets       map[string]*ipsetInfo
 	puToServiceIDs          map[string][]string
+	cfg                     *runtime.Configuration
 }
 
 var instance *Instance
@@ -91,7 +97,7 @@ func GetInstance() *Instance {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider([]string{"mangle"})
 	if err != nil {
@@ -103,10 +109,28 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		return nil, fmt.Errorf("unable to initialize ipsets: %s", err)
 	}
 
+	targetTCPSet, err := ips.NewIpset(targetTCPNetworkSet, "hash:net", &ipset.Params{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create ipset for %s: %s", targetUDPNetworkSet, err)
+	}
+
+	targetUDPSet, err := ips.NewIpset(targetUDPNetworkSet, "hash:net", &ipset.Params{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create ipset for %s: %s", targetUDPNetworkSet, err)
+	}
+
+	excludedNetworkSet, err := ips.NewIpset(excludedNetworkSet, "hash:net", &ipset.Params{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create ipset for %s: %s", excludedNetworkSet, err)
+	}
+
 	i := &Instance{
 		fqc:                     fqc,
 		ipt:                     ipt,
 		ipset:                   ips,
+		targetTCPSet:            targetTCPSet,
+		targetUDPSet:            targetUDPSet,
+		excludedNetworksSet:     excludedNetworkSet,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -121,6 +145,10 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		isLegacyKernel:          buildflags.IsLegacyKernel(),
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
 		puToServiceIDs:          map[string][]string{},
+	}
+
+	if err := i.SetTargetNetworks(cfg); err != nil {
+		return nil, fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
 	lock.Lock()
@@ -159,7 +187,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string, exclusions []string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string) error {
 
 	cfg, err := i.newACLInfo(version, contextID, nil, puType)
 	if err != nil {
@@ -174,21 +202,9 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	cfg.UID = username
 	cfg.PUType = puType
 	cfg.ProxyPort = proxyPort
-	cfg.Exclusions = exclusions
 
 	if err := i.deleteChainRules(cfg); err != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(err))
-	}
-
-	if i.isLegacyKernel {
-		if err = i.deleteLegacyNATExclusionACLs(cfg); err != nil {
-			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
-		}
-
-	} else {
-		if err = i.deleteNATExclusionACLs(cfg); err != nil {
-			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
-		}
 	}
 
 	if err = i.deleteAllContainerChains(cfg.AppChain, cfg.NetChain); err != nil {
@@ -247,16 +263,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		}
 	}
 
-	if i.isLegacyKernel {
-		if err := i.deleteLegacyNATExclusionACLs(oldCfg); err != nil {
-			zap.L().Warn("Failed to clean up legacy NAT exclusions", zap.Error(err))
-		}
-
-	} else {
-		if err := i.deleteNATExclusionACLs(oldCfg); err != nil {
-			zap.L().Warn("Failed to clean up NAT exclusions", zap.Error(err))
-		}
-	}
 	// Delete the old chain to clean up
 	if err := i.deleteAllContainerChains(oldCfg.AppChain, oldCfg.NetChain); err != nil {
 		return err
@@ -281,6 +287,11 @@ func (i *Instance) Run(ctx context.Context) error {
 
 	if err := i.InitializeChains(); err != nil {
 		return fmt.Errorf("Unable to initialize chains: %s", err)
+	}
+
+	// Insert the ACLS that point to the target networks
+	if err := i.setGlobalRules(); err != nil {
+		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
 
 	go func() {
@@ -310,22 +321,36 @@ func (i *Instance) CleanUp() error {
 }
 
 // SetTargetNetworks updates ths target networks for SynAck packets
-func (i *Instance) SetTargetNetworks(current, networks []string) error {
+func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 
-	// Cleanup old ACLs
-	if len(current) > 0 && i.targetSet != nil {
-		return i.updateTargetNetworks(current, networks)
+	cfg := c.DeepCopy()
+
+	var oldConfig *runtime.Configuration
+	if i.cfg == nil {
+		oldConfig = &runtime.Configuration{}
+	} else {
+		oldConfig = i.cfg.DeepCopy()
 	}
 
-	// Create the target network set
-	if err := i.createTargetSet(networks); err != nil {
+	// If there are no target networks, capture all traffic
+	if len(cfg.TCPTargetNetworks) == 0 {
+		cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	}
+
+	// Cleanup old ACLs
+	if err := i.updateTargetNetworks(i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
 		return err
 	}
 
-	// Insert the ACLS that point to the target networks
-	if err := i.setGlobalRules(); err != nil {
-		return fmt.Errorf("failed to update synack networks: %s", err)
+	if err := i.updateTargetNetworks(i.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
+		return err
 	}
+
+	if err := i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks); err != nil {
+		return err
+	}
+
+	i.cfg = cfg
 
 	return nil
 }
@@ -416,49 +441,37 @@ type aclIPset struct {
 	policy    *policy.FlowPolicy
 }
 
-func (i *Instance) addToIPset(setname string, data string) error {
-	set := i.ipset.GetIpset(setname)
+func (i *Instance) addToIPset(set provider.Ipset, data string) error {
 
 	// ipset can not program this rule
 	if data == "0.0.0.0/0" {
-		if err := i.addToIPset(setname, "0.0.0.0/1"); err != nil {
+		if err := i.addToIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
 
-		if err := i.addToIPset(setname, "128.0.0.0/1"); err != nil {
+		if err := i.addToIPset(set, "128.0.0.0/1"); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-	if err := set.Add(data, 0); err != nil {
-		zap.L().Error("unable to insert to ipset "+setname, zap.Error(err))
-		return errors.New("Unable to insert ipset")
-	}
-
-	return nil
+	return set.Add(data, 0)
 }
 
-func (i *Instance) delFromIPset(setname string, data string) error {
-	set := i.ipset.GetIpset(setname)
+func (i *Instance) delFromIPset(set provider.Ipset, data string) error {
 
 	if data == "0.0.0.0/0" {
-		if err := i.delFromIPset(setname, "0.0.0.0/1"); err != nil {
+		if err := i.delFromIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
 
-		if err := i.delFromIPset(setname, "128.0.0.0/1"); err != nil {
+		if err := i.delFromIPset(set, "128.0.0.0/1"); err != nil {
 			return err
 		}
 	}
 
-	if err := set.Del(data); err != nil {
-		zap.L().Error("unable to remove from ipset "+setname, zap.Error(err))
-		return errors.New("unable to remove from ipset")
-	}
-
-	return nil
+	return set.Del(data)
 }
 
 func (i *Instance) removePUFromExternalNetworks(contextID string, serviceID string) {
@@ -535,7 +548,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			ips := map[string]bool{}
 
 			ipsetName := puPortSetName(contextID, "_extnet_"+hashServiceID(rule.Policy.ServiceID))
-			_, err := i.ipset.NewIpset(ipsetName,
+			set, err := i.ipset.NewIpset(ipsetName,
 				"hash:net",
 				&ipset.Params{})
 			if err != nil {
@@ -544,7 +557,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			}
 
 			for _, address := range rule.Addresses {
-				if err := i.addToIPset(ipsetName, address); err != nil {
+				if err := i.addToIPset(set, address); err != nil {
 					return nil, err
 				}
 				ips[address] = true
@@ -567,7 +580,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 
 				// add new entries
 				if !info.ips[address] {
-					if err := i.addToIPset(info.ipset, address); err != nil {
+					if err := i.addToIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
 						return nil, err
 					}
 					newips[address] = true
@@ -579,7 +592,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			// Remove the old entries
 			for address, val := range info.ips {
 				if val {
-					if err := i.delFromIPset(info.ipset, address); err != nil {
+					if err := i.delFromIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
 						return nil, err
 					}
 				}
@@ -618,18 +631,18 @@ func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 		return err
 	}
 
-	// Install the nat ACLs as they need to be at the top
-	if i.isLegacyKernel {
-		// doesn't work for clients, as ports for the clients are not known
-		if err := i.addLegacyNATExclusionACLs(cfg.CgroupMark, cfg.ProxySetName, cfg.Exclusions, cfg.TCPPorts); err != nil {
-			return err
-		}
+	// // Install the nat ACLs as they need to be at the top
+	// if i.isLegacyKernel {
+	// 	// doesn't work for clients, as ports for the clients are not known
+	// 	if err := i.addLegacyNATExclusionACLs(cfg.CgroupMark, cfg.ProxySetName, cfg.Exclusions, cfg.TCPPorts); err != nil {
+	// 		return err
+	// 	}
 
-	} else {
-		if err := i.addNATExclusionACLs(cfg); err != nil {
-			return err
-		}
-	}
+	// } else {
+	// 	if err := i.addNATExclusionACLs(cfg); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
@@ -651,10 +664,6 @@ func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	}
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
-
-	if err := i.addExclusionACLs(cfg); err != nil {
-		return err
-	}
 
 	if err := i.addNetACLs(cfg.ContextID, cfg.AppChain, cfg.NetChain, netACLIPset); err != nil {
 		return err

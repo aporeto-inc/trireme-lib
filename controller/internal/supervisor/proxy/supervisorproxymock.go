@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -14,7 +15,7 @@ type mockedMethods struct {
 	SuperviseMock                   func(string, *policy.PUInfo) error
 	UnsuperviseMock                 func(string) error
 	RunMock                         func(ctx context.Context) error
-	SetTargetNetworksMock           func([]string) error
+	SetTargetNetworksMock           func(cfg *runtime.Configuration) error
 	CleanUpMock                     func() error
 	EnableIPTablesPacketTracingMock func(ctx context.Context, contextID string, interval time.Duration) error
 }
@@ -69,7 +70,7 @@ func (m *testSupervisorLauncher) MockRun(t *testing.T, impl func(ctx context.Con
 	m.currentMocks(t).RunMock = impl
 }
 
-func (m *testSupervisorLauncher) MockSetTargetNetworks(t *testing.T, impl func([]string) error) {
+func (m *testSupervisorLauncher) MockSetTargetNetworks(t *testing.T, impl func(*runtime.Configuration) error) {
 	m.currentMocks(t).SetTargetNetworksMock = impl
 }
 
@@ -98,9 +99,9 @@ func (m *testSupervisorLauncher) Run(ctx context.Context) error {
 	return nil
 }
 
-func (m *testSupervisorLauncher) SetTargetNetworks(networks []string) error {
+func (m *testSupervisorLauncher) SetTargetNetworks(cfg *runtime.Configuration) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SetTargetNetworksMock != nil {
-		return mock.SetTargetNetworksMock(networks)
+		return mock.SetTargetNetworksMock(cfg)
 	}
 	return nil
 }

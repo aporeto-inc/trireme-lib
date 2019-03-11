@@ -25,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -167,7 +168,7 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -247,13 +248,17 @@ func New(
 		puToPortsMap:           map[string]map[string]bool{},
 	}
 
-	if err = d.SetTargetNetworks(targetNetworks); err != nil {
+	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+
+	if mode != constants.RemoteContainer {
+		go d.autoPortDiscovery()
+	}
 
 	return d
 }
@@ -303,7 +308,7 @@ func NewWithDefaults(
 		defaultPacketLogs,
 		tokenAccessor,
 		puFromContextID,
-		targetNetworks,
+		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
 }
 
@@ -441,7 +446,10 @@ func (d *Datapath) Unenforce(contextID string) error {
 }
 
 // SetTargetNetworks sets new target networks used by datapath
-func (d *Datapath) SetTargetNetworks(networks []string) error {
+func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
+
+	networks := cfg.TCPTargetNetworks
+
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}

@@ -120,7 +120,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
-		payload.TargetNetworks,
+		payload.Configuration,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -204,7 +204,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			s.collector,
 			s.enforcer,
 			constants.RemoteContainer,
-			req.Payload.(rpcwrapper.InitRequestPayload).TargetNetworks,
+			nil,
 			s.service,
 		)
 		if err != nil {
@@ -248,7 +248,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			s.collector,
 			s.enforcer,
 			constants.RemoteContainer,
-			payload.TriremeNetworks,
+			payload.Configuration,
 			s.service,
 		)
 		if err != nil {
@@ -261,7 +261,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
 	} else {
-		if err := s.supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
+		if err := s.supervisor.SetTargetNetworks(payload.Configuration); err != nil {
 			zap.L().Error("unable to set target networks", zap.Error(err))
 		}
 	}
@@ -355,8 +355,8 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 		return fmt.Errorf(resp.Status)
 	}
 
-	payload := req.Payload.(rpcwrapper.SetTargetNetworks)
-	err = s.enforcer.SetTargetNetworks(payload.TargetNetworks)
+	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
+	err = s.enforcer.SetTargetNetworks(payload.Configuration)
 	if err != nil {
 		return err
 	}
