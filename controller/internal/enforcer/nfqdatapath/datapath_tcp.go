@@ -32,6 +32,7 @@ var errTCPAuthNotFound = errors.New("TCP authentication option not found")
 var errSigValidFailed = errors.New("Ack packet dropped because signature validation failed")
 var errInvalidFormat = errors.New("Ack packet dropped because of invalid format")
 var errInvalidConnState = errors.New("Invalid connection state")
+var errConntrackFailed = errors.New("conntrack(netlink) failed to establish")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
@@ -351,9 +352,11 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 func updateConntrack(tcpPacket *packet.Packet, reverse bool, mark uint32) error {
 	c, err := conntrack.Dial(nil)
 	if err != nil {
-		errors.New("conntrack could not be established")
+		zap.L().Error("conntrack(netlink) could not be established")
+		return errConntrackFailed
 	}
 
+	defer c.Close()
 	var srcIP net.IP
 	var dstIP net.IP
 	var srcPort uint16
@@ -379,8 +382,13 @@ func updateConntrack(tcpPacket *packet.Packet, reverse bool, mark uint32) error 
 		dstPort,
 		0, mark)
 
-	// Send the Flow to the kernel.
-	return c.Create(f)
+	err = c.Update(f)
+
+	if err != nil {
+		zap.L().Error("Error", zap.Error(err))
+	}
+
+	return err
 }
 
 // processApplicationSynAckPacket processes an application SynAck packet
@@ -471,6 +479,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					zap.String("context", string(conn.Auth.LocalContext)),
 					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+					zap.Error(err),
 				)
 			}
 		}
