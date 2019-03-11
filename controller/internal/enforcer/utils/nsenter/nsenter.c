@@ -17,6 +17,14 @@
 #include <fcntl.h>
 
 #define STRBUF_SIZE     128
+// Preserved Capabilities -- copy the line as need to disable these capabilities
+// CAP_CHOWN -- > we need to chown shared folder betwen master and remote
+// CAP_DAC_OVERRIDE -- things start failing for logs
+// CAP_FOWNER
+// CAP_FSETID
+// ~(1<<CAP_KILL)& -- to kill remote enforcer. This can be disabled ?
+//~(1<<CAP_SYS_PTRACE)& -- 
+
 #define MAINCAPMASK ~(1<<CAP_SETFCAP)&	        \
   ~(1<<CAP_LEASE)&				\
   ~(1<<CAP_MKNOD)&				\
@@ -34,9 +42,11 @@
   ~(1<<CAP_IPC_OWNER)&				\
   ~(1<<CAP_IPC_LOCK)&				\
   ~(1<<CAP_DAC_READ_SEARCH)&	                \
-   ~(1<<CAP_SYS_CHROOT)
+  ~(1<<CAP_SETGID)&				\
+  ~(1<<CAP_SETUID)&				\
+  ~(1<<CAP_FOWNER)&				\
+  ~(1<<CAP_SYS_CHROOT)
    // ~(1<<CAP_DAC_OVERRIDE)&	                
-  //  ~(1<<CAP_SYS_PTRACE)&			
   //  ~(1<<CAP_FOWNER)&
   // ~(1<<CAP_FSETID)&				
   
