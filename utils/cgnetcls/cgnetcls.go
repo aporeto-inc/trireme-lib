@@ -103,7 +103,7 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 		return nil
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(basePath, s.TriremePath, cgroupname, procs), PID, 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(basePath, s.TriremePath, cgroupname, procs), PID, 0600); err != nil {
 		return fmt.Errorf("cannot add process: %s", err)
 	}
 
@@ -287,7 +287,6 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 		ReleaseAgentPath: binpath,
 		TriremePath:      "",
 	}
-
 	if releasePath != "" {
 		controller.ReleaseAgentPath = releasePath
 	}

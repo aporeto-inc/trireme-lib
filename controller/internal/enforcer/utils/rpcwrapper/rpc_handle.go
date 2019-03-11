@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/hashstructure"
+	"github.com/opencontainers/runc/libcontainer/user"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
@@ -114,7 +115,6 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	req.HashAuth = digest.Sum(nil)
-
 	return rpcClient.Client.Call(methodName, req, resp)
 }
 
@@ -131,7 +131,6 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 	if _, err := digest.Write(hash); err != nil {
 		return false
 	}
-
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }
 
@@ -172,7 +171,15 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	if err != nil {
 		return err
 	}
-
+	userid, uerr := user.LookupUser("enforcerd")
+	groupid, gerr := user.LookupGroup("aporeto")
+	zap.L().Error("UserID", zap.Int("userid", userid.Uid), zap.Int("groupID", groupid.Gid))
+	if uerr == nil && gerr == nil {
+		zap.L().Error("Trying CHownError", zap.Error(err))
+		if err := os.Chown(path, userid.Uid, groupid.Gid); err != nil {
+			zap.L().Error("Cannot Chown", zap.Error(err))
+		}
+	}
 	go http.Serve(listen, nil) // nolint
 
 	<-ctx.Done()

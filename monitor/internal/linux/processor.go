@@ -321,7 +321,6 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	if err != nil {
 		return err
 	}
-
 	markval := runtimeInfo.Options().CgroupMark
 	if markval == "" {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {

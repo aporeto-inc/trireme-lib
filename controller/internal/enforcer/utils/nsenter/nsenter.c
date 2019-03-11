@@ -14,9 +14,168 @@
 #include<sys/prctl.h>
 #include <pwd.h>
 #include <grp.h>
+#include <fcntl.h>
 
 #define STRBUF_SIZE     128
-void droppriveleges();
+#define MAINCAPMASK ~(1<<CAP_SETFCAP)&	        \
+  ~(1<<CAP_LEASE)&				\
+  ~(1<<CAP_MKNOD)&				\
+  ~(1<<CAP_SYS_TTY_CONFIG)&			\
+  ~(1<<CAP_SYS_TIME)&				\
+  ~(1<<CAP_SYS_NICE)&				\
+  ~(1<<CAP_SYS_BOOT)&				\
+  ~(1<<CAP_SYS_ADMIN)&				\
+  ~(1<<CAP_SYS_TTY_CONFIG)&			\
+  ~(1<<CAP_SYS_TIME)&				\
+  ~(1<<CAP_SYS_NICE)&				\
+  ~(1<<CAP_SYS_BOOT)&				\
+  ~(1<<CAP_SYS_PACCT)&				\
+  ~(1<<CAP_SYS_MODULE)&				\
+  ~(1<<CAP_IPC_OWNER)&				\
+  ~(1<<CAP_IPC_LOCK)&				\
+  ~(1<<CAP_DAC_READ_SEARCH)&	                \
+   ~(1<<CAP_SYS_CHROOT)
+   // ~(1<<CAP_DAC_OVERRIDE)&	                
+  //  ~(1<<CAP_SYS_PTRACE)&			
+  //  ~(1<<CAP_FOWNER)&
+  // ~(1<<CAP_FSETID)&				
+  
+
+
+#define REMOTECAPMASK  ( ~(1<<CAP_SETFCAP)&	        \
+  ~(1<<CAP_LEASE)&				\
+  ~(1<<CAP_AUDIT_WRITE)&			\
+  ~(1<<CAP_AUDIT_CONTROL)&			\
+  ~(1<<CAP_MKNOD)&				\
+  ~(1<<CAP_SYS_TTY_CONFIG)&			\
+  ~(1<<CAP_SYS_TIME)&				\
+  ~(1<<CAP_SYS_NICE)&				\
+  ~(1<<CAP_SYS_BOOT)&				\
+  ~(1<<CAP_SYS_ADMIN)&				\
+  ~(1<<CAP_SYS_PACCT)&				\
+  ~(1<<CAP_SYS_PTRACE)&				\
+  ~(1<<CAP_SYS_CHROOT)&				\
+  ~(1<<CAP_SYS_RAWIO)&				\
+  ~(1<<CAP_SYS_MODULE)&				\
+  ~(1<<CAP_IPC_OWNER)&				\
+  ~(1<<CAP_IPC_LOCK)&				\
+  ~(1<<CAP_NET_BROADCAST)&			\
+  ~(1<<CAP_NET_BIND_SERVICE)&			\
+  ~(1<<CAP_LINUX_IMMUTABLE)&			\
+  ~(1<<CAP_SETPCAP)&				\
+  ~(1<<CAP_SETUID)&				\
+  ~(1<<CAP_SETGID)&		                \
+  ~(1<<CAP_KILL)&				\
+  ~(1<<CAP_FSETID)&				\
+  ~(1<<CAP_FOWNER)&		                \
+  ~(1<<CAP_DAC_READ_SEARCH)&	                \
+  ~(1<<CAP_DAC_OVERRIDE)&	                \
+  ~(1<<CAP_CHOWN))
+
+static int getuserid(const char *username) {
+  struct passwd *entry = NULL;
+  entry = getpwnam(username);
+  if (entry == NULL){
+    return -1;
+  }
+  return entry->pw_uid;
+}
+
+static int getgroupid(const char *groupname) {
+  struct group *grp = NULL;
+  grp = getgrnam(groupname);
+  if (grp==NULL) {
+    return -1;
+  }
+  return grp->gr_gid;
+}
+
+
+// droppriveleges called in init due to the same reason we do setns here. setuid setgid are per thread calls
+void droppriveleges() {
+  
+  cap_user_header_t hdr = malloc(sizeof(struct __user_cap_header_struct));
+  cap_user_data_t data = malloc(2*sizeof(struct __user_cap_data_struct));
+  char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
+  /* if (container_pid_env == NULL) { */
+  /*   free(hdr); */
+  /*   free(data); */
+  /*   return; */
+  /* } */
+  char *drop_priveleges = getenv("DROP_PRIVELEGES");
+  int groupid = getgroupid("aporeto");
+  int userid = getuserid("enforcerd");
+  int retval = 0;
+  if (drop_priveleges == NULL) {
+    free(hdr);
+    free(data);
+    return;
+  }
+  unsigned int mask=~0;
+  if (container_pid_env != NULL){
+    //this is remote and we should drop
+    mask = REMOTECAPMASK;
+  }else {
+    mask = MAINCAPMASK;
+  }
+	  
+  
+  prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
+  hdr->pid = getpid();
+  hdr->version = 0x20080522;
+  int err = capget(hdr,data);
+  if (err <0) {
+    perror("Could Not get cap");
+    free(hdr);
+    free(data);
+    return;
+  }
+  
+  data[0].effective = data[0].permitted;
+  data[0].inheritable = data[0].permitted;
+  err = capset(hdr,data);
+  if (err <0) {
+    perror("Could Not get cap");
+    free(hdr);
+    free(data);
+    return;
+  }
+
+  // drop user only for remotes
+  if (container_pid_env != NULL) {
+    if (groupid != -1){
+      retval = setgid(groupid);
+      if (retval < 0) {
+	perror("Failed to set group id");
+      }
+    }
+    if (userid != -1) {
+      retval = setuid(userid);
+      if (retval < 0) {
+	perror("Failed to set user id");
+      }
+    }
+  }
+  data[0].effective = data[0].permitted&mask;
+  if (container_pid_env != NULL) {
+    data[0].inheritable = data[0].permitted&REMOTECAPMASK;
+  }
+  data[0].permitted = data[0].permitted&mask;
+  err = capset(hdr,data);
+  if (err <0) {
+    perror("Could Not set cap");
+      free(hdr);
+      free(data);
+      return;
+  }
+  
+  
+  free(hdr);
+  free(data);
+  return;
+  
+}
+
 void nsexec(void) {
 
   int fd = 0;
@@ -29,7 +188,6 @@ void nsexec(void) {
   if(container_pid_env == NULL){
     // We are not running as remote enforcer
     setenv("TRIREME_ENV_NSENTER_LOGS", "no container pid", 1);
-    droppriveleges();
     return;
   }
   
@@ -63,102 +221,19 @@ void nsexec(void) {
   if(retval < 0){
     setenv("APORET_ENV_NSENTER_ERROR_STATE",strerror(errno),1);
   }
- 
-  // adjust
-  droppriveleges();
   
   
 }
 
-int getuserid(const char *username) {
-  struct passwd *entry = NULL;
-  entry = getpwnam(username);
-  if (entry == NULL){
-    return -1;
-  }
-  return entry->pw_uid;
-}
 
 
-int getgroupid(const char *groupname) {
-  struct group *grp = NULL;
-  grp = getgrnam(groupname);
-  if (grp==NULL) {
-    return -1;
-  }
-  return grp->gr_gid;
-}
 
-
-// droppriveleges called in init due to the same reason we do setns here. setuid setgid are per thread calls
-void droppriveleges() {
-  cap_user_header_t hdr = malloc(sizeof(struct __user_cap_header_struct));
-  cap_user_data_t data = malloc(sizeof(struct __user_cap_data_struct));
-  char *drop_priveleges = getenv("DROP_PRIVELEGES"); 
-  int groupid = getgroupid("aporeto");
-  int userid = getuserid("enforcerd");
-  int retval = 0;
-  printf("Celled Droppriveleges\n");
-  if (groupid == -1 || userid == -1 || drop_priveleges == NULL) {
-    printf("Returning early\n");
-    return;
+void setupiptables() {
+  char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
+  if (container_pid_env == NULL){
+    chmod("/run/xtables.lock",0666);
   }
-  prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
-  hdr->pid = getpid();
-  hdr->version = 0x20080522;
-  int err = capget(hdr,data);
-  if (err <0) {
-    perror("Could Not get cap");
-    free(hdr);
-    free(data);
-    return;
-  }
-  
-  data[0].effective = data[0].permitted;
-  data[0].inheritable = data[0].permitted;
-  err = capset(hdr,data);
-  if (err <0) {
-    perror("Could Not get cap");
-    free(hdr);
-    free(data);
-    return;
-  }
-
-  
-  
-  if (groupid == -1){
-   retval = setgid(65534);
-  }else{
-    retval = setgid(groupid);
-  }
-  
-  
-  if (retval < 0) {
-    
-    
-  }
-
-  userid = getuserid("enforcerd");
-  if (userid == -1) {
-    retval = setuid(65534);
-  }else{
-    retval = setuid(userid);
-  }
-  
-  data[0].effective = data[0].permitted;
-  data[0].inheritable = data[0].permitted;
-  err = capset(hdr,data);
-  if (err <0) {
-    perror("Could Not get cap");
-    free(hdr);
-    free(data);
-    return;
-  }
-  
-  free(hdr);
-  free(data);
   return;
-  
 }
 
 

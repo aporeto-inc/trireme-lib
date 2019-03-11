@@ -8,7 +8,7 @@ const (
 	// DefaultSecretsPath is the default path for the secrets proxy.
 	DefaultSecretsPath = "@secrets"
 	// SocketPath is the socket path in which RPC sockets for remote enforcers are created
-	SocketPath = "/tmp/triremesockets/"
+	SocketPath = "/opt/aporeto/tmp/aporetosock/"
 
 	// UserNobody Nobody User ID
 	UserNobody = (1 << 16) - 2

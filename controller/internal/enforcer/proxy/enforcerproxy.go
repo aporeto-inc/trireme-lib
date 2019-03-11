@@ -110,7 +110,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return err
 	}
 
-	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
+	zap.L().Debug("Called enforce and launched (1<<CAP_SETGID)|| (1<<CAP_SETUID)|| (1<<CAP_NET_ADMIN)|| (1<<CAP_NET_RAW)||(1<<CAP_SYS_RESOURCE)|| (1<< CAP_SYS_RAWIO);process", zap.String("contextID", contextID))
 
 	if initializeEnforcer {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {

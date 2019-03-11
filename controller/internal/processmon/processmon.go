@@ -33,7 +33,7 @@ const (
 	netNSPath                   = "/var/run/netns/"
 	processMonitorCacheName     = "ProcessMonitorCache"
 	remoteEnforcerBuildName     = "remoteenforcerd"
-	remoteEnforcerTempBuildPath = "/var/run/aporeto/tmp/bin/"
+	remoteEnforcerTempBuildPath = "/opt/aporeto/tmp/bin/"
 	secretLength                = 32
 )
 
