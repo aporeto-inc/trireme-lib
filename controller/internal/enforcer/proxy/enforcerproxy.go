@@ -116,6 +116,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if initializeEnforcer {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
+			s.prochdl.KillProcess(contextID)
 			return err
 		}
 	}

@@ -112,28 +112,10 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 		return nil, fmt.Errorf("unable to initialize ipsets: %s", err)
 	}
 
-	targetTCPSet, err := ips.NewIpset(targetTCPNetworkSet, "hash:net", &ipset.Params{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipset for %s: %s", targetUDPNetworkSet, err)
-	}
-
-	targetUDPSet, err := ips.NewIpset(targetUDPNetworkSet, "hash:net", &ipset.Params{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipset for %s: %s", targetUDPNetworkSet, err)
-	}
-
-	excludedNetworkSet, err := ips.NewIpset(excludedNetworkSet, "hash:net", &ipset.Params{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipset for %s: %s", excludedNetworkSet, err)
-	}
-
 	i := &Instance{
 		fqc:                     fqc,
 		ipt:                     ipt,
 		ipset:                   ips,
-		targetTCPSet:            targetTCPSet,
-		targetUDPSet:            targetUDPSet,
-		excludedNetworksSet:     excludedNetworkSet,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -150,7 +132,28 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 		puToServiceIDs:          map[string][]string{},
 	}
 
+	// Clean any previous ACLs. This is needed in case we crashed at some
+	// earlier point or there are other ACLs that create conflicts. We
+	// try to clean only ACLs related to Trireme.
+	if err := i.cleanACLs(); err != nil {
+		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
+	}
+
+	// Create all the basic target sets. These are the global target sets
+	// that do not depend on policy configuration. If they already exist
+	// we will delete them and start again.
+	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(ips)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create global sets: %s", err)
+	}
+
+	i.targetTCPSet = targetTCPSet
+	i.targetUDPSet = targetUDPSet
+	i.excludedNetworksSet = excludedSet
+
 	if err := i.SetTargetNetworks(cfg); err != nil {
+		// If there is a failure try to clean up on exit.
+		i.ipset.DestroyAll(chainPrefix) // nolint errchech
 		return nil, fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
@@ -167,16 +170,19 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 // exact same logic.
 func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
 
+	var err error
+	var cfg *ACLInfo
+
 	// First we create an IPSet for destination matching ports. This only
 	// applies to Linux type PUs. A port set is associated with every PU,
 	// and packets matching this destination get associated with the context
 	// of the PU.
-	if err := i.createPortSet(contextID, pu); err != nil {
+	if err = i.createPortSet(contextID, pu); err != nil {
 		return err
 	}
 
 	// We create the generic ACL object that is used for all the templates.
-	cfg, err := i.newACLInfo(version, contextID, pu, extractors.GetPuType(pu.Runtime))
+	cfg, err = i.newACLInfo(version, contextID, pu, extractors.GetPuType(pu.Runtime))
 	if err != nil {
 		return err
 	}
@@ -187,21 +193,26 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// The outgoing sets capture all traffic towards specific destinations
 	// as proxied traffic. Incoming sets correspond to the listening
 	// services.
-	if err := i.createProxySets(cfg.ProxySetName); err != nil {
+	if err = i.createProxySets(cfg.ProxySetName); err != nil {
 		return err
 	}
 
 	// At this point we can install all the ACL rules that will direct
 	// traffic to user space, allow for external access or direct
 	// traffic towards the proxies
-	if err := i.installRules(cfg, pu); err != nil {
+	if err = i.installRules(cfg, pu); err != nil {
 		return err
 	}
 
 	// We commit the ACLs at the end. Note, that some of the ACLs in the
 	// NAT table are not committed as a group. The commit function only
 	// applies when newer versions of tables are installed (1.6.2 and above).
-	return i.ipt.Commit()
+	if err = i.ipt.Commit(); err != nil {
+		zap.L().Error("unable to configure rules", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 // DeleteRules implements the DeleteRules interface. This is responsible
@@ -305,7 +316,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Commit all actions in on iptables-restore function.
-	if err = i.ipt.Commit(); err != nil {
+	if err := i.ipt.Commit(); err != nil {
 		return err
 	}
 
@@ -318,12 +329,12 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 // Run starts the iptables controller
 func (i *Instance) Run(ctx context.Context) error {
 
-	// Clean any previous ACLs. This is needed in case we crashed at some
-	// earlier point or there are other ACLs that create conflicts. We
-	// try to clean only ACLs related to Trireme.
-	if err := i.cleanACLs(); err != nil {
-		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
-	}
+	go func() {
+		<-ctx.Done()
+		zap.L().Debug("Stop the supervisor")
+
+		i.CleanUp() // nolint
+	}()
 
 	// Initialize all the global Trireme chains. There are several global chaims
 	// that apply to all PUs:
@@ -343,13 +354,6 @@ func (i *Instance) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
 
-	go func() {
-		<-ctx.Done()
-		zap.L().Debug("Stop the supervisor")
-
-		i.CleanUp() // nolint
-	}()
-
 	return nil
 }
 
@@ -361,7 +365,7 @@ func (i *Instance) CleanUp() error {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
 
-	if err := i.ipset.DestroyAll(); err != nil {
+	if err := i.ipset.DestroyAll(chainPrefix); err != nil {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
@@ -485,6 +489,48 @@ func (i *Instance) deleteProxySets(proxyPortSetName string) error { // nolint
 		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srvPortSetName), zap.Error(err))
 	}
 	return nil
+}
+
+func createGlobalSets(ips provider.IpsetProvider) (provider.Ipset, provider.Ipset, provider.Ipset, error) {
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			ips.DestroyAll(chainPrefix)
+		}
+	}()
+
+	targetSetNames := []string{targetTCPNetworkSet, targetUDPNetworkSet, excludedNetworkSet}
+
+	targetSets := map[string]provider.Ipset{}
+
+	existingSets, err := ips.ListIPSets()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to read current sets: %s", err)
+	}
+
+	setIndex := map[string]struct{}{}
+	for _, s := range existingSets {
+		setIndex[s] = struct{}{}
+	}
+
+	for _, t := range targetSetNames {
+		_, ok := setIndex[t]
+		createdSet, err := ips.NewIpset(t, "hash:net", &ipset.Params{})
+		if err != nil {
+			if !ok {
+				return nil, nil, nil, err
+			}
+			createdSet = ips.GetIpset(t)
+		}
+		if err = createdSet.Flush(); err != nil {
+			return nil, nil, nil, err
+		}
+		targetSets[t] = createdSet
+	}
+
+	return targetSets[targetTCPNetworkSet], targetSets[targetUDPNetworkSet], targetSets[excludedNetworkSet], nil
 }
 
 type ipsetInfo struct {

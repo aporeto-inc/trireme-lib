@@ -262,16 +262,13 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 			i.appPacketIPTableContext,
 			chain,
 			"-p", proto,
-			"-m", "set", "--match-set", rule.ipset, ipMatchDirection}
+			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
+			"-m", "state", "--state", "NEW",
+		}
 
 		// only tcp uses target networks
 		if proto == constants.TCPProtoNum {
 			targetNet := []string{"-m", "set", "!", "--match-set", targetTCPNetworkSet, ipMatchDirection}
-			iptRule = append(iptRule, targetNet...)
-		}
-
-		if proto == constants.UDPProtoNum {
-			targetNet := []string{"-m", "set", "!", "--match-set", targetUDPNetworkSet, ipMatchDirection}
 			iptRule = append(iptRule, targetNet...)
 		}
 
