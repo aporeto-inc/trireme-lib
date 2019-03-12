@@ -17,15 +17,22 @@
 #include <fcntl.h>
 
 #define STRBUF_SIZE     128
-// Preserved Capabilities -- copy the line as need to disable these capabilities
-// CAP_CHOWN -- > we need to chown shared folder betwen master and remote
-// CAP_DAC_OVERRIDE -- things start failing for logs
-// CAP_FOWNER
-// CAP_FSETID
-// ~(1<<CAP_KILL)& -- to kill remote enforcer. This can be disabled ?
-//~(1<<CAP_SYS_PTRACE)& -- 
+// Preserved Capabilities
+// These capabilities are not reset if they are present in the default set. We don't enable these and will fail
+// if they disabled in the process that launches the enforcer. i.e. if they are not in our permitted set 
+// -- copy the line as need to disable these capabilities
 
-#define MAINCAPMASK ~(1<<CAP_SETFCAP)&	        \
+// ~(1<<CAP_CHOWN)&              --> we need to chown shared folder betwen master and remote
+// ~(1<<CAP_DAC_OVERRIDE)&       --> things start failing for logs
+// ~(1<<CAP_KILL)&               --> to kill remote enforcer if we cannot clean it normally
+// ~(1<<CAP_SYS_PTRACE)&         --> access to /proc to check if we are network namespace
+// ~(1<<CAP_NET_ADMIN)&          --> to call setns and iptables programming
+// ~(1<<CAP_NET_RAW)&            --> need for raw_socket call used by UDP datapath
+// ~(1<<CAP_SYS_RESOURCE)&       --> required set ulimit on number of open files
+// ~(1<< CAP_AUDIT_WRITE)&       -->  required by audit functionality
+// ~(1<< CAP_AUDIT_CONTROL)&     -->  required by audit functionality
+
+#define MAINCAPMASK				\
   ~(1<<CAP_LEASE)&				\
   ~(1<<CAP_MKNOD)&				\
   ~(1<<CAP_SYS_TTY_CONFIG)&			\
@@ -45,14 +52,19 @@
   ~(1<<CAP_SETGID)&				\
   ~(1<<CAP_SETUID)&				\
   ~(1<<CAP_FOWNER)&				\
+  ~(1<<CAP_FOWNER)&				\
+  ~(1<<CAP_FSETID)&				\
+  ~(1<<CAP_SETPCAP)&				\
+  ~(1<<CAP_LINUX_IMMUTABLE)&			\
+  ~(1<<CAP_NET_BROADCAST)&			\
+  ~(1<<CAP_SYS_RAWIO)&				\
+  ~(1<<CAP_SYS_ADMIN)&				\
   ~(1<<CAP_SYS_CHROOT)
-   // ~(1<<CAP_DAC_OVERRIDE)&	                
-  //  ~(1<<CAP_FOWNER)&
-  // ~(1<<CAP_FSETID)&				
   
+#define MAINCAPMASK1 ~(1<<(CAP_MAC_OVERRIDE>>5)  
 
 
-#define REMOTECAPMASK  ( ~(1<<CAP_SETFCAP)&	        \
+#define REMOTECAPMASK  (			\
   ~(1<<CAP_LEASE)&				\
   ~(1<<CAP_AUDIT_WRITE)&			\
   ~(1<<CAP_AUDIT_CONTROL)&			\
@@ -80,6 +92,7 @@
   ~(1<<CAP_FOWNER)&		                \
   ~(1<<CAP_DAC_READ_SEARCH)&	                \
   ~(1<<CAP_DAC_OVERRIDE)&	                \
+  ~(1<<CAP_NET_BROADCAST)&	                \
   ~(1<<CAP_CHOWN))
 
 static int getuserid(const char *username) {
