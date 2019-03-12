@@ -398,7 +398,7 @@ func TestDeleteChainRules(t *testing.T) {
 
 }
 
-func TestDeleteAllContainerChains(t *testing.T) {
+func TestdeletePUChains(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
@@ -412,7 +412,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.deleteAllContainerChains("appchain", "netchain")
+			err := i.deletePUChains("appchain", "netchain")
 			Convey("I should get no error ", func() {
 				So(err, ShouldBeNil)
 			})
@@ -425,7 +425,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				return errors.New("error")
 			})
-			err := i.deleteAllContainerChains("appchain", "netchain")
+			err := i.deletePUChains("appchain", "netchain")
 			Convey("I should stil get no error ", func() {
 				So(err, ShouldBeNil)
 			})
@@ -438,7 +438,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.deleteAllContainerChains("appchain", "netchain")
+			err := i.deletePUChains("appchain", "netchain")
 			Convey("I should stil get no error ", func() {
 				So(err, ShouldBeNil)
 			})

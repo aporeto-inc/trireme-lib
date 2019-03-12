@@ -251,7 +251,6 @@ func (i *Instance) addChainRules(cfg *ACLInfo) error {
 func (i *Instance) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
-
 }
 
 func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain string, nfLogGroup, proto, ipMatchDirection string) [][]string {
@@ -310,134 +309,69 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	return iptRules
 }
 
-func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
+// sortACLsInBuckets will process all the rules and add them in a list of buckets
+// based on their priority. We need an explicit order of these buckets
+// in order to support observation only of ACL actions. The parameters
+// must provide the chain and whether it is App or Net ACLs so that the rules
+// can be created accordingly.
+func (i *Instance) sortACLsInBuckets(contextID, chain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
 
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
+	rulesBucket := &rulesInfo{
+		RejectObserveApply:    [][]string{},
+		RejectNotObserved:     [][]string{},
+		RejectObserveContinue: [][]string{},
+		AcceptObserveApply:    [][]string{},
+		AcceptNotObserved:     [][]string{},
+		AcceptObserveContinue: [][]string{},
 	}
 
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
-	}
-
-	for _, rule := range rules {
-
-		for _, proto := range rule.protocols {
-
-			appACLS := i.generateACLRules(contextID, &rule, appChain, "10", proto, "dst")
-
-			if testReject(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, appACLS...)
-			}
-
-			if testReject(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, appACLS...)
-			}
-
-			if testReject(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, appACLS...)
-			}
-
-			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, appACLS...)
-			}
-
-			if testAccept(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, appACLS...)
-			}
-
-			if testAccept(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, appACLS...)
-			}
-		}
-	}
-
-}
-
-func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
-
-	testObserveContinue := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveContinue()
-	}
-
-	testNotObserved := func(p *policy.FlowPolicy) bool {
-		return !p.ObserveAction.Observed()
-	}
-
-	testObserveApply := func(p *policy.FlowPolicy) bool {
-		return p.ObserveAction.ObserveApply()
-	}
-
-	testReject := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Reject != 0)
-	}
-
-	testAccept := func(p *policy.FlowPolicy) bool {
-		return (p.Action&policy.Accept != 0)
+	direction := "src"
+	nflogGroup := "11"
+	if isAppACLs {
+		direction = "dst"
+		nflogGroup = "10"
 	}
 
 	for _, rule := range rules {
 
 		for _, proto := range rule.protocols {
 
-			netACLS := i.generateACLRules(contextID, &rule, netChain, "11", proto, "src")
+			acls := i.generateACLRules(contextID, &rule, chain, nflogGroup, proto, direction)
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, netACLS...)
+				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, acls...)
 			}
 
 			if testReject(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, netACLS...)
+				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, acls...)
 			}
 
 			if testReject(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, netACLS...)
+				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, acls...)
 			}
 
 			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, netACLS...)
+				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, acls...)
 			}
 
 			if testAccept(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, netACLS...)
+				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, acls...)
 			}
 
 			if testAccept(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, netACLS...)
+				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, acls...)
 			}
-
 		}
 	}
 
+	return rulesBucket
 }
 
-// addAppACLs adds a set of rules to the external services that are initiated
+// addExternalACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclIPset) error {
+func (i *Instance) addExternalACLs(contextID string, chain string, rules []aclIPset, isAppAcls bool) error {
 
-	rulesBucket := &rulesInfo{
-		RejectObserveApply:    [][]string{},
-		RejectNotObserved:     [][]string{},
-		RejectObserveContinue: [][]string{},
-
-		AcceptObserveApply:    [][]string{},
-		AcceptNotObserved:     [][]string{},
-		AcceptObserveContinue: [][]string{},
-	}
-
-	i.addAllAppACLS(contextID, appChain, netChain, rules, rulesBucket)
+	rulesBucket := i.sortACLsInBuckets(contextID, chain, rules, isAppAcls)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
@@ -451,41 +385,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules []aclI
 	}
 
 	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
-		return fmt.Errorf("unable to install appACL rules:%s", err)
-	}
-
-	return nil
-}
-
-// addNetACLs adds iptables rules that manage traffic from external services. The
-// explicit rules are added with the highest priority since they are direct allows.
-func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclIPset) error {
-
-	rulesBucket := &rulesInfo{
-		RejectObserveApply:    [][]string{},
-		RejectNotObserved:     [][]string{},
-		RejectObserveContinue: [][]string{},
-
-		AcceptObserveApply:    [][]string{},
-		AcceptNotObserved:     [][]string{},
-		AcceptObserveContinue: [][]string{},
-	}
-
-	i.addAllNetACLS(contextID, appChain, netChain, rules, rulesBucket)
-
-	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
-		"joinRule": func(rule []string) string {
-			return strings.Join(rule, " ")
-		},
-	}).Parse(acls))
-
-	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
-	if err != nil {
-		return fmt.Errorf("unable to extract rules from template: %s", err)
-	}
-
-	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
-		return fmt.Errorf("unable to install appACL rules:%s", err)
+		return fmt.Errorf("unable to install rules - mode :%s %v", err, isAppAcls)
 	}
 
 	return nil
@@ -513,8 +413,8 @@ func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }
 
-// deleteAllContainerChains removes all the container specific chains and basic rules
-func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
+// deletePUChains removes all the container specific chains and basic rules
+func (i *Instance) deletePUChains(appChain, netChain string) error {
 
 	if err := i.ipt.ClearChain(i.appPacketIPTableContext, appChain); err != nil {
 		zap.L().Warn("Failed to clear the container ack packets chain",
@@ -647,7 +547,6 @@ func (i *Instance) cleanACLs() error { // nolint
 			}
 		}
 
-		// Flush the chains
 		// Delete the chains
 		if rule[2] == "-X" {
 			if err := i.ipt.DeleteChain(rule[1], rule[3]); err != nil {
@@ -686,7 +585,6 @@ func (i *Instance) cleanACLSection(context, chainPrefix string) {
 					zap.Error(err),
 				)
 			}
-
 			if err := i.ipt.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),

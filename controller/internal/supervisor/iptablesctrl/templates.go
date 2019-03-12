@@ -239,7 +239,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		// // UID PUs
 		UID:     uid,
 		Mark:    mark,
-		PortSet: proxySetName,
+		PortSet: portSetName,
 
 		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
 	}
