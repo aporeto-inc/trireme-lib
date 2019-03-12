@@ -356,12 +356,11 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 	}
 
 	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
-	err = s.enforcer.SetTargetNetworks(payload.Configuration)
-	if err != nil {
+	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
 		return err
 	}
-	return nil
 
+	return s.supervisor.SetTargetNetworks(payload.Configuration)
 }
 
 // Enforce this method calls the enforce method on the enforcer created during initenforcer

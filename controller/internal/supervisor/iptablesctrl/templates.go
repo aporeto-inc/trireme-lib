@@ -42,9 +42,14 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 type ACLInfo struct {
 	ContextID string
 	PUType    string
+
+	// Tables
+	MangleTable string
+	NatTable    string
+
 	// Chains
-	MangleTable         string
-	NatTable            string
+	MainAppChain        string
+	MainNetChain        string
 	HostInput           string
 	HostOutput          string
 	NetworkSvcInput     string
@@ -166,8 +171,8 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		appSection = HostModeOutput
 		netSection = HostModeInput
 	default:
-		appSection = ipTableSectionOutput
-		netSection = ipTableSectionInput
+		appSection = mainAppChain
+		netSection = mainNetChain
 	}
 
 	portSetName := i.getPortSet(contextID)
@@ -178,6 +183,8 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		// Chains
 		MangleTable:         "mangle",
 		NatTable:            "nat",
+		MainAppChain:        mainAppChain,
+		MainNetChain:        mainNetChain,
 		HostInput:           HostModeInput,
 		HostOutput:          HostModeOutput,
 		NetworkSvcInput:     NetworkSvcInput,

@@ -30,32 +30,9 @@ type rulesInfo struct {
 	AcceptObserveContinue [][]string
 }
 
-// puChainRules are the rules that determine which traffic will passed to the
-// PU specific chain. The rules are placed in the chains of host networks,
-// host services or Linux processes. For containers they are placed in the
-// Input Chain.
-func (i *Instance) puChainRules(cfg *ACLInfo) [][]string {
-
-	tmpl := template.Must(template.New(cgroupRules).Funcs(template.FuncMap{
-		"isUDPPorts": func() bool {
-			return cfg.UDPPorts != "0"
-		},
-		"isTCPPorts": func() bool {
-			return cfg.TCPPorts != "0"
-		},
-		"isHostPU": func() bool {
-			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
-		},
-	}).Parse(cgroupRules))
-
-	rules, err := extractRulesFromTemplate(tmpl, cfg)
-	if err != nil {
-		zap.L().Warn("unable to extract rules", zap.Error(err))
-	}
-
-	return append(rules, i.proxyRules(cfg)...)
-}
-
+// cgroupChainRules provides the rules for redirecting to a processing unit
+// specific chain based for Linux processed and based on the cgroups and net_cls
+// configuration.
 func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
@@ -76,12 +53,29 @@ func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
 		)
 	}
 
-	return i.puChainRules(cfg)
+	tmpl := template.Must(template.New(cgroupCaptureTemplate).Funcs(template.FuncMap{
+		"isUDPPorts": func() bool {
+			return cfg.UDPPorts != "0"
+		},
+		"isTCPPorts": func() bool {
+			return cfg.TCPPorts != "0"
+		},
+		"isHostPU": func() bool {
+			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
+		},
+	}).Parse(cgroupCaptureTemplate))
+
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
+	}
+
+	return append(rules, i.proxyRules(cfg)...)
 }
 
 func (i *Instance) uidChainRules(cfg *ACLInfo) [][]string {
 
-	tmpl := template.Must(template.New(uidPuRules).Parse(uidPuRules))
+	tmpl := template.Must(template.New(uidChainTemplate).Parse(uidChainTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
@@ -94,11 +88,11 @@ func (i *Instance) uidChainRules(cfg *ACLInfo) [][]string {
 	return append(rules, i.proxyRules(cfg)...)
 }
 
-// chainRules provides the list of rules that are used to send traffic to
+// containerChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(cfg *ACLInfo) [][]string {
+func (i *Instance) containerChainRules(cfg *ACLInfo) [][]string {
 
-	tmpl := template.Must(template.New(containerPuRules).Parse(containerPuRules))
+	tmpl := template.Must(template.New(containerChainTemplate).Parse(containerChainTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
@@ -108,14 +102,15 @@ func (i *Instance) chainRules(cfg *ACLInfo) [][]string {
 	return append(rules, i.proxyRules(cfg)...)
 }
 
-// proxyRules creates all the proxy specific rules.
+// proxyRules creates the rules that allow traffic to go through if it is handled
+// by the services.
 func (i *Instance) proxyRules(cfg *ACLInfo) [][]string {
 
-	tmpl := template.Must(template.New(proxyChainRules).Funcs(template.FuncMap{
+	tmpl := template.Must(template.New(proxyChainTemplate).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
 			return cfg.CgroupMark != ""
 		},
-	}).Parse(proxyChainRules))
+	}).Parse(proxyChainTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
@@ -124,14 +119,17 @@ func (i *Instance) proxyRules(cfg *ACLInfo) [][]string {
 	return rules
 }
 
-//trapRules provides the packet trap rules to add/delete
+// trapRules provides the packet capture rules that are defined for each processing unit.
 func (i *Instance) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 
-	tmpl := template.Must(template.New(trapRules).Funcs(template.FuncMap{
+	tmpl := template.Must(template.New(packetCaptureTemplate).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
 			return i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel
 		},
-	}).Parse(trapRules))
+		"isUIDProcess": func() bool {
+			return cfg.UID != ""
+		},
+	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
@@ -157,6 +155,8 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 	return nil
 }
 
+// processRulesFromList is a generic helper that parses a set of rules and sends the corresponding
+// ACL commands.
 func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
 	var err error
 	for _, cr := range rulelist {
@@ -196,7 +196,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 	return nil
 }
 
-// addUDPNatRule adds a rule to avoid masquarading traffic from host udp servers.
+// getUDPNatRule adds a rule to avoid masquarading traffic from host udp servers.
 func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 
 	rules := [][]string{}
@@ -229,7 +229,7 @@ func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
 func (i *Instance) addChainRules(cfg *ACLInfo) error {
 
 	if i.mode != constants.LocalServer {
-		return i.processRulesFromList(i.chainRules(cfg), "Append")
+		return i.processRulesFromList(i.containerChainRules(cfg), "Append")
 	}
 
 	if cfg.UID != "" {
@@ -254,15 +254,14 @@ func (i *Instance) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
 }
 
-func (i *Instance) getRules(contextID string, rule *aclIPset, insertOrder *int, chain string, nfLogGroup, proto, ipMatchDirection, order string) [][]string {
+func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain string, nfLogGroup, proto, ipMatchDirection string) [][]string {
 	iptRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
-	baseRule := func(insertOrder int, proto string) []string {
+	baseRule := func(proto string) []string {
 		iptRule := []string{
 			i.appPacketIPTableContext,
 			chain,
-			strconv.Itoa(insertOrder),
 			"-p", proto,
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection}
 
@@ -289,44 +288,29 @@ func (i *Instance) getRules(contextID string, rule *aclIPset, insertOrder *int, 
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
 		nflog := []string{"-m", "state", "--state", "NEW",
 			"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}
-		nfLogRule := append(baseRule(*insertOrder, proto), nflog...)
+		nfLogRule := append(baseRule(proto), nflog...)
 
-		*insertOrder++
 		iptRules = append(iptRules, nfLogRule)
 	}
 
 	if !observeContinue {
 		if (rule.policy.Action & policy.Accept) != 0 {
 			accept := []string{"-j", "ACCEPT"}
-			acceptRule := append(baseRule(*insertOrder, proto), accept...)
-
-			*insertOrder++
+			acceptRule := append(baseRule(proto), accept...)
 			iptRules = append(iptRules, acceptRule)
 		}
 
 		if rule.policy.Action&policy.Reject != 0 {
 			reject := []string{"-j", "DROP"}
-			rejectRule := append(baseRule(*insertOrder, proto), reject...)
-
-			*insertOrder++
+			rejectRule := append(baseRule(proto), reject...)
 			iptRules = append(iptRules, rejectRule)
 		}
 	}
 
-	if order == "Append" {
-		// remove the insertion order from rules
-		for i, rule := range iptRules {
-			iptRules[i] = append(rule[:2], rule[3:]...)
-		}
-		return iptRules
-	}
 	return iptRules
 }
 
 func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
-
-	insertOrder := int(1)
-	intP := &insertOrder
 
 	testObserveContinue := func(p *policy.FlowPolicy) bool {
 		return p.ObserveAction.ObserveContinue()
@@ -352,36 +336,30 @@ func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []a
 
 		for _, proto := range rule.protocols {
 
-			appACLS := i.getRules(contextID, &rule, intP, appChain, "10", proto, "dst", "Append")
+			appACLS := i.generateACLRules(contextID, &rule, appChain, "10", proto, "dst")
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
-					appACLS...)
+				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, appACLS...)
 			}
 
 			if testReject(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved,
-					appACLS...)
+				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, appACLS...)
 			}
 
 			if testReject(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue,
-					appACLS...)
+				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, appACLS...)
 			}
 
 			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue,
-					appACLS...)
+				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, appACLS...)
 			}
 
 			if testAccept(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved,
-					appACLS...)
+				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, appACLS...)
 			}
 
 			if testAccept(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply,
-					appACLS...)
+				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, appACLS...)
 			}
 		}
 	}
@@ -390,10 +368,6 @@ func (i *Instance) addAllAppACLS(contextID, appChain, netChain string, rules []a
 
 func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []aclIPset, rulesBucket *rulesInfo) {
 
-	insertOrder := int(1)
-	intP := &insertOrder
-	// var acceptRules []string
-
 	testObserveContinue := func(p *policy.FlowPolicy) bool {
 		return p.ObserveAction.ObserveContinue()
 	}
@@ -418,38 +392,30 @@ func (i *Instance) addAllNetACLS(contextID, appChain, netChain string, rules []a
 
 		for _, proto := range rule.protocols {
 
-			netACLS := i.getRules(contextID, &rule, intP, netChain, "11", proto, "src", "Append")
+			netACLS := i.generateACLRules(contextID, &rule, netChain, "11", proto, "src")
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
-
-				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply,
-					netACLS...)
+				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, netACLS...)
 			}
 
 			if testReject(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved,
-					netACLS...)
+				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, netACLS...)
 			}
 
 			if testReject(rule.policy) && testObserveContinue(rule.policy) {
-				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue,
-					netACLS...)
+				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, netACLS...)
 			}
 
 			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
-
-				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue,
-					netACLS...)
+				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, netACLS...)
 			}
 
 			if testAccept(rule.policy) && testNotObserved(rule.policy) {
-				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved,
-					netACLS...)
+				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, netACLS...)
 			}
 
 			if testAccept(rule.policy) && testObserveApply(rule.policy) {
-				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply,
-					netACLS...)
+				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, netACLS...)
 			}
 
 		}
@@ -529,7 +495,7 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules []aclI
 func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 
 	if i.mode != constants.LocalServer {
-		return i.processRulesFromList(i.chainRules(cfg), "Delete")
+		return i.processRulesFromList(i.containerChainRules(cfg), "Delete")
 	}
 
 	if cfg.UID != "" {
@@ -588,8 +554,6 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules() error {
 
-	fmt.Println("Setting the Global rules")
-
 	cfg, err := i.newACLInfo(0, "", nil, "")
 	if err != nil {
 		return err
@@ -610,7 +574,6 @@ func (i *Instance) setGlobalRules() error {
 		return fmt.Errorf("unable to install global rules:%s", err)
 	}
 
-	fmt.Println("Setting the global nat proxy rule")
 	// nat rules cannot be templated, since they interfere with Docker.
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
@@ -633,13 +596,13 @@ func (i *Instance) setGlobalRules() error {
 	return nil
 }
 
-func (i *Instance) removeNatRules(cfg *ACLInfo) error {
+func (i *Instance) removeGlobalHooks(cfg *ACLInfo) error {
 
-	tmpl := template.Must(template.New(deleteNatRules).Funcs(template.FuncMap{
+	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
-	}).Parse(deleteNatRules))
+	}).Parse(globalHooks))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
@@ -657,7 +620,7 @@ func (i *Instance) cleanACLs() error { // nolint
 	}
 
 	// First clear the nat rules
-	if err := i.removeNatRules(cfg); err != nil {
+	if err := i.removeGlobalHooks(cfg); err != nil {
 		zap.L().Error("unable to remove nat proxy rules")
 	}
 
@@ -673,7 +636,6 @@ func (i *Instance) cleanACLs() error { // nolint
 	}
 
 	for _, rule := range rules {
-		fmt.Println("Cleaninup chain", rule)
 		if len(rule) != 4 {
 			continue
 		}
@@ -692,7 +654,6 @@ func (i *Instance) cleanACLs() error { // nolint
 				zap.L().Error("unable to delete chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
 			}
 		}
-
 	}
 
 	// Clean Application Rules/Chains

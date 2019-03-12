@@ -81,6 +81,7 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 	s.Lock()
 	defer s.Unlock()
+
 	for contextID, done := range s.initDone {
 		if done {
 			request := &rpcwrapper.Request{
@@ -88,11 +89,13 @@ func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 					Configuration: cfg,
 				},
 			}
-			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
+			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.SetTargetNetworks, request, &rpcwrapper.Response{}); err != nil {
 				return fmt.Errorf("unable to initialize remote supervisor for contextid %s: %s", contextID, err)
 			}
 		}
 	}
+
+	s.cfg = cfg
 
 	return nil
 }

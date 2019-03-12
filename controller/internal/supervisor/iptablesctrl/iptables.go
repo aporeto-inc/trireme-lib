@@ -23,42 +23,45 @@ import (
 )
 
 const (
-	uidchain                 = "UIDCHAIN"
-	uidInput                 = "UIDInput"
-	chainPrefix              = "TRIREME-"
-	appChainPrefix           = chainPrefix + "App-"
-	netChainPrefix           = chainPrefix + "Net-"
-	targetTCPNetworkSet      = "TargetNetSet"
-	targetUDPNetworkSet      = "TargetUDPSet"
-	excludedNetworkSet       = "ExcludedSet"
-	uidPortSetPrefix         = "UIDPort-"
-	processPortSetPrefix     = "ProcessPort-"
-	proxyPortSetPrefix       = "Proxy-"
+	chainPrefix          = "TRI-"
+	mainAppChain         = chainPrefix + "App"
+	mainNetChain         = chainPrefix + "Net"
+	uidchain             = chainPrefix + "UID-Net"
+	uidInput             = chainPrefix + "UID-App"
+	appChainPrefix       = chainPrefix + "App-"
+	netChainPrefix       = chainPrefix + "Net-"
+	targetTCPNetworkSet  = chainPrefix + "TargetTCP"
+	targetUDPNetworkSet  = chainPrefix + "TargetUDP"
+	excludedNetworkSet   = chainPrefix + "Excluded"
+	uidPortSetPrefix     = chainPrefix + "U-Port-"
+	processPortSetPrefix = chainPrefix + "ProcPort-"
+	natProxyOutputChain  = chainPrefix + "Redir-App"
+	natProxyInputChain   = chainPrefix + "Redir-Net"
+	proxyOutputChain     = chainPrefix + "Prx-App"
+	proxyInputChain      = chainPrefix + "Prx-Net"
+	proxyPortSetPrefix   = chainPrefix + "Proxy-"
+
+	// TriremeInput represent the chain that contains pu input rules.
+	TriremeInput = chainPrefix + "Pid-Net"
+	// TriremeOutput represent the chain that contains pu output rules.
+	TriremeOutput = chainPrefix + "Pid-App"
+
+	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
+	NetworkSvcInput = chainPrefix + "Svc-Net"
+
+	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
+	NetworkSvcOutput = chainPrefix + "Svc-App"
+
+	// HostModeInput represent the chain that contains Hostmode input rules.
+	HostModeInput = chainPrefix + "Hst-Net"
+
+	// HostModeOutput represent the chain that contains Hostmode output rules.
+	HostModeOutput = chainPrefix + "Hst-App"
+
 	ipTableSectionOutput     = "OUTPUT"
 	ipTableSectionInput      = "INPUT"
 	ipTableSectionPreRouting = "PREROUTING"
-	natProxyOutputChain      = "RedirProxy-App"
-	natProxyInputChain       = "RedirProxy-Net"
-	proxyOutputChain         = "Proxy-App"
-	proxyInputChain          = "Proxy-Net"
 	proxyMark                = "0x40"
-
-	// TriremeInput represent the chain that contains pu input rules.
-	TriremeInput = "Trireme-Input"
-	// TriremeOutput represent the chain that contains pu output rules.
-	TriremeOutput = "Trireme-Output"
-
-	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
-	NetworkSvcInput = "NetworkSvc-Input"
-
-	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
-	NetworkSvcOutput = "NetworkSvc-Output"
-
-	// HostModeInput represent the chain that contains Hostmode input rules.
-	HostModeInput = "Hostmode-Input"
-
-	// HostModeOutput represent the chain that contains Hostmode output rules.
-	HostModeOutput = "Hostmode-Output"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -162,13 +165,13 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 // port sets and then it will call install rules to create all the ACLs for
 // the given chains. PortSets are only created here. Updates will use the
 // exact same logic.
-func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
 
-	if err := i.createPortSet(contextID, containerInfo); err != nil {
+	if err := i.createPortSet(contextID, pu); err != nil {
 		return err
 	}
 
-	cfg, err := i.newACLInfo(version, contextID, containerInfo, "")
+	cfg, err := i.newACLInfo(version, contextID, pu, extractors.GetPuType(pu.Runtime))
 	if err != nil {
 		return err
 	}
@@ -179,7 +182,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	}
 
 	// Install all the rules
-	if err := i.installRules(cfg, containerInfo); err != nil {
+	if err := i.installRules(cfg, pu); err != nil {
 		return err
 	}
 
@@ -253,14 +256,8 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Remove mapping from old chain
-	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(oldCfg); err != nil {
-			return err
-		}
-	} else {
-		if err := i.deleteChainRules(oldCfg); err != nil {
-			return err
-		}
+	if err := i.deleteChainRules(oldCfg); err != nil {
+		return err
 	}
 
 	// Delete the old chain to clean up
@@ -285,11 +282,12 @@ func (i *Instance) Run(ctx context.Context) error {
 		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
-	if err := i.InitializeChains(); err != nil {
+	// Initialize all the global Trireme chains
+	if err := i.initializeChains(); err != nil {
 		return fmt.Errorf("Unable to initialize chains: %s", err)
 	}
 
-	// Insert the ACLS that point to the target networks
+	// Insert the global ACLS.
 	if err := i.setGlobalRules(); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
@@ -322,6 +320,10 @@ func (i *Instance) CleanUp() error {
 
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
+
+	if c == nil {
+		return nil
+	}
 
 	cfg := c.DeepCopy()
 
@@ -356,7 +358,7 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 }
 
 // InitializeChains initializes the chains.
-func (i *Instance) InitializeChains() error {
+func (i *Instance) initializeChains() error {
 
 	cfg, err := i.newACLInfo(0, "", nil, "")
 	if err != nil {
@@ -630,19 +632,6 @@ func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	if netACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
-
-	// // Install the nat ACLs as they need to be at the top
-	// if i.isLegacyKernel {
-	// 	// doesn't work for clients, as ports for the clients are not known
-	// 	if err := i.addLegacyNATExclusionACLs(cfg.CgroupMark, cfg.ProxySetName, cfg.Exclusions, cfg.TCPPorts); err != nil {
-	// 		return err
-	// 	}
-
-	// } else {
-	// 	if err := i.addNATExclusionACLs(cfg); err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {

@@ -180,6 +180,10 @@ func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 		}
 	}
 
+	s.Lock()
+	s.cfg = cfg
+	s.Unlock()
+
 	return nil
 }
 

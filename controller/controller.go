@@ -143,7 +143,7 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 	for _, s := range t.supervisors {
 		err := s.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in supervisor", zap.Error(err))
 			failure = true
 		}
 	}
@@ -151,13 +151,13 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 	for _, e := range t.enforcers {
 		err := e.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))
 			failure = true
 		}
 	}
 
 	if failure {
-		return fmt.Errorf("Configuration update failed")
+		return fmt.Errorf("configuration update failed")
 	}
 
 	return nil
