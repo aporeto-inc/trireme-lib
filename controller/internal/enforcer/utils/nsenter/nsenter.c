@@ -217,7 +217,7 @@ void nsexec(void) {
   if(netns_path_env == NULL){
     // This means the PID Needs to be used to determine the NetNsPath.
     if(proc_mountpoint == NULL){
-      strncpy(mountpoint, "/proc", strlen("/proc"));
+      strncpy(mountpoint, "/proc", strlen("/proc")+1);
     }else{
       strncpy(mountpoint, proc_mountpoint, STRBUF_SIZE);
     }
