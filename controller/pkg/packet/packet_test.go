@@ -1,6 +1,9 @@
 package packet
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+)
 
 type SamplePacketName int
 
@@ -73,11 +76,11 @@ func TestGoodPacket(t *testing.T) {
 		t.Error("TCP checksum failed")
 	}
 
-	if pkt.DestinationPort != 99 {
+	if pkt.DestPort() != 99 {
 		t.Error("Unexpected destination port")
 	}
 
-	if pkt.SourcePort != 35968 {
+	if pkt.SourcePort() != 35968 {
 		t.Error("Unexpected source port")
 	}
 }
@@ -95,16 +98,59 @@ func TestBadTCPChecknum(t *testing.T) {
 	}
 }
 
+func TestPartialChecksum(t *testing.T) {
+	// Computes a checksum over the given slice.
+	checksum := func(buf []byte) uint16 {
+		checksumDelta := func(buf []byte) uint16 {
+
+			sum := uint32(0)
+
+			for ; len(buf) >= 2; buf = buf[2:] {
+				sum += uint32(buf[0])<<8 | uint32(buf[1])
+			}
+			if len(buf) > 0 {
+				sum += uint32(buf[0]) << 8
+			}
+			for sum > 0xffff {
+				sum = (sum >> 16) + (sum & 0xffff)
+			}
+			return uint16(sum)
+		}
+
+		sum := checksumDelta(buf)
+		csum := ^sum
+		return csum
+	}
+
+	for i := 0; i < 1000; i++ {
+		var randBytes [1500]byte
+
+		rand.Read(randBytes[:])
+
+		csum := checksum(randBytes[:])
+
+		pCsum := partialChecksum(0, randBytes[:500])
+		pCsum = partialChecksum(pCsum, randBytes[500:1000])
+		pCsum = partialChecksum(pCsum, randBytes[1000:])
+		fCSum := finalizeChecksum(pCsum)
+
+		if csum != fCSum {
+			t.Error("Checksum failed")
+		}
+	}
+
+}
+
 func TestAddresses(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	src := pkt.SourceAddress.String()
+	src := pkt.SourceAddress().String()
 	if src != "127.0.0.1" {
 		t.Errorf("Unexpected source address %s", src)
 	}
-	dest := pkt.DestinationAddress.String()
+	dest := pkt.DestinationAddress().String()
 	if dest != "127.0.0.1" {
 		t.Errorf("Unexpected destination address %s", src)
 	}
@@ -115,7 +161,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.Buffer
+	data := pkt.IPHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -150,7 +196,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.Buffer
+	bytes := pkt.IPHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)

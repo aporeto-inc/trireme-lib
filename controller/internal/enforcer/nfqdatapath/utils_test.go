@@ -45,13 +45,13 @@ func setupDatapath(collector collector.EventCollector) *Datapath {
 
 func generateCommonTestData(action policy.ActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) {
 
-	p := &packet.Packet{
-		DestinationAddress: dstAddress,
-		DestinationPort:    dstPort,
-		SourceAddress:      srcAddress,
-		SourcePort:         srcPort,
-	}
+	p := &packet.Packet{}
 
+	p.DestinationAddress() = dstAddress
+	p.TCPHdr.DestinationPort = dstPort
+	p.SourceAddress() = srcAddress
+	p.TCPHdr.SourcePort = srcPort
+	p.IPProto() = packet.IPProtocolTCP
 	tcpConn := &connection.TCPConnection{}
 	udpConn := &connection.UDPConnection{}
 	puContext := &pucontext.PUContext{}

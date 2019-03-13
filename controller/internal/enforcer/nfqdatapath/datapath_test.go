@@ -326,13 +326,13 @@ func TestEnforcerConnUnknownState(t *testing.T) {
 				_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 
 				// Test whether the packet is modified with Fin/Ack
-				if tcpPacket.TCPFlags != 0x11 {
+				if tcpPacket.GetTCPFlags() != 0x11 {
 					t.Fail()
 				}
 
 				_, err2 := enforcer.processNetworkTCPPackets(&tcpPacketCopy)
 
-				if tcpPacket.TCPFlags != 0x11 {
+				if tcpPacket.GetTCPFlags() != 0x11 {
 					t.Fail()
 				}
 
@@ -451,10 +451,10 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 						So(tcpPacket, ShouldNotBeNil)
 
 						if reflect.DeepEqual(SIP, net.IPv4zero) {
-							SIP = tcpPacket.SourceAddress
+							SIP = tcpPacket.SourceAddress()
 						}
-						if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-							!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+						if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+							!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 							t.Error("Invalid Test Packet")
 						}
 
@@ -556,10 +556,10 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -571,21 +571,21 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							if tcpPacket.TCPFlags&packet.TCPSynMask != 0 {
+							if tcpPacket.GetTCPFlags()&packet.TCPSynMask != 0 {
 								Convey("When I pass a packet with SYN or SYN/ACK flags for packet "+string(i), func() {
 									Convey("Then I expect some data payload to exist on the packet "+string(i), func() {
 										// In our 3 way security handshake syn and syn-ack packet should grow in length
-										So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
+										So(tcpPacket.IPTotalLen(), ShouldBeGreaterThan, oldPacket.IPTotalLen())
 									})
 								})
 							}
 
-							if !firstSynAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+							if !firstSynAckProcessed && tcpPacket.GetTCPFlags()&packet.TCPSynAckMask == packet.TCPAckMask {
 								firstSynAckProcessed = true
 								Convey("When I pass the first packet with ACK flag for packet "+string(i), func() {
 									Convey("Then I expect some data payload to exist on the packet "+string(i), func() {
 										// In our 3 way security handshake first ack packet should grow in length
-										So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
+										So(tcpPacket.IPTotalLen(), ShouldBeGreaterThan, oldPacket.IPTotalLen())
 									})
 								})
 							}
@@ -642,10 +642,10 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -657,21 +657,21 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							if tcpPacket.TCPFlags&packet.TCPSynMask != 0 {
+							if tcpPacket.GetTCPFlags()&packet.TCPSynMask != 0 {
 								Convey("When I pass a packet with SYN or SYN/ACK flags for packet (server) "+string(i), func() {
 									Convey("Then I expect some data payload to exist on the packet (server)"+string(i), func() {
 										// In our 3 way security handshake syn and syn-ack packet should grow in length
-										So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
+										So(tcpPacket.IPTotalLen(), ShouldBeGreaterThan, oldPacket.IPTotalLen())
 									})
 								})
 							}
 
-							if !firstSynAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+							if !firstSynAckProcessed && tcpPacket.GetTCPFlags()&packet.TCPSynAckMask == packet.TCPAckMask {
 								firstSynAckProcessed = true
 								Convey("When I pass the first packet with ACK flag for packet (server)"+string(i), func() {
 									Convey("Then I expect some data payload to exist on the packet (server)"+string(i), func() {
 										// In our 3 way security handshake first ack packet should grow in length
-										So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
+										So(tcpPacket.IPTotalLen(), ShouldBeGreaterThan, oldPacket.IPTotalLen())
 									})
 								})
 							}
@@ -745,10 +745,10 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 					So(tcpPacket, ShouldNotBeNil)
 
 					if reflect.DeepEqual(SIP, net.IPv4zero) {
-						SIP = tcpPacket.SourceAddress
+						SIP = tcpPacket.SourceAddress()
 					}
-					if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+					if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 						t.Error("Invalid Test Packet")
 					}
 
@@ -1176,10 +1176,10 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 					So(tcpPacket, ShouldNotBeNil)
 
 					if reflect.DeepEqual(SIP, net.IPv4zero) {
-						SIP = tcpPacket.SourceAddress
+						SIP = tcpPacket.SourceAddress()
 					}
-					if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+					if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 						t.Error("Invalid Test Packet")
 					}
 
@@ -1191,9 +1191,9 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
-					if reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+					if reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 						// SYN Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
+						if tcpPacket.GetTCPFlags()&packet.TCPSynAckMask == packet.TCPSynMask {
 							Convey("When I pass an application packet with SYN flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
 									fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
@@ -1219,8 +1219,8 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						outPacket.Print(0)
 					}
 
-					if reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) {
-						if outPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
+					if reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) {
+						if outPacket.GetTCPFlags()&packet.TCPSynAckMask == packet.TCPSynAckMask {
 							Convey("When I pass a network packet with SYN/ACK flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
 									cs, es := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
@@ -1616,10 +1616,10 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -1766,10 +1766,10 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 							enforcer.mutualAuthorization = true
@@ -1898,10 +1898,10 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -2046,10 +2046,10 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -2199,10 +2199,10 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -2351,10 +2351,10 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -2512,10 +2512,10 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isSynPacket {
@@ -2719,10 +2719,10 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -2853,10 +2853,10 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -3007,10 +3007,10 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -3126,10 +3126,10 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3278,10 +3278,10 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3457,11 +3457,11 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
 
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -3634,10 +3634,10 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -3790,10 +3790,10 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -3951,10 +3951,10 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -4113,10 +4113,10 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -4136,7 +4136,11 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(errp, ShouldBeNil)
 
 							//changing the option length
-							outPacket.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
+							tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHdr.IPHeaderLen:]
+							tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
+
+							err = outPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen)
+							So(err, ShouldNotBeNil)
 
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 							So(err, ShouldNotBeNil)
@@ -4221,10 +4225,10 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(tcpPacket, ShouldNotBeNil)
 
 							if reflect.DeepEqual(SIP, net.IPv4zero) {
-								SIP = tcpPacket.SourceAddress
+								SIP = tcpPacket.SourceAddress()
 							}
-							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 								t.Error("Invalid Test Packet")
 							}
 
@@ -4245,7 +4249,8 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPSyn() && PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPAck() {
 								//changing the option length of SynAck packet
-								outPacket.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
+								tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHdr.IPHeaderLen:]
+								tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							} else {
@@ -4356,10 +4361,10 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 				So(tcpPacket, ShouldNotBeNil)
 
 				if reflect.DeepEqual(SIP, net.IPv4zero) {
-					SIP = tcpPacket.SourceAddress
+					SIP = tcpPacket.SourceAddress()
 				}
-				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 					t.Error("Invalid Test Packet")
 				}
 				_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -4556,10 +4561,10 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						So(tcpPacket, ShouldNotBeNil)
 
 						if reflect.DeepEqual(SIP, net.IPv4zero) {
-							SIP = tcpPacket.SourceAddress
+							SIP = tcpPacket.SourceAddress()
 						}
-						if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-							!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+						if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) &&
+							!reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
 							t.Error("Invalid Test Packet")
 						}
 
@@ -4805,8 +4810,8 @@ func TestCollectTCPPacket(t *testing.T) {
 			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
-				DestinationIP: tcpPacket.DestinationAddress.String(),
-				SourceIP:      tcpPacket.SourceAddress.String(),
+				DestinationIP: tcpPacket.DestinationAddress().String(),
+				SourceIP:      tcpPacket.SourceAddress().String(),
 			}
 			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(0)
 			enforcer.collectTCPPacket(&debugpacketmessage{
@@ -4823,8 +4828,8 @@ func TestCollectTCPPacket(t *testing.T) {
 			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
-				DestinationIP: tcpPacket.DestinationAddress.String(),
-				SourceIP:      tcpPacket.SourceAddress.String(),
+				DestinationIP: tcpPacket.DestinationAddress().String(),
+				SourceIP:      tcpPacket.SourceAddress().String(),
 			}
 			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
 			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext))
@@ -4843,8 +4848,8 @@ func TestCollectTCPPacket(t *testing.T) {
 			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
-				DestinationIP: tcpPacket.DestinationAddress.String(),
-				SourceIP:      tcpPacket.SourceAddress.String(),
+				DestinationIP: tcpPacket.DestinationAddress().String(),
+				SourceIP:      tcpPacket.SourceAddress().String(),
 			}
 			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
 			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext))
