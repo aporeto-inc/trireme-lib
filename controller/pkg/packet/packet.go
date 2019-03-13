@@ -527,3 +527,16 @@ func (p *Packet) IPTotalLen() uint16 {
 func (p *Packet) IPHeaderLen() uint8 {
 	return p.IPHdr.ipHeaderLen
 }
+
+//TestGetTCPPacket is used by other test code when they need to create a packet
+func TestGetTCPPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16) *Packet {
+	p := &Packet{}
+
+	p.IPHdr.destinationAddress = dstIP
+	p.TCPHdr.destinationPort = dstPort
+	p.IPHdr.sourceAddress = srcIP
+	p.TCPHdr.sourcePort = srcPort
+	p.IPHdr.ipProto = IPProtocolTCP
+
+	return p
+}

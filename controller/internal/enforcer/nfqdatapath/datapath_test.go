@@ -223,7 +223,6 @@ func TestInvalidContext(t *testing.T) {
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
 		So(err, ShouldBeNil)
 		tcpPacket, err := packet.New(0, synPacket, "0", true)
-
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
 			_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
@@ -4091,6 +4090,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
+							oldPacket.Print(123456)
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
@@ -4136,7 +4136,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(errp, ShouldBeNil)
 
 							//changing the option length
-							tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHdr.IPHeaderLen:]
+							tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHeaderLen():]
 							tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 
 							err = outPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen)
@@ -4249,7 +4249,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPSyn() && PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPAck() {
 								//changing the option length of SynAck packet
-								tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHdr.IPHeaderLen:]
+								tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHeaderLen():]
 								tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)

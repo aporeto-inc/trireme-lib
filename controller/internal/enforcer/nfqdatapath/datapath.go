@@ -595,7 +595,7 @@ func updateConntrack(srcIP, dstIP net.IP, srcPort, dstPort uint16, proto uint8, 
 		return errConntrackFailed
 	}
 
-	defer c.Close()
+	defer c.Close() //nolint
 
 	f := conntrack.NewFlow(
 		proto, 0,

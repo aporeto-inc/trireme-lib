@@ -401,6 +401,53 @@ func TestRawChecksums(t *testing.T) {
 	}
 }
 
+func TestNewPacketFunctions(t *testing.T) {
+	pkt := getTestPacket(t, synGoodTCPChecksum)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
+
+	if pkt.TCPOptionLength() != 0 {
+		t.Error("Test packet option length")
+	}
+
+	if pkt.TCPDataLength() != 0 {
+		t.Error("Test packet IP checksum failed")
+	}
+
+	if pkt.SourcePort() != 35968 {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestPort() != 99 {
+		t.Error("Test packet dest port didnt match")
+	}
+
+	if pkt.SourceAddress().String() != "127.0.0.1" {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestinationAddress().String() != "127.0.0.1" {
+		t.Error("Test packet dest ip didnt match")
+	}
+
+	if pkt.IPProto() != IPProtocolTCP {
+		t.Error("Test packet ip proto didnt match")
+	}
+
+	if pkt.IPTotalLen() != 60 {
+		t.Error("Test packet total length is wrong")
+	}
+
+	if pkt.IPHeaderLen() != 20 {
+		t.Error("Test packet ip header length should be 20")
+	}
+
+	if pkt.GetTCPFlags() != 2 {
+		t.Error("test packet tcp flags didnt match")
+	}
+}
+
 func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
 
 	tmp := make([]byte, len(testPackets[id]))
