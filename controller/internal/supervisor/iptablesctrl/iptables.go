@@ -517,7 +517,7 @@ func createGlobalSets(ips provider.IpsetProvider) (provider.Ipset, provider.Ipse
 
 	defer func() {
 		if err != nil {
-			ips.DestroyAll(chainPrefix)
+			ips.DestroyAll(chainPrefix) // nolint errcheck
 		}
 	}()
 
