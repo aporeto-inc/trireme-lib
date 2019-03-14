@@ -627,7 +627,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		flowHash := tcpPacket.SourceAddress().String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
-			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
+			d.releaseFlow(context, conn, plc.report, plc.packet, tcpPacket)
 			return plc.packet, nil, nil
 		}
 
@@ -650,7 +650,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
 
-		d.releaseFlow(context, report, pkt, tcpPacket)
+		d.releaseFlow(context, conn, report, pkt, tcpPacket)
 
 		return pkt, nil, nil
 	}
@@ -879,7 +879,7 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
 		return conn.(*connection.TCPConnection), nil
 	}
-	return connection.NewTCPConnection(context), nil
+	return connection.NewTCPConnection(context, p), nil
 }
 
 // appSynAckRetrieveState retrieves the state for application syn/ack packet.
@@ -931,7 +931,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if err != nil {
 			return nil, errors.New("No context in app processing")
 		}
-		conn = connection.NewTCPConnection(context)
+		conn = connection.NewTCPConnection(context, p)
 		conn.(*connection.TCPConnection).SetState(connection.UnknownState)
 		return conn.(*connection.TCPConnection), nil
 	}
@@ -977,8 +977,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		return nil, errNonPUTraffic
 	}
 
-	return nil, errInvalidState
-
+	return connection.NewTCPConnection(context, p), nil
 }
 
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
@@ -1026,7 +1025,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if cerr != nil {
 			return nil, err
 		}
-		conn = connection.NewTCPConnection(context)
+		conn = connection.NewTCPConnection(context, p)
 		conn.(*connection.TCPConnection).SetState(connection.UnknownState)
 		return conn.(*connection.TCPConnection), nil
 	}
@@ -1046,7 +1045,7 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 }
 
 // releaseFlow releases the flow and updates the conntrack table
-func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.FlowPolicy, action *policy.FlowPolicy, tcpPacket *packet.Packet) {
+func (d *Datapath) releaseFlow(context *pucontext.PUContext, c *connection.TCPConnection, report *policy.FlowPolicy, action *policy.FlowPolicy, tcpPacket *packet.Packet) {
 
 	if err := d.appOrigConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash()); err != nil {
 		zap.L().Debug("Failed to clean cache appOrigConnectionTracker", zap.Error(err))
@@ -1056,7 +1055,12 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
-	if err := updateConntrackPacket(tcpPacket, true, constants.DefaultConnMark); err != nil {
+	dst := tcpPacket.SourceAddress
+	if o := c.GetOriginalDestination(); o != dst {
+		dst = o
+	}
+
+	if err := d.updateConntrack(tcpPacket.DestinationAddress(), dst, tcpPacket.DestinationPort(), tcpPacket.SourcePort(), tcpPacket.IPProto(), constants.DefaultConnMark); err != nil {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}
 
