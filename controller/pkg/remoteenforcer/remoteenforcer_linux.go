@@ -213,7 +213,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			return err
 		}
 
-		if err := s.supervisor.Run(s.ctx); err != nil {
+		if err := supervisorHandle.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 			resp.Status = err.Error()
 			return fmt.Errorf(resp.Status)
@@ -263,9 +263,10 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			return err
 		}
 
-		if err := s.supervisor.Run(s.ctx); err != nil {
+		if err := supervisorHandle.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
+
 		s.supervisor = supervisorHandle
 	} else {
 		if err := s.supervisor.SetTargetNetworks(payload.Configuration); err != nil {
