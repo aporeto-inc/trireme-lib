@@ -976,7 +976,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 		return nil, errNonPUTraffic
 	}
-
 	return connection.NewTCPConnection(context, p), nil
 }
 
