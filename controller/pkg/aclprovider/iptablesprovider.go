@@ -286,7 +286,12 @@ func (b *BatchProvider) Commit() error {
 	return b.commitFunc(buf)
 }
 
+// RetrieveTable allows a caller to retrieve the final table. Mostly
+// needed for debuging and unit tests.
 func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
+	b.Lock()
+	defer b.Unlock()
+
 	return b.rules
 }
 

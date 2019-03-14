@@ -990,16 +990,6 @@ func Test_OperationWithContainers(t *testing.T) {
 				So(err, ShouldBeNil)
 				t := ipt.RetrieveTable()
 
-				fmt.Printf("\n")
-				for table, chains := range t {
-					fmt.Println(table)
-					for chain, rules := range chains {
-						fmt.Println(chain)
-						for _, rule := range rules {
-							fmt.Println(rule)
-						}
-					}
-				}
 				for chain, rules := range t["mangle"] {
 					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
 					So(rules, ShouldResemble, expectedContainerMangleAfterPUInsert[chain])
