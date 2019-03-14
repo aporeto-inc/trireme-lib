@@ -219,10 +219,17 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		}
 	}
 
+	puType := common.LinuxProcessPU
+	if c.NetworkOnly {
+		puType = common.HostNetworkPU
+	} else if c.HostPolicy {
+		puType = common.HostPU
+	}
+
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
-		PUType:             common.LinuxProcessPU,
+		PUType:             puType,
 		Name:               c.ServiceName,
 		Executable:         c.Executable,
 		Tags:               c.Labels,

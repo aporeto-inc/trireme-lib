@@ -16,7 +16,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -122,7 +121,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	port := cfg.containerInfo.Policy.ServicesListeningPort()
 
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
-	puType := extractors.GetPuType(cfg.containerInfo.Runtime)
+	puType := cfg.containerInfo.Runtime.PUType()
 
 	// TODO (varks): Similar to configureRules and UpdateRules, DeleteRules should take
 	// only contextID and *policy.PUInfo as function parameters.

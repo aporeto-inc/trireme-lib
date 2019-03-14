@@ -14,7 +14,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
@@ -41,7 +40,7 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 // ACLInfo keeps track of all information to create ACLs
 type ACLInfo struct {
 	ContextID string
-	PUType    string
+	PUType    common.PUType
 
 	// Tables
 	MangleTable string
@@ -133,7 +132,7 @@ func getSetNames(portSetName string) (string, string) {
 	return "dst-" + portSetName, "srv-" + portSetName
 }
 
-func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, puType string) (*ACLInfo, error) {
+func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
 
 	var appChain, netChain string
 	var err error
@@ -149,7 +148,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	var servicePort, mark, uid string
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
-		puType = extractors.GetPuType(p.Runtime)
+		puType = p.Runtime.PUType()
 		servicePort = p.Policy.ServicesListeningPort()
 		mark = p.Runtime.Options().CgroupMark
 		uid = p.Runtime.Options().UserID
@@ -161,13 +160,13 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	appSection := ""
 	netSection := ""
 	switch puType {
-	case extractors.LinuxPU:
+	case common.LinuxProcessPU:
 		appSection = TriremeOutput
 		netSection = TriremeInput
-	case extractors.HostModeNetworkPU:
+	case common.HostNetworkPU:
 		appSection = NetworkSvcOutput
 		netSection = NetworkSvcInput
-	case extractors.HostPU:
+	case common.HostPU:
 		appSection = HostModeOutput
 		netSection = HostModeInput
 	default:

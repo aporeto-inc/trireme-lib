@@ -26,7 +26,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
@@ -342,10 +341,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			if err != nil {
 				continue
 			}
-			// check for host pu and add ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
 
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromTCPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
@@ -360,8 +357,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			}
 
 			// check for host pu and add its ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromUDPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromUDPPort.AddPortSpec(portSpec)

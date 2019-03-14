@@ -115,7 +115,7 @@ func (i *Instance) getSetNames(portSetName string) (string, string) {
 	return "dst-" + portSetName, "srv-" + portSetName
 }
 
-//Not using ipset from coreos library they don't support bitmap:port
+// Not using ipset from coreos library they don't support bitmap:port
 func ipsetCreatePortset(setname string) error {
 	//Bitmap type is not supported by the ipset library
 	path, _ := exec.LookPath("ipset")

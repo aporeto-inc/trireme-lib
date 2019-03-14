@@ -4,7 +4,7 @@ package iptablesctrl
 import (
 	"text/template"
 
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -12,7 +12,7 @@ import (
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
 // consider source ports to identify packets from the process.
 func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
-	appSection, netSection string, puType string) [][]string {
+	appSection, netSection string, puType common.PUType) [][]string {
 
 	iptableCgroupSection := appSection
 	iptableNetSection := netSection
@@ -108,7 +108,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 			}}...)
 	}
 
-	if puType == extractors.HostPU {
+	if puType == common.HostPU {
 		// Add a capture all traffic rule for host pu. This traps all traffic going out
 		// of the box.
 

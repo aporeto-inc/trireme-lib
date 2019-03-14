@@ -143,7 +143,7 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	puType := common.LinuxProcessPU
+	puType := event.PUType
 	if l.ssh {
 		puType = common.SSHSessionPU
 	}
@@ -167,7 +167,7 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	puType := common.LinuxProcessPU
+	puType := eventInfo.PUType
 	if l.ssh {
 		puType = common.SSHSessionPU
 	}

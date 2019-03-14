@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/template"
 
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -37,7 +37,7 @@ func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
-	if i.isLegacyKernel && (cfg.PUType == extractors.HostModeNetworkPU || cfg.PUType == extractors.HostPU) {
+	if i.isLegacyKernel && (cfg.PUType == common.HostNetworkPU || cfg.PUType == common.HostPU) {
 		return i.legacyPuChainRules(
 			cfg.ContextID,
 			cfg.AppChain,
@@ -451,7 +451,7 @@ func (i *Instance) deletePUChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules() error {
 
-	cfg, err := i.newACLInfo(0, "", nil, "")
+	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
 	}
@@ -511,7 +511,7 @@ func (i *Instance) removeGlobalHooks(cfg *ACLInfo) error {
 }
 
 func (i *Instance) cleanACLs() error { // nolint
-	cfg, err := i.newACLInfo(0, "", nil, "")
+	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
 	"go.aporeto.io/trireme-lib/buildflags"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -26,8 +27,8 @@ const (
 	chainPrefix          = "TRI-"
 	mainAppChain         = chainPrefix + "App"
 	mainNetChain         = chainPrefix + "Net"
-	uidchain             = chainPrefix + "UID-Net"
-	uidInput             = chainPrefix + "UID-App"
+	uidchain             = chainPrefix + "UID-App"
+	uidInput             = chainPrefix + "UID-Net"
 	appChainPrefix       = chainPrefix + "App-"
 	netChainPrefix       = chainPrefix + "Net-"
 	targetTCPNetworkSet  = chainPrefix + "TargetTCP"
@@ -111,7 +112,12 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ipsets: %s", err)
 	}
+	return newInstanceWithProviders(fqc, mode, cfg, ipt, ips)
+}
 
+// newInstanceWithProviders is called after ipt and ips have been created. This helps
+// with all the unit testing to be able to mock the providers.
+func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration, ipt provider.IptablesProvider, ips provider.IpsetProvider) (*Instance, error) {
 	i := &Instance{
 		fqc:                     fqc,
 		ipt:                     ipt,
@@ -136,7 +142,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 	// earlier point or there are other ACLs that create conflicts. We
 	// try to clean only ACLs related to Trireme.
 	if err := i.cleanACLs(); err != nil {
-		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
+		return nil, fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
 	}
 
 	// Create all the basic target sets. These are the global target sets
@@ -182,7 +188,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	}
 
 	// We create the generic ACL object that is used for all the templates.
-	cfg, err = i.newACLInfo(version, contextID, pu, extractors.GetPuType(pu.Runtime))
+	cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
 	if err != nil {
 		return err
 	}
@@ -219,7 +225,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 // for cleaning all ACLs and associated chains, as well as ll the sets
 // that we have created. Note, that this only clears up the state
 // for a given processing unit.
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
 
 	cfg, err := i.newACLInfo(version, contextID, nil, puType)
 	if err != nil {
@@ -288,12 +294,12 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// We cache the old config and we use it to delete the previous
 	// rules. Every time we update the policy the version changes to
 	// its binary complement.
-	newCfg, err := i.newACLInfo(version, contextID, containerInfo, "")
+	newCfg, err := i.newACLInfo(version, contextID, containerInfo, containerInfo.Runtime.PUType())
 	if err != nil {
 		return err
 	}
 
-	oldCfg, err := i.newACLInfo(version^1, contextID, oldContainerInfo, "")
+	oldCfg, err := i.newACLInfo(version^1, contextID, oldContainerInfo, containerInfo.Runtime.PUType())
 	if err != nil {
 		return err
 	}
@@ -423,7 +429,7 @@ func (i *Instance) ACLProvider() provider.IptablesProvider {
 // InitializeChains initializes the chains.
 func (i *Instance) initializeChains() error {
 
-	cfg, err := i.newACLInfo(0, "", nil, "")
+	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
 	}
@@ -653,11 +659,8 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			ips := map[string]bool{}
 
 			ipsetName := puPortSetName(contextID, "_extnet_"+hashServiceID(rule.Policy.ServiceID))
-			set, err := i.ipset.NewIpset(ipsetName,
-				"hash:net",
-				&ipset.Params{})
+			set, err := i.ipset.NewIpset(ipsetName, "hash:net", &ipset.Params{})
 			if err != nil {
-				zap.L().Error("Error creating ipset", zap.Error(err))
 				return nil, err
 			}
 
