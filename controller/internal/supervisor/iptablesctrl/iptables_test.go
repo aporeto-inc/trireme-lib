@@ -139,123 +139,6 @@ func TestNewInstance(t *testing.T) {
 				So(i.netPacketIPTableSection, ShouldResemble, "INPUT")
 			})
 		})
-
-		Convey("If ipsets fails to initialize, I should get an error", func() {
-			ips := provider.NewTestIpsetProvider()
-			ipt := provider.NewTestIptablesProvider()
-
-			ips.MockNewIpset(t, func(set, hash string, p *ipset.Params) (provider.Ipset, error) {
-				return nil, fmt.Errorf("new ipset error")
-			})
-
-			i, err := newInstanceWithProviders(
-				fqconfig.NewFilterQueueWithDefaults(),
-				constants.LocalServer,
-				&runtime.Configuration{},
-				ipt,
-				ips,
-			)
-
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldContainSubstring, "new ipset error")
-				So(i, ShouldBeNil)
-			})
-		})
-
-		Convey("If SetTargetNetworks fails to initialize, I should get an error", func() {
-			ips := provider.NewTestIpsetProvider()
-			ipt := provider.NewTestIptablesProvider()
-
-			s1 := provider.NewTestIpset()
-			s2 := provider.NewTestIpset()
-			s3 := provider.NewTestIpset()
-
-			ips.MockNewIpset(t, func(set, hash string, p *ipset.Params) (provider.Ipset, error) {
-				switch set {
-				case targetTCPNetworkSet:
-					return s1, nil
-				case targetUDPNetworkSet:
-					return s2, nil
-				case excludedNetworkSet:
-					return s3, nil
-				}
-				return provider.NewTestIpset(), nil
-			})
-
-			cfg := &runtime.Configuration{
-				TCPTargetNetworks: []string{"10.1.1.0/24"},
-			}
-
-			s1.MockAdd(t, func(entry string, timeout int) error {
-				if entry == "10.1.1.0/24" {
-					return fmt.Errorf("failed to add set")
-				}
-				return nil
-			})
-
-			i, err := newInstanceWithProviders(
-				fqconfig.NewFilterQueueWithDefaults(),
-				constants.LocalServer,
-				cfg,
-				ipt,
-				ips,
-			)
-
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldContainSubstring, "failed to add set")
-				So(i, ShouldBeNil)
-			})
-		})
-
-		Convey("If SetTargetNetworks fails the sets must be cleaned up", func() {
-			ips := provider.NewTestIpsetProvider()
-			ipt := provider.NewTestIptablesProvider()
-
-			s1 := provider.NewTestIpset()
-			s2 := provider.NewTestIpset()
-			s3 := provider.NewTestIpset()
-
-			ips.MockNewIpset(t, func(set, hash string, p *ipset.Params) (provider.Ipset, error) {
-				switch set {
-				case targetTCPNetworkSet:
-					return s1, nil
-				case targetUDPNetworkSet:
-					return s2, nil
-				case excludedNetworkSet:
-					return s3, nil
-				}
-				return provider.NewTestIpset(), nil
-			})
-
-			cfg := &runtime.Configuration{
-				TCPTargetNetworks: []string{"10.1.1.0/24"},
-			}
-
-			s1.MockAdd(t, func(entry string, timeout int) error {
-				if entry == "10.1.1.0/24" {
-					return fmt.Errorf("failed to add set")
-				}
-				return nil
-			})
-
-			ips.MockDestroyAll(t, func(string) error {
-				panic("test")
-			})
-
-			So(func() {
-				newInstanceWithProviders(
-					fqconfig.NewFilterQueueWithDefaults(),
-					constants.LocalServer,
-					cfg,
-					ipt,
-					ips,
-				)
-			}, ShouldPanic)
-
-		})
-
 	})
 
 	Convey("When I create a new iptables instance", t, func() {
@@ -624,18 +507,18 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		for set, targets := range ips.sets {
-			So(expectedGlobalIPSets, ShouldContainKey, set)
-			for target := range targets.set {
-				So(expectedGlobalIPSets[set], ShouldContain, target)
-			}
-		}
-
-		Convey("When I start the controller, I should get the right global chains", func() {
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
+
+			for set, targets := range ips.sets {
+				So(expectedGlobalIPSets, ShouldContainKey, set)
+				for target := range targets.set {
+					So(expectedGlobalIPSets[set], ShouldContain, target)
+				}
+			}
 
 			t := ipt.RetrieveTable()
 			So(t, ShouldNotBeNil)
@@ -1002,18 +885,18 @@ func Test_OperationWithContainers(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		for set, targets := range ips.sets {
-			So(expectedContainerGlobalIPSets, ShouldContainKey, set)
-			for target := range targets.set {
-				So(expectedContainerGlobalIPSets[set], ShouldContain, target)
-			}
-		}
-
-		Convey("When I start the controller, I should get the right global chains", func() {
+		Convey("When I start the controller, I should get the right global chains and sets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
+
+			for set, targets := range ips.sets {
+				So(expectedContainerGlobalIPSets, ShouldContainKey, set)
+				for target := range targets.set {
+					So(expectedContainerGlobalIPSets[set], ShouldContain, target)
+				}
+			}
 
 			t := ipt.RetrieveTable()
 			So(t, ShouldNotBeNil)

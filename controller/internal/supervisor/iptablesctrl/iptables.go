@@ -138,36 +138,67 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		puToServiceIDs:          map[string][]string{},
 	}
 
+	lock.Lock()
+	instance = i
+	defer lock.Unlock()
+
+	return i, nil
+}
+
+// Run starts the iptables controller
+func (i *Instance) Run(ctx context.Context) error {
+
+	go func() {
+		<-ctx.Done()
+		zap.L().Debug("Stop the supervisor")
+
+		i.CleanUp() // nolint
+	}()
+
 	// Clean any previous ACLs. This is needed in case we crashed at some
 	// earlier point or there are other ACLs that create conflicts. We
 	// try to clean only ACLs related to Trireme.
 	if err := i.cleanACLs(); err != nil {
-		return nil, fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
+		return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
 	}
 
 	// Create all the basic target sets. These are the global target sets
 	// that do not depend on policy configuration. If they already exist
 	// we will delete them and start again.
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(ips)
+	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.ipset)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create global sets: %s", err)
+		return fmt.Errorf("unable to create global sets: %s", err)
 	}
 
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
 
-	if err := i.SetTargetNetworks(cfg); err != nil {
+	if err := i.SetTargetNetworks(i.cfg); err != nil {
 		// If there is a failure try to clean up on exit.
 		i.ipset.DestroyAll(chainPrefix) // nolint errchech
-		return nil, fmt.Errorf("unable to initialize target networks: %s", err)
+		return fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
-	lock.Lock()
-	instance = i
-	defer lock.Unlock()
+	// Initialize all the global Trireme chains. There are several global chaims
+	// that apply to all PUs:
+	// Tri-App/Tri-Net are the main chains for the egress/ingress directions
+	// UID related chains for any UID PUs.
+	// Host, Service, Pid chains for the different modes of operation (host mode, pu mode, host service).
+	// The priority is explicit (Pid activations take precendence of Service activations and Host Services)
+	if err := i.initializeChains(); err != nil {
+		return fmt.Errorf("Unable to initialize chains: %s", err)
+	}
 
-	return i, nil
+	// Insert the global ACLS. These are the main ACLs that will direct traffic from
+	// the INPUT/OUTPUT chains to the Trireme chains. They also includes the main
+	// rules of the main chains. These rules are never touched again, unless
+	// if we gracefully terminate.
+	if err := i.setGlobalRules(); err != nil {
+		return fmt.Errorf("failed to update synack networks: %s", err)
+	}
+
+	return nil
 }
 
 // ConfigureRules implments the ConfigureRules interface. It will create the
@@ -328,37 +359,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Sync all the IPSets with any new information coming from the policy.
 	i.synchronizePUACLs(contextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs())
-
-	return nil
-}
-
-// Run starts the iptables controller
-func (i *Instance) Run(ctx context.Context) error {
-
-	go func() {
-		<-ctx.Done()
-		zap.L().Debug("Stop the supervisor")
-
-		i.CleanUp() // nolint
-	}()
-
-	// Initialize all the global Trireme chains. There are several global chaims
-	// that apply to all PUs:
-	// Tri-App/Tri-Net are the main chains for the egress/ingress directions
-	// UID related chains for any UID PUs.
-	// Host, Service, Pid chains for the different modes of operation (host mode, pu mode, host service).
-	// The priority is explicit (Pid activations take precendence of Service activations and Host Services)
-	if err := i.initializeChains(); err != nil {
-		return fmt.Errorf("Unable to initialize chains: %s", err)
-	}
-
-	// Insert the global ACLS. These are the main ACLs that will direct traffic from
-	// the INPUT/OUTPUT chains to the Trireme chains. They also includes the main
-	// rules of the main chains. These rules are never touched again, unless
-	// if we gracefully terminate.
-	if err := i.setGlobalRules(); err != nil {
-		return fmt.Errorf("failed to update synack networks: %s", err)
-	}
 
 	return nil
 }

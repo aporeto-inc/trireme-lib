@@ -91,7 +91,6 @@ func TestNewSupervisor(t *testing.T) {
 				So(s.collector, ShouldEqual, c)
 			})
 		})
-
 		Convey("When I provide a nil  collector", func() {
 			s, err := NewSupervisor(nil, e, mode, &runtime.Configuration{}, nil)
 			Convey("I should get an error ", func() {
@@ -107,7 +106,6 @@ func TestNewSupervisor(t *testing.T) {
 				So(s, ShouldBeNil)
 			})
 		})
-
 	})
 }
 

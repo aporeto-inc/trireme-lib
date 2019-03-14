@@ -88,6 +88,27 @@ func NewSupervisor(
 	}, nil
 }
 
+// Run starts the supervisor
+func (s *Config) Run(ctx context.Context) error {
+
+	s.Lock()
+	defer s.Unlock()
+
+	if err := s.impl.Run(ctx); err != nil {
+		return fmt.Errorf("unable to start the implementer: %s", err)
+	}
+
+	if err := s.impl.SetTargetNetworks(s.cfg); err != nil {
+		return err
+	}
+
+	if s.service != nil {
+		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+	}
+
+	return nil
+}
+
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
 func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
@@ -131,27 +152,6 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	if err := s.versionTracker.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
-	}
-
-	return nil
-}
-
-// Run starts the supervisor
-func (s *Config) Run(ctx context.Context) error {
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := s.impl.Run(ctx); err != nil {
-		return fmt.Errorf("unable to start the implementer: %s", err)
-	}
-
-	if err := s.impl.SetTargetNetworks(s.cfg); err != nil {
-		return err
-	}
-
-	if s.service != nil {
-		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
 	}
 
 	return nil
