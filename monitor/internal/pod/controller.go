@@ -121,6 +121,18 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			zap.L().Debug("Pod IsNotFound", zap.String("puID", puID))
 			handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 			defer handlePUCancel()
+
+			// try to call stop, but don't fail if that errors
+			if err := r.handler.Policy.HandlePUEvent(
+				handlePUCtx,
+				puID,
+				common.EventStop,
+				policy.NewPURuntimeWithDefaults(),
+			); err != nil {
+				zap.L().Warn("failed to handle stop event during destroy", zap.String("puID", puID), zap.Error(err))
+			}
+
+			// call destroy regardless if stop succeeded
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
@@ -143,30 +155,51 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
+	// abort if this pod is terminating / shutting down
+	//
+	// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
+	// however, it will have the deletion timestamp set which is an indicator for us that it is
+	// shutting down. It means for us, that we don't have to do anything yet. We can safely stop
+	// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
+	// that cannot be found any longer.
+	if pod.DeletionTimestamp != nil {
+		zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
+		return reconcile.Result{}, nil
+	}
+
 	// every HandlePUEvent call gets done in this context
 	handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 	defer handlePUCancel()
 
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		// there is nothing yet to do in the PodPending phase
-		// we can just return
+		// we will create the PU already, but not start it
 		zap.L().Debug("PodPending", zap.String("puID", puID))
+
+		// now try to do the metadata extraction
+		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
+		defer extractCancel()
+		puRuntime, err := r.metadataExtractor(extractCtx, r.client, pod)
+		if err != nil {
+			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+		}
+		if puRuntime == nil {
+			puRuntime = policy.NewPURuntimeWithDefaults()
+		}
+
+		// now create/update the PU
+		if err := r.handler.Policy.HandlePUEvent(
+			handlePUCtx,
+			puID,
+			common.EventUpdate,
+			puRuntime,
+		); err != nil {
+			zap.L().Warn("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+		}
+
 		return reconcile.Result{}, nil
 
 	case corev1.PodRunning:
-		// first of all, check if this pod is terminating / shutting down
-		//
-		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
-		// however, it will have the deletion timestamp set which is an indicator for us that it is
-		// shutting down. It means for us, that we don't have to do anything yet. We can safely stop
-		// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
-		// that cannot be found any longer.
-		if pod.DeletionTimestamp != nil {
-			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
-			return reconcile.Result{}, nil
-		}
-
 		// try to find out if any of the containers have been started yet
 		//
 		// NOTE: the spec says for PodRunning that at least one container has been starting,
@@ -194,9 +227,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			// now do the metadata extraction
 			extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 			defer extractCancel()
-			puRuntime, err := r.metadataExtractor(extractCtx, pod)
+			puRuntime, err := r.metadataExtractor(extractCtx, r.client, pod)
 			if err != nil {
 				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract metadata: %s", puID, err.Error())
 				return reconcile.Result{}, err
 			}
 
@@ -204,11 +238,12 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			// we need it for starting the PU.
 			// NOTE: this can happen for example if the containers are not in a running state on their own
 			if len(puRuntime.NSPath()) == 0 && puRuntime.Pid() == 0 {
-				zap.L().Warn("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID))
+				zap.L().Error("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID))
+				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract netns", puID)
 				return reconcile.Result{}, ErrNetnsExtractionMissing
 			}
 
-			// now start (and create) the PU
+			// now start (and maybe even create) the PU
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
@@ -216,10 +251,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				puRuntime,
 			); err != nil {
 				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to get started: %s", puID, err.Error())
+				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
 				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
 			}
-			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' has been successfully started", puID)
+			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
 		}
 		return reconcile.Result{}, nil
 
@@ -234,7 +269,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			policy.NewPURuntimeWithDefaults(),
 		); err != nil {
 			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to get stopped: %s", puID, err.Error())
+			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", puID, err.Error())
 			return reconcile.Result{}, ErrHandlePUStopEventFailed
 		}
 		r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
@@ -242,9 +277,13 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	case corev1.PodUnknown:
 		zap.L().Error("pod is in unknown state", zap.String("puID", puID))
-		return reconcile.Result{}, errs.New("PodUnknown phase")
+
+		// we don't need to retry, there is nothing *we* can do about it to fix this
+		return reconcile.Result{}, nil
 	default:
 		zap.L().Error("unknown pod phase", zap.String("puID", puID), zap.String("podPhase", string(pod.Status.Phase)))
-		return reconcile.Result{}, errs.New("unknown Pod phase")
+
+		// we don't need to retry, there is nothing *we* can do about it to fix this
+		return reconcile.Result{}, nil
 	}
 }
