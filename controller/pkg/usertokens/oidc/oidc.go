@@ -295,7 +295,6 @@ func dialContextPolicyBypass(ctx context.Context) context.Context {
 
 func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
 	r := net.Resolver{
-		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			return markedconn.DialMarkedWithContext(ctx, "udp", address, int(constants.DefaultConnMark))
 		},
@@ -311,9 +310,12 @@ func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
 		return "", fmt.Errorf("unable to resolve address %s: %s", addr, err)
 	}
 
-	if len(addresses) == 0 {
-		return "", fmt.Errorf("unable to resolve to a valid address for address %s", addr)
+	for _, saddr := range addresses {
+		addr := net.ParseIP(saddr)
+		if addr != nil && addr.To4() != nil {
+			return saddr + ":" + port, nil
+		}
 	}
 
-	return addresses[0] + ":" + port, nil
+	return "", fmt.Errorf("unable to resolve to a valid address for address %s", addr)
 }
