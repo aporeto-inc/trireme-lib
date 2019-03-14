@@ -18,8 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
-const testIP = "172.17.0.1"
-
 func createTestInstance(mode constants.ModeType) (*Instance, error) {
 	ips := provider.NewTestIpsetProvider()
 	ipt := provider.NewTestIptablesProvider()
@@ -539,8 +537,8 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				// Mock the exec commands
 				i.createPUPortSet = func(setName string) error {
-					ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return nil
+					_, err := ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
+					return err
 				}
 
 				appACLs := policy.IPRuleList{
@@ -917,8 +915,8 @@ func Test_OperationWithContainers(t *testing.T) {
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				// Mock the exec commands
 				i.createPUPortSet = func(setName string) error {
-					ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return nil
+					_, err := ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
+					return err
 				}
 
 				appACLs := policy.IPRuleList{

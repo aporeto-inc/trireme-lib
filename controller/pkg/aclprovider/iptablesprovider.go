@@ -86,7 +86,7 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 }
 
 // NewCustomBatchProvider is a custom batch provider wher the downstream
-// iptables utility is provided by the caller. Very usefull for testing
+// iptables utility is provided by the caller. Very useful for testing
 // the ACL functions with a mock.
 func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) error, batchTables []string) *BatchProvider {
 

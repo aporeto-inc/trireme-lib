@@ -118,6 +118,11 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 // newInstanceWithProviders is called after ipt and ips have been created. This helps
 // with all the unit testing to be able to mock the providers.
 func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration, ipt provider.IptablesProvider, ips provider.IpsetProvider) (*Instance, error) {
+
+	if cfg == nil {
+		cfg = &runtime.Configuration{}
+	}
+
 	i := &Instance{
 		fqc:                     fqc,
 		ipt:                     ipt,
@@ -136,6 +141,7 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		isLegacyKernel:          buildflags.IsLegacyKernel(),
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
 		puToServiceIDs:          map[string][]string{},
+		cfg:                     cfg,
 	}
 
 	lock.Lock()
@@ -174,9 +180,9 @@ func (i *Instance) Run(ctx context.Context) error {
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
 
-	if err := i.SetTargetNetworks(i.cfg); err != nil {
+	if err := i.updateAllTargetNetworks(i.cfg, &runtime.Configuration{}); err != nil {
 		// If there is a failure try to clean up on exit.
-		i.ipset.DestroyAll(chainPrefix) // nolint errchech
+		i.ipset.DestroyAll(chainPrefix) // nolint errcheck
 		return fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
@@ -185,7 +191,7 @@ func (i *Instance) Run(ctx context.Context) error {
 	// Tri-App/Tri-Net are the main chains for the egress/ingress directions
 	// UID related chains for any UID PUs.
 	// Host, Service, Pid chains for the different modes of operation (host mode, pu mode, host service).
-	// The priority is explicit (Pid activations take precendence of Service activations and Host Services)
+	// The priority is explicit (Pid activations take precedence of Service activations and Host Services)
 	if err := i.initializeChains(); err != nil {
 		return fmt.Errorf("Unable to initialize chains: %s", err)
 	}
@@ -302,7 +308,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
 	}
 
-	// Destory all the ACL related IPSets that were created
+	// Destroy all the ACL related IPSets that were created
 	// on demand for any external services.
 	i.destroyACLIPsets(contextID)
 
@@ -403,6 +409,16 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 		cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
 
+	if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {
+		return err
+	}
+
+	i.cfg = cfg
+
+	return nil
+}
+
+func (i *Instance) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration) error {
 	// Cleanup old ACLs
 	if err := i.updateTargetNetworks(i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
 		return err
@@ -415,8 +431,6 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 	if err := i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks); err != nil {
 		return err
 	}
-
-	i.cfg = cfg
 
 	return nil
 }
