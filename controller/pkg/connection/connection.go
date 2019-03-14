@@ -232,7 +232,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 
 	var originalDestination net.IP
 	if p != nil {
-		originalDestination = p.DestinationAddress
+		originalDestination = p.DestinationAddress()
 	}
 
 	return &TCPConnection{

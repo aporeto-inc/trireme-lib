@@ -948,7 +948,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
 			return conn.(*connection.TCPConnection), nil
 		}
-		return connection.NewTCPConnection(context), nil
+		return connection.NewTCPConnection(context, p), nil
 	}
 
 	//This needs to hit only for local processes never for containers
@@ -1054,12 +1054,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, c *connection.TCPCo
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
-	dst := tcpPacket.SourceAddress
-	if o := c.GetOriginalDestination(); o != dst {
-		dst = o
-	}
-
-	if err := d.updateConntrack(tcpPacket.DestinationAddress(), dst, tcpPacket.DestinationPort(), tcpPacket.SourcePort(), tcpPacket.IPProto(), constants.DefaultConnMark); err != nil {
+	if err := updateConntrack(tcpPacket.DestinationAddress(), c.GetOriginalDestination(), tcpPacket.DestPort(), tcpPacket.SourcePort(), tcpPacket.IPProto(), constants.DefaultConnMark); err != nil {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}
 
