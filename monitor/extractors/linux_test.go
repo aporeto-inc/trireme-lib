@@ -282,6 +282,7 @@ func TestIsHostmodePU(t *testing.T) {
 			want: false,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsHostmodePU(tt.args.runtime, tt.args.mode); got != tt.want {
@@ -300,7 +301,7 @@ func TestIsHostPU(t *testing.T) {
 	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.HostPU, nil)
 
 	// 2nd Runtime
-	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostModeNetworkPU, nil)
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostNetworkPU, nil)
 
 	// 3rd runtime
 	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)

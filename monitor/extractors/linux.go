@@ -251,6 +251,10 @@ func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedM
 // IsHostmodePU returns true if puType stored by policy extensions is hostmode PU
 func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
 
+	if runtime == nil {
+		return false
+	}
+
 	if mode != constants.LocalServer {
 		return false
 	}
@@ -260,6 +264,10 @@ func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
 
 // IsHostPU returns true if puType stored by policy extensions is host PU
 func IsHostPU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
+
+	if runtime == nil {
+		return false
+	}
 
 	if mode != constants.LocalServer {
 		return false

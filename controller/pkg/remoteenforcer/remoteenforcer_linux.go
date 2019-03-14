@@ -30,6 +30,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -211,13 +212,13 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
 			return err
 		}
-		s.supervisor = supervisorHandle
 
 		if err := s.supervisor.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 			resp.Status = err.Error()
 			return fmt.Errorf(resp.Status)
 		}
+		s.supervisor = supervisorHandle
 	}
 
 	resp.Status = ""
@@ -244,22 +245,28 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		if payload.CaptureMethod != rpcwrapper.IPTables {
 			return fmt.Errorf("Unsupported method")
 		}
+
+		cfg := payload.Configuration
+		if payload.Configuration == nil {
+			cfg = &runtime.Configuration{}
+		}
+
 		supervisorHandle, err := supervisor.NewSupervisor(
 			s.collector,
 			s.enforcer,
 			constants.RemoteContainer,
-			payload.Configuration,
+			cfg,
 			s.service,
 		)
 		if err != nil {
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
 			return err
 		}
-		s.supervisor = supervisorHandle
 
 		if err := s.supervisor.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
+		s.supervisor = supervisorHandle
 	} else {
 		if err := s.supervisor.SetTargetNetworks(payload.Configuration); err != nil {
 			zap.L().Error("unable to set target networks", zap.Error(err))
