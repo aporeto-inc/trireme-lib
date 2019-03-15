@@ -562,6 +562,16 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 							PolicyID:  "2",
 						},
 					},
+					policy.IPRule{
+						Addresses: []string{"50.0.0.0/24"},
+						Ports:     []string{"443"},
+						Protocols: []string{"icmp"},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept,
+							ServiceID: "s3",
+							PolicyID:  "3",
+						},
+					},
 				}
 				netACLs := policy.IPRuleList{
 					policy.IPRule{
