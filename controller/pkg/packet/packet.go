@@ -27,6 +27,7 @@ var (
 	debugContextNet uint64
 )
 
+var errIPPacketCorrupt = errors.New("IP packet is smaller than min IP size of 20")
 var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
 var errTCPAuthOption = errors.New("tcp authentication option not found")
 
@@ -102,6 +103,10 @@ func (p *Packet) parseUDP(bytes []byte) {
 func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) {
 
 	// IP Header Processing
+	if len(bytes) < minIPv4HdrSize {
+		return errIPPacketCorrupt
+	}
+
 	p.IPHdr.ipHeaderLen = (bytes[ipv4HdrLenPos] & ipv4HdrLenMask) * 4
 	p.IPHdr.ipProto = bytes[ipv4ProtoPos]
 	p.IPHdr.ipTotalLength = binary.BigEndian.Uint16(bytes[ipv4LengthPos : ipv4LengthPos+2])

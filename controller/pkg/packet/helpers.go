@@ -104,7 +104,8 @@ func (p *Packet) String() string {
 func (p *Packet) computeIPChecksum() uint16 {
 
 	// IP packet checksum is computed with the checksum value set to zero
-	binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], uint16(0))
+	p.IPHdr.Buffer[ipv4ChecksumPos] = 0
+	p.IPHdr.Buffer[ipv4ChecksumPos+1] = 0
 
 	// Compute checksum, over IP header only
 	sum := checksum(p.IPHdr.Buffer[:p.IPHdr.ipHeaderLen])
