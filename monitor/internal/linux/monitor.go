@@ -32,12 +32,6 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
-	// If it is a SSH monitor, we don't resync
-	// TODO: Find a better way
-	if l.proc.ssh {
-		return nil
-	}
-
 	return l.Resync(ctx)
 }
 
@@ -56,7 +50,6 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 
 	if registerer != nil {
 		if linuxConfig.Host {
-			fmt.Println("Registering host processor for", common.HostNetworkPU, common.HostPU)
 			if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
 				return err
 			}

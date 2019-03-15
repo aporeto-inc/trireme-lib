@@ -127,11 +127,6 @@ func chainName(contextID string, version int) (app, net string, err error) {
 	return app, net, nil
 }
 
-//getSetNames returns a pair of strings represent proxySetNames
-func getSetNames(portSetName string) (string, string) {
-	return "dst-" + portSetName, "srv-" + portSetName
-}
-
 func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
 
 	var appChain, netChain string
@@ -155,7 +150,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	}
 
 	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
-	destSetName, srvSetName := getSetNames(proxySetName)
+	destSetName, srvSetName := i.getSetNames(proxySetName)
 
 	appSection := ""
 	netSection := ""

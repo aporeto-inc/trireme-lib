@@ -332,13 +332,13 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV src,src -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
@@ -349,8 +349,8 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p TCP -m set --match-set _extnet_w5frVvhspu19gtV src -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set _extnet_IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -361,8 +361,8 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set _extnet_uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set _extnet_6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -386,7 +386,7 @@ var (
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 	}
 
@@ -395,12 +395,12 @@ var (
 		targetUDPNetworkSet:       {"10.0.0.0/8"},
 		excludedNetworkSet:        {"127.0.0.1"},
 		"TRI-ProcPort-pu19gtV":    {},
-		"_extnet_6zlJIvP3pu19gtV": {"30.0.0.0/24"},
-		"_extnet_uNdc0vdcpu19gtV": {"30.0.0.0/24"},
-		"_extnet_w5frVvhspu19gtV": {"40.0.0.0/24"},
-		"_extnet_IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
-		"dst-TRI-Proxy-pu19gtV":   {},
-		"srv-TRI-Proxy-pu19gtV":   {},
+		"TRI-ext-6zlJIvP3pu19gtV": {"30.0.0.0/24"},
+		"TRI-ext-uNdc0vdcpu19gtV": {"30.0.0.0/24"},
+		"TRI-ext-w5frVvhspu19gtV": {"40.0.0.0/24"},
+		"TRI-ext-IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
+		"TRI-Proxy-pu19gtV-dst":   {},
+		"TRI-Proxy-pu19gtV-srv":   {},
 	}
 
 	expectedMangleAfterPUUpdate = map[string][]string{
@@ -442,13 +442,13 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV src,src -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
@@ -459,7 +459,7 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set _extnet_w5frVvhspu19gtV src -m state --state NEW -j DROP",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -470,7 +470,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set _extnet_uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -795,18 +795,18 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV src,src -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p TCP -m set --match-set _extnet_w5frVvhspu19gtV src -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set _extnet_IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -817,8 +817,8 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set _extnet_uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set _extnet_6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -842,7 +842,7 @@ var (
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set srv-TRI-Proxy-pu19gtV dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 	}
 
@@ -851,12 +851,12 @@ var (
 		targetUDPNetworkSet:       {"10.0.0.0/8"},
 		excludedNetworkSet:        {"127.0.0.1"},
 		"TRI-ProcPort-pu19gtV":    {},
-		"_extnet_6zlJIvP3pu19gtV": {"30.0.0.0/24"},
-		"_extnet_uNdc0vdcpu19gtV": {"30.0.0.0/24"},
-		"_extnet_w5frVvhspu19gtV": {"40.0.0.0/24"},
-		"_extnet_IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
-		"dst-TRI-Proxy-pu19gtV":   {},
-		"srv-TRI-Proxy-pu19gtV":   {},
+		"TRI-ext-6zlJIvP3pu19gtV": {"30.0.0.0/24"},
+		"TRI-ext-uNdc0vdcpu19gtV": {"30.0.0.0/24"},
+		"TRI-ext-w5frVvhspu19gtV": {"40.0.0.0/24"},
+		"TRI-ext-IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
+		"TRI-Proxy-pu19gtV-dst":   {},
+		"TRI-Proxy-pu19gtV-srv":   {},
 	}
 )
 

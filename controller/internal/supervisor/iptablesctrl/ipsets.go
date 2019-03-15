@@ -112,7 +112,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 
 //getSetNamePair returns a pair of strings represent proxySetNames
 func (i *Instance) getSetNames(portSetName string) (string, string) {
-	return "dst-" + portSetName, "srv-" + portSetName
+	return portSetName + "-dst", portSetName + "-srv"
 }
 
 // Not using ipset from coreos library they don't support bitmap:port

@@ -672,7 +672,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 		if i.serviceIDToIPsets[rule.Policy.ServiceID] == nil {
 			ips := map[string]bool{}
 
-			ipsetName := puPortSetName(contextID, "_extnet_"+hashServiceID(rule.Policy.ServiceID))
+			ipsetName := puPortSetName(contextID, "TRI-ext-"+hashServiceID(rule.Policy.ServiceID))
 			set, err := i.ipset.NewIpset(ipsetName, "hash:net", &ipset.Params{})
 			if err != nil {
 				return nil, err
