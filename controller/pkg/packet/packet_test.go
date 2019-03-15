@@ -14,6 +14,7 @@ const (
 	synIPLenTooSmall
 	synMissingBytes
 	synBadIPChecksum
+	loopbackAddress = "127.0.0.1"
 )
 
 var testPackets = [][]byte{
@@ -147,11 +148,11 @@ func TestAddresses(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	src := pkt.SourceAddress().String()
-	if src != "127.0.0.1" {
+	if src != loopbackAddress {
 		t.Errorf("Unexpected source address %s", src)
 	}
 	dest := pkt.DestinationAddress().String()
-	if dest != "127.0.0.1" {
+	if dest != loopbackAddress {
 		t.Errorf("Unexpected destination address %s", src)
 	}
 }
@@ -423,11 +424,11 @@ func TestNewPacketFunctions(t *testing.T) {
 		t.Error("Test packet dest port didnt match")
 	}
 
-	if pkt.SourceAddress().String() != "127.0.0.1" {
+	if pkt.SourceAddress().String() != loopbackAddress {
 		t.Error("Test packet source ip didnt match")
 	}
 
-	if pkt.DestinationAddress().String() != "127.0.0.1" {
+	if pkt.DestinationAddress().String() != loopbackAddress {
 		t.Error("Test packet dest ip didnt match")
 	}
 
