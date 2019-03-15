@@ -249,9 +249,9 @@ var (
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
+			"-j TRI-UID-Net",
 			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
-			"-j TRI-UID-Net",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -315,9 +315,9 @@ var (
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
+			"-j TRI-UID-Net",
 			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
-			"-j TRI-UID-Net",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -333,7 +333,7 @@ var (
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -349,8 +349,8 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW --match multiport --dports 443 -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -361,8 +361,8 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW --match multiport --dports 443 -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -382,7 +382,7 @@ var (
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -425,9 +425,9 @@ var (
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
+			"-j TRI-UID-Net",
 			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
-			"-j TRI-UID-Net",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -459,7 +459,7 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -470,7 +470,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -805,8 +805,8 @@ var (
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW --match multiport --dports 443 -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -817,8 +817,8 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW -j ACCEPT",
+			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW --match multiport --dports 443 -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -838,7 +838,7 @@ var (
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set dst-TRI-Proxy-pu19gtV dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",

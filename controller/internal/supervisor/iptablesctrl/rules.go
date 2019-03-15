@@ -22,10 +22,12 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
+{{if isLocalServer}}
+{{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
+{{end}}
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
 {{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
 {{if isLocalServer}}
-{{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.TriremeInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.NetworkSvcInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.HostInput}}
@@ -86,11 +88,14 @@ var containerChainTemplate = `
 {{.MangleTable}} {{.NetSection}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
 
 // uidChainTemplate will hook the traffic towards the UID context specific chains.
+// {{.MangleTable}} {{.PreRouting}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.Mark}}
+
 var uidChainTemplate = `
-{{.MangleTable}} {{.PreRouting}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.Mark}}
 {{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.Mark}}
 {{.MangleTable}} {{.UIDOutput}} -m mark --mark {{.Mark}} -m comment --comment Server-specific-chain -j {{.AppChain}}
-{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.Mark}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
+{{.MangleTable}} {{.UIDInput}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.Mark}}
+{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.Mark}} -m comment --comment Container-specific-chain -j {{.NetChain}}
+`
 
 var acls = `
 {{range .RejectObserveContinue}}
@@ -140,6 +145,9 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.NetChain}} -p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
+{{if isUIDProcess}}
+{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}}
+{{end}}
 {{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m statistic --mode nth --every {{.Numpackets}} --packet {{.InitialCount}} -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
