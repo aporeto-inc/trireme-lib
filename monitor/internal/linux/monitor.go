@@ -49,19 +49,20 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		if linuxConfig.Host {
+		if linuxConfig.SSH {
+			if err := registerer.RegisterProcessor(common.SSHSessionPU, l.proc); err != nil {
+				return err
+			}
+		} else {
 			if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
 				return err
 			}
 			if err := registerer.RegisterProcessor(common.HostPU, l.proc); err != nil {
 				return err
 			}
-		} else if linuxConfig.SSH {
-			if err := registerer.RegisterProcessor(common.SSHSessionPU, l.proc); err != nil {
+			if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
 				return err
 			}
-		} else if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
-			return err
 		}
 	}
 

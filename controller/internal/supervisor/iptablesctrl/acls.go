@@ -263,7 +263,6 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 			chain,
 			"-p", proto,
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-			"-m", "state", "--state", "NEW",
 		}
 
 		// only tcp uses target networks
@@ -274,7 +273,9 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 
 		// port match is required only for tcp and udp protocols
 		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum {
+			stateMatch := []string{"-m", "state", "--state", "NEW"}
 			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.ports, ",")}
+			iptRule = append(iptRule, stateMatch...)
 			iptRule = append(iptRule, portMatchSet...)
 		}
 
