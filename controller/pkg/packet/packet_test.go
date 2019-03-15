@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"encoding/hex"
 	"math/rand"
 	"testing"
 )
@@ -377,6 +378,28 @@ func TestAddTags(t *testing.T) {
 			}
 		}
 	*/
+}
+
+func TestUDP(t *testing.T) {
+	udpPacket, _ := hex.DecodeString("4500004b1a294000401108b90a8080800a0c82b400350e1700371e316e4f8180000100010000000003617069066272616e636802696f0000010001c00c000100010000003b00046354e9fa")
+
+	pkt, _ := New(0, udpPacket, "0", true)
+
+	if pkt.SourceAddress().String() != "10.128.128.128" {
+		t.Error("source address udp parsing incorrect")
+	}
+
+	if pkt.DestinationAddress().String() != "10.12.130.180" {
+		t.Error("destination address udp parsing incorrect")
+	}
+
+	if pkt.SourcePort() != uint16(53) {
+		t.Error("source port incorrect udp")
+	}
+
+	if pkt.DestPort() != uint16(3607) {
+		t.Error("destination port incorrect udp")
+	}
 }
 
 func TestRawChecksums(t *testing.T) {

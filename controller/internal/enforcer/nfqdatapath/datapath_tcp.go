@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var errInvalidState = errors.New("Invalid State")
 var errInvalidNetState = errors.New("Invalid net state")
 var errNonPUTraffic = errors.New("Traffic belongs to a PU we are not monitoring")
 var errNetSynNotSeen = errors.New("Network Syn packet was not seen")
