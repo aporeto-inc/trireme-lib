@@ -238,13 +238,13 @@ func (i *Instance) addChainRules(cfg *ACLInfo) error {
 		return i.processRulesFromList(i.uidChainRules(cfg), "Append")
 	}
 
-	if cfg.UDPPorts != "0" {
-		// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
-		err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, true), "Insert")
-		if err != nil {
-			return fmt.Errorf("Unable to add nat rule for udp: %s", err)
-		}
-	}
+	// if cfg.UDPPorts != "0" {
+	// 	// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
+	// 	err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, true), "Insert")
+	// 	if err != nil {
+	// 		return fmt.Errorf("Unable to add nat rule for udp: %s", err)
+	// 	}
+	// }
 
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Append")
 }
@@ -421,13 +421,13 @@ func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 		return i.processRulesFromList(i.uidChainRules(cfg), "Delete")
 	}
 
-	if cfg.UDPPorts != "0" {
-		// Delete the postrouting Nat rule for udp.
-		err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, false), "Delete")
-		if err != nil {
-			return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
-		}
-	}
+	// if cfg.UDPPorts != "0" {
+	// 	// Delete the postrouting Nat rule for udp.
+	// 	err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, false), "Delete")
+	// 	if err != nil {
+	// 		return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
+	// 	}
+	// }
 
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }

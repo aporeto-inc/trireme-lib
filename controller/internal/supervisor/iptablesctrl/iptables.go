@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"sync"
 	"text/template"
 
@@ -819,13 +818,13 @@ func puPortSetName(contextID string, prefix string) string {
 
 // flushUDPConntrack will flush the UDP conntrack table that matches our networks.
 func flushUDPConntrack(networks []string) {
-	cmd := "conntrack"
-	for _, n := range networks {
-		if _, err := exec.Command(cmd, "-D", "-p", "udp", "--src", n).Output(); err != nil && err.Error() != "exit status 1" {
-			zap.L().Warn("Failed to remove source conntrack entries for UDP target network", zap.Error(err))
-		}
-		if _, err := exec.Command(cmd, "-D", "-p", "udp", "--dst", n).Output(); err != nil && err.Error() != "exit status 1" {
-			zap.L().Warn("Failed to remove destination conntrack entries for UDP target network", zap.Error(err))
-		}
-	}
+	// cmd := "conntrack"
+	// for _, n := range networks {
+	// 	if _, err := exec.Command(cmd, "-D", "-p", "udp", "--src", n).Output(); err != nil && err.Error() != "exit status 1" {
+	// 		zap.L().Warn("Failed to remove source conntrack entries for UDP target network", zap.Error(err))
+	// 	}
+	// 	if _, err := exec.Command(cmd, "-D", "-p", "udp", "--dst", n).Output(); err != nil && err.Error() != "exit status 1" {
+	// 		zap.L().Warn("Failed to remove destination conntrack entries for UDP target network", zap.Error(err))
+	// 	}
+	// }
 }
