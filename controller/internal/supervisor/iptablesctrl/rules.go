@@ -80,15 +80,8 @@ var cgroupCaptureTemplate = `
 
 // containerChainTemplate will hook traffic towards the container specific chains.
 var containerChainTemplate = `
-{{.MangleTable}} {{.AppSection}} -p udp -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGPrefix}} --nflog-group 10
-{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.AppSection}} -m comment --comment Container-specific-chain -j {{.AppChain}}
-
-{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.NetSection}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
-
-// uidChainTemplate will hook the traffic towards the UID context specific chains.
-// {{.MangleTable}} {{.PreRouting}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.Mark}}
 
 var uidChainTemplate = `
 {{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.Mark}}

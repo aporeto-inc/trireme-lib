@@ -351,27 +351,29 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW --match multiport --dports 443 -j ACCEPT",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m statistic --mode nth --every 100 --packet 99 -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default3",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst --match multiport --dports 443 -j ACCEPT",
 			"-p icmp -m set --match-set TRI-ext-w5frVvhspu19gtV dst -j ACCEPT",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default3",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -466,23 +468,23 @@ var (
 
 		"TRI-Net-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m statistic --mode nth --every 100 --packet 99 -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default3",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default3",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -712,6 +714,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					t := ipt.RetrieveTable()
+					printTable(t)
 					for chain, rules := range t["mangle"] {
 						So(expectedMangleAfterPUUpdate, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedMangleAfterPUUpdate[chain])
@@ -816,8 +819,6 @@ var (
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
-			"-p udp -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix pu1:default:default3 --nflog-group 10",
-			"-p udp -m comment --comment traffic-same-pu -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT",
 			"-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Net": {
@@ -826,7 +827,6 @@ var (
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
-			"-p udp -m comment --comment traffic-same-pu -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT",
 			"-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
 		},
 		"TRI-Prx-App": {
@@ -842,26 +842,28 @@ var (
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src -m state --state NEW --match multiport --dports 443 -j ACCEPT",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m statistic --mode nth --every 100 --packet 99 -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default3",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW --match multiport --dports 443 -j ACCEPT",
-			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default3",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -1025,6 +1027,7 @@ func Test_OperationWithContainers(t *testing.T) {
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := ipt.RetrieveTable()
+				printTable(t)
 
 				for chain, rules := range t["mangle"] {
 					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
