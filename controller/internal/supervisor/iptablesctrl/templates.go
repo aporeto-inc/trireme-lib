@@ -105,7 +105,8 @@ type ACLInfo struct {
 	UID     string
 	PortSet string
 
-	NFLOGPrefix string
+	NFLOGPrefix       string
+	NFLOGAcceptPrefix string
 }
 
 func chainName(contextID string, version int) (app, net string, err error) {
@@ -235,7 +236,8 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		Mark:    mark,
 		PortSet: portSetName,
 
-		NFLOGPrefix: policy.DefaultLogPrefix(contextID),
+		NFLOGPrefix:       policy.DefaultLogPrefix(contextID),
+		NFLOGAcceptPrefix: policy.DefaultAcceptLogPrefix(contextID),
 	}
 
 	return cfg, nil
