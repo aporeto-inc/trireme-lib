@@ -779,11 +779,11 @@ func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addExternalACLs(cfg.ContextID, cfg.AppChain, appACLIPset, true); err != nil {
+	if err := i.addExternalACLs(cfg.ContextID, cfg.AppChain, cfg.NetChain, appACLIPset, true); err != nil {
 		return err
 	}
 
-	if err := i.addExternalACLs(cfg.ContextID, cfg.NetChain, netACLIPset, false); err != nil {
+	if err := i.addExternalACLs(cfg.ContextID, cfg.NetChain, cfg.AppChain, netACLIPset, false); err != nil {
 		return err
 	}
 

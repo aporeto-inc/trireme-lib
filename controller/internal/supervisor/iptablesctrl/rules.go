@@ -121,6 +121,10 @@ var acls = `
 {{range .AcceptObserveApply}}
 {{joinRule .}}
 {{end}}
+
+{{range .ReverseRules}}
+{{joinRule .}}
+{{end}}
 `
 
 // packetCaptureTemplate are the rules that trap traffic towards the user space.
@@ -128,7 +132,6 @@ var packetCaptureTemplate = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
 {{end}}
-{{.MangleTable}} {{.AppChain}} -p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
 {{if isUIDProcess}}
@@ -142,7 +145,6 @@ var packetCaptureTemplate = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
 {{end}}
-{{.MangleTable}} {{.NetChain}} -p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
 {{if isUIDProcess}}

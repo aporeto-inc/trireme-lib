@@ -28,6 +28,8 @@ type rulesInfo struct {
 	AcceptObserveApply    [][]string
 	AcceptNotObserved     [][]string
 	AcceptObserveContinue [][]string
+
+	ReverseRules [][]string
 }
 
 // cgroupChainRules provides the rules for redirecting to a processing unit
@@ -253,8 +255,9 @@ func (i *Instance) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 }
 
-func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain string, nfLogGroup, proto, ipMatchDirection string) [][]string {
+func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
 	iptRules := [][]string{}
+	reverseRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
 	baseRule := func(proto string) []string {
@@ -305,9 +308,20 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 			rejectRule := append(baseRule(proto), reject...)
 			iptRules = append(iptRules, rejectRule)
 		}
+
+		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+			reverseRules = append(reverseRules, []string{
+				i.appPacketIPTableContext,
+				reverseChain,
+				"-p", proto,
+				"-m", "set", "--match-set", rule.ipset, reverseDirection,
+				"-m", "state", "--state", "ESTABLISHED",
+				"-j", "ACCEPT",
+			})
+		}
 	}
 
-	return iptRules
+	return iptRules, reverseRules
 }
 
 // sortACLsInBuckets will process all the rules and add them in a list of buckets
@@ -315,7 +329,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 // in order to support observation only of ACL actions. The parameters
 // must provide the chain and whether it is App or Net ACLs so that the rules
 // can be created accordingly.
-func (i *Instance) sortACLsInBuckets(contextID, chain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
+func (i *Instance) sortACLsInBuckets(contextID, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
 
 	rulesBucket := &rulesInfo{
 		RejectObserveApply:    [][]string{},
@@ -324,12 +338,15 @@ func (i *Instance) sortACLsInBuckets(contextID, chain string, rules []aclIPset, 
 		AcceptObserveApply:    [][]string{},
 		AcceptNotObserved:     [][]string{},
 		AcceptObserveContinue: [][]string{},
+		ReverseRules:          [][]string{},
 	}
 
 	direction := "src"
+	reverse := "dst"
 	nflogGroup := "11"
 	if isAppACLs {
 		direction = "dst"
+		reverse = "src"
 		nflogGroup = "10"
 	}
 
@@ -337,7 +354,8 @@ func (i *Instance) sortACLsInBuckets(contextID, chain string, rules []aclIPset, 
 
 		for _, proto := range rule.protocols {
 
-			acls := i.generateACLRules(contextID, &rule, chain, nflogGroup, proto, direction)
+			acls, r := i.generateACLRules(contextID, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
+			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
 				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, acls...)
@@ -370,9 +388,9 @@ func (i *Instance) sortACLsInBuckets(contextID, chain string, rules []aclIPset, 
 
 // addExternalACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addExternalACLs(contextID string, chain string, rules []aclIPset, isAppAcls bool) error {
+func (i *Instance) addExternalACLs(contextID string, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
-	rulesBucket := i.sortACLsInBuckets(contextID, chain, rules, isAppAcls)
+	rulesBucket := i.sortACLsInBuckets(contextID, chain, reverseChain, rules, isAppAcls)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
