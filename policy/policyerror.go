@@ -18,21 +18,27 @@ var policyErrorDescription = map[ErrorReason]string{
 type Error struct {
 	puID   string
 	reason ErrorReason
+	err    error
 }
 
 func (e *Error) Error() string {
 	desc, ok := policyErrorDescription[e.reason]
-	if !ok {
-		return fmt.Sprintf("%s (ID: %s)", e.reason, e.puID)
+	var err string
+	if e.err != nil {
+		err = ": " + e.err.Error()
 	}
-	return fmt.Sprintf("%s (ID: %s): %s", e.reason, e.puID, desc)
+	if !ok {
+		return fmt.Sprintf("%s (ID: %s)%s", e.reason, e.puID, err)
+	}
+	return fmt.Sprintf("%s (ID: %s): %s%s", e.reason, e.puID, desc, err)
 }
 
 // ErrPUNotFound creates a new context not found error
-func ErrPUNotFound(puID string) error {
+func ErrPUNotFound(puID string, err error) error {
 	return &Error{
 		puID:   puID,
 		reason: PUNotFound,
+		err:    err,
 	}
 }
 
