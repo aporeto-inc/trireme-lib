@@ -172,11 +172,7 @@ func (s *Config) SetTargetNetworks(cfg *runtime.Configuration) error {
 	s.Lock()
 	defer s.Unlock()
 
-	if err := s.impl.SetTargetNetworks(cfg); err != nil {
-		return err
-	}
-
-	return nil
+	return s.impl.SetTargetNetworks(cfg)
 }
 
 // ACLProvider returns the ACL provider used by the supervisor that can be
