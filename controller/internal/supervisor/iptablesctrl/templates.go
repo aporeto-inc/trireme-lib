@@ -235,7 +235,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		Mark:    mark,
 		PortSet: portSetName,
 
-		NFLOGPrefix: policy.DefaultAcceptLogPrefix(contextID),
+		NFLOGPrefix: policy.DefaultLogPrefix(contextID),
 	}
 
 	return cfg, nil
