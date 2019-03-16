@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"sync"
 	"text/template"
 
@@ -88,6 +89,7 @@ type Instance struct {
 	serviceIDToIPsets       map[string]*ipsetInfo
 	puToServiceIDs          map[string][]string
 	cfg                     *runtime.Configuration
+	conntrackCmd            func([]string)
 }
 
 var instance *Instance
@@ -142,6 +144,7 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
 		puToServiceIDs:          map[string][]string{},
 		cfg:                     cfg,
+		conntrackCmd:            flushUDPConntrack,
 	}
 
 	lock.Lock()
@@ -254,6 +257,8 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 		zap.L().Error("unable to configure rules", zap.Error(err))
 		return err
 	}
+
+	i.conntrackCmd(i.cfg.UDPTargetNetworks)
 
 	return nil
 }
@@ -810,4 +815,17 @@ func puPortSetName(contextID string, prefix string) string {
 	}
 
 	return (prefix + contextID)
+}
+
+// flushUDPConntrack will flush the UDP conntrack table that matches our networks.
+func flushUDPConntrack(networks []string) {
+	cmd := "conntrack"
+	for _, n := range networks {
+		if _, err := exec.Command(cmd, "-D", "-p", "udp", "--src", n).Output(); err != nil && err.Error() != "exit status 1" {
+			zap.L().Warn("Failed to remove source conntrack entries for UDP target network", zap.Error(err))
+		}
+		if _, err := exec.Command(cmd, "-D", "-p", "udp", "--dst", n).Output(); err != nil && err.Error() != "exit status 1" {
+			zap.L().Warn("Failed to remove destination conntrack entries for UDP target network", zap.Error(err))
+		}
+	}
 }

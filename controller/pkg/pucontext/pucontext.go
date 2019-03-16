@@ -123,24 +123,23 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 	lookupHost := func(dnsrule *policy.DNSRule) error {
 		var rules policy.IPRuleList
 
-		if ips, err := LookupHost(dnsrule.Name); err == nil {
-			for _, ip := range ips {
-				if !ipcache[ip+":"+dnsrule.Port] {
-					rules = createACLRules(rules, dnsrule, ip)
-					ipcache[ip+":"+dnsrule.Port] = true
-				}
-			}
-
-			if len(rules) > 0 {
-				if err = p.UpdateApplicationACLs(rules); err != nil {
-					zap.L().Error("Error in Adding rules", zap.Error(err))
-				}
-			}
-		} else {
+		ips, err := LookupHost(dnsrule.Name)
+		if err != nil {
 			zap.L().Warn("Failed to resolve dns rule", zap.Error(err))
 			return err
 		}
 
+		for _, ip := range ips {
+			if !ipcache[ip+":"+dnsrule.Port] {
+				rules = createACLRules(rules, dnsrule, ip)
+				ipcache[ip+":"+dnsrule.Port] = true
+			}
+		}
+		if len(rules) > 0 {
+			if err = p.UpdateApplicationACLs(rules); err != nil {
+				zap.L().Error("Error in Adding rules", zap.Error(err))
+			}
+		}
 		return nil
 	}
 

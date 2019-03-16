@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 func createTestInstance(mode constants.ModeType) (*Instance, error) {
@@ -164,6 +165,7 @@ func Test_NegativeConfigureRules(t *testing.T) {
 			ips,
 		)
 		So(err, ShouldBeNil)
+		i.conntrackCmd = func([]string) {}
 
 		ipl := policy.ExtendedMap{}
 		policyrules := policy.NewPUPolicy("Context",
@@ -327,7 +329,7 @@ var (
 			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
-			"-p tcp -m set --match-set TRI-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -363,6 +365,7 @@ var (
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst -m state --state NEW --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-ext-w5frVvhspu19gtV dst -j ACCEPT",
 			"-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -387,6 +390,9 @@ var (
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
+		},
+		"POSTROUTING": {
+			"-p udp -m addrtype --src-type LOCAL -m multiport --source-ports 5000 -j ACCEPT",
 		},
 	}
 
@@ -504,6 +510,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 		)
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
+		i.conntrackCmd = func([]string) {}
 
 		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -616,7 +623,24 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
-				err := i.ConfigureRules(0, "pu1", puInfo)
+
+				udpPortSpec, err := portspec.NewPortSpecFromString("5000", nil)
+				So(err, ShouldBeNil)
+				tcpPortSpec, err := portspec.NewPortSpecFromString("9000", nil)
+				So(err, ShouldBeNil)
+
+				puInfo.Runtime.SetServices([]common.Service{
+					{
+						Ports:    udpPortSpec,
+						Protocol: 17,
+					},
+					{
+						Ports:    tcpPortSpec,
+						Protocol: 6,
+					},
+				})
+
+				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := ipt.RetrieveTable()
 
@@ -694,7 +718,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.DeleteRules(1, "pu1", "0", "0", "10", "", "0", common.LinuxProcessPU)
+						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
 						So(err, ShouldBeNil)
 
 						t := ipt.RetrieveTable()
@@ -707,9 +731,12 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 							So(rules, ShouldResemble, expectedGlobalMangleChains[chain])
 						}
 
+						printTable(t)
 						for chain, rules := range t["nat"] {
-							So(expectedGlobalNATChains, ShouldContainKey, chain)
-							So(rules, ShouldResemble, expectedGlobalNATChains[chain])
+							if len(rules) > 0 {
+								So(expectedGlobalNATChains, ShouldContainKey, chain)
+								So(rules, ShouldResemble, expectedGlobalNATChains[chain])
+							}
 						}
 
 						Convey("When I cancel the context, it should cleanup", func() {
@@ -890,6 +917,7 @@ func Test_OperationWithContainers(t *testing.T) {
 			ipt,
 			ips,
 		)
+		i.conntrackCmd = func([]string) {}
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
@@ -1023,7 +1051,7 @@ func Test_OperationWithContainers(t *testing.T) {
 
 					So(t["mangle"], ShouldNotBeNil)
 					So(t["nat"], ShouldNotBeNil)
-
+					printTable(t)
 					for chain, rules := range t["mangle"] {
 						So(expectedContainerGlobalMangleChains, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalMangleChains[chain])
@@ -1047,13 +1075,15 @@ func Test_OperationWithContainers(t *testing.T) {
 	})
 }
 
-// fmt.Printf("\n")
-// for table, chains := range t {
-// 	fmt.Println(table)
-// 	for chain, rules := range chains {
-// 		fmt.Println(chain)
-// 		for _, rule := range rules {
-// 			fmt.Println(rule)
-// 		}
-// 	}
-// }
+func printTable(t map[string]map[string][]string) {
+	fmt.Printf("\n")
+	for table, chains := range t {
+		fmt.Println(table)
+		for chain, rules := range chains {
+			fmt.Println(chain)
+			for _, rule := range rules {
+				fmt.Println(rule)
+			}
+		}
+	}
+}

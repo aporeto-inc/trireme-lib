@@ -405,6 +405,7 @@ func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 
 	if cfg.UDPPorts != "0" {
 		// Delete the postrouting Nat rule for udp.
+		fmt.Println("Processing delete for udp rules ", cfg.UDPPorts)
 		err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, false), "Delete")
 		if err != nil {
 			return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
