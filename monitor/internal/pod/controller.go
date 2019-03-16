@@ -199,9 +199,22 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			common.EventUpdate,
 			puRuntime,
 		); err != nil {
-			zap.L().Warn("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+			if policy.IsErrPUNotFound(err) {
+				// create the PU if it does not exist yet
+				if err := r.handler.Policy.HandlePUEvent(
+					handlePUCtx,
+					puID,
+					common.EventUpdate,
+					puRuntime,
+				); err != nil {
+					zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{}, nil
+			}
+			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+			return reconcile.Result{}, err
 		}
-
 		return reconcile.Result{}, nil
 
 	case corev1.PodRunning:
@@ -277,6 +290,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			if policy.IsErrPUNotFound(err) {
 				// not found means nothing needed stopping
 				// just return
+				zap.L().Debug("failed to handle stop event (IsErrPUNotFound==true)", zap.String("puID", puID), zap.Error(err))
 				return reconcile.Result{}, nil
 			}
 			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
