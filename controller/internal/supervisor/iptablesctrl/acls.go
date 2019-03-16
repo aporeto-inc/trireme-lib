@@ -268,7 +268,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
 		}
 
-		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
+		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
 			stateMatch := []string{"-m", "state", "--state", "NEW"}
 			iptRule = append(iptRule, stateMatch...)
 		}
