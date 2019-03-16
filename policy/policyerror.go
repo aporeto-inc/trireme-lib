@@ -8,10 +8,14 @@ type ErrorReason string
 const (
 	// PUNotFound error reason
 	PUNotFound ErrorReason = "PUNotFound"
+
+	// PUNotUnique error reason
+	PUNotUnique ErrorReason = "PUNotUnique"
 )
 
 var policyErrorDescription = map[ErrorReason]string{
-	PUNotFound: "unable to find PU with specificed ID",
+	PUNotFound:  "unable to find PU with ID",
+	PUNotUnique: "more than one PU with ID exist",
 }
 
 // Error is a specific error type for context
@@ -42,11 +46,30 @@ func ErrPUNotFound(puID string, err error) error {
 	}
 }
 
-// IsErrPUNotFound checks if this error is a context not found error
+// ErrPUNotUnique creates a new not unique error
+func ErrPUNotUnique(puID string, err error) error {
+	return &Error{
+		puID:   puID,
+		reason: PUNotUnique,
+		err:    err,
+	}
+}
+
+// IsErrPUNotFound checks if this error is a PU not found error
 func IsErrPUNotFound(err error) bool {
 	switch t := err.(type) {
 	case *Error:
 		return t.reason == PUNotFound
+	default:
+		return false
+	}
+}
+
+// IsErrPUNotUnique checks if this error is a PU not unique error
+func IsErrPUNotUnique(err error) bool {
+	switch t := err.(type) {
+	case *Error:
+		return t.reason == PUNotUnique
 	default:
 		return false
 	}
