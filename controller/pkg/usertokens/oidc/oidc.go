@@ -295,7 +295,6 @@ func dialContextPolicyBypass(ctx context.Context) context.Context {
 
 func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
 	r := net.Resolver{
-		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			return markedconn.DialMarkedWithContext(ctx, "udp", address, int(constants.DefaultConnMark))
 		},

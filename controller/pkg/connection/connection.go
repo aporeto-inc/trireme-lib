@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -148,6 +149,9 @@ type TCPConnection struct {
 
 	// PacketFlowPolicy holds the last matched actual policy
 	PacketFlowPolicy *policy.FlowPolicy
+
+	// originalDestination is the original destination of the connection
+	originalDestination net.IP
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -213,19 +217,31 @@ func (c *TCPConnection) IsLoopbackConnection() bool {
 	return c.loopbackConnection
 }
 
+// GetOriginalDestination returns the original destination.
+func (c *TCPConnection) GetOriginalDestination() net.IP {
+	return c.originalDestination
+}
+
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection(context *pucontext.PUContext) *TCPConnection {
+func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnection {
 
 	nonce, err := crypto.GenerateRandomBytes(16)
 	if err != nil {
 		return nil
 	}
+
+	var originalDestination net.IP
+	if p != nil {
+		originalDestination = p.DestinationAddress()
+	}
+
 	return &TCPConnection{
 		state:   TCPSynSend,
 		Context: context,
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
+		originalDestination: originalDestination,
 	}
 }
 

@@ -85,12 +85,12 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var udpConn *connection.UDPConnection
 	if err != nil {
 		netPacket.Print(packet.PacketFailureCreate)
-	} else if netPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	} else if netPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
-	} else if netPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+	} else if netPacket.IPProto() == packet.IPProtocolUDP {
 		udpConn, processError = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
-		processError = fmt.Errorf("invalid ip protocol: %d", netPacket.IPHdr.IPProto)
+		processError = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto())
 
 	}
 
@@ -98,7 +98,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
-		if netPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+		if netPacket.IPProto() == packet.IPProtocolTCP {
 			d.collectTCPPacket(&debugpacketmessage{
 				Mark:    p.Mark,
 				p:       netPacket,
@@ -107,7 +107,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 				err:     processError,
 				network: true,
 			})
-		} else if netPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+		} else if netPacket.IPProto() == packet.IPProtocolUDP {
 			d.collectUDPPacket(&debugpacketmessage{
 				Mark:    p.Mark,
 				p:       netPacket,
@@ -121,9 +121,9 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		return
 	}
 
-	if netPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	if netPacket.IPProto() == packet.IPProtocolTCP {
 		// // Accept the packet
-		buffer := make([]byte, netPacket.IPHdr.IPTotalLength)
+		buffer := make([]byte, netPacket.IPTotalLen())
 		copyIndex := copy(buffer, netPacket.IPHdr.Buffer)
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
@@ -132,7 +132,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.IPHdr.Buffer)), uint32(p.ID), netPacket.IPHdr.Buffer)
 	}
-	if netPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	if netPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
 			Mark:    p.Mark,
 			p:       netPacket,
@@ -141,7 +141,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			err:     nil,
 			network: true,
 		})
-	} else if netPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+	} else if netPacket.IPProto() == packet.IPProtocolUDP {
 		d.collectUDPPacket(&debugpacketmessage{
 			Mark:    p.Mark,
 			p:       netPacket,
@@ -167,19 +167,18 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var udpConn *connection.UDPConnection
 	if err != nil {
 		appPacket.Print(packet.PacketFailureCreate)
-	} else if appPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	} else if appPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
-	} else if appPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+	} else if appPacket.IPProto() == packet.IPProtocolUDP {
 		udpConn, processError = d.ProcessApplicationUDPPacket(appPacket)
 	} else {
-		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPHdr.IPProto)
+		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
 	}
 	if processError != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
-		if appPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+		if appPacket.IPProto() == packet.IPProtocolTCP {
 
 			d.collectTCPPacket(&debugpacketmessage{
 				Mark:    p.Mark,
@@ -189,7 +188,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 				err:     processError,
 				network: false,
 			})
-		} else if appPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+		} else if appPacket.IPProto() == packet.IPProtocolUDP {
 			d.collectUDPPacket(&debugpacketmessage{
 				Mark:    p.Mark,
 				p:       appPacket,
@@ -202,10 +201,9 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		return
 	}
 
-	if appPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	if appPacket.IPProto() == packet.IPProtocolTCP {
 		// Accept the packet
-		fmt.Println(appPacket.IPHdr.Buffer)
-		buffer := make([]byte, appPacket.IPHdr.IPTotalLength)
+		buffer := make([]byte, appPacket.IPTotalLen())
 		copyIndex := copy(buffer, appPacket.IPHdr.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
@@ -215,7 +213,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else {
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.IPHdr.Buffer)), uint32(p.ID), appPacket.IPHdr.Buffer)
 	}
-	if appPacket.IPHdr.IPProto == packet.IPProtocolTCP {
+	if appPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
 			Mark:    p.Mark,
 			p:       appPacket,
@@ -224,7 +222,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			err:     nil,
 			network: false,
 		})
-	} else if appPacket.IPHdr.IPProto == packet.IPProtocolUDP {
+	} else if appPacket.IPProto() == packet.IPProtocolUDP {
 		d.collectUDPPacket(&debugpacketmessage{
 			Mark:    p.Mark,
 			p:       appPacket,
@@ -270,8 +268,8 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 		return
 	}
 	report.Protocol = int(packet.IPProtocolUDP)
-	report.DestinationIP = msg.p.IPHdr.DestinationAddress.String()
-	report.SourceIP = msg.p.IPHdr.SourceAddress.String()
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
 	report.DestinationPort = int(msg.p.DestPort())
 	report.SourcePort = int(msg.p.SourcePort())
 	if msg.err != nil {
@@ -281,7 +279,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 		report.DropReason = ""
 		report.Event = packettracing.PacketReceived
 	}
-	report.Length = int(msg.p.IPHdr.IPTotalLength)
+	report.Length = int(msg.p.IPTotalLen())
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
@@ -326,10 +324,10 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 		return
 	}
 
-	report.TCPFlags = int(msg.p.TCPHdr.TCPFlags)
+	report.TCPFlags = int(msg.p.GetTCPFlags())
 	report.Protocol = int(packet.IPProtocolTCP)
-	report.DestinationIP = msg.p.IPHdr.DestinationAddress.String()
-	report.SourceIP = msg.p.IPHdr.SourceAddress.String()
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
 	report.DestinationPort = int(msg.p.DestPort())
 	report.SourcePort = int(msg.p.SourcePort())
 	if msg.err != nil {
@@ -339,7 +337,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 		report.DropReason = ""
 		report.Event = packettracing.PacketReceived
 	}
-	report.Length = int(msg.p.IPHdr.IPTotalLength)
+	report.Length = int(msg.p.IPTotalLen())
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true

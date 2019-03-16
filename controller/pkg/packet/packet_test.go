@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"encoding/hex"
 	"math/rand"
 	"testing"
 )
@@ -14,6 +15,7 @@ const (
 	synIPLenTooSmall
 	synMissingBytes
 	synBadIPChecksum
+	loopbackAddress = "127.0.0.1"
 )
 
 var testPackets = [][]byte{
@@ -146,12 +148,12 @@ func TestAddresses(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	src := pkt.IPHdr.SourceAddress.String()
-	if src != "127.0.0.1" {
+	src := pkt.SourceAddress().String()
+	if src != loopbackAddress {
 		t.Errorf("Unexpected source address %s", src)
 	}
-	dest := pkt.IPHdr.DestinationAddress.String()
-	if dest != "127.0.0.1" {
+	dest := pkt.DestinationAddress().String()
+	if dest != loopbackAddress {
 		t.Errorf("Unexpected destination address %s", src)
 	}
 }
@@ -378,6 +380,28 @@ func TestAddTags(t *testing.T) {
 	*/
 }
 
+func TestUDP(t *testing.T) {
+	udpPacket, _ := hex.DecodeString("4500004b1a294000401108b90a8080800a0c82b400350e1700371e316e4f8180000100010000000003617069066272616e636802696f0000010001c00c000100010000003b00046354e9fa")
+
+	pkt, _ := New(0, udpPacket, "0", true)
+
+	if pkt.SourceAddress().String() != "10.128.128.128" {
+		t.Error("source address udp parsing incorrect")
+	}
+
+	if pkt.DestinationAddress().String() != "10.12.130.180" {
+		t.Error("destination address udp parsing incorrect")
+	}
+
+	if pkt.SourcePort() != uint16(53) {
+		t.Error("source port incorrect udp")
+	}
+
+	if pkt.DestPort() != uint16(3607) {
+		t.Error("destination port incorrect udp")
+	}
+}
+
 func TestRawChecksums(t *testing.T) {
 
 	t.Parallel()
@@ -398,6 +422,53 @@ func TestRawChecksums(t *testing.T) {
 	c3 := checksum(buf3)
 	if c3 != 0xB1E6 {
 		t.Error("Third checksum calculation failed")
+	}
+}
+
+func TestNewPacketFunctions(t *testing.T) {
+	pkt := getTestPacket(t, synGoodTCPChecksum)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
+
+	if pkt.TCPOptionLength() != 0 {
+		t.Error("Test packet option length")
+	}
+
+	if pkt.TCPDataLength() != 0 {
+		t.Error("Test packet IP checksum failed")
+	}
+
+	if pkt.SourcePort() != 35968 {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestPort() != 99 {
+		t.Error("Test packet dest port didnt match")
+	}
+
+	if pkt.SourceAddress().String() != loopbackAddress {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestinationAddress().String() != loopbackAddress {
+		t.Error("Test packet dest ip didnt match")
+	}
+
+	if pkt.IPProto() != IPProtocolTCP {
+		t.Error("Test packet ip proto didnt match")
+	}
+
+	if pkt.IPTotalLen() != 60 {
+		t.Error("Test packet total length is wrong")
+	}
+
+	if pkt.IPHeaderLen() != 20 {
+		t.Error("Test packet ip header length should be 20")
+	}
+
+	if pkt.GetTCPFlags() != 2 {
+		t.Error("test packet tcp flags didnt match")
 	}
 }
 

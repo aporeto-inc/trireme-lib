@@ -5,10 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os/exec"
 	"time"
 
-	"go.aporeto.io/netlink-go/conntrack"
+	"github.com/ti-mo/conntrack"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -37,6 +38,7 @@ var errMarkNotFound = errors.New("PU mark not found")
 var errPortNotFound = errors.New("Port not found")
 var errContextIDNotFound = errors.New("unable to find contextID")
 var errInvalidProtocol = errors.New("Invalid Protocol")
+var errConntrackFailed = errors.New("Conntrack Failed to update the mark")
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
@@ -106,9 +108,6 @@ type Datapath struct {
 
 	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
 	packetTracingCache cache.DataStore
-
-	// conntrack handle
-	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -241,7 +240,6 @@ func New(
 		ackSize:                secrets.AckSize(),
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
-		conntrackHdl:           conntrack.NewHandle(),
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
@@ -506,7 +504,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 		Action:      actual.Action,
 		DropReason:  mode,
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPHdr.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
@@ -587,4 +585,54 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 	}()
 
 	return nil
+}
+
+func updateConntrack(srcIP, dstIP net.IP, srcPort, dstPort uint16, proto uint8, mark uint32) error {
+	c, err := conntrack.Dial(nil)
+
+	if err != nil {
+		zap.L().Error("conntrack(netlink) could not be established", zap.Error(err))
+		return errConntrackFailed
+	}
+
+	defer c.Close() //nolint
+
+	f := conntrack.NewFlow(
+		proto, 0,
+		srcIP,
+		dstIP,
+		srcPort,
+		dstPort,
+		0, mark)
+
+	err = c.Update(f)
+
+	if err != nil {
+		zap.L().Error("Conntrack Error", zap.Error(err))
+		return errConntrackFailed
+	}
+
+	return nil
+}
+
+//updateConntrack updates the mark on the packet
+func updateConntrackPacket(packet *packet.Packet, reverse bool, mark uint32) error {
+	var srcIP net.IP
+	var dstIP net.IP
+	var srcPort uint16
+	var dstPort uint16
+
+	if reverse {
+		srcIP = packet.DestinationAddress()
+		dstIP = packet.SourceAddress()
+		srcPort = packet.DestPort()
+		dstPort = packet.SourcePort()
+	} else {
+		srcIP = packet.SourceAddress()
+		dstIP = packet.DestinationAddress()
+		srcPort = packet.SourcePort()
+		dstPort = packet.DestPort()
+	}
+
+	return updateConntrack(srcIP, dstIP, srcPort, dstPort, packet.IPProto(), mark)
 }

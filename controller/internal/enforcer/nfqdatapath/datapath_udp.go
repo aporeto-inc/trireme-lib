@@ -374,7 +374,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	if !addressMatch(udpPacket.IPHdr.DestinationAddress, context.UDPNetworks()) {
+	if !addressMatch(udpPacket.DestinationAddress(), context.UDPNetworks()) {
 		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
 		return fmt.Errorf("No target found")
 	}
@@ -442,9 +442,9 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnec
 
 func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) {
 	// copy the ip and udp headers.
-	newSize := uint16(p.IPHdr.IPHeaderLen + packet.UDPDataPos)
+	newSize := uint16(p.IPHeaderLen() + packet.UDPDataPos)
 	newPacket := make([]byte, newSize)
-	p.FixupIPHdrOnDataModify(p.IPHdr.IPTotalLength, newSize)
+	p.FixupIPHdrOnDataModify(p.IPTotalLen(), newSize)
 	_ = copy(newPacket, p.IPHdr.Buffer[:newSize])
 
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
@@ -482,7 +482,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.IPHdr.SourceAddress, udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress(), udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
@@ -540,14 +540,10 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-		if err = d.conntrackHdl.ConntrackTableUpdateMark(
-			destIP,
-			udpPacket.IPHdr.SourceAddress.String(),
-			udpPacket.IPHdr.IPProto,
-			uint16(destPort),
-			udpPacket.SourcePort(),
-			constants.DefaultConnMark,
-		); err != nil {
+
+		dstIPNet := net.ParseIP(destIP)
+
+		if err = updateConntrack(dstIPNet, udpPacket.SourceAddress(), uint16(destPort), udpPacket.SourcePort(), udpPacket.IPProto(), constants.DefaultConnMark); err != nil {
 			zap.L().Error("Failed to update conntrack table for flow",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", udpPacket.L4FlowHash()),
@@ -647,16 +643,9 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
-		// Plumb connmark rule here.
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.IPHdr.DestinationAddress.String(),
-			udpPacket.IPHdr.SourceAddress.String(),
-			udpPacket.IPHdr.IPProto,
-			udpPacket.DestPort(),
-			udpPacket.SourcePort(),
-			constants.DefaultConnMark,
-		); err != nil {
-			zap.L().Error("Failed to update conntrack table after ack packet")
+
+		if err := updateConntrackPacket(udpPacket, true, constants.DefaultConnMark); err != nil {
+			zap.L().Error("Failed to update conntrack table after ack packet", zap.Error(err))
 		}
 	}
 
@@ -671,7 +660,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Create UDP Option
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPFinAckMask)
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.IPHdr.SourceAddress, udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress(), udpPacket.SourcePort())
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
@@ -706,14 +695,8 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-	if err = d.conntrackHdl.ConntrackTableUpdateMark(
-		udpPacket.IPHdr.DestinationAddress.String(),
-		udpPacket.IPHdr.SourceAddress.String(),
-		udpPacket.IPHdr.IPProto,
-		udpPacket.DestPort(),
-		udpPacket.SourcePort(),
-		constants.DeleteConnmark,
-	); err != nil {
+
+	if err = updateConntrackPacket(udpPacket, true, constants.DeleteConnmark); err != nil {
 		zap.L().Error("Failed to update conntrack table for flow",
 			zap.String("app-conn", udpPacket.L4FlowHash()),
 			zap.Error(err),

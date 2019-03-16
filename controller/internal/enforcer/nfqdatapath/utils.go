@@ -122,7 +122,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Action:      actual.Action,
 		Tags:        context.Annotations(),
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPHdr.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
@@ -137,12 +137,12 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.IPHdr.SourceAddress.String(),
+		IP:   p.SourceAddress().String(),
 		Port: p.SourcePort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.IPHdr.DestinationAddress.String(),
+		IP:   p.DestinationAddress().String(),
 		Port: p.DestPort(),
 	}
 
@@ -152,12 +152,12 @@ func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, repor
 func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.IPHdr.DestinationAddress.String(),
+		IP:   p.DestinationAddress().String(),
 		Port: p.DestPort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.IPHdr.SourceAddress.String(),
+		IP:   p.SourceAddress().String(),
 		Port: p.SourcePort(),
 	}
 
@@ -168,13 +168,13 @@ func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID s
 
 	src := &collector.EndPoint{
 		ID:   sourceID,
-		IP:   p.IPHdr.SourceAddress.String(),
+		IP:   p.SourceAddress().String(),
 		Port: p.SourcePort(),
 		Type: collector.EnpointTypePU,
 	}
 	dst := &collector.EndPoint{
 		ID:   destID,
-		IP:   p.IPHdr.DestinationAddress.String(),
+		IP:   p.DestinationAddress().String(),
 		Port: p.DestPort(),
 		Type: collector.EnpointTypePU,
 	}

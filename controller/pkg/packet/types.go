@@ -143,39 +143,42 @@ const (
 )
 
 // Packet is the main structure holding packet information
+type Packet struct {
+	// Metadata
+	context uint64
 
 type iphdr struct {
 	Buffer []byte
 
 	// IP Header fields
-	IPHeaderLen        uint8
-	IPProto            uint8
-	IPTotalLength      uint16
+	ipHeaderLen        uint8
+	ipProto            uint8
+	ipTotalLength      uint16
 	ipID               uint16
 	ipChecksum         uint16
 	version            ipVer
-	SourceAddress      net.IP
-	DestinationAddress net.IP
+	sourceAddress      net.IP
+	destinationAddress net.IP
 }
 
 type tcphdr struct {
 	tcpOptions []byte
 	tcpData    []byte
 
-	SourcePort      uint16
-	DestinationPort uint16
+	sourcePort      uint16
+	destinationPort uint16
 
-	TCPSeq        uint32
-	TCPAck        uint32
+	tcpSeq        uint32
+	tcpAck        uint32
 	tcpDataOffset uint8
-	TCPFlags      uint8
-	TCPChecksum   uint16
+	tcpFlags      uint8
+	tcpChecksum   uint16
 }
 
 type udphdr struct {
-	SourcePort      uint16
-	DestinationPort uint16
-	UDPChecksum     uint16
+	sourcePort      uint16
+	destinationPort uint16
+	udpChecksum     uint16
 	udpData         []byte
 }
 
