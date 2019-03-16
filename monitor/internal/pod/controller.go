@@ -123,12 +123,17 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			defer handlePUCancel()
 
 			// try to call stop, but don't fail if that errors
-			if err := r.handler.Policy.HandlePUEvent(
+			err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
 				common.EventStop,
 				policy.NewPURuntimeWithDefaults(),
-			); err != nil {
+			)
+			if err != nil {
+				if policy.IsErrPUNotFound(err) {
+					zap.L().Warn("PU does already not exist any longer", zap.String("puID", puID), zap.Error(err))
+					return reconcile.Result{}, nil
+				}
 				zap.L().Warn("failed to handle stop event during destroy", zap.String("puID", puID), zap.Error(err))
 			}
 
@@ -262,15 +267,22 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		fallthrough
 	case corev1.PodFailed:
 		zap.L().Debug("PodSucceeded / PodFailed", zap.String("puID", puID))
-		if err := r.handler.Policy.HandlePUEvent(
+		err := r.handler.Policy.HandlePUEvent(
 			handlePUCtx,
 			puID,
 			common.EventStop,
 			policy.NewPURuntimeWithDefaults(),
-		); err != nil {
+		)
+		if err != nil {
+			if policy.IsErrPUNotFound(err) {
+				// not found means nothing needed stopping
+				// just return
+				return reconcile.Result{}, nil
+			}
 			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", puID, err.Error())
 			return reconcile.Result{}, ErrHandlePUStopEventFailed
+
 		}
 		r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
 		return reconcile.Result{}, nil
