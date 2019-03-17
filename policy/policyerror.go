@@ -36,9 +36,9 @@ func (e *Error) Error() string {
 		err = ": " + e.err.Error()
 	}
 	if !ok {
-		return fmt.Sprintf("%s (ID: %s)%s", e.reason, e.puID, err)
+		return fmt.Sprintf("%s %s%s", e.reason, e.puID, err)
 	}
-	return fmt.Sprintf("%s (ID: %s): %s%s", e.reason, e.puID, desc, err)
+	return fmt.Sprintf("%s %s: %s%s", e.reason, e.puID, desc, err)
 }
 
 // ErrPUNotFound creates a new context not found error
