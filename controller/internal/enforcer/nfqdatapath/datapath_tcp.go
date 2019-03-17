@@ -69,10 +69,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	case packet.TCPSynAckMask:
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
-			// This packet belongs to the client process that is not being enforcerd.
-			// At this point, we can release this flow to kernel as we are not interested in
-			// enforcing policy for the flow.
-			d.releaseUnmonitoredFlow(p)
 			return conn, nil
 		}
 
@@ -1116,6 +1112,6 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 		tcpPacket.SourcePort,
 		constants.DefaultConnMark,
 	); err != nil {
-		zap.L().Error("Failed to update conntrack table", zap.Error(err))
+		zap.L().Error("Failed to update conntrack table for unmonitored flow", zap.Error(err))
 	}
 }
