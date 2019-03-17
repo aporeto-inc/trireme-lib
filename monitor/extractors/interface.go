@@ -19,3 +19,7 @@ type EventMetadataExtractor func(*common.EventInfo) (*policy.PURuntime, error)
 // Kubernetes pod. It can furthermore extract more information using the client.
 // The third boolean indicates if a network namespace should get extracted
 type PodMetadataExtractor func(context.Context, client.Client, *corev1.Pod, bool) (*policy.PURuntime, error)
+
+// PodNetclsProgrammer is a function used to program the net_cls cgroup of a pod for Trireme.
+// This has to be used when Trireme is used in conjunction with pods that are in HostNetwork=true mode.
+type PodNetclsProgrammer func(context.Context, *corev1.Pod, policy.RuntimeReader) error
