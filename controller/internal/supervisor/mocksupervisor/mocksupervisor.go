@@ -10,7 +10,9 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
 	aclprovider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	runtime "go.aporeto.io/trireme-lib/controller/runtime"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -85,16 +87,16 @@ func (mr *MockSupervisorMockRecorder) Run(ctx interface{}) *gomock.Call {
 
 // SetTargetNetworks mocks base method
 // nolint
-func (m *MockSupervisor) SetTargetNetworks(arg0 []string) error {
-	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0)
+func (m *MockSupervisor) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockSupervisorMockRecorder) SetTargetNetworks(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), arg0)
+func (mr *MockSupervisorMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), cfg)
 }
 
 // CleanUp mocks base method
@@ -182,30 +184,30 @@ func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, container
 
 // DeleteRules mocks base method
 // nolint
-func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType string, exclusions []string) error {
-	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions)
+func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort string, puType common.PUType) error {
+	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRules indicates an expected call of DeleteRules
 // nolint
-func (mr *MockImplementorMockRecorder) DeleteRules(version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType, exclusions)
+func (mr *MockImplementorMockRecorder) DeleteRules(version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, tcpPorts, udpPorts, mark, uid, proxyPort, puType)
 }
 
 // SetTargetNetworks mocks base method
 // nolint
-func (m *MockImplementor) SetTargetNetworks(arg0, arg1 []string) error {
-	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0, arg1)
+func (m *MockImplementor) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockImplementorMockRecorder) SetTargetNetworks(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockImplementor)(nil).SetTargetNetworks), arg0, arg1)
+func (mr *MockImplementorMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockImplementor)(nil).SetTargetNetworks), cfg)
 }
 
 // Run mocks base method

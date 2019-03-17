@@ -1,8 +1,6 @@
 package nfqdatapath
 
 import (
-	"net"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -46,22 +44,6 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
 	d.reportFlow(p, src, dst, context, mode, report, packet)
-}
-
-func (d *Datapath) reportUDPExternalFlow(p *packet.Packet, context *pucontext.PUContext, app bool, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-
-	if report == nil {
-		report = &policy.FlowPolicy{
-			Action:    policy.Reject,
-			PolicyID:  "default",
-			ServiceID: "default",
-		}
-	}
-	if packet == nil {
-		packet = report
-	}
-
-	d.reportExternalServiceFlow(context, report, packet, app, p)
 }
 
 func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
@@ -184,13 +166,4 @@ func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID s
 	}
 
 	return src, dst
-}
-
-func addressMatch(ip net.IP, targets []*net.IPNet) bool {
-	for _, t := range targets {
-		if t.Contains(ip) {
-			return true
-		}
-	}
-	return false
 }

@@ -88,6 +88,8 @@ const (
 
 // Protocol constants
 const (
-	TCPProtoNum = "6"
-	UDPProtoNum = "17"
+	TCPProtoNum    = "6"
+	UDPProtoNum    = "17"
+	TCPProtoString = "TCP"
+	UDPProtoString = "UDP"
 )
