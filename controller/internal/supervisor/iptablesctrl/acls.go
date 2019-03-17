@@ -198,35 +198,6 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 	return nil
 }
 
-// getUDPNatRule adds a rule to avoid masquarading traffic from host udp servers.
-func (i *Instance) getUDPNatRule(udpPorts string, insert bool) [][]string {
-
-	rules := [][]string{}
-	if insert {
-		rules = append(rules, []string{
-			"nat",
-			"POSTROUTING",
-			"1",
-			"-p", udpProto,
-			"-m", "addrtype", "--src-type", "LOCAL",
-			"-m", "multiport",
-			"--source-ports", udpPorts,
-			"-j", "ACCEPT",
-		})
-	} else {
-		rules = append(rules, []string{
-			"nat",
-			"POSTROUTING",
-			"-p", udpProto,
-			"-m", "addrtype", "--src-type", "LOCAL",
-			"-m", "multiport",
-			"--source-ports", udpPorts,
-			"-j", "ACCEPT",
-		})
-	}
-	return rules
-}
-
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(cfg *ACLInfo) error {
 
@@ -237,14 +208,6 @@ func (i *Instance) addChainRules(cfg *ACLInfo) error {
 	if cfg.UID != "" {
 		return i.processRulesFromList(i.uidChainRules(cfg), "Append")
 	}
-
-	// if cfg.UDPPorts != "0" {
-	// 	// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
-	// 	err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, true), "Insert")
-	// 	if err != nil {
-	// 		return fmt.Errorf("Unable to add nat rule for udp: %s", err)
-	// 	}
-	// }
 
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Append")
 }
@@ -420,14 +383,6 @@ func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 	if cfg.UID != "" {
 		return i.processRulesFromList(i.uidChainRules(cfg), "Delete")
 	}
-
-	// if cfg.UDPPorts != "0" {
-	// 	// Delete the postrouting Nat rule for udp.
-	// 	err := i.processRulesFromList(i.getUDPNatRule(cfg.UDPPorts, false), "Delete")
-	// 	if err != nil {
-	// 		return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
-	// 	}
-	// }
 
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }

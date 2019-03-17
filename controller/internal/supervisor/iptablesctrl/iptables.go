@@ -818,6 +818,8 @@ func puPortSetName(contextID string, prefix string) string {
 
 // flushUDPConntrack will flush the UDP conntrack table that matches our networks.
 func flushUDPConntrack(networks []string) {
+	// TODD: Add proper UDP connection flash for Linux processes
+	// make sure that we only flush for the initiating process.
 	// cmd := "conntrack"
 	// for _, n := range networks {
 	// 	if _, err := exec.Command(cmd, "-D", "-p", "udp", "--src", n).Output(); err != nil && err.Error() != "exit status 1" {
