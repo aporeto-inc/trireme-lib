@@ -16,5 +16,6 @@ import (
 type EventMetadataExtractor func(*common.EventInfo) (*policy.PURuntime, error)
 
 // PodMetadataExtractor is a function used to extract a *policy.PURuntime from a given
-// Kubernetes pod.
-type PodMetadataExtractor func(context.Context, client.Client, *corev1.Pod) (*policy.PURuntime, error)
+// Kubernetes pod. It can furthermore extract more information using the client.
+// The third boolean indicates if a network namespace should get extracted
+type PodMetadataExtractor func(context.Context, client.Client, *corev1.Pod, bool) (*policy.PURuntime, error)
