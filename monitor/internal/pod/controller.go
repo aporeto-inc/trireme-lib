@@ -283,7 +283,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			policy.NewPURuntimeWithDefaults(),
 		)
 		if err != nil {
-			if policy.IsErrPUNotFound(err) {
+			if policy.IsErrPUNotFound(err) || policy.IsErrPUCreateFailed(err) {
 				// not found means nothing needed stopping
 				// just return
 				zap.L().Debug("failed to handle stop event (IsErrPUNotFound==true)", zap.String("puID", puID), zap.Error(err))
