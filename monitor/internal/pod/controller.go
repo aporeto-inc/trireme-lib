@@ -200,7 +200,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				if err := r.handler.Policy.HandlePUEvent(
 					handlePUCtx,
 					puID,
-					common.EventUpdate,
+					common.EventCreate,
 					puRuntime,
 				); err != nil {
 					zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
