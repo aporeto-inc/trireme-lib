@@ -11,11 +11,15 @@ const (
 
 	// PUNotUnique error reason
 	PUNotUnique ErrorReason = "PUNotUnique"
+
+	// PUCreateFailed error reason
+	PUCreateFailed ErrorReason = "PUCreateFailed"
 )
 
 var policyErrorDescription = map[ErrorReason]string{
-	PUNotFound:  "unable to find PU with ID",
-	PUNotUnique: "more than one PU with ID exist",
+	PUNotFound:     "unable to find PU with ID",
+	PUNotUnique:    "more than one PU with ID exist",
+	PUCreateFailed: "failed to create PU",
 }
 
 // Error is a specific error type for context
@@ -55,6 +59,15 @@ func ErrPUNotUnique(puID string, err error) error {
 	}
 }
 
+// ErrPUCreateFailed creates a new PU create failed error
+func ErrPUCreateFailed(puID string, err error) error {
+	return &Error{
+		puID:   puID,
+		reason: PUCreateFailed,
+		err:    err,
+	}
+}
+
 // IsErrPUNotFound checks if this error is a PU not found error
 func IsErrPUNotFound(err error) bool {
 	switch t := err.(type) {
@@ -70,6 +83,16 @@ func IsErrPUNotUnique(err error) bool {
 	switch t := err.(type) {
 	case *Error:
 		return t.reason == PUNotUnique
+	default:
+		return false
+	}
+}
+
+// IsErrPUCreateFailed checks if this error is a PU not unique error
+func IsErrPUCreateFailed(err error) bool {
+	switch t := err.(type) {
+	case *Error:
+		return t.reason == PUCreateFailed
 	default:
 		return false
 	}
