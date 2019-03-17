@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,8 +14,6 @@ import (
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -69,7 +66,7 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	// Create a new generic OIDC provider based on the provider URL.
 	// The library will auto-discover the configuration of the provider.
 	// If it is not a compliant provider we should report and error here.
-	provider, err := oidc.NewProvider(dialContextPolicyBypass(ctx), v.ProviderURL)
+	provider, err := oidc.NewProvider(ctx, v.ProviderURL)
 	if err != nil {
 		zap.L().Error("Failed to initialize OIDC provider", zap.Error(err), zap.String("Provider URL", v.ProviderURL))
 		return nil, fmt.Errorf("Failed to initialize provider: %s", err)
@@ -148,7 +145,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
-	oauth2Token, err := v.clientConfig.Exchange(dialContextPolicyBypass(r.Context()), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
+	oauth2Token, err := v.clientConfig.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
 	if err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("bad code: %s", err)
 	}
@@ -211,7 +208,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	// it now. This is possible if the token was created earlier
 	// but we never had a chance to verify it. In this case, the
 	// attributes were empty.
-	idToken, err := v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
+	idToken, err := v.oauthVerifier.Verify(ctx, token)
 	if err != nil {
 		var ok bool
 		// Token is expired. Let's try to refresh it if we have something
@@ -228,7 +225,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		if !ok {
 			return []string{}, true, token, fmt.Errorf("failed to find id_token - initiate re-authorization")
 		}
-		idToken, err = v.oauthVerifier.Verify(dialContextPolicyBypass(ctx), token)
+		idToken, err = v.oauthVerifier.Verify(ctx, token)
 		if err != nil {
 			return []string{}, true, token, fmt.Errorf("invalid token derived from refresh - manual authorization is required: %s", err)
 		}
@@ -274,49 +271,4 @@ func randomSha1(nonceSourceSize int) (string, error) {
 	}
 	sha := sha1.Sum(nonceSource)
 	return base64.StdEncoding.EncodeToString(sha[:]), nil
-}
-
-func dialContextPolicyBypass(ctx context.Context) context.Context {
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				ipAddr, err := resolveDNSMarked(ctx, addr)
-				if err != nil {
-					return nil, err
-				}
-				return markedconn.DialMarkedWithContext(ctx, network, ipAddr, int(constants.DefaultConnMark))
-			},
-		},
-	}
-
-	return context.WithValue(ctx, oauth2.HTTPClient, client)
-}
-
-func resolveDNSMarked(ctx context.Context, addr string) (string, error) {
-	r := net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			return markedconn.DialMarkedWithContext(ctx, "udp", address, int(constants.DefaultConnMark))
-		},
-	}
-
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return "", fmt.Errorf("invalid address: %s", addr)
-	}
-
-	addresses, err := r.LookupHost(ctx, host)
-	if err != nil {
-		return "", fmt.Errorf("unable to resolve address %s: %s", addr, err)
-	}
-
-	for _, saddr := range addresses {
-		addr := net.ParseIP(saddr)
-		if addr != nil && addr.To4() != nil {
-			return saddr + ":" + port, nil
-		}
-	}
-
-	return "", fmt.Errorf("unable to resolve to a valid address for address %s", addr)
 }
