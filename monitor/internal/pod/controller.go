@@ -130,10 +130,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				policy.NewPURuntimeWithDefaults(),
 			)
 			if err != nil {
-				if policy.IsErrPUNotFound(err) {
-					zap.L().Warn("PU does already not exist any longer", zap.String("puID", puID), zap.Error(err))
-					return reconcile.Result{}, nil
-				}
 				zap.L().Warn("failed to handle stop event during destroy", zap.String("puID", puID), zap.Error(err))
 			}
 
