@@ -11,12 +11,14 @@ type Config struct { // nolint
 	EnableHostPods bool
 
 	MetadataExtractor extractors.PodMetadataExtractor
+	NetclsProgrammer  extractors.PodNetclsProgrammer
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
 		MetadataExtractor: nil,
+		NetclsProgrammer:  nil,
 		EnableHostPods:    false,
 		Kubeconfig:        "",
 		Nodename:          "",

@@ -26,6 +26,7 @@ type PodMonitor struct {
 	localNode         string
 	handlers          *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
+	netclsProgrammer  extractors.PodNetclsProgrammer
 	enableHostPods    bool
 	kubeCfg           *rest.Config
 	kubeClient        client.Client
@@ -79,6 +80,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	m.localNode = kubernetesconfig.Nodename
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.metadataExtractor = kubernetesconfig.MetadataExtractor
+	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
 
 	return nil
 }
@@ -98,7 +100,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.localNode, m.enableHostPods)
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods)
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}

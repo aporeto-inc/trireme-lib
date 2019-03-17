@@ -41,19 +41,21 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, nodeName string, enableHostPods bool) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
 		recorder:          mgr.GetRecorder("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
+		netclsProgrammer:  netclsProgrammer,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
 
 		// TODO: might move into configuration
 		handlePUEventTimeout:   5 * time.Second,
 		metadataExtractTimeout: 3 * time.Second,
+		netclsProgramTimeout:   2 * time.Second,
 	}
 }
 
@@ -102,11 +104,13 @@ type ReconcilePod struct {
 	recorder          record.EventRecorder
 	handler           *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
+	netclsProgrammer  extractors.PodNetclsProgrammer
 	nodeName          string
 	enableHostPods    bool
 
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
+	netclsProgramTimeout   time.Duration
 }
 
 // Reconcile reads that state of the cluster for a pod object
@@ -257,7 +261,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				return reconcile.Result{}, ErrNetnsExtractionMissing
 			}
 
-			// now start (and maybe even create) the PU
+			// now start (and maybe even still create) the PU
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
@@ -267,6 +271,25 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
 				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
+			}
+
+			// if this is a host network pod, we need to program the net_cls cgroup
+			if pod.Spec.HostNetwork {
+				netclsProgramCtx, netclsProgramCancel := context.WithTimeout(ctx, r.netclsProgramTimeout)
+				defer netclsProgramCancel()
+				if err := r.netclsProgrammer(netclsProgramCtx, pod, puRuntime); err != nil {
+					if extractors.IsErrNetclsAlreadyProgrammed(err) {
+						zap.L().Warn("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.Error(err))
+					} else if extractors.IsErrNoHostNetworkPod(err) {
+						zap.L().Error("net_cls cgroup programmer told us that this is no host network pod. Aborting.", zap.String("puID", puID), zap.Error(err))
+						return reconcile.Result{}, nil
+					} else {
+						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.Error(err))
+						return reconcile.Result{}, err
+					}
+				} else {
+					zap.L().Info("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID))
+				}
 			}
 			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
 		}

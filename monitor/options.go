@@ -267,6 +267,13 @@ func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtrac
 	}
 }
 
+// SubOptionMonitorPodNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
+func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.NetclsProgrammer = netclsprogrammer
+	}
+}
+
 // OptionMergeTags provides a way to add merge tags to be used with New().
 func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
