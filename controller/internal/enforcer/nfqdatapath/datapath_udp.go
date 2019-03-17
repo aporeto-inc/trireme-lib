@@ -670,7 +670,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
 
-	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
+	zap.L().Info("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
 	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
 	if err != nil {
