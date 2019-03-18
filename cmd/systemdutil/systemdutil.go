@@ -219,10 +219,17 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		}
 	}
 
+	puType := common.LinuxProcessPU
+	if c.NetworkOnly {
+		puType = common.HostNetworkPU
+	} else if c.HostPolicy {
+		puType = common.HostPU
+	}
+
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
-		PUType:             common.LinuxProcessPU,
+		PUType:             puType,
 		Name:               c.ServiceName,
 		Executable:         c.Executable,
 		Tags:               c.Labels,
@@ -275,7 +282,7 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 // DeleteCgroup will issue a delete command based on the cgroup
 // This is used mainly by the cleaner.
 func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
-	regexCgroup := regexp.MustCompile(`^/trireme/[a-zA-Z0-9_\-:.$%]{1,64}$`)
+	regexCgroup := regexp.MustCompile(`^/trireme/(ssh-)?[a-zA-Z0-9_\-:.$%]{1,64}$`)
 	regexUser := regexp.MustCompile(`^/trireme_uid/[a-zA-Z0-9_\-]{1,32}(/[0-9]{1,32}){0,1}$`)
 
 	if !regexCgroup.Match([]byte(c.Cgroup)) && !regexUser.Match([]byte(c.Cgroup)) {
@@ -288,6 +295,9 @@ func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
 	if strings.HasPrefix(c.Cgroup, common.TriremeUIDCgroupPath) {
 		eventType = common.UIDLoginPU
 		eventPUID = c.Cgroup[len(common.TriremeUIDCgroupPath):]
+	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath+"ssh-") {
+		eventType = common.SSHSessionPU
+		eventPUID = c.Cgroup[len(common.TriremeCgroupPath)+4:]
 	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
 		eventType = common.LinuxProcessPU
 		eventPUID = c.Cgroup[len(common.TriremeCgroupPath):]

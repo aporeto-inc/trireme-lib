@@ -143,11 +143,7 @@ func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) erro
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	puType := common.LinuxProcessPU
-	if l.ssh {
-		puType = common.SSHSessionPU
-	}
-	runtime.SetPUType(puType)
+	runtime.SetPUType(event.PUType)
 
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
 }
@@ -167,11 +163,7 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	puType := common.LinuxProcessPU
-	if l.ssh {
-		puType = common.SSHSessionPU
-	}
-	runtime.SetPUType(puType)
+	runtime.SetPUType(eventInfo.PUType)
 
 	// Send the event upstream
 	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
@@ -258,6 +250,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 			continue
 		}
 
+		isSSHPU := strings.Contains(cgroup, "ssh")
+		if l.ssh != isSSHPU {
+			continue
+		}
+
 		// List all the cgroup processes. If its empty, we can remove it.
 		procs, err := l.netcls.ListCgroupProcesses(cgroup)
 		if err != nil {
@@ -277,7 +274,7 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 
 		runtime := policy.NewPURuntimeWithDefaults()
 		puType := common.LinuxProcessPU
-		if l.ssh {
+		if l.ssh && isSSHPU {
 			puType = common.SSHSessionPU
 		}
 		runtime.SetPUType(puType)
@@ -311,6 +308,11 @@ func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string,
 	}
 
 	puID = baseName(eventInfo.Cgroup, "/")
+
+	if eventInfo.PUType == common.SSHSessionPU {
+		return "ssh-" + puID, nil
+	}
+
 	return puID, nil
 }
 

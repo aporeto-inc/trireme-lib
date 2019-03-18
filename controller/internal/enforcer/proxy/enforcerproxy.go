@@ -20,6 +20,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
@@ -40,7 +41,8 @@ type ProxyInfo struct {
 	procMountPoint         string
 	ExternalIPCacheTimeout time.Duration
 	collector              collector.EventCollector
-	targetNetworks         []string
+	cfg                    *runtime.Configuration
+
 	sync.RWMutex
 }
 
@@ -58,7 +60,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 			PacketLogs:             s.PacketLogs,
 			Secrets:                s.Secrets.PublicSecrets(),
-			TargetNetworks:         s.targetNetworks,
+			Configuration:          s.cfg,
 		},
 	}
 
@@ -114,6 +116,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if initializeEnforcer {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
+			s.prochdl.KillProcess(contextID)
 			return err
 		}
 	}
@@ -164,11 +167,11 @@ func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction pack
 
 // SetTargetNetworks does the RPC call for SetTargetNetworks to the corresponding
 // remote enforcers
-func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.SetTargetNetworks{
-			TargetNetworks: networks,
+		Payload: &rpcwrapper.SetTargetNetworksPayload{
+			Configuration: cfg,
 		},
 	}
 
@@ -177,6 +180,10 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
 		}
 	}
+
+	s.Lock()
+	s.cfg = cfg
+	s.Unlock()
 
 	return nil
 }
@@ -213,7 +220,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	packetLogs bool,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
 
@@ -230,7 +237,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		procMountPoint,
 		ExternalIPCacheTimeout,
 		packetLogs,
-		targetNetworks,
+		cfg,
 		runtimeError,
 	)
 }
@@ -248,7 +255,7 @@ func newProxyEnforcer(mutualAuth bool,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	packetLogs bool,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
 
@@ -279,7 +286,7 @@ func newProxyEnforcer(mutualAuth bool,
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		PacketLogs:             packetLogs,
 		collector:              collector,
-		targetNetworks:         targetNetworks,
+		cfg:                    cfg,
 	}
 
 	return proxydata
@@ -291,7 +298,7 @@ func NewDefaultProxyEnforcer(serverID string,
 	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
 
@@ -315,7 +322,7 @@ func NewDefaultProxyEnforcer(serverID string,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		defaultPacketLogs,
-		targetNetworks,
+		cfg,
 		runtimeError,
 	)
 }

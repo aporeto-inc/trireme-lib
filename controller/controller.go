@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -135,28 +136,28 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 
 // UpdateConfiguration updates the configuration of the controller. Only
 // a limited number of parameters can be updated at run time.
-func (t *trireme) UpdateConfiguration(networks []string) error {
+func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 
 	failure := false
 
 	for _, s := range t.supervisors {
-		err := s.SetTargetNetworks(networks)
+		err := s.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in supervisor", zap.Error(err))
 			failure = true
 		}
 	}
 
 	for _, e := range t.enforcers {
-		err := e.SetTargetNetworks(networks)
+		err := e.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))
 			failure = true
 		}
 	}
 
 	if failure {
-		return fmt.Errorf("Configuration update failed")
+		return fmt.Errorf("configuration update failed")
 	}
 
 	return nil

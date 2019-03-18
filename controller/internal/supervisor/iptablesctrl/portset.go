@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -18,8 +19,14 @@ func (i *Instance) getPortSet(contextID string) string {
 	return portset.(string)
 }
 
-// createPortSets creates either UID or process port sets
+// createPortSets creates either UID or process port sets. This is only
+// needed for Linux PUs and it returns immediately for container PUs.
 func (i *Instance) createPortSet(contextID string, puInfo *policy.PUInfo) error {
+
+	if i.mode == constants.RemoteContainer {
+		return nil
+	}
+
 	username := puInfo.Runtime.Options().UserID
 	prefix := ""
 
@@ -39,7 +46,13 @@ func (i *Instance) createPortSet(contextID string, puInfo *policy.PUInfo) error 
 	return nil
 }
 
+// deletePortSet delets the ports set that was created for a Linux PU.
+// It returns without errors for container PUs.
 func (i *Instance) deletePortSet(contextID string) error {
+
+	if i.mode == constants.RemoteContainer {
+		return nil
+	}
 
 	portSetName := i.getPortSet(contextID)
 	if portSetName == "" {
