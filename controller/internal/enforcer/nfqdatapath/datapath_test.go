@@ -106,7 +106,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		} else {
 			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		}
-
+		enforcer.packetLogs = true
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 	} else {
@@ -125,6 +125,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		} else {
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		}
+		enforcer.packetLogs = true
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 	}
@@ -217,6 +218,7 @@ func TestInvalidContext(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
@@ -257,6 +259,8 @@ func TestInvalidIPContext(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
+
 		Convey("Then enforcer instance must be initialized", func() {
 			So(enforcer, ShouldNotBeNil)
 		})
@@ -369,6 +373,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		enforcer.Enforce(testServerID, puInfo) // nolint
 
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
@@ -1249,6 +1254,7 @@ func TestCacheState(t *testing.T) {
 			return nil, nil
 		}
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		contextID := "123"
 
 		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
@@ -1307,6 +1313,7 @@ func TestDoCreatePU(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "124"
 		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
@@ -1352,6 +1359,7 @@ func TestDoCreatePU(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "125"
 		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
@@ -1383,6 +1391,7 @@ func TestDoCreatePU(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "126"
@@ -1416,6 +1425,7 @@ func TestContextFromIP(t *testing.T) {
 		}
 
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 
 		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
 
@@ -4636,6 +4646,7 @@ func TestDNS(t *testing.T) {
 
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
+		enforcer.packetLogs = true
 		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
@@ -4716,6 +4727,7 @@ func TestDNSWithError(t *testing.T) {
 
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
+		enforcer.packetLogs = true
 		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
@@ -4769,6 +4781,7 @@ func TestPUPortCreation(t *testing.T) {
 		lock.Unlock()
 
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 
 		enforcer.mode = constants.LocalServer
