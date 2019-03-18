@@ -68,7 +68,7 @@ func TestGoodPacket(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synGoodTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 
 	if !pkt.VerifyIPChecksum() {
 		t.Error("Test packet IP checksum failed")

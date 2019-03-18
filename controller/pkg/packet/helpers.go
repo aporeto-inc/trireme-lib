@@ -77,7 +77,7 @@ func (p *Packet) ConvertAcktoFinAck() error {
 	return nil
 }
 
-// String returns a string representation of fields contained in this packet.
+//PacketToStringTCP returns a string representation of fields contained in this packet.
 func (p *Packet) PacketToStringTCP() string {
 
 	var buf bytes.Buffer

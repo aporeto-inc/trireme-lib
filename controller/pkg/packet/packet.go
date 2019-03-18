@@ -191,12 +191,12 @@ func (p *Packet) GetTCPOptions() []byte {
 	return p.tcpHdr.tcpOptions
 }
 
-// DropDetachedDataBytes removes any bytes that have been detached and stored locally
+// DropTCPDetachedDataBytes removes any bytes that have been detached and stored locally
 func (p *Packet) DropTCPDetachedDataBytes() {
 	p.tcpHdr.tcpData = []byte{}
 }
 
-// DropDetachedBytes removes any bytes that have been detached and stored locally
+// DropTCPDetachedBytes removes any bytes that have been detached and stored locally
 func (p *Packet) DropTCPDetachedBytes() {
 
 	p.tcpHdr.tcpOptions = []byte{}
@@ -281,7 +281,7 @@ func (p *Packet) Print(context uint64) {
 	}
 }
 
-//GetBytes returns the bytes in the packet. It consolidates in case of changes as well
+//GetTCPBytes returns the bytes in the packet. It consolidates in case of changes as well
 func (p *Packet) GetTCPBytes() []byte {
 
 	pktBytes := []byte{}
@@ -323,7 +323,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	return
 }
 
-// FixupipHdrOnDataModify modifies the IP header fields and checksum
+// FixupIPHdrOnDataModify modifies the IP header fields and checksum
 func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	// IP Header Processing
 	// IP chekcsum fixup.
@@ -535,6 +535,7 @@ func (p *Packet) IPHeaderLen() uint8 {
 	return p.ipHdr.ipHeaderLen
 }
 
+//GetBuffer returns the slice representing the buffer at offset specified
 func (p *Packet) GetBuffer(offset int) []byte {
 	return p.ipHdr.Buffer[offset:]
 }
