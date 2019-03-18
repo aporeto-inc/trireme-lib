@@ -10,6 +10,10 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// HostPU is a host wrapping PU
+	HostPU
+	// HostNetworkPU is a PU for a network service in a host
+	HostNetworkPU
 	// KubernetesPU indicates that this is KubernetesPod
 	KubernetesPU
 	// UIDLoginPU -- PU representing a user session

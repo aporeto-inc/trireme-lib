@@ -31,11 +31,12 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
 const (
-	PrivatePEMStr = `-----BEGIN EC PRIVATE KEY-----
+	PrivatePEMStr = `-----BEGIN EC PRIVATE KEY----- 
 MHcCAQEEICtUSeD3huL6YqL1ffZczlVg9MxAjplXtsoSRvnXIr2uoAoGCCqGSM49
 AwEHoUQDQgAEuDv6jIPALmJ5VHwHEdmU4fL0c94jLq9KXHPCaa8Bh0MP8VekxsLr
 zhJwGTIppOHzzY3+s6ltYhw8folYdY6aGQ==
@@ -148,7 +149,9 @@ func filterQ() *fqconfig.FilterQueue {
 func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervisorPayload {
 	var initSupPayload rpcwrapper.InitSupervisorPayload
 
-	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32", "172.0.0.0/8", "10.0.0.0/8"}
+	initSupPayload.Configuration = &runtime.Configuration{
+		TCPTargetNetworks: []string{"127.0.0.1/32", "172.0.0.0/8", "10.0.0.0/8"},
+	}
 	initSupPayload.CaptureMethod = ctype
 
 	return initSupPayload
@@ -215,7 +218,6 @@ func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
 		Identity:         initIdentity(idString),
 		TransmitterRules: initTrans(),
 		Annotations:      initAnnotations(anoString),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
 	}
 
 	return initPayload
@@ -235,7 +237,6 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 		Identity:         initIdentity(idString),
 		Annotations:      initAnnotations(anoString),
 		TransmitterRules: initTrans(),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
 	}
 
 	return initPayload
@@ -503,40 +504,6 @@ func TestInitSupervisor(t *testing.T) {
 				})
 			})
 
-			Convey("When I try to initiate the supervisor with enforcer", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-
 			Convey("When I try to initiate the supervisor with another supervisor running", func() {
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
@@ -563,7 +530,11 @@ func TestInitSupervisor(t *testing.T) {
 				}
 
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{}, nil)
+
+				testSupervisor := mocksupervisor.NewMockSupervisor(gomock.NewController(t))
+				testSupervisor.EXPECT().Run(gomock.Any()).Return(nil)
+				testSupervisor.EXPECT().SetTargetNetworks(gomock.Any()).Return(nil)
+				server.supervisor = testSupervisor
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -658,7 +629,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 				}
 
 				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, nil)
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
@@ -1072,7 +1043,7 @@ func TestUnSupervise(t *testing.T) {
 
 				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, nil)
 
 				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
 
@@ -1226,8 +1197,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			}
 
 			server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-			err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
+			server.supervisor = mockSup
 			mockSup.EXPECT().Supervise("ac0d3577e808", gomock.Any()).Times(1).Return(nil)
 			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
 			rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
@@ -1238,7 +1208,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 				So(err, ShouldBeNil)
 			}
-			server.supervisor = mockSup
+
 			rpcwrperreq.HashAuth = digest.Sum(nil)
 			err = server.Supervise(rpcwrperreq, &rpcwrperres)
 

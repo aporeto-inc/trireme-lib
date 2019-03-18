@@ -13,6 +13,7 @@ import (
 	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	runtime "go.aporeto.io/trireme-lib/controller/runtime"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -115,16 +116,16 @@ func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.C
 
 // SetTargetNetworks mocks base method
 // nolint
-func (m *MockEnforcer) SetTargetNetworks(networks []string) error {
-	ret := m.ctrl.Call(m, "SetTargetNetworks", networks)
+func (m *MockEnforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockEnforcerMockRecorder) SetTargetNetworks(networks interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), networks)
+func (mr *MockEnforcerMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), cfg)
 }
 
 // EnableDatapathPacketTracing mocks base method

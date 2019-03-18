@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -117,7 +118,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
-		payload.TargetNetworks,
+		payload.Configuration,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -201,20 +202,20 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			s.collector,
 			s.enforcer,
 			constants.RemoteContainer,
-			req.Payload.(rpcwrapper.InitRequestPayload).TargetNetworks,
+			nil,
 			s.service,
 		)
 		if err != nil {
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
 			return err
 		}
-		s.supervisor = supervisorHandle
 
-		if err := s.supervisor.Run(s.ctx); err != nil {
+		if err := supervisorHandle.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 			resp.Status = err.Error()
 			return fmt.Errorf(resp.Status)
 		}
+		s.supervisor = supervisorHandle
 	}
 
 	resp.Status = ""
@@ -241,24 +242,31 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		if payload.CaptureMethod != rpcwrapper.IPTables {
 			return fmt.Errorf("Unsupported method")
 		}
+
+		cfg := payload.Configuration
+		if payload.Configuration == nil {
+			cfg = &runtime.Configuration{}
+		}
+
 		supervisorHandle, err := supervisor.NewSupervisor(
 			s.collector,
 			s.enforcer,
 			constants.RemoteContainer,
-			payload.TriremeNetworks,
+			cfg,
 			s.service,
 		)
 		if err != nil {
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
 			return err
 		}
-		s.supervisor = supervisorHandle
 
-		if err := s.supervisor.Run(s.ctx); err != nil {
+		if err := supervisorHandle.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
+
+		s.supervisor = supervisorHandle
 	} else {
-		if err := s.supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
+		if err := s.supervisor.SetTargetNetworks(payload.Configuration); err != nil {
 			zap.L().Error("unable to set target networks", zap.Error(err))
 		}
 	}
@@ -352,13 +360,12 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 		return fmt.Errorf(resp.Status)
 	}
 
-	payload := req.Payload.(rpcwrapper.SetTargetNetworks)
-	err = s.enforcer.SetTargetNetworks(payload.TargetNetworks)
-	if err != nil {
+	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
+	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
 		return err
 	}
-	return nil
 
+	return s.supervisor.SetTargetNetworks(payload.Configuration)
 }
 
 // Enforce this method calls the enforce method on the enforcer created during initenforcer

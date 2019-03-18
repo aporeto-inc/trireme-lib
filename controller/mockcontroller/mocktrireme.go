@@ -13,6 +13,7 @@ import (
 	common "go.aporeto.io/trireme-lib/common"
 	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	runtime "go.aporeto.io/trireme-lib/controller/runtime"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -129,16 +130,16 @@ func (mr *MockTriremeControllerMockRecorder) UpdateSecrets(secrets interface{}) 
 
 // UpdateConfiguration mocks base method
 // nolint
-func (m *MockTriremeController) UpdateConfiguration(networks []string) error {
-	ret := m.ctrl.Call(m, "UpdateConfiguration", networks)
+func (m *MockTriremeController) UpdateConfiguration(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "UpdateConfiguration", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateConfiguration indicates an expected call of UpdateConfiguration
 // nolint
-func (mr *MockTriremeControllerMockRecorder) UpdateConfiguration(networks interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateConfiguration", reflect.TypeOf((*MockTriremeController)(nil).UpdateConfiguration), networks)
+func (mr *MockTriremeControllerMockRecorder) UpdateConfiguration(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateConfiguration", reflect.TypeOf((*MockTriremeController)(nil).UpdateConfiguration), cfg)
 }
 
 // EnableDatapathPacketTracing mocks base method

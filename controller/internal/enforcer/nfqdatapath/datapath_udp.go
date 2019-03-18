@@ -374,11 +374,6 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	if !addressMatch(udpPacket.DestinationAddress, context.UDPNetworks()) {
-		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
-		return fmt.Errorf("No target found")
-	}
-
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
 	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 
