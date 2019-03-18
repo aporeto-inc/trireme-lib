@@ -465,11 +465,11 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 							tcpPacket.Print(0)
 						}
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, errp := packet.New(0, output, "0", true)
-						So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+						So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 						So(errp, ShouldBeNil)
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
@@ -479,7 +479,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 							outPacket.Print(0)
 						}
 
-						if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+						if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 							packetDiffers = true
 							fmt.Println("Error: packets dont match")
 							fmt.Println("Input Packet")
@@ -589,11 +589,11 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 								})
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
@@ -675,11 +675,11 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 								})
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
@@ -759,11 +759,11 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
-					output := make([]byte, len(tcpPacket.GetBytes()))
-					copy(output, tcpPacket.GetBytes())
+					output := make([]byte, len(tcpPacket.GetTCPBytes()))
+					copy(output, tcpPacket.GetTCPBytes())
 
 					outPacket, errp := packet.New(0, output, "0", true)
-					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+					So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 					So(errp, ShouldBeNil)
 					_, err = enforcer.processNetworkTCPPackets(outPacket)
 					So(err, ShouldBeNil)
@@ -813,8 +813,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						//After sending syn packet
 						CheckAfterAppSynPacket(enforcer, tcpPacket)
 						So(err, ShouldBeNil)
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -837,8 +837,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -858,8 +858,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -883,8 +883,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -903,8 +903,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -923,8 +923,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						CheckAfterAppAckPacket(enforcer, tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -960,8 +960,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						//After sending syn packet
 						CheckAfterAppSynPacket(enforcer, tcpPacket)
 						So(err, ShouldBeNil)
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -984,8 +984,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -1005,8 +1005,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -1031,8 +1031,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -1051,8 +1051,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -1071,8 +1071,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						CheckAfterAppAckPacket(enforcer, tcpPacket)
 						So(err, ShouldBeNil)
 
-						output = make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output = make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
@@ -1204,11 +1204,11 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						}
 					}
 
-					output := make([]byte, len(tcpPacket.GetBytes()))
-					copy(output, tcpPacket.GetBytes())
+					output := make([]byte, len(tcpPacket.GetTCPBytes()))
+					copy(output, tcpPacket.GetTCPBytes())
 
 					outPacket, errp := packet.New(0, output, "0", true)
-					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+					So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 					So(errp, ShouldBeNil)
 					_, err = enforcer.processNetworkTCPPackets(outPacket)
 					So(err, ShouldBeNil)
@@ -1503,8 +1503,8 @@ func TestInvalidPacket(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err = enforcer.processApplicationTCPPackets(tcpPacket)
 				So(err, ShouldBeNil)
-				output := make([]byte, len(tcpPacket.GetBytes()))
-				copy(output, tcpPacket.GetBytes())
+				output := make([]byte, len(tcpPacket.GetTCPBytes()))
+				copy(output, tcpPacket.GetTCPBytes())
 				outpacket, err := packet.New(0, output, "0", true)
 				So(err, ShouldBeNil)
 				//Detach the data and parse token should fail
@@ -1630,11 +1630,11 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 
@@ -1645,7 +1645,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -1779,11 +1779,11 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							enforcer.processNetworkTCPPackets(outPacket) // nolint
 
@@ -1913,11 +1913,11 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 							CheckAfterNetSynPacket(enforcer, tcpPacket, outPacket)
@@ -1928,7 +1928,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -2060,11 +2060,11 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							outPacketcopy, _ := packet.New(0, output, "0", true)
@@ -2080,7 +2080,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -2216,11 +2216,11 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
@@ -2233,7 +2233,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -2365,11 +2365,11 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 
@@ -2380,7 +2380,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -2550,11 +2550,11 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -2745,11 +2745,11 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckReceived {
@@ -2866,11 +2866,11 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3018,11 +3018,11 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 							_, err = enforcer.processNetworkTCPPackets(outPacket)
 							So(err, ShouldNotBeNil)
@@ -3032,7 +3032,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -3142,11 +3142,11 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3163,7 +3163,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -3301,11 +3301,11 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3332,7 +3332,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -3490,11 +3490,11 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3513,7 +3513,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 								fmt.Println("Output packet", i)
 								outPacket.Print(0)
 							}
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
@@ -3651,11 +3651,11 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -3811,11 +3811,11 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
@@ -3976,11 +3976,11 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
@@ -4128,15 +4128,15 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							//changing the option length
-							tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHeaderLen():]
+							tcpBuffer := outPacket.GetBuffer(int(outPacket.IPHeaderLen()))
 							tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 
 							err = outPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen)
@@ -4240,16 +4240,16 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 								tcpPacket.Print(0)
 							}
 
-							output := make([]byte, len(tcpPacket.GetBytes()))
-							copy(output, tcpPacket.GetBytes())
+							output := make([]byte, len(tcpPacket.GetTCPBytes()))
+							copy(output, tcpPacket.GetTCPBytes())
 
 							outPacket, errp := packet.New(0, output, "0", true)
-							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 							So(errp, ShouldBeNil)
 
 							if PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPSyn() && PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPAck() {
 								//changing the option length of SynAck packet
-								tcpBuffer := outPacket.IPHdr.Buffer[outPacket.IPHeaderLen():]
+								tcpBuffer := outPacket.GetBuffer(int(outPacket.IPHeaderLen()))
 								tcpBuffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 								_, err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
@@ -4375,11 +4375,11 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 					tcpPacket.Print(0)
 				}
 
-				output := make([]byte, len(tcpPacket.GetBytes()))
-				copy(output, tcpPacket.GetBytes())
+				output := make([]byte, len(tcpPacket.GetTCPBytes()))
+				copy(output, tcpPacket.GetTCPBytes())
 
 				outPacket, errp := packet.New(0, output, "0", true)
-				So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+				So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 				So(errp, ShouldBeNil)
 
 				_, err = enforcer.processNetworkTCPPackets(outPacket)
@@ -4576,11 +4576,11 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 							tcpPacket.Print(0)
 						}
 
-						output := make([]byte, len(tcpPacket.GetBytes()))
-						copy(output, tcpPacket.GetBytes())
+						output := make([]byte, len(tcpPacket.GetTCPBytes()))
+						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, errp := packet.New(0, output, "0", true)
-						So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+						So(len(tcpPacket.GetTCPBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetTCPBytes()))
 						So(errp, ShouldBeNil)
 
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
