@@ -253,9 +253,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			}
 
 			// if the metadata extractor is missing the PID or nspath, we need to try again
-			// we need it for starting the PU.
+			// we need it for starting the PU. However, only require this if we are not in host network mode.
 			// NOTE: this can happen for example if the containers are not in a running state on their own
-			if len(puRuntime.NSPath()) == 0 && puRuntime.Pid() == 0 {
+			if !pod.Spec.HostNetwork && len(puRuntime.NSPath()) == 0 && puRuntime.Pid() == 0 {
 				zap.L().Error("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract netns", puID)
 				return reconcile.Result{}, ErrNetnsExtractionMissing
