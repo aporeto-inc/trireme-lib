@@ -104,12 +104,10 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	// handle handshake packets and do not deliver to application.
 	action, claims, err := d.processNetUDPPacket(p, conn.Context, conn)
 	if err != nil {
-		if d.packetLogs {
-			zap.L().Debug("Rejecting packet ",
-				zap.String("flow", p.L4FlowHash()),
-				zap.Error(err),
-			)
-		}
+		zap.L().Debug("Rejecting packet because of policy decision",
+			zap.String("flow", p.L4FlowHash()),
+			zap.Error(err),
+		)
 		return conn, fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
 
@@ -264,7 +262,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 			conn.SetState(connection.UDPData)
 			return nil, nil, nil
 		}
-		return nil, nil, fmt.Errorf("Invalid packet")
+		return nil, nil, fmt.Errorf("invalid packet at state: %d", state)
 	}
 }
 

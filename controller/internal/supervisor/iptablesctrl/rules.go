@@ -144,8 +144,7 @@ var packetCaptureTemplate = `
 {{if isUIDProcess}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}}
 {{end}}
-{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m statistic --mode nth --every {{.Numpackets}} --packet {{.InitialCount}} -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
-{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
+{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
