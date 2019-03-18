@@ -430,17 +430,14 @@ func (p *PUContext) searchRules(
 		if observeIndex >= 0 {
 			reportingAction = observeAction.(*policy.FlowPolicy)
 		}
-		// TODO: Is this if case required ?
-		if packetAction == nil {
 
-			index, action := policies.rejectRules.Search(tags)
-			if index >= 0 {
-				packetAction = action.(*policy.FlowPolicy)
-				if reportingAction == nil {
-					reportingAction = packetAction
-				}
-				return reportingAction, packetAction
+		index, action := policies.rejectRules.Search(tags)
+		if index >= 0 {
+			packetAction = action.(*policy.FlowPolicy)
+			if reportingAction == nil {
+				reportingAction = packetAction
 			}
+			return reportingAction, packetAction
 		}
 	}
 
@@ -452,26 +449,24 @@ func (p *PUContext) searchRules(
 		}
 	}
 
-	if packetAction == nil {
-		index, action := policies.acceptRules.Search(tags)
-		if index >= 0 {
-			packetAction = action.(*policy.FlowPolicy)
-			// Look for encrypt rules
-			encryptIndex, _ := policies.encryptRules.Search(tags)
-			if encryptIndex >= 0 {
-				// Do not overwrite the action for accept rules.
-				finalAction := action.(*policy.FlowPolicy)
-				packetAction = &policy.FlowPolicy{
-					Action:    policy.Accept | policy.Encrypt,
-					PolicyID:  finalAction.PolicyID,
-					ServiceID: finalAction.ServiceID,
-				}
+	index, action := policies.acceptRules.Search(tags)
+	if index >= 0 {
+		packetAction = action.(*policy.FlowPolicy)
+		// Look for encrypt rules
+		encryptIndex, _ := policies.encryptRules.Search(tags)
+		if encryptIndex >= 0 {
+			// Do not overwrite the action for accept rules.
+			finalAction := action.(*policy.FlowPolicy)
+			packetAction = &policy.FlowPolicy{
+				Action:    policy.Accept | policy.Encrypt,
+				PolicyID:  finalAction.PolicyID,
+				ServiceID: finalAction.ServiceID,
 			}
-			if reportingAction == nil {
-				reportingAction = packetAction
-			}
-			return reportingAction, packetAction
 		}
+		if reportingAction == nil {
+			reportingAction = packetAction
+		}
+		return reportingAction, packetAction
 	}
 
 	// Look for observe apply rules
@@ -485,11 +480,9 @@ func (p *PUContext) searchRules(
 	}
 
 	// Handle default if nothing provides to drop with no policyID.
-	if packetAction == nil {
-		packetAction = &policy.FlowPolicy{
-			Action:   policy.Reject,
-			PolicyID: "default",
-		}
+	packetAction = &policy.FlowPolicy{
+		Action:   policy.Reject,
+		PolicyID: "default",
 	}
 
 	if reportingAction == nil {

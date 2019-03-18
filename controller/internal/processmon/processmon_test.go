@@ -71,10 +71,8 @@ func TestLaunchProcess(t *testing.T) {
 	}
 
 	if err := os.Chdir("testbinary"); err != nil {
-		if err != nil {
-			t.Errorf("TEST:Setup failed")
-			t.SkipNow()
-		}
+		t.Errorf("TEST:Setup failed")
+		t.SkipNow()
 	}
 	defer os.Chdir(dir) // nolint
 
