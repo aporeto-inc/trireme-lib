@@ -163,7 +163,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.IPHdr.Buffer
+	data := pkt.ipHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -198,7 +198,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.IPHdr.Buffer
+	bytes := pkt.ipHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)
