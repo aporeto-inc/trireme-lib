@@ -59,9 +59,6 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 
 	var p Packet
 
-	// Buffer Setup
-	p.Buffer = bytes
-
 	// Get the mark value
 	p.Mark = mark
 
@@ -155,14 +152,13 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 	return nil
 }
 
-
 func (p *Packet) parseIPv6Packet(bytes []byte, lengthValidate bool) (err error) {
 	// IP Header Processing
 	p.IPHdr.ipHeaderLen = ipv6HeaderLen
 	p.IPHdr.ipProto = bytes[ipv6ProtoPos]
 	p.IPHdr.ipTotalLength = ipv6HeaderLen + binary.BigEndian.Uint16(bytes[ipv6PayloadLenPos:ipv6PayloadLenPos+2])
-	p.IPHdr.sourceAddress = net.IP(bytes[ipv6SourceAddrPos : ipv6SourceAddrPos+16])
-	p.IPHdr.destinationAddress = net.IP(bytes[ipv6DestAddrPos : ipv6DestAddrPos+16])
+	p.IPHdr.sourceAddress = append(p.IPHdr.sourceAddress, bytes[ipv6SourceAddrPos:ipv6SourceAddrPos+16]...)
+	p.IPHdr.destinationAddress = append(p.IPHdr.destinationAddress, bytes[ipv6DestAddrPos:ipv6DestAddrPos+16]...)
 
 	p.IPHdr.Buffer = bytes
 
@@ -170,12 +166,12 @@ func (p *Packet) parseIPv6Packet(bytes []byte, lengthValidate bool) (err error) 
 		if p.IPHdr.ipTotalLength < uint16(len(p.IPHdr.Buffer)) {
 			p.IPHdr.Buffer = p.IPHdr.Buffer[:p.IPHdr.ipTotalLength]
 		} else {
-			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.IPHdr.IPTotalLength, len(p.IPHdr.Buffer))
+			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.IPHdr.ipTotalLength, len(p.IPHdr.Buffer))
 		}
 	}
 
 	// Some sanity checking for TCP.
-	if p.IPHdr.IPProto == IPProtocolTCP {
+	if p.IPHdr.ipProto == IPProtocolTCP {
 		if p.IPHdr.ipTotalLength-uint16(p.IPHdr.ipHeaderLen) < minTCPIPPacketLen {
 			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IPHdr.ipHeaderLen)
 		}
@@ -368,16 +364,14 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	// IP Header Processing
 	// IP chekcsum fixup. Ipv6 doesn't require any checksum
-
 	p.IPHdr.ipChecksum = incCsum16(p.IPHdr.ipChecksum, old, new)
 	// Update IP Total Length.
 	p.IPHdr.ipTotalLength = p.IPHdr.ipTotalLength + new - old
 
-	p.IPHdr.IPTotalLength = p.IPHdr.IPTotalLength + new - old
 	if p.IPHdr.version == v6 {
-		binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv6PayloadLenPos:ipv6PayloadLenPos+2], p.IPHdr.IPTotalLength-uint16(p.IPHdr.IPHeaderLen))
+		binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv6PayloadLenPos:ipv6PayloadLenPos+2], p.IPHdr.ipTotalLength-uint16(p.IPHdr.ipHeaderLen))
 	} else {
-		binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.IPHdr.IPTotalLength)
+		binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.IPHdr.ipTotalLength)
 		binary.BigEndian.PutUint16(p.IPHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IPHdr.ipChecksum)
 	}
 }

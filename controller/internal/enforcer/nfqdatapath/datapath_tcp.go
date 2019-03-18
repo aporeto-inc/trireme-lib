@@ -1,4 +1,4 @@
-m cpackage nfqdatapath
+package nfqdatapath
 
 // Go libraries
 import (
@@ -304,8 +304,8 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	dstAddr := make([]byte, len(tcpPacket.IPHdr.DestinationAddress()))
-	copy(dstAddr, tcpPacket.IPHdr.DestinationAddress())
+	dstAddr := make([]byte, len(tcpPacket.DestinationAddress()))
+	copy(dstAddr, tcpPacket.DestinationAddress())
 
 	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, tcpPacket.DestPort())
 	if perr != nil {

@@ -142,11 +142,6 @@ const (
 	v6
 )
 
-// Packet is the main structure holding packet information
-type Packet struct {
-	// Metadata
-	context uint64
-
 type iphdr struct {
 	Buffer []byte
 

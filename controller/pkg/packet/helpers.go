@@ -120,7 +120,8 @@ func (p *Packet) computeIPv4Checksum() uint16 {
 func (p *Packet) computeTCPChecksum() uint16 {
 	var csum uint32
 	var buf [2]byte
-	buffer := p.IPHdr.Buffer[p.IPHdr.IPHeaderLen:]
+
+	buffer := p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]
 	tcpBufSize := uint16(len(buffer) + len(p.TCPHdr.tcpData) + len(p.TCPHdr.tcpOptions))
 
 	oldCsumLow := buffer[TCPChecksumPos]
@@ -312,7 +313,7 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 	p.UDPHdr.sourcePort = p.UDPHdr.destinationPort
 	p.UDPHdr.destinationPort = destPort
 
-	p.UpdateIPChecksum()
+	p.UpdateIPv4Checksum()
 
 	p.UpdateUDPChecksum()
 }
