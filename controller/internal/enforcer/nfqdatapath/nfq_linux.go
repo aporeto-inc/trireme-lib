@@ -124,13 +124,13 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		// // Accept the packet
 		buffer := make([]byte, netPacket.IPTotalLen())
-		copyIndex := copy(buffer, netPacket.IPHdr.Buffer)
+		copyIndex := copy(buffer, netPacket.GetBuffer(0))
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
 
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.IPHdr.Buffer)), uint32(p.ID), netPacket.IPHdr.Buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
 	}
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
@@ -204,14 +204,14 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if appPacket.IPProto() == packet.IPProtocolTCP {
 		// Accept the packet
 		buffer := make([]byte, appPacket.IPTotalLen())
-		copyIndex := copy(buffer, appPacket.IPHdr.Buffer)
+		copyIndex := copy(buffer, appPacket.GetBuffer(0))
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.IPHdr.Buffer)), uint32(p.ID), appPacket.IPHdr.Buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
 	}
 	if appPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{

@@ -251,7 +251,7 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
-	p.FixupipHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
 	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
@@ -267,7 +267,7 @@ func (p *Packet) UDPDataAttach(udpdata []byte) {
 	// Attach Data @ the end of current buffer. Add it to the IP header as that will be used when setverdict is called.
 	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
 	// IP Header Processing
-	p.FixupipHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(len(p.ipHdr.Buffer)))
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(len(p.ipHdr.Buffer)))
 	p.UpdateUDPChecksum()
 }
 
@@ -292,7 +292,7 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 	binary.BigEndian.PutUint16(buffer[udpSourcePortPos:udpSourcePortPos+2], p.udpHdr.destinationPort)
 	binary.BigEndian.PutUint16(buffer[udpDestPortPos:udpDestPortPos+2], destPort)
 
-	p.FixupipHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(p.ipHdr.ipHeaderLen+UDPDataPos))
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(p.ipHdr.ipHeaderLen+UDPDataPos))
 
 	// Just get the IP/UDP header. Ignore the rest. No need for packet
 	p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.ipHeaderLen+UDPDataPos]

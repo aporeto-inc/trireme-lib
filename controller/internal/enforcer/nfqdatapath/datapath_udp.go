@@ -43,7 +43,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	//var
 
 	udpPacketType := p.GetUDPType()
-	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.IPHdr.Buffer)))
+	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.GetBuffer(0))))
 
 	switch udpPacketType {
 	case packet.UDPSynMask:
@@ -137,7 +137,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
+			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -394,7 +394,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.writeWithRetransmit(newPacket.IPHdr.Buffer, conn, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket.GetBuffer(0), conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -445,7 +445,9 @@ func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) 
 	newSize := uint16(p.IPHeaderLen() + packet.UDPDataPos)
 	newPacket := make([]byte, newSize)
 	p.FixupIPHdrOnDataModify(p.IPTotalLen(), newSize)
-	_ = copy(newPacket, p.IPHdr.Buffer[:newSize])
+
+	origBuffer := p.GetBuffer(0)
+	_ = copy(newPacket, origBuffer[:newSize])
 
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
@@ -494,7 +496,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.IPHdr.Buffer, conn, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket.GetBuffer(0), conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
@@ -532,7 +534,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -667,7 +669,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	zap.L().Debug("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.IPHdr.Buffer)
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return err
