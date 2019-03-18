@@ -243,13 +243,13 @@ func TestSetChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadIPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyIPChecksum() {
 		t.Error("Expected bad IP checksum given it is wrong")
 	}
 
 	pkt.UpdateIPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyIPChecksum() {
 		t.Error("IP checksum is wrong after update")
 	}
@@ -259,13 +259,13 @@ func TestSetTCPChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyTCPChecksum() {
 		t.Error("Expected bad TCP checksum given it is wrong")
 	}
 
 	pkt.UpdateTCPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyTCPChecksum() {
 		t.Error("TCP checksum is wrong after update")
 	}
