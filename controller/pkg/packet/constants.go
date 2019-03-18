@@ -18,7 +18,7 @@ const (
 	ipv4LengthPos = 2
 
 	// ipIDPos is location of IP Identifier
-	IPv4IDPos = 4
+	ipv4IDPos = 4
 
 	// ipProtoPos is the location of the IP Protocol
 	ipv4ProtoPos = 9
@@ -69,7 +69,7 @@ const (
 	tcpFlagsOffsetPos = 13
 
 	// TCPChecksumPos is the location of TCP checksum
-	TCPChecksumPos = 16
+	tcpChecksumPos = 16
 )
 
 // TCP Header masks
@@ -115,9 +115,9 @@ const (
 	// udpDestPortPos is the location of destination port
 	udpDestPortPos = 2
 	// UDPLengthPos is the location of UDP length
-	UDPLengthPos = 4
+	udpLengthPos = 4
 	// UDPChecksumPos is the location of UDP checksum
-	UDPChecksumPos = 6
+	udpChecksumPos = 6
 	// UDPDataPos is the location of UDP data
 	UDPDataPos = 8
 	// UDPSynMask is a mask for the UDP Syn flags
@@ -140,9 +140,9 @@ const (
 	// UDPSignatureLen is the length of signature on UDP control packet.
 	UDPSignatureLen = 20
 	// UDPAuthMarkerOffset is the beginning of UDPAuthMarker
-	UDPAuthMarkerOffset = 10
+	udpAuthMarkerOffset = 10
 	// UDPSignatureEnd is the end of UDPSignature.
-	UDPSignatureEnd = UDPDataPos + UDPSignatureLen
+	udpSignatureEnd = UDPDataPos + UDPSignatureLen
 	// UDPJwtTokenOffset is beginning of Jwt Token.
-	UDPJwtTokenOffset = 28
+	udpJwtTokenOffset = 28
 )

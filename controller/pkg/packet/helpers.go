@@ -49,7 +49,7 @@ func (p *Packet) VerifyTCPChecksum() bool {
 func (p *Packet) UpdateTCPChecksum() {
 	buffer := p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]
 	p.TCPHdr.tcpChecksum = p.computeTCPChecksum()
-	binary.BigEndian.PutUint16(buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPHdr.tcpChecksum)
+	binary.BigEndian.PutUint16(buffer[tcpChecksumPos:tcpChecksumPos+2], p.TCPHdr.tcpChecksum)
 }
 
 // UpdateTCPFlags
@@ -73,12 +73,12 @@ func (p *Packet) ConvertAcktoFinAck() error {
 	if err := p.TCPDataDetach(0); err != nil {
 		return fmt.Errorf("ack packet in wrong format")
 	}
-	p.DropDetachedBytes()
+	p.DropTCPDetachedBytes()
 	return nil
 }
 
 // String returns a string representation of fields contained in this packet.
-func (p *Packet) String() string {
+func (p *Packet) PacketToStringTCP() string {
 
 	var buf bytes.Buffer
 	buf.WriteString("(error)")
@@ -95,7 +95,7 @@ func (p *Packet) String() string {
 		buf.WriteString(" tcpcksum=")
 		buf.WriteString(fmt.Sprintf("0x%0x", p.TCPHdr.tcpChecksum))
 		buf.WriteString(" data")
-		buf.WriteString(hex.EncodeToString(p.GetBytes()))
+		buf.WriteString(hex.EncodeToString(p.GetTCPBytes()))
 	}
 	return buf.String()
 }
@@ -122,12 +122,12 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buffer := p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]
 	tcpBufSize := uint16(len(buffer) + len(p.TCPHdr.tcpData) + len(p.TCPHdr.tcpOptions))
 
-	oldCsumLow := buffer[TCPChecksumPos]
-	oldCsumHigh := buffer[TCPChecksumPos+1]
+	oldCsumLow := buffer[tcpChecksumPos]
+	oldCsumHigh := buffer[tcpChecksumPos+1]
 
 	// Put 0 to calculate the checksum. We will reset it back after the checksum
-	buffer[TCPChecksumPos] = 0
-	buffer[TCPChecksumPos+1] = 0
+	buffer[tcpChecksumPos] = 0
+	buffer[tcpChecksumPos+1] = 0
 
 	csum := partialChecksum(0, p.IPHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
 	csum = partialChecksum(csum, p.IPHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
@@ -148,8 +148,8 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	csum16 := finalizeChecksum(csum)
 
 	// restore the checksum
-	buffer[TCPChecksumPos] = oldCsumLow
-	buffer[TCPChecksumPos+1] = oldCsumHigh
+	buffer[tcpChecksumPos] = oldCsumLow
+	buffer[tcpChecksumPos+1] = oldCsumHigh
 
 	return csum16
 }
@@ -224,19 +224,19 @@ func (p *Packet) UpdateUDPChecksum() {
 	udpDataLen := curLen - p.GetUDPDataStartBytes()
 
 	// update checksum.
-	binary.BigEndian.PutUint16(buffer[UDPChecksumPos:UDPChecksumPos+2], p.UDPHdr.udpChecksum)
+	binary.BigEndian.PutUint16(buffer[udpChecksumPos:udpChecksumPos+2], p.UDPHdr.udpChecksum)
 	// update length.
-	binary.BigEndian.PutUint16(buffer[UDPLengthPos:UDPLengthPos+2], udpDataLen+8)
+	binary.BigEndian.PutUint16(buffer[udpLengthPos:udpLengthPos+2], udpDataLen+8)
 }
 
 // ReadUDPToken returnthe UDP token. Gets called only during the handshake process.
 func (p *Packet) ReadUDPToken() []byte {
 	buffer := p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]
 	// 8 byte udp header, 20 byte udp marker
-	if len(buffer) <= UDPJwtTokenOffset {
+	if len(buffer) <= udpJwtTokenOffset {
 		return []byte{}
 	}
-	return buffer[UDPJwtTokenOffset:]
+	return buffer[udpJwtTokenOffset:]
 }
 
 // UDPTokenAttach attached udp packet signature and tokens.
@@ -324,9 +324,9 @@ func (p *Packet) GetUDPType() byte {
 		return 0
 	}
 
-	marker := buffer[UDPDataPos:UDPSignatureEnd]
+	marker := buffer[UDPDataPos:udpSignatureEnd]
 	// check for packet signature.
-	if !bytes.Equal(buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
+	if !bytes.Equal(buffer[udpAuthMarkerOffset:udpSignatureEnd], []byte(UDPAuthMarker)) {
 		zap.L().Debug("Not an Aporeto control Packet", zap.String("flow", p.L4FlowHash()))
 		return 0
 	}

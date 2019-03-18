@@ -76,12 +76,14 @@ func (p *Packet) parseTCP(bytes []byte) {
 	// TCP Header Processing
 	tcpBuffer := bytes[p.IPHdr.ipHeaderLen:]
 
-	p.TCPHdr.tcpChecksum = binary.BigEndian.Uint16(tcpBuffer[TCPChecksumPos : TCPChecksumPos+2])
+	p.TCPHdr.tcpChecksum = binary.BigEndian.Uint16(tcpBuffer[tcpChecksumPos : tcpChecksumPos+2])
 	p.TCPHdr.sourcePort = binary.BigEndian.Uint16(tcpBuffer[tcpSourcePortPos : tcpSourcePortPos+2])
 	p.TCPHdr.destinationPort = binary.BigEndian.Uint16(tcpBuffer[tcpDestPortPos : tcpDestPortPos+2])
 	p.TCPHdr.tcpAck = binary.BigEndian.Uint32(tcpBuffer[tcpAckPos : tcpAckPos+4])
 	p.TCPHdr.tcpSeq = binary.BigEndian.Uint32(tcpBuffer[tcpSeqPos : tcpSeqPos+4])
 	p.TCPHdr.tcpDataOffset = (tcpBuffer[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
+	p.TCPHdr.tcpTotalLength = uint16(len(p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]))
+
 	p.SetTCPFlags(tcpBuffer[tcpFlagsOffsetPos])
 
 	// Options and Payload that maybe added
@@ -93,7 +95,7 @@ func (p *Packet) parseUDP(bytes []byte) {
 	// UDP Header Processing
 	udpBuffer := bytes[p.IPHdr.ipHeaderLen:]
 
-	p.UDPHdr.udpChecksum = binary.BigEndian.Uint16(udpBuffer[UDPChecksumPos : UDPChecksumPos+2])
+	p.UDPHdr.udpChecksum = binary.BigEndian.Uint16(udpBuffer[udpChecksumPos : udpChecksumPos+2])
 	p.UDPHdr.udpData = []byte{}
 
 	p.UDPHdr.sourcePort = binary.BigEndian.Uint16(udpBuffer[udpSourcePortPos : udpSourcePortPos+2])
@@ -110,7 +112,7 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 	p.IPHdr.ipHeaderLen = (bytes[ipv4HdrLenPos] & ipv4HdrLenMask) * 4
 	p.IPHdr.ipProto = bytes[ipv4ProtoPos]
 	p.IPHdr.ipTotalLength = binary.BigEndian.Uint16(bytes[ipv4LengthPos : ipv4LengthPos+2])
-	p.IPHdr.ipID = binary.BigEndian.Uint16(bytes[IPv4IDPos : IPv4IDPos+2])
+	p.IPHdr.ipID = binary.BigEndian.Uint16(bytes[ipv4IDPos : ipv4IDPos+2])
 	p.IPHdr.ipChecksum = binary.BigEndian.Uint16(bytes[ipv4ChecksumPos : ipv4ChecksumPos+2])
 	p.IPHdr.sourceAddress = net.IP(bytes[ipv4SourceAddrPos : ipv4SourceAddrPos+4])
 	p.IPHdr.destinationAddress = net.IP(bytes[ipv4DestAddrPos : ipv4DestAddrPos+4])
@@ -156,7 +158,7 @@ func (p *Packet) parseIPv6Packet() (packet *Packet, err error) {
 
 // IsEmptyTCPPayload returns the TCP data offset
 func (p *Packet) IsEmptyTCPPayload() bool {
-	return p.TCPDataStartBytes() == uint16(len(p.IPHdr.Buffer[p.IPHdr.ipHeaderLen:]))
+	return p.TCPDataStartBytes() == p.TCPHdr.tcpTotalLength
 }
 
 // GetTCPData returns any additional data in the packet
@@ -190,12 +192,12 @@ func (p *Packet) GetTCPOptions() []byte {
 }
 
 // DropDetachedDataBytes removes any bytes that have been detached and stored locally
-func (p *Packet) DropDetachedDataBytes() {
+func (p *Packet) DropTCPDetachedDataBytes() {
 	p.TCPHdr.tcpData = []byte{}
 }
 
 // DropDetachedBytes removes any bytes that have been detached and stored locally
-func (p *Packet) DropDetachedBytes() {
+func (p *Packet) DropTCPDetachedBytes() {
 
 	p.TCPHdr.tcpOptions = []byte{}
 	p.TCPHdr.tcpData = []byte{}
@@ -280,7 +282,7 @@ func (p *Packet) Print(context uint64) {
 }
 
 //GetBytes returns the bytes in the packet. It consolidates in case of changes as well
-func (p *Packet) GetBytes() []byte {
+func (p *Packet) GetTCPBytes() []byte {
 
 	pktBytes := []byte{}
 	pktBytes = append(pktBytes, p.IPHdr.Buffer...)
@@ -419,7 +421,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 
 	// Modify the fields
 	p.TCPHdr.tcpDataOffset = p.TCPHdr.tcpDataOffset + uint8(numberOfOptions)
-	binary.BigEndian.PutUint16(buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPHdr.tcpChecksum)
+	binary.BigEndian.PutUint16(buffer[tcpChecksumPos:tcpChecksumPos+2], p.TCPHdr.tcpChecksum)
 	buffer[tcpDataOffsetPos] = p.TCPHdr.tcpDataOffset << 4
 }
 
