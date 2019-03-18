@@ -225,7 +225,6 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		return action, claims, nil
 
 	case packet.UDPAckMask:
-
 		// Retrieve the header and parse the signatures.
 		if err = d.processNetworkUDPAckPacket(udpPacket, context, conn); err != nil {
 			zap.L().Error("Error during authorization", zap.Error(err))

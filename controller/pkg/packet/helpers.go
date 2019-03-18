@@ -224,29 +224,25 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	udpData = append(udpData, udpdata...)
 	udpData = append(udpData, udptoken...)
 
-	p.udpData = udpData
-
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, p.udpData...)
+	p.Buffer = append(p.Buffer, udpData...)
 
 	p.UpdateUDPChecksum()
 }
 
 // UDPDataAttach Attaches UDP data post encryption.
-func (p *Packet) UDPDataAttach(udpdata []byte) {
+func (p *Packet) UDPDataAttach(header, udpdata []byte) {
 
-	udpData := []byte{}
-	udpData = append(udpData, udpdata...)
-	p.udpData = udpData
-	packetLenIncrease := uint16(len(udpdata))
+	packetLenIncrease := uint16(len(udpdata) + len(header))
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, p.udpData...)
+	p.Buffer = append(p.Buffer, header...)
+	p.Buffer = append(p.Buffer, udpdata...)
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
 	p.UpdateUDPChecksum()
@@ -257,9 +253,6 @@ func (p *Packet) UDPDataDetach() {
 
 	// Create constants for IP header + UDP header. copy ?
 	p.Buffer = p.Buffer[:UDPDataPos]
-	p.udpData = []byte{}
-
-	// IP header/checksum updated on DataAttach.
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
