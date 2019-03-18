@@ -614,6 +614,21 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 		return fmt.Errorf("ack packet dropped because signature validation failed: %s", err)
 	}
 
+	if !conn.ServiceConnection {
+		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
+		// Plumb connmark rule here.
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
+			udpPacket.DestinationAddress.String(),
+			udpPacket.SourceAddress.String(),
+			udpPacket.IPProto,
+			udpPacket.DestinationPort,
+			udpPacket.SourcePort,
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack table after ack packet")
+		}
+	}
+
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
 
 	return nil
