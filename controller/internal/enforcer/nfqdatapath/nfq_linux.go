@@ -46,8 +46,6 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 			if err != nil {
 				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 			}
-			// Queue started lets start debug loops for capturing packets
-
 		}
 	}
 }
@@ -95,10 +93,10 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	}
 
 	if processError != nil {
-		zap.L().Error("Dropping packet on network path",
+		zap.L().Debug("Dropping packet on network path",
 			zap.Error(err),
-			zap.String("SourceIP", netPacket.SourceAddress().String()),
-			zap.String("DestiatnionIP", netPacket.DestinationAddress().String()),
+			zap.String("SourceIP", netPacket.SourceAddress.String()),
+			zap.String("DestiatnionIP", netPacket.DestinationAddress.String()),
 			zap.Int("SourcePort", int(netPacket.SourcePort)),
 			zap.Int("DestinationPort", int(netPacket.DestinationPort)),
 			zap.Int("Protocol", int(netPacket.IPProto)),

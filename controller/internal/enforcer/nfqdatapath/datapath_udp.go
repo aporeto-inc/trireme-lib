@@ -39,9 +39,6 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 		)
 	}
 
-	// First we must recover the connection for the packet.
-	//var
-
 	udpPacketType := p.GetUDPType()
 	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.Buffer)))
 
@@ -209,6 +206,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	udpPacketType := udpPacket.GetUDPType()
+
 	// Update connection state in the internal state machine tracker
 	switch udpPacketType {
 	case packet.UDPSynMask:
@@ -302,7 +300,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		}
 	}
 
-	drop := false
+	triggerControlProtocol := false
 	switch conn.GetState() {
 	case connection.UDPStart:
 		// Queue the packet. We will send it after we authorize the session.
@@ -313,16 +311,10 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 			zap.L().Debug("udp queue full for connection", zap.String("flow", p.L4FlowHash()))
 		}
 
-		// Process the application packet.
-		err = d.processApplicationUDPSynPacket(p, conn.Context, conn)
-		if err != nil {
-			return conn, fmt.Errorf("Unable to send UDP Syn packet: %s", err)
-		}
-
 		// Set the state indicating that we send out a Syn packet
 		conn.SetState(connection.UDPClientSendSyn)
 		// Drop the packet. We stored it in the queue.
-		drop = true
+		triggerControlProtocol = true
 
 	case connection.UDPReceiverProcessedAck, connection.UDPClientSendAck, connection.UDPData:
 		conn.SetState(connection.UDPData)
@@ -332,8 +324,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		if err = conn.QueuePackets(p); err != nil {
 			return conn, fmt.Errorf("Unable to queue packets:%s", err)
 		}
-		// Drop the packet. We stored it in the queue.
-		drop = true
+		return conn, fmt.Errorf("Drop in nfq - buffered")
 	}
 
 	if d.service != nil {
@@ -344,7 +335,11 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		}
 	}
 
-	if drop {
+	if triggerControlProtocol {
+		err = d.triggerNegotiation(p, conn.Context, conn)
+		if err != nil {
+			return conn, err
+		}
 		return conn, fmt.Errorf("Drop in nfq - buffered")
 	}
 
@@ -372,11 +367,11 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 }
 
 // processApplicationUDPSynPacket processes a single Syn Packet
-func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
+func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 	if err != nil {
 		return err
 	}
@@ -395,7 +390,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 		return fmt.Errorf("unable to transmit syn packet")
 	}
 
-	// Poplate the caches to track the connection
+	// Populate the caches to track the connection
 	hash := udpPacket.L4FlowHash()
 	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
@@ -548,6 +543,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 				zap.Error(err),
 			)
+			return err
 		}
 	}
 

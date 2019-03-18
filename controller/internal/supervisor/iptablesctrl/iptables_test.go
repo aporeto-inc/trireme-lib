@@ -326,7 +326,7 @@ var (
 		},
 		"TRI-Pid-App": {
 			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
@@ -442,7 +442,7 @@ var (
 		},
 		"TRI-Pid-App": {
 			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m set --match-set TRI-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--1",
