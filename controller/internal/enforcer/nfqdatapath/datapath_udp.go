@@ -369,7 +369,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
+	udpOptions := packet.CreateUDPAuthMarker(packet.UDPSynMask)
 
 	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 	if err != nil {
@@ -439,32 +439,11 @@ func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) 
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
 
-// CreateUDPAuthMarker creates a UDP auth marker.
-func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
-
-	// Every UDP control packet has a 20 byte packet signature. The
-	// first 2 bytes represent the following control information.
-	// Byte 0 : Bits 0,1 are reserved fields.
-	//          Bits 2,3,4 represent version information.
-	//          Bits 5, 6, 7 represent udp packet type,
-	// Byte 1: reserved for future use.
-	// Bytes [2:20]: Packet signature.
-
-	marker := make([]byte, packet.UDPSignatureLen)
-	// ignore version info as of now.
-	marker[0] |= packetType // byte 0
-	marker[1] = 0           // byte 1
-	// byte 2 - 19
-	copy(marker[2:], []byte(packet.UDPAuthMarker))
-
-	return marker
-}
-
 // sendUDPSynAckPacket processes a UDP SynAck packet
 func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create UDP Option
-	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynAckMask)
+	udpOptions := packet.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
 	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
 	if err != nil {
@@ -495,7 +474,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	// Create UDP Option
 	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
-	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
+	udpOptions := packet.CreateUDPAuthMarker(packet.UDPAckMask)
 
 	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
 
@@ -635,21 +614,6 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 		return fmt.Errorf("ack packet dropped because signature validation failed: %s", err)
 	}
 
-	if !conn.ServiceConnection {
-		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
-		// Plumb connmark rule here.
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.DestinationAddress.String(),
-			udpPacket.SourceAddress.String(),
-			udpPacket.IPProto,
-			udpPacket.DestinationPort,
-			udpPacket.SourcePort,
-			constants.DefaultConnMark,
-		); err != nil {
-			zap.L().Error("Failed to update conntrack table after ack packet")
-		}
-	}
-
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
 
 	return nil
@@ -659,7 +623,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	// Create UDP Option
-	udpOptions := d.CreateUDPAuthMarker(packet.UDPFinAckMask)
+	udpOptions := packet.CreateUDPAuthMarker(packet.UDPFinAckMask)
 
 	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress, udpPacket.SourcePort)
 
