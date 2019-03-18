@@ -19,6 +19,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -111,7 +112,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, []string{}, 0, nil, nil, []string{})
+	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, nil, ips, 0, nil, nil, []string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 
@@ -135,7 +136,7 @@ func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessM
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		false,
-		[]string{"0.0.0.0/0"},
+		&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}},
 		nil)
 	return policyEnf
 }
@@ -146,7 +147,15 @@ func TestNewDefaultProxyEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
+		policyEnf := NewDefaultProxyEnforcer(
+			"testServerID",
+			eventCollector(),
+			secretGen(),
+			rpchdl,
+			procMountPoint,
+			&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}},
+			nil,
+		)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -169,7 +178,15 @@ func TestInitRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
+		policyEnf := NewDefaultProxyEnforcer(
+			"testServerID",
+			eventCollector(),
+			secretGen(),
+			rpchdl,
+			procMountPoint,
+			&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}},
+			nil,
+		)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -188,7 +205,15 @@ func TestInitRemoteEnforcer(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults and PKICompactType", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token, claimsheader.CompressionTypeNone)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), cpki, rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
+		policyEnf := NewDefaultProxyEnforcer(
+			"testServerID",
+			eventCollector(),
+			cpki,
+			rpchdl,
+			procMountPoint,
+			&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}},
+			nil,
+		)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -312,7 +337,7 @@ func TestSetTargetNetworks(t *testing.T) {
 
 		Convey("When I try to call SetTargetNetworks method without enforcer running", func() {
 			rpchdl.EXPECT().ContextList()
-			err := policyEnf.(*ProxyInfo).SetTargetNetworks([]string{"0.0.0.0/0"})
+			err := policyEnf.(*ProxyInfo).SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}})
 
 			Convey("Then I should not get any error", func() {
 				So(err, ShouldBeNil)

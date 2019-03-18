@@ -7,6 +7,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -32,7 +33,7 @@ type TriremeController interface {
 
 	// UpdateConfiguration updates the configuration of the controller. Only specific configuration
 	// parameters can be updated during run time.
-	UpdateConfiguration(networks []string) error
+	UpdateConfiguration(cfg *runtime.Configuration) error
 	DebugInfo
 }
 

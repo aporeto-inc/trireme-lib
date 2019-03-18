@@ -182,7 +182,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				)
 			}
 
-			d.findPorts()
 			cid, err := d.contextIDFromTCPPort.GetSpecValueFromPort(p.SourcePort())
 
 			if err == nil {
@@ -203,9 +202,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 					return conn, nil
 				}
 
-				if ctx.IPinExcludedNetworks(p.DestinationAddress()) {
-					return conn, nil
-				}
 				// Drop this synack as it belongs to PU
 				// for which we didn't see syn
 

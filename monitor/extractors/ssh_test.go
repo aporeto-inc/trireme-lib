@@ -30,10 +30,11 @@ func TestSSHMetadataExtractor(t *testing.T) {
 
 		Convey("If all data are present", func() {
 			event := &common.EventInfo{
-				Name: "curl",
-				PID:  1234,
-				PUID: "/1234",
-				Tags: []string{"app=web", "$cert=ss"},
+				Name:   "curl",
+				PID:    1234,
+				PUID:   "/1234",
+				PUType: common.SSHSessionPU,
+				Tags:   []string{"app=web", "$cert=ss"},
 			}
 
 			pu, err := SSHMetadataExtractor(event)
