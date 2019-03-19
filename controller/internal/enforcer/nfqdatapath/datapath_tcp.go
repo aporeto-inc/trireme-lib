@@ -644,7 +644,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
-			d.releaseFlow(context, conn, plc.report, plc.packet, tcpPacket)
+			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
 			return plc.packet, nil, nil
 		}
 
@@ -667,7 +667,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
 
-		d.releaseFlow(context, conn, report, pkt, tcpPacket)
+		d.releaseFlow(context, report, pkt, tcpPacket)
 
 		return pkt, nil, nil
 	}
@@ -1077,7 +1077,7 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 }
 
 // releaseFlow releases the flow and updates the conntrack table
-func (d *Datapath) releaseFlow(context *pucontext.PUContext, c *connection.TCPConnection, report *policy.FlowPolicy, action *policy.FlowPolicy, tcpPacket *packet.Packet) {
+func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.FlowPolicy, action *policy.FlowPolicy, tcpPacket *packet.Packet) {
 
 	if err := d.appOrigConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash()); err != nil {
 		zap.L().Debug("Failed to clean cache appOrigConnectionTracker", zap.Error(err))
