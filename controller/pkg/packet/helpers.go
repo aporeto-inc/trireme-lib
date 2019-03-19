@@ -246,26 +246,23 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	udpData = append(udpData, udpdata...)
 	udpData = append(udpData, udptoken...)
 
-	p.udpHdr.udpData = udpData
-
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpData...)
 
 	p.UpdateUDPChecksum()
 }
 
 // UDPDataAttach Attaches UDP data post encryption.
-func (p *Packet) UDPDataAttach(udpdata []byte) {
-	udpData := []byte{}
-	udpData = append(udpData, udpdata...)
-	p.udpHdr.udpData = udpData
-	// Attach Data @ the end of current buffer. Add it to the IP header as that will be used when setverdict is called.
-	p.ipHdr.Buffer = append(p.ipHdr.Buffer, p.udpHdr.udpData...)
+func (p *Packet) UDPDataAttach(header, udpdata []byte) {
+
+	// Attach Data @ the end of current buffer
+	p.Buffer = append(p.Buffer, header...)
+	p.Buffer = append(p.Buffer, udpdata...)
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(len(p.ipHdr.Buffer)))
 	p.UpdateUDPChecksum()
@@ -275,8 +272,6 @@ func (p *Packet) UDPDataAttach(udpdata []byte) {
 func (p *Packet) UDPDataDetach() {
 	// Create constants for IP header + UDP header. copy ?
 	p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.ipHeaderLen+UDPDataPos]
-	p.udpHdr.udpData = []byte{}
-	// IP header/checksum updated on DataAttach.
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
@@ -310,7 +305,6 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 
 // GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {
-	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
 	// Every UDP control packet has a 20 byte packet signature. The
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
@@ -319,15 +313,20 @@ func (p *Packet) GetUDPType() byte {
 	//          Bit 7 represents encryption. (currently unused).
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.
+	return GetUDPTypeFromBuffer(p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:])
+}
+
+// GetUDPTypeFromBuffer gets the UDP packet from a raw buffer.,
+func GetUDPTypeFromBuffer(buffer []byte) byte {
 	if len(buffer) < (UDPDataPos + UDPSignatureLen) {
-		// Not an Aporeto control packet.
 		return 0
 	}
 
-	marker := buffer[UDPDataPos:udpSignatureEnd]
+	marker := buffer[UDPDataPos:UDPSignatureEnd]
+
 	// check for packet signature.
-	if !bytes.Equal(buffer[udpAuthMarkerOffset:udpSignatureEnd], []byte(UDPAuthMarker)) {
-		zap.L().Debug("Not an Aporeto control Packet", zap.String("flow", p.L4FlowHash()))
+	if !bytes.Equal(buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
+		zap.L().Debug("Not an Aporeto control Packet")
 		return 0
 	}
 	// control packet. byte 0 has packet type information.
@@ -342,4 +341,25 @@ func (p *Packet) GetTCPFlags() uint8 {
 //SetTCPFlags allows to set the tcp flags on the packet
 func (p *Packet) SetTCPFlags(flags uint8) {
 	p.tcpHdr.tcpFlags = flags
+}
+
+// CreateUDPAuthMarker creates a UDP auth marker.
+func CreateUDPAuthMarker(packetType uint8) []byte {
+
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5, 6, 7 represent udp packet type,
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+
+	marker := make([]byte, UDPSignatureLen)
+	// ignore version info as of now.
+	marker[0] |= packetType // byte 0
+	marker[1] = 0           // byte 1
+	// byte 2 - 19
+	copy(marker[2:], []byte(UDPAuthMarker))
+
+	return marker
 }

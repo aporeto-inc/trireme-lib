@@ -128,8 +128,10 @@ const (
 	UDPAckMask = 0x30
 	// UDPFinAckMask mask that identifies the FinAck packets
 	UDPFinAckMask = 0x40
+	// UDPDataPacket is a simple data packet
+	UDPDataPacket = 0x80
 	// UDPPacketMask identifies type of UDP packet.
-	UDPPacketMask = 0x70
+	UDPPacketMask = 0xF0
 )
 
 const (

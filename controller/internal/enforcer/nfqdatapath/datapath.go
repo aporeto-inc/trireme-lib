@@ -528,7 +528,11 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if app {
 		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
-			zap.L().Error("Could not find pu context for the mark", zap.String("mark", mark))
+			zap.L().Error("Unable to find context for application flow with mark",
+				zap.String("mark", mark),
+				zap.Int("protocol", int(protocol)),
+				zap.Int("port", int(port)),
+			)
 			return nil, errMarkNotFound
 		}
 		return pu.(*pucontext.PUContext), nil

@@ -181,11 +181,6 @@ func (p *Packet) SetTCPData(b []byte) {
 	p.tcpHdr.tcpData = b
 }
 
-// SetUDPData sets additional data in the packet
-func (p *Packet) SetUDPData(b []byte) {
-	p.udpHdr.udpData = b
-}
-
 // GetTCPOptions returns any additional options in the packet
 func (p *Packet) GetTCPOptions() []byte {
 	return p.tcpHdr.tcpOptions
