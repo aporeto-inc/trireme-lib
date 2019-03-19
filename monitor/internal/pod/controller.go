@@ -184,7 +184,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// now try to do the metadata extraction
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, pod, false)
+		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, false)
 		if err != nil {
 			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
 		}
@@ -245,7 +245,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			// now do the metadata extraction
 			extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 			defer extractCancel()
-			puRuntime, err := r.metadataExtractor(extractCtx, r.client, pod, true)
+			puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, true)
 			if err != nil {
 				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract metadata: %s", puID, err.Error())
