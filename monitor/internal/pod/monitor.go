@@ -75,11 +75,11 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		}
 	}
 
-	if m.metadataExtractor == nil {
+	if kubernetesconfig.MetadataExtractor == nil {
 		return fmt.Errorf("missing metadata extractor")
 	}
 
-	if m.netclsProgrammer == nil {
+	if kubernetesconfig.NetclsProgrammer == nil {
 		return fmt.Errorf("missing net_cls programmer")
 	}
 
