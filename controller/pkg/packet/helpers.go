@@ -261,8 +261,8 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 func (p *Packet) UDPDataAttach(header, udpdata []byte) {
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, header...)
-	p.Buffer = append(p.Buffer, udpdata...)
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, header...)
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpdata...)
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(len(p.ipHdr.Buffer)))
 	p.UpdateUDPChecksum()
@@ -322,10 +322,10 @@ func GetUDPTypeFromBuffer(buffer []byte) byte {
 		return 0
 	}
 
-	marker := buffer[UDPDataPos:UDPSignatureEnd]
+	marker := buffer[UDPDataPos:udpSignatureEnd]
 
 	// check for packet signature.
-	if !bytes.Equal(buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
+	if !bytes.Equal(buffer[udpAuthMarkerOffset:udpSignatureEnd], []byte(UDPAuthMarker)) {
 		zap.L().Debug("Not an Aporeto control Packet")
 		return 0
 	}

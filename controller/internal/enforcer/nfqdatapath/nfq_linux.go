@@ -95,11 +95,11 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if processError != nil {
 		zap.L().Debug("Dropping packet on network path",
 			zap.Error(err),
-			zap.String("SourceIP", netPacket.SourceAddress.String()),
-			zap.String("DestiatnionIP", netPacket.DestinationAddress.String()),
-			zap.Int("SourcePort", int(netPacket.SourcePort)),
-			zap.Int("DestinationPort", int(netPacket.DestinationPort)),
-			zap.Int("Protocol", int(netPacket.IPProto)),
+			zap.String("SourceIP", netPacket.SourceAddress().String()),
+			zap.String("DestiatnionIP", netPacket.DestinationAddress().String()),
+			zap.Int("SourcePort", int(netPacket.SourcePort())),
+			zap.Int("DestinationPort", int(netPacket.DestPort())),
+			zap.Int("Protocol", int(netPacket.IPProto())),
 		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
