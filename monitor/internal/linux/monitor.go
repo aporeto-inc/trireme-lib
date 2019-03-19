@@ -32,12 +32,6 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
-	// If it is a SSH monitor, we don't resync
-	// TODO: Find a better way
-	if l.proc.ssh {
-		return nil
-	}
-
 	return l.Resync(ctx)
 }
 
@@ -45,9 +39,8 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 // can have its own config type.
 func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
-	defaultConfig := DefaultConfig(false, false)
 	if cfg == nil {
-		cfg = defaultConfig
+		cfg = DefaultConfig(false, false)
 	}
 
 	linuxConfig, ok := cfg.(*Config)
@@ -56,12 +49,20 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		puType := common.LinuxProcessPU
 		if linuxConfig.SSH {
-			puType = common.SSHSessionPU
-		}
-		if err := registerer.RegisterProcessor(puType, l.proc); err != nil {
-			return err
+			if err := registerer.RegisterProcessor(common.SSHSessionPU, l.proc); err != nil {
+				return err
+			}
+		} else {
+			if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
+				return err
+			}
+			if err := registerer.RegisterProcessor(common.HostPU, l.proc); err != nil {
+				return err
+			}
+			if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
+				return err
+			}
 		}
 	}
 

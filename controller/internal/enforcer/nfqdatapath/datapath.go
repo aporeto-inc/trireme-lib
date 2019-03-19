@@ -26,7 +26,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
@@ -166,7 +166,7 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -245,7 +245,7 @@ func New(
 		puToPortsMap:           map[string]map[string]bool{},
 	}
 
-	if err = d.SetTargetNetworks(targetNetworks); err != nil {
+	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
@@ -305,7 +305,7 @@ func NewWithDefaults(
 		defaultPacketLogs,
 		tokenAccessor,
 		puFromContextID,
-		targetNetworks,
+		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
 }
 
@@ -319,9 +319,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.Type() == common.LinuxProcessPU ||
-		pu.Type() == common.UIDLoginPU ||
-		pu.Type() == common.SSHSessionPU {
+	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
@@ -339,10 +337,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			if err != nil {
 				continue
 			}
-			// check for host pu and add ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
 
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromTCPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
@@ -357,8 +353,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			}
 
 			// check for host pu and add its ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromUDPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromUDPPort.AddPortSpec(portSpec)
@@ -443,7 +438,10 @@ func (d *Datapath) Unenforce(contextID string) error {
 }
 
 // SetTargetNetworks sets new target networks used by datapath
-func (d *Datapath) SetTargetNetworks(networks []string) error {
+func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
+
+	networks := cfg.TCPTargetNetworks
+
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
 	}
@@ -530,7 +528,11 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if app {
 		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
-			zap.L().Error("Could not find pu context for the mark", zap.String("mark", mark))
+			zap.L().Error("Unable to find context for application flow with mark",
+				zap.String("mark", mark),
+				zap.Int("protocol", int(protocol)),
+				zap.Int("port", int(port)),
+			)
 			return nil, errMarkNotFound
 		}
 		return pu.(*pucontext.PUContext), nil

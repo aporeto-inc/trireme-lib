@@ -163,11 +163,12 @@ type tcphdr struct {
 	sourcePort      uint16
 	destinationPort uint16
 
-	tcpSeq        uint32
-	tcpAck        uint32
-	tcpDataOffset uint8
-	tcpFlags      uint8
-	tcpChecksum   uint16
+	tcpSeq         uint32
+	tcpAck         uint32
+	tcpDataOffset  uint8
+	tcpFlags       uint8
+	tcpChecksum    uint16
+	tcpTotalLength uint16
 }
 
 type udphdr struct {
@@ -185,9 +186,9 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	IPHdr  iphdr
-	TCPHdr tcphdr
-	UDPHdr udphdr
+	ipHdr  iphdr
+	tcpHdr tcphdr
+	udpHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata

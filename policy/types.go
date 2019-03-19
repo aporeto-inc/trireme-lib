@@ -347,6 +347,10 @@ type OptionsType struct {
 
 	// PortMap maps container port -> host ports.
 	PortMap map[nat.Port][]string
+
+	// ConvertedDockerPU is set when a docker PU is converted to LinuxProcess
+	// in order to implement host network containers.
+	ConvertedDockerPU bool
 }
 
 // RuntimeError is an error detected by the TriremeController that has to be

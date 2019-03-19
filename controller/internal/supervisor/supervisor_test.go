@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -55,9 +56,6 @@ func createPUInfo() *policy.PUInfo {
 		nil,
 		nil,
 		ips,
-		[]string{"172.17.0.0/24"},
-		[]string{},
-		[]string{},
 		0,
 		nil,
 		nil,
@@ -86,16 +84,15 @@ func TestNewSupervisor(t *testing.T) {
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, []string{}, nil)
+			s, err := NewSupervisor(c, e, mode, &runtime.Configuration{}, nil)
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
 				So(s.collector, ShouldEqual, c)
 			})
 		})
-
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, []string{}, nil)
+			s, err := NewSupervisor(nil, e, mode, &runtime.Configuration{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -103,13 +100,12 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, []string{}, nil)
+			s, err := NewSupervisor(c, nil, mode, &runtime.Configuration{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
 			})
 		})
-
 	})
 }
 
@@ -130,7 +126,7 @@ func TestSupervise(t *testing.T) {
 		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -155,7 +151,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
 			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -176,7 +172,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -207,7 +203,7 @@ func TestUnsupervise(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -224,7 +220,7 @@ func TestUnsupervise(t *testing.T) {
 
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")
@@ -253,7 +249,11 @@ func TestStart(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e,
+			constants.RemoteContainer,
+			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}},
+			nil,
+		)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -261,7 +261,7 @@ func TestStart(t *testing.T) {
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
-			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -296,7 +296,7 @@ func TestStop(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -304,7 +304,7 @@ func TestStop(t *testing.T) {
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
-			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -331,7 +331,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -339,7 +339,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
-			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)

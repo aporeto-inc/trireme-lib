@@ -183,7 +183,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				)
 			}
 
-			d.findPorts()
 			cid, err := d.contextIDFromTCPPort.GetSpecValueFromPort(p.SourcePort())
 
 			if err == nil {
@@ -204,9 +203,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 					return conn, nil
 				}
 
-				if ctx.IPinExcludedNetworks(p.DestinationAddress()) {
-					return conn, nil
-				}
 				// Drop this synack as it belongs to PU
 				// for which we didn't see syn
 
@@ -574,7 +570,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format: %s", err)
 	}
 
-	tcpPacket.DropDetachedBytes()
+	tcpPacket.DropTCPDetachedBytes()
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
@@ -705,7 +701,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of invalid format: %s", err)
 	}
 
-	tcpPacket.DropDetachedBytes()
+	tcpPacket.DropTCPDetachedBytes()
 
 	if !d.mutualAuthorization {
 		// If we dont do mutual authorization, dont lookup txt rules.
@@ -815,7 +811,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, errInvalidFormat
 		}
 
-		tcpPacket.DropDetachedBytes()
+		tcpPacket.DropTCPDetachedBytes()
 
 		if conn.PacketFlowPolicy != nil && conn.PacketFlowPolicy.Action.Rejected() {
 			if !conn.PacketFlowPolicy.ObserveAction.Observed() {
@@ -971,7 +967,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 			return nil, errNonPUTraffic
 		}
 
-		p.DropDetachedBytes()
+		p.DropTCPDetachedBytes()
 
 		p.UpdateTCPChecksum()
 

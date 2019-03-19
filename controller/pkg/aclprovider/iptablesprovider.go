@@ -16,6 +16,13 @@ import (
 // IptablesProvider is an abstraction of all the methods an implementation of userspace
 // iptables need to provide.
 type IptablesProvider interface {
+	BaseIPTables
+	// Commit will commit changes if it is a batch provider.
+	Commit() error
+}
+
+// BaseIPTables is the base interface of iptables functions.
+type BaseIPTables interface {
 	// Append apends a rule to chain of table
 	Append(table, chain string, rulespec ...string) error
 	// Insert inserts a rule to a chain of table at the required pos
@@ -30,41 +37,29 @@ type IptablesProvider interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
-	// Commit will commit changes if it is a batch provider.
-	Commit() error
-	// SetTargetSet sets the target networks
-	SetTargetSet(string)
-	// GetTargetSet gets the target networks
-	GetTargetSet() string
-	// GetIpsetString gets the ipset name substring
-	GetIpsetString() string
 }
 
 // BatchProvider uses iptables-restore to program ACLs
 type BatchProvider struct {
-	ipt *iptables.IPTables
+	ipt BaseIPTables
 
-	restoreCmd string
 	//        TABLE      CHAIN    RULES
 	rules       map[string]map[string][]string
 	batchTables map[string]bool
 
-	targetNetworks string
-	ipsetString    string
+	// Allowing for custom commit functions for testing
+	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
 }
 
 const (
-	restoreCmdV4  = "iptables-restore"
-	restoreCmdV6  = "ip6tables-restore"
-	ipsetStringV4 = "IPV4"
-	ipsetStringV6 = "IPV6"
+	restoreCmd = "iptables-restore"
 )
 
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.New()
 	if err != nil {
 		return nil, err
 	}
@@ -73,57 +68,40 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	// We will only support the batch method if there is iptables-restore and iptables
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
-	if restoreHasWait(restoreCmdV4) {
+	if restoreHasWait() {
 		for _, t := range batchTables {
 			batchTablesMap[t] = true
 		}
 	}
 
-	return &BatchProvider{
+	b := &BatchProvider{
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
-		restoreCmd:  restoreCmdV4,
-		ipsetString: ipsetStringV4,
-	}, nil
+	}
+
+	b.commitFunc = b.restore
+
+	return b, nil
 }
 
-func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-	if err != nil {
-		return nil, err
-	}
+// NewCustomBatchProvider is a custom batch provider wher the downstream
+// iptables utility is provided by the caller. Very useful for testing
+// the ACL functions with a mock.
+func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) error, batchTables []string) *BatchProvider {
 
 	batchTablesMap := map[string]bool{}
-	// We will only support the batch method if there is iptables-restore and iptables
-	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
-	// This will allow us to support older kernel versions.
-	if restoreHasWait(restoreCmdV6) {
-		for _, t := range batchTables {
-			batchTablesMap[t] = true
-		}
+
+	for _, t := range batchTables {
+		batchTablesMap[t] = true
 	}
 
 	return &BatchProvider{
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
-		restoreCmd:  restoreCmdV6,
-		ipsetString: ipsetStringV6,
-	}, nil
-}
-
-//
-func (b *BatchProvider) SetTargetSet(targetSet string) {
-	b.targetNetworks = targetSet
-}
-
-func (b *BatchProvider) GetTargetSet() string {
-	return b.targetNetworks
-}
-
-func (b *BatchProvider) GetIpsetString() string {
-	return b.ipsetString
+		commitFunc:  commit,
+	}
 }
 
 // Append will append the provided rule to the local cache or call
@@ -299,7 +277,22 @@ func (b *BatchProvider) Commit() error {
 	if len(b.batchTables) == 0 {
 		return nil
 	}
-	return b.restore()
+
+	buf, err := b.createDataBuffer()
+	if err != nil {
+		return fmt.Errorf("Failed to crete buffer %s", err)
+	}
+
+	return b.commitFunc(buf)
+}
+
+// RetrieveTable allows a caller to retrieve the final table. Mostly
+// needed for debuging and unit tests.
+func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
+	b.Lock()
+	defer b.Unlock()
+
+	return b.rules
 }
 
 func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
@@ -330,14 +323,9 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 }
 
 // restore will save the current DB to iptables.
-func (b *BatchProvider) restore() error {
+func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 
-	buf, err := b.createDataBuffer()
-	if err != nil {
-		return fmt.Errorf("Failed to crete buffer %s", err)
-	}
-
-	cmd := exec.Command(b.restoreCmd, "--wait")
+	cmd := exec.Command(restoreCmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -351,7 +339,7 @@ func (b *BatchProvider) restore() error {
 	return nil
 }
 
-func restoreHasWait(restoreCmd string) bool {
+func restoreHasWait() bool {
 	cmd := exec.Command(restoreCmd, "--version")
 	cmd.Stdin = bytes.NewReader([]byte{})
 	bytes, err := cmd.CombinedOutput()

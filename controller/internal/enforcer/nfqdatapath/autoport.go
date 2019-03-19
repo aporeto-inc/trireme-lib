@@ -70,7 +70,6 @@ func (d *Datapath) autoPortDiscovery() {
 func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 	iptablesInstance := iptablesctrl.GetInstance()
 	if iptablesInstance == nil {
-		zap.L().Error("iptables instance can not be nil")
 		return
 	}
 

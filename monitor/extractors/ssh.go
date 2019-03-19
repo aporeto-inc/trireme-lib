@@ -38,5 +38,5 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.SSHSessionPU, options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, options), nil
 }

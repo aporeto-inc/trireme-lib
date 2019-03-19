@@ -68,7 +68,7 @@ func TestGoodPacket(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synGoodTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 
 	if !pkt.VerifyIPChecksum() {
 		t.Error("Test packet IP checksum failed")
@@ -163,7 +163,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.IPHdr.Buffer
+	data := pkt.ipHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -198,7 +198,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.IPHdr.Buffer
+	bytes := pkt.ipHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)
@@ -243,13 +243,13 @@ func TestSetChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadIPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyIPChecksum() {
 		t.Error("Expected bad IP checksum given it is wrong")
 	}
 
 	pkt.UpdateIPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyIPChecksum() {
 		t.Error("IP checksum is wrong after update")
 	}
@@ -259,13 +259,13 @@ func TestSetTCPChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyTCPChecksum() {
 		t.Error("Expected bad TCP checksum given it is wrong")
 	}
 
 	pkt.UpdateTCPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyTCPChecksum() {
 		t.Error("TCP checksum is wrong after update")
 	}

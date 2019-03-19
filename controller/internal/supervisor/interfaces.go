@@ -4,16 +4,11 @@ import (
 	"context"
 	"time"
 
+	"go.aporeto.io/trireme-lib/common"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
-
-// DebugInfo is interface that the supervisor implements to configure iptables tracing interface
-// type DebugInfo interface {
-
-// 	// EnableIPTablesPacketTracing enables ip tables packet tracing
-// 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
-// }
 
 // A Supervisor is implementing the node control plane that captures the packets.
 type Supervisor interface {
@@ -28,7 +23,7 @@ type Supervisor interface {
 	Run(ctx context.Context) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// CleanUp requests the supervisor to clean up all ACLs
 	CleanUp() error
@@ -47,10 +42,10 @@ type Implementor interface {
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType string, exclusions []string) error
+	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, puType common.PUType) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string, []string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// Start initializes any defaults
 	Run(ctx context.Context) error
