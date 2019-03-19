@@ -12,6 +12,7 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -350,9 +351,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We can also clean up the state since we are not going to see any more
 	// packets from this connection.
 	if conn.GetState() == connection.TCPData && !conn.ServiceConnection {
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.SourceAddress.String(),
-			tcpPacket.DestinationAddress.String(),
+		if err := flowtracking.UpdateApplicationFlowMark(
+			tcpPacket.SourceAddress,
+			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
 			tcpPacket.SourcePort,
 			tcpPacket.DestinationPort,
@@ -426,15 +427,15 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// delegated to the service module
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() &&
 			!(tcpPacket.SourceAddress.IsLoopback() && tcpPacket.DestinationAddress.IsLoopback()) {
-			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.SourceAddress.String(),
-				tcpPacket.DestinationAddress.String(),
+			if err := flowtracking.UpdateApplicationFlowMark(
+				tcpPacket.SourceAddress,
+				tcpPacket.DestinationAddress,
 				tcpPacket.IPProto,
 				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
 			); err != nil {
-				zap.L().Error("Failed to update conntrack table for flow",
+				zap.L().Error("Failed to update conntrack table for flow after ack packet",
 					zap.String("context", string(conn.Auth.LocalContext)),
 					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -460,9 +461,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			// It means it is a new SSH Session connection, we mark
 			// the packet and let it go through.
 			if context.Type() == common.SSHSessionPU {
-				if err := d.conntrackHdl.ConntrackTableUpdateMark(
-					tcpPacket.SourceAddress.String(),
-					tcpPacket.DestinationAddress.String(),
+				if err := flowtracking.UpdateApplicationFlowMark(
+					tcpPacket.SourceAddress,
+					tcpPacket.DestinationAddress,
 					tcpPacket.IPProto,
 					tcpPacket.SourcePort,
 					tcpPacket.DestinationPort,
@@ -484,9 +485,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			return errors.New("Reject the packet")
 		}
 
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.SourceAddress.String(),
-			tcpPacket.DestinationAddress.String(),
+		if err := flowtracking.UpdateApplicationFlowMark(
+			tcpPacket.SourceAddress,
+			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
 			tcpPacket.SourcePort,
 			tcpPacket.DestinationPort,
@@ -678,15 +679,15 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	if conn.GetState() != connection.TCPSynSend {
 
 		// Revert the connmarks - dealing with retransmissions
-		if cerr := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.DestinationAddress.String(),
-			tcpPacket.SourceAddress.String(),
+		if cerr := flowtracking.UpdateNetworkFlowMark(
+			tcpPacket.SourceAddress,
+			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
-			tcpPacket.DestinationPort,
 			tcpPacket.SourcePort,
+			tcpPacket.DestinationPort,
 			0,
 		); cerr != nil {
-			zap.L().Error("Failed to update conntrack table for flow",
+			zap.L().Error("Failed to update conntrack table for flow after synack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -798,12 +799,12 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, errors.New("Reject the packet")
 		}
 
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.DestinationAddress.String(),
-			tcpPacket.SourceAddress.String(),
+		if err := flowtracking.UpdateNetworkFlowMark(
+			tcpPacket.SourceAddress,
+			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
-			tcpPacket.DestinationPort,
 			tcpPacket.SourcePort,
+			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
@@ -853,15 +854,16 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
-			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.DestinationAddress.String(),
-				tcpPacket.SourceAddress.String(),
+			if err := flowtracking.UpdateNetworkFlowMark(
+				tcpPacket.SourceAddress,
+				tcpPacket.DestinationAddress,
 				tcpPacket.IPProto,
-				tcpPacket.DestinationPort,
 				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
 			); err != nil {
-				zap.L().Error("Failed to update conntrack table after ack packet")
+				zap.L().Error("Failed to update conntrack table after ack packet",
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()))
 			}
 		}
 
@@ -1085,20 +1087,17 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, c *connection.TCPCo
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
-	dst := tcpPacket.SourceAddress.String()
-	if o := c.GetOriginalDestination().String(); o != dst {
-		dst = o
-	}
-
-	if err := d.conntrackHdl.ConntrackTableUpdateMark(
-		tcpPacket.DestinationAddress.String(),
-		dst,
+	if err := flowtracking.UpdateNetworkFlowMark(
+		tcpPacket.SourceAddress,
+		tcpPacket.DestinationAddress,
 		tcpPacket.IPProto,
-		tcpPacket.DestinationPort,
 		tcpPacket.SourcePort,
+		tcpPacket.DestinationPort,
 		constants.DefaultConnMark,
 	); err != nil {
-		zap.L().Error("Failed to update conntrack table", zap.Error(err))
+		zap.L().Error("Failed to update conntrack table",
+			zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+			zap.Error(err))
 	}
 
 	d.reportReverseExternalServiceFlow(context, report, action, true, tcpPacket)
@@ -1108,12 +1107,12 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, c *connection.TCPCo
 func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
 	zap.L().Debug("Releasing flow", zap.String("flow", tcpPacket.L4FlowHash()))
-	if err := d.conntrackHdl.ConntrackTableUpdateMark(
-		tcpPacket.DestinationAddress.String(),
-		tcpPacket.SourceAddress.String(),
+	if err := flowtracking.UpdateNetworkFlowMark(
+		tcpPacket.SourceAddress,
+		tcpPacket.DestinationAddress,
 		tcpPacket.IPProto,
-		tcpPacket.DestinationPort,
 		tcpPacket.SourcePort,
+		tcpPacket.DestinationPort,
 		constants.DefaultConnMark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))

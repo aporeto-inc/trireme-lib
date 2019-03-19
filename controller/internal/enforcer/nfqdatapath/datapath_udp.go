@@ -13,6 +13,7 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -505,15 +506,15 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-		if err = d.conntrackHdl.ConntrackTableUpdateMark(
-			destIP,
-			udpPacket.SourceAddress.String(),
+		if err = flowtracking.UpdateApplicationFlowMark(
+			udpPacket.SourceAddress,
+			net.ParseIP(destIP),
 			udpPacket.IPProto,
-			uint16(destPort),
 			udpPacket.SourcePort,
+			uint16(destPort),
 			constants.DefaultConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack table for flow",
+			zap.L().Error("Failed to update conntrack table for UDP flow at transmitter",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", udpPacket.L4FlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -614,12 +615,12 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.DestinationAddress.String(),
-			udpPacket.SourceAddress.String(),
+		if err := flowtracking.UpdateNetworkFlowMark(
+			udpPacket.SourceAddress,
+			udpPacket.DestinationAddress,
 			udpPacket.IPProto,
-			udpPacket.DestinationPort,
 			udpPacket.SourcePort,
+			udpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table after ack packet")
@@ -672,15 +673,15 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-	if err = d.conntrackHdl.ConntrackTableUpdateMark(
-		udpPacket.DestinationAddress.String(),
-		udpPacket.SourceAddress.String(),
+	if err = flowtracking.UpdateNetworkFlowMark(
+		udpPacket.SourceAddress,
+		udpPacket.DestinationAddress,
 		udpPacket.IPProto,
-		udpPacket.DestinationPort,
 		udpPacket.SourcePort,
+		udpPacket.DestinationPort,
 		constants.DeleteConnmark,
 	); err != nil {
-		zap.L().Error("Failed to update conntrack table for flow",
+		zap.L().Error("Failed to update conntrack table for flow to terminate connection",
 			zap.String("app-conn", udpPacket.L4FlowHash()),
 			zap.Error(err),
 		)

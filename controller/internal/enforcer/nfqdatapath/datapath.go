@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"time"
 
-	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -106,9 +105,6 @@ type Datapath struct {
 
 	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
 	packetTracingCache cache.DataStore
-
-	// conntrack handle
-	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -241,7 +237,6 @@ func New(
 		ackSize:                secrets.AckSize(),
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
-		conntrackHdl:           conntrack.NewHandle(),
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
