@@ -240,7 +240,7 @@ func TestDeleteBasePath(t *testing.T) {
 	cg.Deletebasepath(testcgroupnameformat)
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 	if err == nil {
-		t.Errorf("Delete of cgroup from system failed %s", err.Error())
+		t.Errorf("Delete of cgroup from system failed")
 		t.SkipNow()
 	}
 }

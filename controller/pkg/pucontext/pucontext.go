@@ -431,16 +431,14 @@ func (p *PUContext) searchRules(
 			reportingAction = observeAction.(*policy.FlowPolicy)
 		}
 		// TODO: Is this if case required ?
-		if packetAction == nil {
 
-			index, action := policies.rejectRules.Search(tags)
-			if index >= 0 {
-				packetAction = action.(*policy.FlowPolicy)
-				if reportingAction == nil {
-					reportingAction = packetAction
-				}
-				return reportingAction, packetAction
+		index, action := policies.rejectRules.Search(tags)
+		if index >= 0 {
+			packetAction = action.(*policy.FlowPolicy)
+			if reportingAction == nil {
+				reportingAction = packetAction
 			}
+			return reportingAction, packetAction
 		}
 	}
 
