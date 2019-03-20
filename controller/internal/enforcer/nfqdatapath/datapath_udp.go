@@ -508,11 +508,15 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-
-		dstIPNet := net.ParseIP(destIP)
-
-		if err = updateConntrack(dstIPNet, udpPacket.SourceAddress(), uint16(destPort), udpPacket.SourcePort(), udpPacket.IPProto(), constants.DefaultConnMark); err != nil {
-			zap.L().Error("Failed to update conntrack table for flow",
+		if err = d.conntrack.UpdateApplicationFlowMark(
+			udpPacket.SourceAddress(),
+			net.ParseIP(destIP),
+			udpPacket.IPProto(),
+			udpPacket.SourcePort(),
+			uint16(destPort),
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack table for UDP flow at transmitter",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", udpPacket.L4FlowHash()),
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
@@ -612,9 +616,16 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
-
-		if err := updateConntrackPacket(udpPacket, true, constants.DefaultConnMark); err != nil {
-			zap.L().Error("Failed to update conntrack table after ack packet", zap.Error(err))
+		// Plumb connmark rule here.
+		if err := d.conntrack.UpdateNetworkFlowMark(
+			udpPacket.SourceAddress(),
+			udpPacket.DestinationAddress(),
+			udpPacket.IPProto(),
+			udpPacket.SourcePort(),
+			udpPacket.DestPort(),
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack table after ack packet")
 		}
 	}
 
@@ -664,9 +675,15 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-
-	if err = updateConntrackPacket(udpPacket, true, constants.DeleteConnmark); err != nil {
-		zap.L().Error("Failed to update conntrack table for flow",
+	if err = d.conntrack.UpdateNetworkFlowMark(
+		udpPacket.SourceAddress(),
+		udpPacket.DestinationAddress(),
+		udpPacket.IPProto(),
+		udpPacket.SourcePort(),
+		udpPacket.DestPort(),
+		constants.DeleteConnmark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table for flow to terminate connection",
 			zap.String("app-conn", udpPacket.L4FlowHash()),
 			zap.Error(err),
 		)

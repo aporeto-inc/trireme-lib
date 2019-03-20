@@ -5,11 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os/exec"
 	"time"
 
-	"github.com/ti-mo/conntrack"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -20,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -114,6 +113,9 @@ type Datapath struct {
 
 	// ack size
 	ackSize uint32
+
+	// conntrack is the conntrack client
+	conntrack *flowtracking.Client
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -291,7 +293,7 @@ func NewWithDefaults(
 
 	puFromContextID := cache.NewCache("puFromContextID")
 
-	return New(
+	e := New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
 		collector,
@@ -307,6 +309,14 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
+
+	conntrackClient, err := flowtracking.NewClient(context.Background())
+	if err != nil {
+		return nil
+	}
+	e.conntrack = conntrackClient
+
+	return e
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
@@ -462,6 +472,14 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
+	if d.conntrack == nil {
+		conntrackClient, err := flowtracking.NewClient(ctx)
+		if err != nil {
+			return err
+		}
+		d.conntrack = conntrackClient
+	}
+
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
 
@@ -587,54 +605,4 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 	}()
 
 	return nil
-}
-
-func updateConntrack(srcIP, dstIP net.IP, srcPort, dstPort uint16, proto uint8, mark uint32) error {
-	c, err := conntrack.Dial(nil)
-
-	if err != nil {
-		zap.L().Error("conntrack(netlink) could not be established", zap.Error(err))
-		return errConntrackFailed
-	}
-
-	defer c.Close() //nolint
-
-	f := conntrack.NewFlow(
-		proto, 0,
-		srcIP,
-		dstIP,
-		srcPort,
-		dstPort,
-		0, mark)
-
-	err = c.Update(f)
-
-	if err != nil {
-		zap.L().Error("Conntrack Error", zap.Error(err))
-		return errConntrackFailed
-	}
-
-	return nil
-}
-
-//updateConntrack updates the mark on the packet
-func updateConntrackPacket(packet *packet.Packet, reverse bool, mark uint32) error {
-	var srcIP net.IP
-	var dstIP net.IP
-	var srcPort uint16
-	var dstPort uint16
-
-	if reverse {
-		srcIP = packet.DestinationAddress()
-		dstIP = packet.SourceAddress()
-		srcPort = packet.DestPort()
-		dstPort = packet.SourcePort()
-	} else {
-		srcIP = packet.SourceAddress()
-		dstIP = packet.DestinationAddress()
-		srcPort = packet.SourcePort()
-		dstPort = packet.DestPort()
-	}
-
-	return updateConntrack(srcIP, dstIP, srcPort, dstPort, packet.IPProto(), mark)
 }
