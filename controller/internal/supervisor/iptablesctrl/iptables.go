@@ -65,14 +65,18 @@ const (
 	proxyMark                = "0x40"
 )
 
+type iptablesInstance struct {
+	ipt                 provider.IptablesProvider
+	ipset               provider.IpsetProvider
+	targetTCPSet        provider.Ipset
+	targetUDPSet        provider.Ipset
+	excludedNetworksSet provider.Ipset
+}
+
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
 	fqc                     *fqconfig.FilterQueue
-	ipt                     provider.IptablesProvider
-	ipset                   provider.IpsetProvider
-	targetTCPSet            provider.Ipset
-	targetUDPSet            provider.Ipset
-	excludedNetworksSet     provider.Ipset
+	currentInstance         *iptablesInstance
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
 	appPacketIPTableSection string

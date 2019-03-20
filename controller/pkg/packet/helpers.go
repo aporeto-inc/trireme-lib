@@ -101,7 +101,7 @@ func (p *Packet) PacketToStringTCP() string {
 }
 
 // Computes the IP header checksum. The packet is not modified.
-func (p *Packet) computeIPChecksum() uint16 {
+func (p *Packet) computeIPv4Checksum() uint16 {
 
 	// IP packet checksum is computed with the checksum value set to zero
 	p.ipHdr.Buffer[ipv4ChecksumPos] = 0
@@ -130,7 +130,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buffer[tcpChecksumPos] = 0
 	buffer[tcpChecksumPos+1] = 0
 
-	if p.IPHdr.version == v4 {
+	if p.ipHdr.version == v4 {
 		csum = partialChecksum(0, p.ipHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
 		csum = partialChecksum(csum, p.ipHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
 	} else {
@@ -252,7 +252,7 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	udpData = append(udpData, udpdata...)
 	udpData = append(udpData, udptoken...)
 
-	p.UDPHdr.udpData = udpData
+	p.udpHdr.udpData = udpData
 
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
@@ -311,7 +311,6 @@ func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 
 	p.UpdateUDPChecksum()
 }
-
 
 // GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {

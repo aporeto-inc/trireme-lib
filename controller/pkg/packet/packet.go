@@ -66,11 +66,11 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 	p.context = context
 
 	if bytes[ipv4HdrLenPos]&ipv4ProtoMask == 0x40 {
-		p.IPHdr.version = v4
+		p.ipHdr.version = v4
 		return &p, p.parseIPv4Packet(bytes, lengthValidate)
 	}
 
-	p.IPHdr.version = v6
+	p.ipHdr.version = v6
 	return &p, p.parseIPv6Packet(bytes, lengthValidate)
 }
 
@@ -156,35 +156,35 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 
 func (p *Packet) parseIPv6Packet(bytes []byte, lengthValidate bool) (err error) {
 	// IP Header Processing
-	p.IPHdr.ipHeaderLen = ipv6HeaderLen
-	p.IPHdr.ipProto = bytes[ipv6ProtoPos]
-	p.IPHdr.ipTotalLength = ipv6HeaderLen + binary.BigEndian.Uint16(bytes[ipv6PayloadLenPos:ipv6PayloadLenPos+2])
-	p.IPHdr.sourceAddress = append(p.IPHdr.sourceAddress, bytes[ipv6SourceAddrPos:ipv6SourceAddrPos+16]...)
-	p.IPHdr.destinationAddress = append(p.IPHdr.destinationAddress, bytes[ipv6DestAddrPos:ipv6DestAddrPos+16]...)
+	p.ipHdr.ipHeaderLen = ipv6HeaderLen
+	p.ipHdr.ipProto = bytes[ipv6ProtoPos]
+	p.ipHdr.ipTotalLength = ipv6HeaderLen + binary.BigEndian.Uint16(bytes[ipv6PayloadLenPos:ipv6PayloadLenPos+2])
+	p.ipHdr.sourceAddress = append(p.ipHdr.sourceAddress, bytes[ipv6SourceAddrPos:ipv6SourceAddrPos+16]...)
+	p.ipHdr.destinationAddress = append(p.ipHdr.destinationAddress, bytes[ipv6DestAddrPos:ipv6DestAddrPos+16]...)
 
-	p.IPHdr.Buffer = bytes
+	p.ipHdr.Buffer = bytes
 
-	if lengthValidate && p.IPHdr.ipTotalLength != uint16(len(p.IPHdr.Buffer)) {
-		if p.IPHdr.ipTotalLength < uint16(len(p.IPHdr.Buffer)) {
-			p.IPHdr.Buffer = p.IPHdr.Buffer[:p.IPHdr.ipTotalLength]
+	if lengthValidate && p.ipHdr.ipTotalLength != uint16(len(p.ipHdr.Buffer)) {
+		if p.ipHdr.ipTotalLength < uint16(len(p.ipHdr.Buffer)) {
+			p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.ipTotalLength]
 		} else {
-			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.IPHdr.ipTotalLength, len(p.IPHdr.Buffer))
+			return fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.ipHdr.ipTotalLength, len(p.ipHdr.Buffer))
 		}
 	}
 
 	// Some sanity checking for TCP.
-	if p.IPHdr.ipProto == IPProtocolTCP {
-		if p.IPHdr.ipTotalLength-uint16(p.IPHdr.ipHeaderLen) < minTCPIPPacketLen {
-			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.IPHdr.ipHeaderLen)
+	if p.ipHdr.ipProto == IPProtocolTCP {
+		if p.ipHdr.ipTotalLength-uint16(p.ipHdr.ipHeaderLen) < minTCPIPPacketLen {
+			return fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.ipHdr.ipHeaderLen)
 		}
 
 		p.parseTCP(bytes)
 	}
 
 	// Some sanity checking for UDP.
-	if p.IPHdr.ipProto == IPProtocolUDP {
-		if p.IPHdr.ipTotalLength-uint16(p.IPHdr.ipHeaderLen) < minUDPIPPacketLen {
-			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.IPHdr.ipHeaderLen)
+	if p.ipHdr.ipProto == IPProtocolUDP {
+		if p.ipHdr.ipTotalLength-uint16(p.ipHdr.ipHeaderLen) < minUDPIPPacketLen {
+			return fmt.Errorf("udp ip packet too small: hdrlen=%d", p.ipHdr.ipHeaderLen)
 		}
 		p.parseUDP(bytes)
 	}
@@ -362,11 +362,11 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	// Update IP Total Length.
 	p.ipHdr.ipTotalLength = p.ipHdr.ipTotalLength + new - old
 
-	if p.IPHdr.version == v6 {
-		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv6PayloadLenPos:ipv6PayloadLenPos+2], p.IPHdr.ipTotalLength-uint16(p.IPHdr.ipHeaderLen))
+	if p.ipHdr.version == v6 {
+		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv6PayloadLenPos:ipv6PayloadLenPos+2], p.ipHdr.ipTotalLength-uint16(p.ipHdr.ipHeaderLen))
 	} else {
-		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.IPHdr.ipTotalLength)
-		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.IPHdr.ipChecksum)
+		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4LengthPos:ipv4LengthPos+2], p.ipHdr.ipTotalLength)
+		binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.ipHdr.ipChecksum)
 	}
 }
 
