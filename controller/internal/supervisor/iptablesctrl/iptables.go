@@ -108,13 +108,7 @@ func GetInstance() *Instance {
 
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration) (*Instance, error) {
-
-	ipt, err := provider.NewGoIPTablesProvider([]string{"mangle"})
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
-	}
-
-	ips := provider.NewGoIPsetProvider()
+	iptv4 := setupv4(cfg)
 	return newInstanceWithProviders(fqc, mode, cfg, ipt, ips)
 }
 
@@ -168,24 +162,6 @@ func (i *Instance) Run(ctx context.Context) error {
 	// try to clean only ACLs related to Trireme.
 	if err := i.cleanACLs(); err != nil {
 		return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
-	}
-
-	// Create all the basic target sets. These are the global target sets
-	// that do not depend on policy configuration. If they already exist
-	// we will delete them and start again.
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.iptInstance.ipset)
-	if err != nil {
-		return fmt.Errorf("unable to create global sets: %s", err)
-	}
-
-	i.iptInstance.targetTCPSet = targetTCPSet
-	i.iptInstance.targetUDPSet = targetUDPSet
-	i.iptInstance.excludedNetworksSet = excludedSet
-
-	if err := i.updateAllTargetNetworks(i.iptInstance.cfg, &runtime.Configuration{}); err != nil {
-		// If there is a failure try to clean up on exit.
-		i.iptInstance.ipset.DestroyAll(chainPrefix) // nolint errcheck
-		return fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
 	// Initialize all the global Trireme chains. There are several global chaims
@@ -388,42 +364,8 @@ func (i *Instance) CleanUp() error {
 	return nil
 }
 
-// SetTargetNetworks updates ths target networks. There are three different
-// types of target networks:
-//   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
-//   - UDPTargetNetworks for UDP traffic (by default empty)
-//   - ExcludedNetworks that are always ignored (by default empty)
-func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
-
-	if c == nil {
-		return nil
-	}
-
-	cfg := c.DeepCopy()
-
-	var oldConfig *runtime.Configuration
-	if i.iptInstance.cfg == nil {
-		oldConfig = &runtime.Configuration{}
-	} else {
-		oldConfig = i.iptInstance.cfg.DeepCopy()
-	}
-
-	// If there are no target networks, capture all traffic
-	if len(cfg.TCPTargetNetworks) == 0 {
-		cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
-	}
-
-	if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {
-		return err
-	}
-
-	i.iptInstance.cfg = cfg
-
-	return nil
-}
-
 func (i *Instance) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration) error {
-	// Cleanup old ACLs
+
 	if err := i.updateTargetNetworks(i.iptInstance.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
 		return err
 	}
@@ -515,17 +457,21 @@ func (i *Instance) deleteProxySets(proxyPortSetName string) error { // nolint
 	return nil
 }
 
-func createGlobalSets(ips provider.IpsetProvider) (provider.Ipset, provider.Ipset, provider.Ipset, error) {
+func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ipset.Params) (provider.Ipset, provider.Ipset, provider.Ipset, error) {
 
 	var err error
 
 	defer func() {
 		if err != nil {
-			ips.DestroyAll(chainPrefix) // nolint errcheck
+			ips.DestroyAll(ipsetPrefix) // nolint errcheck
 		}
 	}()
 
-	targetSetNames := []string{targetTCPNetworkSet, targetUDPNetworkSet, excludedNetworkSet}
+	targetTCPSet := ipsetPrefix + targetTCPNetworkSet
+	targetUDPSet := ipsetPrefix + targetUDPNetworkSet
+	excludedSet := ipsetPrefix + excludedNetworkSet
+
+	targetSetNames := []string{targetTCPSet, targetUDPSet, excludedSet}
 
 	targetSets := map[string]provider.Ipset{}
 
@@ -541,7 +487,7 @@ func createGlobalSets(ips provider.IpsetProvider) (provider.Ipset, provider.Ipse
 
 	for _, t := range targetSetNames {
 		_, ok := setIndex[t]
-		createdSet, err := ips.NewIpset(t, "hash:net", &ipset.Params{})
+		createdSet, err := ips.NewIpset(t, "hash:net", params)
 		if err != nil {
 			if !ok {
 				return nil, nil, nil, err
@@ -554,7 +500,7 @@ func createGlobalSets(ips provider.IpsetProvider) (provider.Ipset, provider.Ipse
 		targetSets[t] = createdSet
 	}
 
-	return targetSets[targetTCPNetworkSet], targetSets[targetUDPNetworkSet], targetSets[excludedNetworkSet], nil
+	return targetSets[targetTCPSet], targetSets[targetUDPSet], targetSets[excludedSet], nil
 }
 
 type ipsetInfo struct {
