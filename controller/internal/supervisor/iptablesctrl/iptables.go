@@ -71,12 +71,13 @@ type iptablesInstance struct {
 	targetTCPSet        provider.Ipset
 	targetUDPSet        provider.Ipset
 	excludedNetworksSet provider.Ipset
+	cfg                 *runtime.Configuration
 }
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
 	fqc                     *fqconfig.FilterQueue
-	currentInstance         *iptablesInstance
+	iptInstance             *iptablesInstance
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
 	appPacketIPTableSection string
@@ -91,8 +92,8 @@ type Instance struct {
 	isLegacyKernel          bool
 	serviceIDToIPsets       map[string]*ipsetInfo
 	puToServiceIDs          map[string][]string
-	cfg                     *runtime.Configuration
-	conntrackCmd            func([]string)
+
+	conntrackCmd func([]string)
 }
 
 var instance *Instance
@@ -127,8 +128,7 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 
 	i := &Instance{
 		fqc:                     fqc,
-		ipt:                     ipt,
-		ipset:                   ips,
+		iptInstance:             nil,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -143,7 +143,6 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		isLegacyKernel:          buildflags.IsLegacyKernel(),
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
 		puToServiceIDs:          map[string][]string{},
-		cfg:                     cfg,
 		conntrackCmd:            flushUDPConntrack,
 	}
 
@@ -174,18 +173,18 @@ func (i *Instance) Run(ctx context.Context) error {
 	// Create all the basic target sets. These are the global target sets
 	// that do not depend on policy configuration. If they already exist
 	// we will delete them and start again.
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.ipset)
+	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.iptInstance.ipset)
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
 
-	i.targetTCPSet = targetTCPSet
-	i.targetUDPSet = targetUDPSet
-	i.excludedNetworksSet = excludedSet
+	i.iptInstance.targetTCPSet = targetTCPSet
+	i.iptInstance.targetUDPSet = targetUDPSet
+	i.iptInstance.excludedNetworksSet = excludedSet
 
-	if err := i.updateAllTargetNetworks(i.cfg, &runtime.Configuration{}); err != nil {
+	if err := i.updateAllTargetNetworks(i.iptInstance.cfg, &runtime.Configuration{}); err != nil {
 		// If there is a failure try to clean up on exit.
-		i.ipset.DestroyAll(chainPrefix) // nolint errcheck
+		i.iptInstance.ipset.DestroyAll(chainPrefix) // nolint errcheck
 		return fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
@@ -253,12 +252,12 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// We commit the ACLs at the end. Note, that some of the ACLs in the
 	// NAT table are not committed as a group. The commit function only
 	// applies when newer versions of tables are installed (1.6.2 and above).
-	if err = i.ipt.Commit(); err != nil {
+	if err = i.iptInstance.ipt.Commit(); err != nil {
 		zap.L().Error("unable to configure rules", zap.Error(err))
 		return err
 	}
 
-	i.conntrackCmd(i.cfg.UDPTargetNetworks)
+	i.conntrackCmd(i.iptInstance.cfg.UDPTargetNetworks)
 
 	return nil
 }
@@ -298,7 +297,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 
 	// We call commit to update all the changes, before destroying the ipsets.
 	// References must be deleted for ipset deletion to succeed.
-	if err := i.ipt.Commit(); err != nil {
+	if err := i.iptInstance.ipt.Commit(); err != nil {
 		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
@@ -364,7 +363,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Commit all actions in on iptables-restore function.
-	if err := i.ipt.Commit(); err != nil {
+	if err := i.iptInstance.ipt.Commit(); err != nil {
 		return err
 	}
 
@@ -382,7 +381,7 @@ func (i *Instance) CleanUp() error {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
 
-	if err := i.ipset.DestroyAll(chainPrefix); err != nil {
+	if err := i.iptInstance.ipset.DestroyAll(chainPrefix); err != nil {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
@@ -403,10 +402,10 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 	cfg := c.DeepCopy()
 
 	var oldConfig *runtime.Configuration
-	if i.cfg == nil {
+	if i.iptInstance.cfg == nil {
 		oldConfig = &runtime.Configuration{}
 	} else {
-		oldConfig = i.cfg.DeepCopy()
+		oldConfig = i.iptInstance.cfg.DeepCopy()
 	}
 
 	// If there are no target networks, capture all traffic
@@ -418,22 +417,22 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 		return err
 	}
 
-	i.cfg = cfg
+	i.iptInstance.cfg = cfg
 
 	return nil
 }
 
 func (i *Instance) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration) error {
 	// Cleanup old ACLs
-	if err := i.updateTargetNetworks(i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
+	if err := i.updateTargetNetworks(i.iptInstance.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
 		return err
 	}
 
-	if err := i.updateTargetNetworks(i.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
+	if err := i.updateTargetNetworks(i.iptInstance.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
 		return err
 	}
 
-	if err := i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks); err != nil {
+	if err := i.updateTargetNetworks(i.iptInstance.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks); err != nil {
 		return err
 	}
 
@@ -442,7 +441,7 @@ func (i *Instance) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration
 
 // ACLProvider returns the current ACL provider that can be re-used by other entities.
 func (i *Instance) ACLProvider() provider.IptablesProvider {
-	return i.ipt
+	return i.iptInstance.ipt
 }
 
 // InitializeChains initializes the chains.
@@ -468,7 +467,7 @@ func (i *Instance) initializeChains() error {
 		if len(rule) != 4 {
 			continue
 		}
-		if err := i.ipt.NewChain(rule[1], rule[3]); err != nil {
+		if err := i.iptInstance.ipt.NewChain(rule[1], rule[3]); err != nil {
 			return err
 		}
 	}
@@ -678,7 +677,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			ips := map[string]bool{}
 
 			ipsetName := puPortSetName(contextID, "TRI-ext-"+hashServiceID(rule.Policy.ServiceID))
-			set, err := i.ipset.NewIpset(ipsetName, "hash:net", &ipset.Params{})
+			set, err := i.iptInstance.ipset.NewIpset(ipsetName, "hash:net", &ipset.Params{})
 			if err != nil {
 				return nil, err
 			}
@@ -707,7 +706,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 
 				// add new entries
 				if !info.ips[address] {
-					if err := i.addToIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
+					if err := i.addToIPset(i.iptInstance.ipset.GetIpset(info.ipset), address); err != nil {
 						return nil, err
 					}
 					newips[address] = true
@@ -719,7 +718,7 @@ func (i *Instance) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 			// Remove the old entries
 			for address, val := range info.ips {
 				if val {
-					if err := i.delFromIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
+					if err := i.delFromIPset(i.iptInstance.ipset.GetIpset(info.ipset), address); err != nil {
 						return nil, err
 					}
 				}
