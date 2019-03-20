@@ -1,5 +1,8 @@
+package iptablesctrl
+
 import (
 	"fmt"
+	"net"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -14,6 +17,27 @@ var ipsetV6Param *ipset.Params
 
 func init() {
 	ipsetV6Param = &ipset.Params{HashFamily: "inet6"}
+}
+
+func filterIPv6(c *runtime.Configuration) {
+	filter := func(ips []string) {
+		var filteredIPs []string
+
+		for _, ip := range ips {
+			netIP, _, _ := net.ParseCIDR(ip)
+			if netIP.To4() == nil {
+				filteredIPs = append(filteredIPs, ip)
+			}
+		}
+
+		return filteredIPs
+	}
+
+	return &runtime.Configuration{
+		TCPTargetNetworks: filter(c.TCPTargetNetworks),
+		UDPTargetNetworks: filter(c.UDPTargetNetworks),
+		ExcludedNetworks:  filter(c.ExcludedNetworks),
+	}
 }
 
 //Setup
@@ -56,7 +80,7 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 		return nil
 	}
 
-	cfg := c.DeepCopy()
+	cfg := filterIPv6(c)
 
 	var oldConfig *runtime.Configuration
 	if i.iptInstance.cfg == nil {
@@ -67,7 +91,7 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 
 	// If there are no target networks, capture all traffic
 	if len(cfg.TCPTargetNetworks) == 0 {
-		cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+		cfg.TCPTargetNetworks = []string{"::/1", "8000::/1"}
 	}
 
 	if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {

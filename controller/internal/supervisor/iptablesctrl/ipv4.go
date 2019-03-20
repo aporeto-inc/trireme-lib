@@ -1,9 +1,13 @@
+package iptablesctrl
+
 import (
 	"fmt"
+	"net"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/runtime"
+	i "k8s.io/api"
 )
 
 // SetTargetNetworks updates ths target networks. There are three different
@@ -22,7 +26,7 @@ func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
-func (i *Instance) setupIPv4(cfg) {
+func setupIPv4(cfg) {
 
 	iptv4, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
 	if err != nil {
@@ -39,30 +43,45 @@ func (i *Instance) setupIPv4(cfg) {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
 
-	filterV4Ips(cfg)
-	if err := i.updateAllTargetNetworks(i.iptInstance.cfg, &runtime.Configuration{}); err != nil {
-		// If there is a failure try to clean up on exit.
-		i.iptInstance.ipset.DestroyAll(chainPrefix) // nolint errcheck
-		return fmt.Errorf("unable to initialize target networks: %s", err)
-	}
-
-	return &iptablesInstance{
+	ipt := &iptablesInstance{
 		ipt:                iptv4,
 		ipset:              ips,
 		targetTCPSet:       targetTCPSet,
 		targetUDPSet:       targetUDPSet,
 		excludedNetworkSet: excludedSet,
-		cfg:                cfg,
+	}
+
+	ipt.SetTargetNetworks(cfg)
+}
+
+func filterIPv4(c *runtime.Configuration) {
+	filter := func(ips []string) {
+		var filteredIPs []string
+
+		for _, ip := range ips {
+			netIP, _, _ := net.ParseCIDR(ip)
+			if netIP.To4() != nil {
+				filteredIPs = append(filteredIPs, ip)
+			}
+		}
+
+		return filteredIPs
+	}
+
+	return &runtime.Configuration{
+		TCPTargetNetworks: filter(c.TCPTargetNetworks),
+		UDPTargetNetworks: filter(c.UDPTargetNetworks),
+		ExcludedNetworks:  filter(c.ExcludedNetworks),
 	}
 }
 
-func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
+func (ipt *ipt) SetTargetNetworks(c *runtime.Configuration) error {
 
 	if c == nil {
 		return nil
 	}
 
-	cfg := c.DeepCopy()
+	cfg := filterIPv4(cfg)
 
 	var oldConfig *runtime.Configuration
 	if i.iptInstance.cfg == nil {
@@ -80,7 +99,7 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 		return err
 	}
 
-	i.iptInstance.cfg = cfg
+	ipt.cfg = cfg
 
 	return nil
 }
