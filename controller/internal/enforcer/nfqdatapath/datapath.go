@@ -18,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -111,6 +112,9 @@ type Datapath struct {
 
 	// ack size
 	ackSize uint32
+
+	// conntrack is the conntrack client
+	conntrack *flowtracking.Client
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -458,6 +462,12 @@ func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
+
+	conntrackClient, err := flowtracking.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	d.conntrack = conntrackClient
 
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)

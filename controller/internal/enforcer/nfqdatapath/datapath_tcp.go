@@ -13,7 +13,6 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -352,7 +351,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We can also clean up the state since we are not going to see any more
 	// packets from this connection.
 	if conn.GetState() == connection.TCPData && !conn.ServiceConnection {
-		if err := flowtracking.UpdateApplicationFlowMark(
+		if err := d.conntrack.UpdateApplicationFlowMark(
 			tcpPacket.SourceAddress,
 			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
@@ -428,7 +427,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// delegated to the service module
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() &&
 			!(tcpPacket.SourceAddress.IsLoopback() && tcpPacket.DestinationAddress.IsLoopback()) {
-			if err := flowtracking.UpdateApplicationFlowMark(
+			if err := d.conntrack.UpdateApplicationFlowMark(
 				tcpPacket.SourceAddress,
 				tcpPacket.DestinationAddress,
 				tcpPacket.IPProto,
@@ -462,7 +461,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			// It means it is a new SSH Session connection, we mark
 			// the packet and let it go through.
 			if context.Type() == common.SSHSessionPU {
-				if err := flowtracking.UpdateApplicationFlowMark(
+				if err := d.conntrack.UpdateApplicationFlowMark(
 					tcpPacket.SourceAddress,
 					tcpPacket.DestinationAddress,
 					tcpPacket.IPProto,
@@ -486,7 +485,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			return errors.New("Reject the packet")
 		}
 
-		if err := flowtracking.UpdateApplicationFlowMark(
+		if err := d.conntrack.UpdateApplicationFlowMark(
 			tcpPacket.SourceAddress,
 			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
@@ -680,7 +679,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	if conn.GetState() != connection.TCPSynSend {
 
 		// Revert the connmarks - dealing with retransmissions
-		if cerr := flowtracking.UpdateNetworkFlowMark(
+		if cerr := d.conntrack.UpdateNetworkFlowMark(
 			tcpPacket.SourceAddress,
 			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
@@ -800,7 +799,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, errors.New("Reject the packet")
 		}
 
-		if err := flowtracking.UpdateNetworkFlowMark(
+		if err := d.conntrack.UpdateNetworkFlowMark(
 			tcpPacket.SourceAddress,
 			tcpPacket.DestinationAddress,
 			tcpPacket.IPProto,
@@ -856,7 +855,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
-			if err := flowtracking.UpdateNetworkFlowMark(
+			if err := d.conntrack.UpdateNetworkFlowMark(
 				tcpPacket.SourceAddress,
 				tcpPacket.DestinationAddress,
 				tcpPacket.IPProto,
@@ -1089,7 +1088,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
-	if err := flowtracking.UpdateNetworkFlowMark(
+	if err := d.conntrack.UpdateNetworkFlowMark(
 		tcpPacket.SourceAddress,
 		tcpPacket.DestinationAddress,
 		tcpPacket.IPProto,
@@ -1109,7 +1108,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
 	zap.L().Debug("Releasing flow", zap.String("flow", tcpPacket.L4FlowHash()))
-	if err := flowtracking.UpdateNetworkFlowMark(
+	if err := d.conntrack.UpdateNetworkFlowMark(
 		tcpPacket.SourceAddress,
 		tcpPacket.DestinationAddress,
 		tcpPacket.IPProto,

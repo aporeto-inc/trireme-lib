@@ -13,7 +13,6 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -506,7 +505,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-		if err = flowtracking.UpdateApplicationFlowMark(
+		if err = d.conntrack.UpdateApplicationFlowMark(
 			udpPacket.SourceAddress,
 			net.ParseIP(destIP),
 			udpPacket.IPProto,
@@ -615,7 +614,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
-		if err := flowtracking.UpdateNetworkFlowMark(
+		if err := d.conntrack.UpdateNetworkFlowMark(
 			udpPacket.SourceAddress,
 			udpPacket.DestinationAddress,
 			udpPacket.IPProto,
@@ -673,7 +672,7 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-	if err = flowtracking.UpdateNetworkFlowMark(
+	if err = d.conntrack.UpdateNetworkFlowMark(
 		udpPacket.SourceAddress,
 		udpPacket.DestinationAddress,
 		udpPacket.IPProto,
