@@ -292,7 +292,7 @@ func NewWithDefaults(
 
 	puFromContextID := cache.NewCache("puFromContextID")
 
-	return New(
+	e := New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
 		collector,
@@ -308,6 +308,14 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
+
+	conntrackClient, err := flowtracking.NewClient(context.Background())
+	if err != nil {
+		return nil
+	}
+	e.conntrack = conntrackClient
+
+	return e
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
@@ -463,11 +471,13 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
-	conntrackClient, err := flowtracking.NewClient(ctx)
-	if err != nil {
-		return err
+	if d.conntrack == nil {
+		conntrackClient, err := flowtracking.NewClient(ctx)
+		if err != nil {
+			return err
+		}
+		d.conntrack = conntrackClient
 	}
-	d.conntrack = conntrackClient
 
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
