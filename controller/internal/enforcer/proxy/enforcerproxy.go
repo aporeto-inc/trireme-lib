@@ -46,35 +46,6 @@ type ProxyInfo struct {
 	sync.RWMutex
 }
 
-// InitRemoteEnforcer method makes a RPC call to the remote enforcer
-func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
-
-	resp := &rpcwrapper.Response{}
-
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.InitRequestPayload{
-			FqConfig:               s.filterQueue,
-			MutualAuth:             s.MutualAuth,
-			Validity:               s.validity,
-			ServerID:               s.serverID,
-			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
-			PacketLogs:             s.PacketLogs,
-			Secrets:                s.Secrets.PublicSecrets(),
-			Configuration:          s.cfg,
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
-		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
-	}
-
-	if resp.Status != "" {
-		zap.L().Error("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
-	}
-
-	return nil
-}
-
 // UpdateSecrets updates the secrets used for signing communication between trireme instances
 func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	s.Lock()
@@ -115,7 +86,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
 	if initializeEnforcer {
-		if err = s.InitRemoteEnforcer(contextID); err != nil {
+		if err = s.initRemoteEnforcer(contextID); err != nil {
 			s.prochdl.KillProcess(contextID)
 			return err
 		}
@@ -145,6 +116,18 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // Unenforce stops enforcing policy for the given contextID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.UnEnforcePayload{
+			ContextID: contextID,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{}); err != nil {
+		s.prochdl.KillProcess(contextID)
+		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
+	}
+
 	return nil
 }
 
@@ -325,6 +308,35 @@ func NewDefaultProxyEnforcer(serverID string,
 		cfg,
 		runtimeError,
 	)
+}
+
+// initRemoteEnforcer method makes a RPC call to the remote enforcer
+func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
+
+	resp := &rpcwrapper.Response{}
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.InitRequestPayload{
+			FqConfig:               s.filterQueue,
+			MutualAuth:             s.MutualAuth,
+			Validity:               s.validity,
+			ServerID:               s.serverID,
+			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
+			PacketLogs:             s.PacketLogs,
+			Secrets:                s.Secrets.PublicSecrets(),
+			Configuration:          s.cfg,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
+	}
+
+	if resp.Status != "" {
+		zap.L().Error("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
+	}
+
+	return nil
 }
 
 // StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.

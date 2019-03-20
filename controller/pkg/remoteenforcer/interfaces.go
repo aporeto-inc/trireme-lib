@@ -35,17 +35,8 @@ type RemoteIntf interface {
 	// It intializes data structure required by the remote enforcer
 	InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error
 
-	// InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
-	InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error
-
-	//Supervise This method calls the supervisor method on the supervisor created during initsupervisor
-	Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error
-
 	//Unenforce this method calls the unenforce method on the enforcer created from initenforcer
 	Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error
-
-	//Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
-	Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error
 
 	//Enforce this method calls the enforce method on the enforcer created during initenforcer
 	Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error

@@ -4,75 +4,42 @@ package supervisorproxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
-	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/processmon"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.
 //it mirrors what is stored by the supervisor and also information to talk with the
 // remote enforcer
 type ProxyInfo struct {
-	versionTracker cache.DataStore
-	collector      collector.EventCollector
-	filterQueue    *fqconfig.FilterQueue
-	cfg            *runtime.Configuration
-	prochdl        processmon.ProcessManager
-	rpchdl         rpcwrapper.RPCClient
-	initDone       map[string]bool
+	rpchdl   rpcwrapper.RPCClient
+	initDone map[string]bool
 
 	sync.Mutex
 }
 
-//Supervise Calls Supervise on the remote supervisor
+// Supervise just keeps track of the active remotes so that it can initiate updates.
 func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 	s.Lock()
-	_, ok := s.initDone[contextID]
-	cfg := s.cfg.DeepCopy()
-	s.Unlock()
-	if !ok {
-		err := s.initRemoteSupervisor(contextID, cfg)
-		if err != nil {
-			return err
-		}
-	}
+	defer s.Unlock()
 
-	req := &rpcwrapper.Request{
-		Payload: &rpcwrapper.SuperviseRequestPayload{
-			ContextID: contextID,
-			Policy:    puInfo.Policy.ToPublicPolicy(),
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Supervise, req, &rpcwrapper.Response{}); err != nil {
-		s.Lock()
-		delete(s.initDone, contextID)
-		s.Unlock()
-		return fmt.Errorf("unable to send supervise command for context id %s: %s", contextID, err)
-	}
+	s.initDone[contextID] = true
 
 	return nil
 }
 
-// Unsupervise exported stops enforcing policy for the given IP.
+// Unsupervise just keeps track of the active remotes so
 func (s *ProxyInfo) Unsupervise(contextID string) error {
 	s.Lock()
-	delete(s.initDone, contextID)
-	s.Unlock()
+	defer s.Unlock()
 
-	s.prochdl.KillProcess(contextID)
+	delete(s.initDone, contextID)
 
 	return nil
 }
@@ -95,16 +62,11 @@ func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 		}
 	}
 
-	s.cfg = cfg
-
 	return nil
 }
 
-// CleanUp implements the cleanup interface
+// CleanUp implements the cleanup interface, but it doesn't need to do anything.
 func (s *ProxyInfo) CleanUp() error {
-	for c := range s.initDone {
-		s.Unsupervise(c) // nolint
-	}
 	return nil
 }
 
@@ -114,63 +76,10 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Enforcer, cfg *runtime.Configuration, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
+func NewProxySupervisor(rpchdl rpcwrapper.RPCClient) *ProxyInfo {
 
-	if collector == nil {
-		return nil, errors.New("collector cannot be nil")
+	return &ProxyInfo{
+		initDone: make(map[string]bool),
+		rpchdl:   rpchdl,
 	}
-
-	if enforcer == nil {
-		return nil, errors.New("enforcer cannot be nil")
-	}
-
-	s := &ProxyInfo{
-		versionTracker: cache.NewCache("SupProxyVersionTracker"),
-		collector:      collector,
-		filterQueue:    enforcer.GetFilterQueue(),
-		prochdl:        processmon.GetProcessManagerHdl(),
-		rpchdl:         rpchdl,
-		initDone:       make(map[string]bool),
-		cfg:            cfg,
-	}
-
-	return s, nil
-
-}
-
-//InitRemoteSupervisor calls initsupervisor method on the remote
-func (s *ProxyInfo) initRemoteSupervisor(contextID string, cfg *runtime.Configuration) error {
-
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.InitSupervisorPayload{
-			Configuration: cfg,
-			CaptureMethod: rpcwrapper.IPTables,
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
-		return fmt.Errorf("unable to initialize remote supervisor for context id %s: %s", contextID, err)
-	}
-
-	s.Lock()
-	s.initDone[contextID] = true
-	s.Unlock()
-
-	return nil
-
-}
-
-// EnableIPTablesPacketTracing enable iptables tracing
-func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.EnableIPTablesPacketTracingPayLoad{
-			IPTablesPacketTracing: true,
-			Interval:              interval,
-			ContextID:             contextID,
-		},
-	}
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableIPTablesPacketTracing, request, &rpcwrapper.Response{}); err != nil {
-		return fmt.Errorf("Unable to enable iptables tracing for contextID %s: %s", contextID, err)
-	}
-	return nil
 }
