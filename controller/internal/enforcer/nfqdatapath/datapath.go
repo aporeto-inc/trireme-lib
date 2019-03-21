@@ -37,7 +37,6 @@ var errMarkNotFound = errors.New("PU mark not found")
 var errPortNotFound = errors.New("Port not found")
 var errContextIDNotFound = errors.New("unable to find contextID")
 var errInvalidProtocol = errors.New("Invalid Protocol")
-var errConntrackFailed = errors.New("Conntrack Failed to update the mark")
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
