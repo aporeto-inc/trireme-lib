@@ -244,6 +244,11 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	if s.supervisor != nil {
 		s.supervisor.CleanUp() // nolint
 	}
+
+	if s.enforcer != nil {
+		s.enforcer.CleanUp() // nolint
+	}
+
 	s.cancel()
 
 	return nil
@@ -394,6 +399,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
 
+	fmt.Println("Received kill signal ")
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))
 	}

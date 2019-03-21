@@ -13,7 +13,9 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -52,6 +54,13 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
+		remoteParameters: &env.RemoteParameters{
+			LogToConsole:   true,
+			LogFormat:      "console",
+			LogLevel:       "info",
+			LogWithID:      false,
+			CompressedTags: claimsheader.CompressionTypeV1,
+		},
 	}
 
 	for _, opt := range opts {
@@ -92,7 +101,7 @@ func (t *trireme) CleanUp() error {
 	}
 
 	for _, e := range t.enforcers {
-		e.CleanUp()// nolint
+		e.CleanUp() // nolint
 	}
 	return nil
 }
@@ -317,7 +326,6 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 				t.config.collector.CollectTraceEvent(messages)
 
 			}
-
 		}
 	}
 

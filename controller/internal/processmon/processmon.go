@@ -3,6 +3,7 @@ package processmon
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -16,16 +17,12 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
-)
-
-var (
-	// launcher supports only a global processMon instance
-	launcher *processMon
 )
 
 const (
@@ -37,27 +34,32 @@ const (
 	secretLength                = 32
 )
 
-// processMon is an instance of processMonitor
-type processMon struct {
+// RemoteMonitor is an instance of processMonitor
+type RemoteMonitor struct {
 	// netNSPath made configurable to enable running tests
 	netNSPath string
 	// remoteEnforcerTempBuildPath made configurable to enable running tests
 	remoteEnforcerTempBuildPath string
 	// remoteEnforcerBuildName made configurable to enable running tests
 	remoteEnforcerBuildName string
-	activeProcesses         *cache.Cache
-	childExitStatus         chan exitStatus
+	// activeProcesses holds a cache of the currently active processes.
+	activeProcesses *cache.Cache
+	// childExitStatus is a channel to monitor the exit status of processes.
+	childExitStatus chan exitStatus
 	// logToConsole stores if we should log to console.
 	logToConsole bool
 	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
 	// logLevel is the level of logs for remote command.
-	logLevel  string
+	logLevel string
+	// logFormat selects the format of the logs for the remote.
 	logFormat string
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags claimsheader.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
 	runtimeErrorChannel chan *policy.RuntimeError
+	// rpc is the rpc client to communicate with the remotes.
+	rpc rpcwrapper.RPCClient
 
 	sync.Mutex
 }
@@ -65,7 +67,6 @@ type processMon struct {
 // processInfo stores per process information
 type processInfo struct {
 	contextID string
-	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
 	sync.Mutex
 }
@@ -79,246 +80,36 @@ type exitStatus struct {
 	exitStatus error
 }
 
-func init() {
-	// Setup new launcher
-	newProcessMon(netNSPath, remoteEnforcerTempBuildPath, remoteEnforcerBuildName)
-}
+// New is a method to create a new remote process monitor.
+func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
 
-// contextID2SocketPath returns the socket path to use for a givent context
-func contextID2SocketPath(contextID string) string {
-
-	if contextID == "" {
-		panic("contextID is empty")
-	}
-
-	return filepath.Join("/var/run/", contextID+".sock")
-}
-
-// processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string) {
-	reader := bufio.NewReader(fd)
-	for {
-		str, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		fmt.Print("[" + contextID + "]:" + str)
-	}
-}
-
-// newProcessMon is a method to create a new processmon
-func newProcessMon(netns, remoteEnforcerPath, remoteEnforcerName string) ProcessManager {
-
-	launcher = &processMon{
-		remoteEnforcerTempBuildPath: remoteEnforcerPath,
-		remoteEnforcerBuildName:     remoteEnforcerName,
-		netNSPath:                   netns,
+	m := &RemoteMonitor{
+		remoteEnforcerTempBuildPath: remoteEnforcerTempBuildPath,
+		remoteEnforcerBuildName:     remoteEnforcerBuildName,
+		netNSPath:                   netNSPath,
 		activeProcesses:             cache.NewCache(processMonitorCacheName),
 		childExitStatus:             make(chan exitStatus, 100),
+		logToConsole:                p.LogToConsole,
+		logWithID:                   p.LogWithID,
+		logLevel:                    p.LogLevel,
+		logFormat:                   p.LogFormat,
+		compressedTags:              p.CompressedTags,
+		runtimeErrorChannel:         c,
+		rpc:                         r,
 	}
 
-	go launcher.collectChildExitStatus()
+	go m.collectChildExitStatus(ctx)
 
-	return launcher
+	return m
 }
 
-// GetProcessManagerHdl returns a process manager handle.
-func GetProcessManagerHdl() ProcessManager {
-	return launcher
-}
-
-// collectChildExitStatus is an async function which collects status for all launched child processes
-func (p *processMon) collectChildExitStatus() {
-
-	for es := range p.childExitStatus {
-		data, err := p.activeProcesses.Get(es.contextID)
-		if err != nil {
-			continue
-		}
-
-		p.activeProcesses.Remove(es.contextID) // nolint errcheck
-		procInfo, ok := data.(*processInfo)
-		if !ok {
-			zap.L().Error("Internal error - wrong data structure")
-			continue
-		}
-		procInfo.RPCHdl.DestroyRPCClient(es.contextID)
-
-		if p.runtimeErrorChannel != nil {
-			if es.exitStatus != nil {
-				zap.L().Error("Remote enforcer exited with an error",
-					zap.String("nativeContextID", es.contextID),
-					zap.Int("pid", es.process),
-					zap.Error(es.exitStatus),
-				)
-			} else {
-				zap.L().Warn("Remote enforcer exited",
-					zap.String("nativeContextID", es.contextID),
-					zap.Int("pid", es.process),
-				)
-			}
-			p.runtimeErrorChannel <- &policy.RuntimeError{
-				ContextID: es.contextID,
-				Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
-			}
-		}
-		zap.L().Debug("Remote enforcer exited normally",
-			zap.String("nativeContextID", es.contextID),
-			zap.Int("pid", es.process),
-		)
-	}
-}
-
-// SetLogParameters setups args that should be propagated to child processes
-func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags claimsheader.CompressionType) {
-	p.logToConsole = logToConsole
-	p.logWithID = logWithID
-	p.logLevel = logLevel
-	p.logFormat = logFormat
-	p.compressedTags = compressedTags
-}
-
-func (p *processMon) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
-	p.runtimeErrorChannel = e
-}
-
-// KillProcess sends a rpc to the process to exit failing which it will kill the process
-func (p *processMon) KillProcess(contextID string) {
-
-	p.Lock()
-	s, err := p.activeProcesses.Get(contextID)
-	if err != nil {
-		p.Unlock()
-		return
-	}
-	if err := p.activeProcesses.Remove(contextID); err != nil {
-		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
-	}
-	procInfo, ok := s.(*processInfo)
-	if !ok {
-		p.Unlock()
-		return
-	}
-	p.Unlock()
-
-	procInfo.Lock()
-	defer procInfo.Unlock()
-
-	req := &rpcwrapper.Request{}
-	resp := &rpcwrapper.Response{}
-	if procInfo.process == nil {
-		zap.L().Error("KillProcess failed - process is nil")
-		return
-	}
-	req.Payload = procInfo.process.Pid
-
-	c := make(chan error, 1)
-	go func() {
-		c <- procInfo.RPCHdl.RemoteCall(contextID, remoteenforcer.EnforcerExit, req, resp)
-	}()
-
-	select {
-	case err := <-c:
-		if err != nil {
-			zap.L().Error("Failed to stop gracefully - forcing kill",
-				zap.String("Remote error", err.Error()))
-		}
-		procInfo.process.Kill() // nolint
-	case <-time.After(5 * time.Second):
-		zap.L().Error("Time out on terminating remote enforcer - forcing kill")
-		procInfo.process.Kill() // nolint
-	}
-
-	procInfo.RPCHdl.DestroyRPCClient(contextID)
-}
-
-// pollStdOutAndErr polls std out and err
-func (p *processMon) pollStdOutAndErr(
-	cmd *exec.Cmd,
-	contextID string,
-) (err error) {
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	// Stdout/err processing
-	go processIOReader(stdout, contextID)
-	go processIOReader(stderr, contextID)
-
-	return nil
-}
-
-// getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) *exec.Cmd {
-
-	cmdName := filepath.Join(remoteEnforcerBuildPath, remoteEnforcerName)
-
-	cmdArgs := []string{arg}
-	zap.L().Debug("Enforcer executed",
-		zap.String("command", cmdName),
-		zap.Strings("args", cmdArgs),
-	)
-
-	return exec.Command(cmdName, cmdArgs...)
-}
-
-// getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
-func (p *processMon) getLaunchProcessEnvVars(
-	procMountPoint string,
-	contextID string,
-	randomkeystring string,
-	statsServerSecret string,
-	refPid int,
-	refNSPath string,
-) []string {
-
-	newEnvVars := []string{
-		constants.EnvMountPoint + "=" + procMountPoint,
-		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
-		constants.EnvStatsChannel + "=" + rpcwrapper.StatsChannel,
-		constants.EnvDebugChannel + "=" + rpcwrapper.DebugChannel,
-		constants.EnvRPCClientSecret + "=" + randomkeystring,
-		constants.EnvStatsSecret + "=" + statsServerSecret,
-		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
-		constants.EnvLogLevel + "=" + p.logLevel,
-		constants.EnvLogFormat + "=" + p.logFormat,
-	}
-
-	if p.compressedTags != claimsheader.CompressionTypeNone {
-		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
-	}
-
-	if p.logToConsole {
-		newEnvVars = append(newEnvVars, constants.EnvLogToConsole+"="+constants.EnvLogToConsoleEnable)
-	}
-
-	if p.logWithID {
-		newEnvVars = append(newEnvVars, constants.EnvLogID+"="+contextID)
-	}
-
-	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
-	if refNSPath != "" {
-		newEnvVars = append(newEnvVars, constants.EnvNSPath+"="+refNSPath)
-	}
-
-	return newEnvVars
-}
-
-// LaunchProcess prepares the environment and launches the process. If the process
+// LaunchRemoteEnforcer prepares the environment and launches the process. If the process
 // is already launched, it will notify the caller, so that it can avoid any
 // new initialization.
-func (p *processMon) LaunchProcess(
+func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	contextID string,
 	refPid int,
 	refNSPath string,
-	rpchdl rpcwrapper.RPCClient,
 	arg string,
 	statsServerSecret string,
 	procMountPoint string,
@@ -334,7 +125,6 @@ func (p *processMon) LaunchProcess(
 
 	procInfo := &processInfo{
 		contextID: contextID,
-		RPCHdl:    rpchdl,
 	}
 	p.activeProcesses.AddOrUpdate(contextID, procInfo)
 	p.Unlock()
@@ -414,7 +204,7 @@ func (p *processMon) LaunchProcess(
 
 	procInfo.process = cmd.Process
 
-	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+	if err := p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
 		return false, fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 
@@ -428,4 +218,192 @@ func (p *processMon) LaunchProcess(
 	}()
 
 	return true, nil
+}
+
+// KillRemoteEnforcer sends a rpc to the process to exit failing which it will kill the process
+func (p *RemoteMonitor) KillRemoteEnforcer(contextID string) error {
+
+	p.Lock()
+	s, err := p.activeProcesses.Get(contextID)
+	if err != nil {
+		p.Unlock()
+		return fmt.Errorf("unable to find process for context: %s", contextID)
+	}
+
+	p.activeProcesses.Remove(contextID) // nolint errcheck
+	p.Unlock()
+
+	procInfo, ok := s.(*processInfo)
+	if !ok {
+		return fmt.Errorf("internal error - invalid type for process")
+	}
+
+	procInfo.Lock()
+	defer procInfo.Unlock()
+
+	if procInfo.process == nil {
+		return fmt.Errorf("cannot find process for context: %s", contextID)
+	}
+
+	req := &rpcwrapper.Request{
+		Payload: procInfo.process.Pid,
+	}
+	resp := &rpcwrapper.Response{}
+
+	c := make(chan error, 1)
+	go func() {
+		c <- p.rpc.RemoteCall(contextID, remoteenforcer.EnforcerExit, req, resp)
+	}()
+
+	select {
+	case err := <-c:
+		if err != nil {
+			zap.L().Error("Failed to stop gracefully - forcing kill",
+				zap.Error(err))
+		}
+		procInfo.process.Kill() // nolint
+	case <-time.After(5 * time.Second):
+		zap.L().Error("Time out on terminating remote enforcer - forcing kill")
+		procInfo.process.Kill() // nolint
+	}
+
+	p.rpc.DestroyRPCClient(contextID)
+
+	return nil
+}
+
+// collectChildExitStatus is an async function which collects status for all launched child processes
+func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case es := <-p.childExitStatus:
+
+			p.activeProcesses.Remove(es.contextID) // nolint errcheck
+			p.rpc.DestroyRPCClient(es.contextID)
+
+			if p.runtimeErrorChannel != nil {
+				if es.exitStatus != nil {
+					zap.L().Error("Remote enforcer exited with an error",
+						zap.String("nativeContextID", es.contextID),
+						zap.Int("pid", es.process),
+						zap.Error(es.exitStatus),
+					)
+				} else {
+					zap.L().Warn("Remote enforcer exited",
+						zap.String("nativeContextID", es.contextID),
+						zap.Int("pid", es.process),
+					)
+				}
+				p.runtimeErrorChannel <- &policy.RuntimeError{
+					ContextID: es.contextID,
+					Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
+				}
+			}
+		}
+	}
+}
+
+// pollStdOutAndErr polls std out and err
+func (p *RemoteMonitor) pollStdOutAndErr(
+	cmd *exec.Cmd,
+	contextID string,
+) (err error) {
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	// Stdout/err processing
+	go processIOReader(stdout, contextID)
+	go processIOReader(stderr, contextID)
+
+	return nil
+}
+
+// getLaunchProcessCmd returns the command used to launch the enforcerd
+func (p *RemoteMonitor) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) *exec.Cmd {
+
+	cmdName := filepath.Join(remoteEnforcerBuildPath, remoteEnforcerName)
+
+	cmdArgs := []string{arg}
+	zap.L().Debug("Enforcer executed",
+		zap.String("command", cmdName),
+		zap.Strings("args", cmdArgs),
+	)
+
+	return exec.Command(cmdName, cmdArgs...)
+}
+
+// getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
+func (p *RemoteMonitor) getLaunchProcessEnvVars(
+	procMountPoint string,
+	contextID string,
+	randomkeystring string,
+	statsServerSecret string,
+	refPid int,
+	refNSPath string,
+) []string {
+
+	newEnvVars := []string{
+		constants.EnvMountPoint + "=" + procMountPoint,
+		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
+		constants.EnvStatsChannel + "=" + constants.StatsChannel,
+		constants.EnvDebugChannel + "=" + constants.DebugChannel,
+		constants.EnvRPCClientSecret + "=" + randomkeystring,
+		constants.EnvStatsSecret + "=" + statsServerSecret,
+		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
+		constants.EnvLogLevel + "=" + p.logLevel,
+		constants.EnvLogFormat + "=" + p.logFormat,
+	}
+
+	if p.compressedTags != claimsheader.CompressionTypeNone {
+		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
+	}
+
+	if p.logToConsole {
+		newEnvVars = append(newEnvVars, constants.EnvLogToConsole+"="+constants.EnvLogToConsoleEnable)
+	}
+
+	if p.logWithID {
+		newEnvVars = append(newEnvVars, constants.EnvLogID+"="+contextID)
+	}
+
+	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
+	if refNSPath != "" {
+		newEnvVars = append(newEnvVars, constants.EnvNSPath+"="+refNSPath)
+	}
+
+	return newEnvVars
+}
+
+// contextID2SocketPath returns the socket path to use for a givent context
+func contextID2SocketPath(contextID string) string {
+
+	if contextID == "" {
+		panic("contextID is empty")
+	}
+
+	return filepath.Join("/var/run/", contextID+".sock")
+}
+
+// processIOReader will read from a reader and print it on the calling process
+func processIOReader(fd io.Reader, contextID string) {
+	reader := bufio.NewReader(fd)
+	for {
+		str, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		fmt.Print("[" + contextID + "]:" + str)
+	}
 }

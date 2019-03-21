@@ -34,7 +34,7 @@ func NewDebugClient(cr statscollector.Collector) (DebugClient, error) {
 		collector:     cr,
 		rpchdl:        rpcwrapper.NewRPCWrapper(),
 		secret:        os.Getenv(constants.EnvStatsSecret),
-		debugChannel:  os.Getenv(constants.EnvStatsChannel),
+		debugChannel:  os.Getenv(constants.EnvDebugChannel),
 		debugInterval: defaultDebugIntervalMilliseconds * time.Millisecond,
 		stop:          make(chan bool),
 	}
