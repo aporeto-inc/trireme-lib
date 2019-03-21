@@ -206,7 +206,36 @@ func (s *netCls) ListAllCgroups(path string) []string {
 
 	return names
 }
+func getCgroupBasePath() (string, error) {
+	mounts, err := ioutil.ReadFile("/proc/mounts")
+	if err != nil {
+		return "", fmt.Errorf("Failed to read /proc/mounts: %s", err)
+	}
 
+	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
+	var netCls = false
+	var cgroupMount string
+	for sc.Scan() {
+		if strings.HasPrefix(sc.Text(), "cgroup") {
+			cgroupMount = strings.Split(sc.Text(), " ")[1]
+			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
+			if strings.Contains(sc.Text(), "net_cls") {
+				basePath = strings.Split(sc.Text(), " ")[1]
+				netCls = true
+				return basePath, nil
+			}
+		}
+
+	}
+	if len(cgroupMount) == 0 {
+		return "", fmt.Errorf("Failed to get mount points: %s", err)
+	}
+
+	if !netCls {
+		basePath = cgroupMount + "/net_cls"
+	}
+	return basePath, nil
+}
 func mountCgroupController() error {
 	mounts, err := ioutil.ReadFile("/proc/mounts")
 	if err != nil {

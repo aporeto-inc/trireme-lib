@@ -25,7 +25,9 @@ var (
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {
 	var cgroupList []string
-	filelist, err := ioutil.ReadDir(filepath.Join(basePath, TriremeBasePath))
+	cgroupBasePath, _ := getCgroupBasePath()
+
+	filelist, err := ioutil.ReadDir(filepath.Join(cgroupBasePath, TriremeBasePath))
 	if err != nil {
 		return cgroupList
 	}
@@ -39,13 +41,16 @@ func GetCgroupList() []string {
 
 // ListCgroupProcesses lists the cgroups that trireme has created
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
-
-	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
+	cgroupBasePath, err := getCgroupBasePath()
+	if err != nil {
+		return nil, err
+	}
+	_, err = os.Stat(filepath.Join(cgroupBasePath, TriremeBasePath, cgroupname))
 	if os.IsNotExist(err) {
 		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupname, "cgroup.procs"))
+	data, err := ioutil.ReadFile(filepath.Join(cgroupBasePath, TriremeBasePath, cgroupname, "cgroup.procs"))
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot read procs file: %s", err)
 	}
@@ -63,6 +68,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 // GetAssignedMarkVal -- returns the mark val assigned to the group
 func GetAssignedMarkVal(cgroupName string) string {
+
 	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
 
 	if err != nil || len(mark) < 1 {
