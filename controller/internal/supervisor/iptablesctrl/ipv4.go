@@ -1,4 +1,4 @@
-package iptablesctrl
+package ipv4
 
 import (
 	"fmt"
@@ -10,23 +10,26 @@ import (
 	i "k8s.io/api"
 )
 
-// SetTargetNetworks updates ths target networks. There are three different
-// types of target networks:
-//   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
-//   - UDPTargetNetworks for UDP traffic (by default empty)
-//   - ExcludedNetworks that are always ignored (by default empty)
-
 const (
 	ipv4 = "ipv4"
 )
 
 var ipsetV4Param *ipset.Params
 
+type iptablesInstance struct {
+	ipt                 provider.IptablesProvider
+	ipset               provider.IpsetProvider
+	targetTCPSet        provider.Ipset
+	targetUDPSet        provider.Ipset
+	excludedNetworksSet provider.Ipset
+	cfg                 *runtime.Configuration
+}
+
 func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
-func setupIPv4(cfg) {
+func Setup(cfg) {
 
 	iptv4, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
 	if err != nil {
@@ -49,12 +52,13 @@ func setupIPv4(cfg) {
 		targetTCPSet:       targetTCPSet,
 		targetUDPSet:       targetUDPSet,
 		excludedNetworkSet: excludedSet,
+		cfg:                filterIPv4(cfg),
 	}
 
 	ipt.SetTargetNetworks(cfg)
 }
 
-func filterIPv4(c *runtime.Configuration) {
+func filterIPv4(c *runtime.Configuration) *runtime.Configuration {
 	filter := func(ips []string) {
 		var filteredIPs []string
 
@@ -74,6 +78,12 @@ func filterIPv4(c *runtime.Configuration) {
 		ExcludedNetworks:  filter(c.ExcludedNetworks),
 	}
 }
+
+// SetTargetNetworks updates ths target networks. There are three different
+// types of target networks:
+//   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
+//   - UDPTargetNetworks for UDP traffic (by default empty)
+//   - ExcludedNetworks that are always ignored (by default empty)
 
 func (ipt *ipt) SetTargetNetworks(c *runtime.Configuration) error {
 

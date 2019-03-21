@@ -1,4 +1,4 @@
-package iptablesctrl
+package ipv6
 
 import (
 	"fmt"
@@ -14,6 +14,15 @@ const (
 )
 
 var ipsetV6Param *ipset.Params
+
+type iptablesInstance struct {
+	ipt                 provider.IptablesProvider
+	ipset               provider.IpsetProvider
+	targetTCPSet        provider.Ipset
+	targetUDPSet        provider.Ipset
+	excludedNetworksSet provider.Ipset
+	cfg                 *runtime.Configuration
+}
 
 func init() {
 	ipsetV6Param = &ipset.Params{HashFamily: "inet6"}
@@ -41,7 +50,7 @@ func filterIPv6(c *runtime.Configuration) {
 }
 
 //Setup
-func (i *Instance) setupIPv6() {
+func (i *Instance) Setup() {
 	iptV6, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)

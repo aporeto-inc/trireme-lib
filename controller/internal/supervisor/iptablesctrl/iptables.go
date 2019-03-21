@@ -65,13 +65,8 @@ const (
 	proxyMark                = "0x40"
 )
 
-type iptablesInstance struct {
-	ipt                 provider.IptablesProvider
-	ipset               provider.IpsetProvider
-	targetTCPSet        provider.Ipset
-	targetUDPSet        provider.Ipset
-	excludedNetworksSet provider.Ipset
-	cfg                 *runtime.Configuration
+type ipImpl interface {
+	SetTargetNetworks(*runtime.Configuration)
 }
 
 // Instance  is the structure holding all information about a implementation
@@ -92,8 +87,9 @@ type Instance struct {
 	isLegacyKernel          bool
 	serviceIDToIPsets       map[string]*ipsetInfo
 	puToServiceIDs          map[string][]string
-
-	conntrackCmd func([]string)
+	conntrackCmd            func([]string)
+	iptV4                   ipImpl
+	iptV6                   ipImpl
 }
 
 var instance *Instance
@@ -109,7 +105,9 @@ func GetInstance() *Instance {
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration) (*Instance, error) {
 	iptv4 := setupv4(cfg)
-	return newInstanceWithProviders(fqc, mode, cfg, ipt, ips)
+	iptv4 := setupv6(cfg)
+
+	return newInstanceWithProviders(fqc, mode, cfg, iptv4, iptv6, ips)
 }
 
 // newInstanceWithProviders is called after ipt and ips have been created. This helps
@@ -122,7 +120,7 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 
 	i := &Instance{
 		fqc:                     fqc,
-		iptInstance:             nil,
+		currentInstance:         nil,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -138,6 +136,8 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
 		puToServiceIDs:          map[string][]string{},
 		conntrackCmd:            flushUDPConntrack,
+		iptv4:                   iptv4,
+		iptv6:                   iptv6,
 	}
 
 	lock.Lock()
@@ -145,6 +145,11 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 	defer lock.Unlock()
 
 	return i, nil
+}
+
+func (i *Instance) SetTargetNetworks(c *runtime.Configuration) {
+	i.iptV4.SetTargetNetworks(c)
+	i.iptV6.SetTargetNetworks(c)
 }
 
 // Run starts the iptables controller
