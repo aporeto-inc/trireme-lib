@@ -444,13 +444,17 @@ func TestAuthOptions(t *testing.T) {
 	pkt.Print(123456)
 	PacketLogLevel = false
 
-	pkt.TCPDataDetach(4)
+	if err := pkt.TCPDataDetach(4); err != nil {
+		t.Error("tcp data detach failed")
+	}
 
 	// We are now processing as a Trireme packet that needs authorization headers
 	// Create TCP Option
 	tcpOptions := createTCPAuthenticationOption([]byte{})
 	pkt.tcpHdr.tcpOptions = []byte{}
-	pkt.TCPDataAttach(tcpOptions, []byte{})
+	if err := pkt.TCPDataAttach(tcpOptions, []byte{}); err != nil {
+		t.Error("tcp data attach failed")
+	}
 
 	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPOptions()...)
 	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPData()...)
