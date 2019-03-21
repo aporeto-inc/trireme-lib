@@ -341,7 +341,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 	// Attach the tags to the packet and accept the packet
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
-
 }
 
 // processApplicationSynAckPacket processes an application SynAck packet
