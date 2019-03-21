@@ -1,8 +1,4 @@
-required = ["github.com/docker/distribution",
-  "github.com/ti-mo/netfilter",
-  "github.com/ti-mo/netlink",
-  "github.com/mdlayher/netlink",
-  "github.com/ti-mo/conntrack",]
+required = ["github.com/docker/distribution"]
 
 [[constraint]]
   branch = "master"
@@ -39,22 +35,6 @@ required = ["github.com/docker/distribution",
 [[constraint]]
   name = "github.com/hashicorp/go-version"
   version = "v1.0.0"
-
-[[constraint]]
-  revision = "8395e6839ea4fd96e8c6c4480b0ce18bb5e9faac"
-  name = "github.com/ti-mo/conntrack"
-
-[[constraint]]
-  revision = "4015a69e336ad1ef9c52247aad45721dcc884798"
-  name = "github.com/mdlayher/netlink"
-
-[[constraint]]
-  revision = "9c12e0dcbe7b764c28472aa56ce6cb1ec37c54fe"
-  name = "github.com/ti-mo/netfilter"
- 
-[[constraint]]
-  revision = "8c8a3290a9f373a2774d5ed0364f41a601607664"
-  name = "github.com/ti-mo/netlink"
 
 [prune]
   go-tests = true
