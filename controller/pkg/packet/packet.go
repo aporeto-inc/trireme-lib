@@ -391,7 +391,6 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 //   - Updates IP Hdr (lengths, checksums)
 //   - Updates TCP header (checksums)
 func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
-
 	// Length
 	dataLength := uint16(len(p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:])) - p.TCPDataStartBytes()
 
@@ -443,7 +442,6 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding
 	// our option last.
 	packetLenIncrease := uint16(len(tcpData) + len(tcpOptions))
-
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
 

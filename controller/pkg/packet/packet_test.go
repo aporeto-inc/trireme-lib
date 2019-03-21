@@ -425,6 +425,41 @@ func TestRawChecksums(t *testing.T) {
 	}
 }
 
+// createTCPAuthenticationOption creates the TCP authentication option -
+func createTCPAuthenticationOption(token []byte) []byte {
+
+	tokenLen := uint8(len(token))
+	options := []byte{TCPAuthenticationOption, 0, 0, 0}
+
+	if tokenLen != 0 {
+		options = append(options, token...)
+	}
+
+	return options
+}
+
+func TestAuthOptions(t *testing.T) {
+	pkt := getTestPacket(t, synGoodTCPChecksum)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
+
+	pkt.TCPDataDetach(4)
+
+	// We are now processing as a Trireme packet that needs authorization headers
+	// Create TCP Option
+	tcpOptions := createTCPAuthenticationOption([]byte{})
+	pkt.tcpHdr.tcpOptions = []byte{}
+	pkt.TCPDataAttach(tcpOptions, []byte{})
+
+	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPOptions()...)
+	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPData()...)
+
+	if err := pkt.CheckTCPAuthenticationOption(4); err != nil {
+		t.Error("tcp auth option not found")
+	}
+
+}
 func TestNewPacketFunctions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
 	PacketLogLevel = true
@@ -470,6 +505,7 @@ func TestNewPacketFunctions(t *testing.T) {
 	if pkt.GetTCPFlags() != 2 {
 		t.Error("test packet tcp flags didnt match")
 	}
+
 }
 
 func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
