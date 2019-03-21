@@ -90,6 +90,10 @@ func (t *trireme) CleanUp() error {
 	for _, s := range t.supervisors {
 		s.CleanUp() // nolint
 	}
+
+	for _, e := range t.enforcers {
+		e.CleanUp()// nolint
+	}
 	return nil
 }
 

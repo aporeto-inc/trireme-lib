@@ -70,7 +70,8 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	initializeEnforcer, err := s.prochdl.LaunchProcess(
+
+	initEnforcer, err := s.prochdl.LaunchProcess(
 		contextID,
 		puInfo.Runtime.Pid(),
 		puInfo.Runtime.NSPath(),
@@ -85,8 +86,8 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
-	if initializeEnforcer {
-		if err = s.initRemoteEnforcer(contextID); err != nil {
+	if initEnforcer {
+		if err := s.initRemoteEnforcer(contextID); err != nil {
 			s.prochdl.KillProcess(contextID)
 			return err
 		}
@@ -105,8 +106,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		Payload: enforcerPayload,
 	}
 
-	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})
-	if err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{}); err != nil {
 		s.prochdl.KillProcess(contextID)
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
@@ -123,9 +123,33 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{}); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Unenforce, request, &rpcwrapper.Response{}); err != nil {
 		s.prochdl.KillProcess(contextID)
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
+	}
+
+	return nil
+}
+
+// CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
+func (s *ProxyInfo) CleanUp() error {
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{}
+
+	var allErrors string
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		request.Payload = &rpcwrapper.UnEnforcePayload{
+			ContextID: contextID,
+		}
+
+		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Unenforce, request, resp); err != nil {
+			allErrors = allErrors + " contextID:" + err.Error()
+		}
+	}
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("Remote enforcers failed: %s", allErrors)
 	}
 
 	return nil
@@ -145,6 +169,7 @@ func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction pack
 	if err != nil {
 		return fmt.Errorf("unable to enable datapath packet tracing %s -- %s", err, resp.Status)
 	}
+
 	return nil
 }
 
@@ -328,15 +353,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
-		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
-	}
-
-	if resp.Status != "" {
-		zap.L().Error("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
-	}
-
-	return nil
+	return s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp)
 }
 
 // StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.

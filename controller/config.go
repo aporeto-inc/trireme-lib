@@ -201,17 +201,7 @@ func (t *trireme) newSupervisors() error {
 	}
 
 	if t.config.mode == constants.RemoteContainer {
-		s, err := supervisorproxy.NewProxySupervisor(
-			t.config.collector,
-			t.enforcers[constants.RemoteContainer],
-			t.config.runtimeCfg,
-			t.rpchdl,
-		)
-		if err != nil {
-			zap.L().Error("Unable to create proxy Supervisor:: Returned Error ", zap.Error(err))
-			return nil
-		}
-		t.supervisors[constants.RemoteContainer] = s
+		t.supervisors[constants.RemoteContainer] = supervisorproxy.NewProxySupervisor()
 	}
 
 	if t.config.mode == constants.Sidecar {

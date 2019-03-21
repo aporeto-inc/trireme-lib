@@ -40,7 +40,12 @@ type Enforcer interface {
 	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
 
+	// SetTargetNetworks sets the target network configuration of the controllers.
 	SetTargetNetworks(cfg *runtime.Configuration) error
+
+	// Cleanup request a clean up of the controllers.
+	CleanUp()error
+
 	DebugInfo
 }
 
@@ -167,6 +172,11 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 		}
 	}
 
+	return nil
+}
+
+// Cleanup implements the cleanup interface. Not much to do here.
+func (e *enforcer) CleanUp()error {
 	return nil
 }
 

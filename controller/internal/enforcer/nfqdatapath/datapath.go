@@ -494,6 +494,12 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
+// Cleanup implements the cleanup interface.
+func (d *Datapath) CleanUp()error {
+	// TODO add any cleaning up we need to do here.
+	return nil
+}
+
 func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
 
 	item, err := d.puFromContextID.Get(contextID)

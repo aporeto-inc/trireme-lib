@@ -95,16 +95,21 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
+	payload, ok := req.Payload.(rpcwrapper.InitRequestPayload)
+	if !ok {
+		resp.Status = fmt.Sprintf("invalid request payload: %s", resp.Status)
+	}
+
 	if s.supervisor != nil || s.enforcer != nil {
 		resp.Status = fmt.Sprintf("remote enforcer is already initialized")
 	}
 
-	if err := s.setupEnforcer(req); err != nil {
+	if err := s.setupEnforcer(&payload); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.setupSupervisor(); err != nil {
+	if err := s.setupSupervisor(&payload); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
@@ -208,6 +213,8 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 // SetTargetNetworks calls the same method on the actual enforcer
 func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	fmt.Println("Setting target networks")
+
 	var err error
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "SetTargetNetworks message auth failed" //nolint
@@ -216,11 +223,13 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
-	if s.enforcer == nil {
+
+	if s.enforcer == nil || s.supervisor == nil {
 		return fmt.Errorf(resp.Status)
 	}
 
 	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
+
 	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
 		return err
 	}
@@ -301,10 +310,9 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 }
 
 // setup an enforcer
-func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
-	var err error
+func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) error {
 
-	payload := req.Payload.(rpcwrapper.InitRequestPayload)
+	var err error
 
 	s.secrets, err = secrets.NewSecrets(payload.Secrets)
 	if err != nil {
@@ -331,13 +339,13 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 	return nil
 }
 
-func (s *RemoteEnforcer) setupSupervisor() error {
+func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
 	h, err := supervisor.NewSupervisor(
 		s.collector,
 		s.enforcer,
 		constants.RemoteContainer,
-		nil,
+		payload.Configuration,
 		s.service,
 	)
 	if err != nil {
