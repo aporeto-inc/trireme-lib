@@ -14,12 +14,16 @@ const (
 
 	// PUCreateFailed error reason
 	PUCreateFailed ErrorReason = "PUCreateFailed"
+
+	// PUAlreadyActivated error reason
+	PUAlreadyActivated ErrorReason = "PUAlreadyActivated"
 )
 
 var policyErrorDescription = map[ErrorReason]string{
-	PUNotFound:     "unable to find PU with ID",
-	PUNotUnique:    "more than one PU with ID exist",
-	PUCreateFailed: "failed to create PU",
+	PUNotFound:         "unable to find PU with ID",
+	PUNotUnique:        "more than one PU with ID exist",
+	PUCreateFailed:     "failed to create PU",
+	PUAlreadyActivated: "PU has been already activated previously",
 }
 
 // Error is a specific error type for context
@@ -68,6 +72,15 @@ func ErrPUCreateFailed(puID string, err error) error {
 	}
 }
 
+// ErrPUAlreadyActivated creates a new PU already activated error
+func ErrPUAlreadyActivated(puID string, err error) error {
+	return &Error{
+		puID:   puID,
+		reason: PUAlreadyActivated,
+		err:    err,
+	}
+}
+
 // IsErrPUNotFound checks if this error is a PU not found error
 func IsErrPUNotFound(err error) bool {
 	switch t := err.(type) {
@@ -93,6 +106,16 @@ func IsErrPUCreateFailed(err error) bool {
 	switch t := err.(type) {
 	case *Error:
 		return t.reason == PUCreateFailed
+	default:
+		return false
+	}
+}
+
+// IsErrPUAlreadyActivated checks if this error is a PU already activated error
+func IsErrPUAlreadyActivated(err error) bool {
+	switch t := err.(type) {
+	case *Error:
+		return t.reason == PUAlreadyActivated
 	default:
 		return false
 	}
