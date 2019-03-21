@@ -268,6 +268,11 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				common.EventStart,
 				puRuntime,
 			); err != nil {
+				if policy.IsErrPUAlreadyActivated(err) {
+					// abort early if this PU has already been activated before
+					zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.Error(err))
+					return reconcile.Result{}, nil
+				}
 				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
 				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
@@ -288,7 +293,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 						return reconcile.Result{}, err
 					}
 				} else {
-					zap.L().Info("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID))
+					zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID))
 				}
 			}
 			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
