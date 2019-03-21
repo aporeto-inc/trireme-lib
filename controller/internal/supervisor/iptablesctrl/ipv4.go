@@ -1,11 +1,9 @@
 package ipv4
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	i "k8s.io/api"
 )
@@ -16,46 +14,16 @@ const (
 
 var ipsetV4Param *ipset.Params
 
-type iptablesInstance struct {
-	ipt                 provider.IptablesProvider
-	ipset               provider.IpsetProvider
-	targetTCPSet        provider.Ipset
-	targetUDPSet        provider.Ipset
-	excludedNetworksSet provider.Ipset
-	cfg                 *runtime.Configuration
-}
-
 func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
 func Setup(cfg) {
 
-	iptv4, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
-	}
+}
 
-	// Create all the basic target sets. These are the global target sets
-	// that do not depend on policy configuration. If they already exist
-	// we will delete them and start again.
-	ips := provider.NewGoIPsetProvider()
-
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(ipv4, ips, ipsetV4Param)
-	if err != nil {
-		return fmt.Errorf("unable to create global sets: %s", err)
-	}
-
-	ipt := &iptablesInstance{
-		ipt:                iptv4,
-		ipset:              ips,
-		targetTCPSet:       targetTCPSet,
-		targetUDPSet:       targetUDPSet,
-		excludedNetworkSet: excludedSet,
-		cfg:                filterIPv4(cfg),
-	}
-
-	ipt.SetTargetNetworks(cfg)
+func () ipsetParms() {
+	return ipsetV4Param
 }
 
 func filterIPv4(c *runtime.Configuration) *runtime.Configuration {
