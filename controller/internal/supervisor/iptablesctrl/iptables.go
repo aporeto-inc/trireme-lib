@@ -78,7 +78,7 @@ type iptablesInstance struct {
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
 	fqc                     *fqconfig.FilterQueue
-	currentInstance         *iptablesInstance
+	iptInstance             *iptablesInstance
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
 	appPacketIPTableSection string
@@ -183,7 +183,7 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 
 	i := &Instance{
 		fqc:                     fqc,
-		currentInstance:         nil,
+		iptInstance:             nil,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -223,14 +223,14 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 			return nil
 		}
 
-		cfg := i.currentInstance.impl.IPFilter(cfg)
+		cfg := i.iptInstance.impl.IPFilter(cfg)
 
 		var oldConfig *runtime.Configuration
 
-		if i.currentInstance.cfg == nil {
+		if i.iptInstance.cfg == nil {
 			oldConfig = &runtime.Configuration{}
 		} else {
-			oldConfig = i.currentInstance.cfg.DeepCopy()
+			oldConfig = i.iptInstance.cfg.DeepCopy()
 		}
 
 		// If there are no target networks, capture all traffic
@@ -242,13 +242,13 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 			return err
 		}
 
-		i.currentInstance.cfg = cfg
+		i.iptInstance.cfg = cfg
 	}
 
-	i.currentInstance = i.iptv4
+	i.iptInstance = i.iptv4
 	setTargetNetworks()
 
-	i.currentInstance = i.iptv6
+	i.Instance = i.iptv6
 	setTargetNetworks()
 
 	return nil
@@ -291,14 +291,14 @@ func (i *Instance) Run(ctx context.Context) error {
 		}
 	}
 
-	i.currentInstance = i.iptv4
+	i.iptInstance = i.iptv4
 	if err := run(); err != nil {
 		return err
 	}
 
-	i.currentInstance = i.iptv6
+	i.iptInstance = i.iptv6
 	if err := run(); err != nil {
-		run()
+		return err
 	}
 
 	return nil
@@ -310,49 +310,61 @@ func (i *Instance) Run(ctx context.Context) error {
 // exact same logic.
 func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
 
-	var err error
-	var cfg *ACLInfo
+	configureRules := func() error {
+		var err error
+		var cfg *ACLInfo
 
-	// First we create an IPSet for destination matching ports. This only
-	// applies to Linux type PUs. A port set is associated with every PU,
-	// and packets matching this destination get associated with the context
-	// of the PU.
-	if err = i.createPortSet(contextID, pu); err != nil {
+		// First we create an IPSet for destination matching ports. This only
+		// applies to Linux type PUs. A port set is associated with every PU,
+		// and packets matching this destination get associated with the context
+		// of the PU.
+		if err = i.createPortSet(contextID, pu); err != nil {
+			return err
+		}
+
+		// We create the generic ACL object that is used for all the templates.
+		cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
+		if err != nil {
+			return err
+		}
+
+		// Create the proxy sets. These are the target sets that will match
+		// traffic towards the L4 and L4 services. There are two sets created
+		// for every PU in this context (for outgoing and incoming traffic).
+		// The outgoing sets capture all traffic towards specific destinations
+		// as proxied traffic. Incoming sets correspond to the listening
+		// services.
+		if err = i.createProxySets(cfg.ProxySetName); err != nil {
+			return err
+		}
+
+		// At this point we can install all the ACL rules that will direct
+		// traffic to user space, allow for external access or direct
+		// traffic towards the proxies
+		if err = i.installRules(cfg, pu); err != nil {
+			return err
+		}
+
+		// We commit the ACLs at the end. Note, that some of the ACLs in the
+		// NAT table are not committed as a group. The commit function only
+		// applies when newer versions of tables are installed (1.6.2 and above).
+		if err = i.iptInstance.ipt.Commit(); err != nil {
+			zap.L().Error("unable to configure rules", zap.Error(err))
+			return err
+		}
+
+		i.conntrackCmd(i.iptInstance.cfg.UDPTargetNetworks)
+	}
+
+	i.iptInstance = i.iptv4
+	if err := configureRules(); err != nil {
 		return err
 	}
 
-	// We create the generic ACL object that is used for all the templates.
-	cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
-	if err != nil {
+	i.iptInstance = i.iptv6
+	if err := configureRules(); err != nil {
 		return err
 	}
-
-	// Create the proxy sets. These are the target sets that will match
-	// traffic towards the L4 and L4 services. There are two sets created
-	// for every PU in this context (for outgoing and incoming traffic).
-	// The outgoing sets capture all traffic towards specific destinations
-	// as proxied traffic. Incoming sets correspond to the listening
-	// services.
-	if err = i.createProxySets(cfg.ProxySetName); err != nil {
-		return err
-	}
-
-	// At this point we can install all the ACL rules that will direct
-	// traffic to user space, allow for external access or direct
-	// traffic towards the proxies
-	if err = i.installRules(cfg, pu); err != nil {
-		return err
-	}
-
-	// We commit the ACLs at the end. Note, that some of the ACLs in the
-	// NAT table are not committed as a group. The commit function only
-	// applies when newer versions of tables are installed (1.6.2 and above).
-	if err = i.iptInstance.ipt.Commit(); err != nil {
-		zap.L().Error("unable to configure rules", zap.Error(err))
-		return err
-	}
-
-	i.conntrackCmd(i.iptInstance.cfg.UDPTargetNetworks)
 
 	return nil
 }
@@ -363,53 +375,67 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 // for a given processing unit.
 func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
 
-	cfg, err := i.newACLInfo(version, contextID, nil, puType)
-	if err != nil {
-		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
+	deleteRules := func() error {
+		cfg, err := i.newACLInfo(version, contextID, nil, puType)
+		if err != nil {
+			zap.L().Error("unable to create cleanup configuration", zap.Error(err))
+			return err
+		}
+
+		cfg.UDPPorts = udpPorts
+		cfg.TCPPorts = tcpPorts
+		cfg.CgroupMark = mark
+		cfg.Mark = mark
+		cfg.UID = username
+		cfg.PUType = puType
+		cfg.ProxyPort = proxyPort
+
+		// We clean up the chain rules first, so that we can delete the chains.
+		// If any rule is not deleted, then the chain will show as busy.
+		if err := i.deleteChainRules(cfg); err != nil {
+			zap.L().Warn("Failed to clean rules", zap.Error(err))
+		}
+
+		// We can now delete the chains we have created for this PU. Note that
+		// in every case we only create two chains for every PU. All other
+		// chains are global.
+		if err = i.deletePUChains(cfg.AppChain, cfg.NetChain); err != nil {
+			zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
+		}
+
+		// We call commit to update all the changes, before destroying the ipsets.
+		// References must be deleted for ipset deletion to succeed.
+		if err := i.iptInstance.ipt.Commit(); err != nil {
+			zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
+		}
+
+		// We delete the set that captures all destination ports of the
+		// PU. This only holds for Linux PUs.
+		if err := i.deletePortSet(contextID); err != nil {
+			zap.L().Warn("Failed to remove port set")
+		}
+
+		// We delete the proxy port sets that were created for this PU.
+		if err := i.deleteProxySets(cfg.ProxySetName); err != nil {
+			zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
+		}
+
+		// Destroy all the ACL related IPSets that were created
+		// on demand for any external services.
+		i.destroyACLIPsets(contextID)
+
+		return nil
+	}
+
+	i.iptInstance = i.iptv4
+	if err := deleteRules(); err != nil {
 		return err
 	}
 
-	cfg.UDPPorts = udpPorts
-	cfg.TCPPorts = tcpPorts
-	cfg.CgroupMark = mark
-	cfg.Mark = mark
-	cfg.UID = username
-	cfg.PUType = puType
-	cfg.ProxyPort = proxyPort
-
-	// We clean up the chain rules first, so that we can delete the chains.
-	// If any rule is not deleted, then the chain will show as busy.
-	if err := i.deleteChainRules(cfg); err != nil {
-		zap.L().Warn("Failed to clean rules", zap.Error(err))
+	i.iptInstance = i.iptv6
+	if err := deleteRules(); err != nil {
+		return err
 	}
-
-	// We can now delete the chains we have created for this PU. Note that
-	// in every case we only create two chains for every PU. All other
-	// chains are global.
-	if err = i.deletePUChains(cfg.AppChain, cfg.NetChain); err != nil {
-		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
-	}
-
-	// We call commit to update all the changes, before destroying the ipsets.
-	// References must be deleted for ipset deletion to succeed.
-	if err := i.iptInstance.ipt.Commit(); err != nil {
-		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
-	}
-
-	// We delete the set that captures all destination ports of the
-	// PU. This only holds for Linux PUs.
-	if err := i.deletePortSet(contextID); err != nil {
-		zap.L().Warn("Failed to remove port set")
-	}
-
-	// We delete the proxy port sets that were created for this PU.
-	if err := i.deleteProxySets(cfg.ProxySetName); err != nil {
-		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
-	}
-
-	// Destroy all the ACL related IPSets that were created
-	// on demand for any external services.
-	i.destroyACLIPsets(contextID)
 
 	return nil
 }
@@ -421,63 +447,86 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 // first. For latest kernel versions iptables-restorce will update all the rules
 // in one shot.
 func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
+	updateRules := func() error {
+		policyrules := containerInfo.Policy
+		if policyrules == nil {
+			return errors.New("policy rules cannot be nil")
+		}
 
-	policyrules := containerInfo.Policy
-	if policyrules == nil {
-		return errors.New("policy rules cannot be nil")
-	}
+		// We cache the old config and we use it to delete the previous
+		// rules. Every time we update the policy the version changes to
+		// its binary complement.
+		newCfg, err := i.newACLInfo(version, contextID, containerInfo, containerInfo.Runtime.PUType())
+		if err != nil {
+			return err
+		}
 
-	// We cache the old config and we use it to delete the previous
-	// rules. Every time we update the policy the version changes to
-	// its binary complement.
-	newCfg, err := i.newACLInfo(version, contextID, containerInfo, containerInfo.Runtime.PUType())
-	if err != nil {
-		return err
-	}
+		oldCfg, err := i.newACLInfo(version^1, contextID, oldContainerInfo, containerInfo.Runtime.PUType())
+		if err != nil {
+			return err
+		}
 
-	oldCfg, err := i.newACLInfo(version^1, contextID, oldContainerInfo, containerInfo.Runtime.PUType())
-	if err != nil {
-		return err
-	}
+		// Install all the new rules. The hooks to the new chains are appended
+		// and do not take effect yet.
+		if err := i.installRules(newCfg, containerInfo); err != nil {
+			return nil
+		}
 
-	// Install all the new rules. The hooks to the new chains are appended
-	// and do not take effect yet.
-	if err := i.installRules(newCfg, containerInfo); err != nil {
+		// Remove mapping from old chain. By removing the old hooks the new
+		// hooks take priority.
+		if err := i.deleteChainRules(oldCfg); err != nil {
+			return err
+		}
+
+		// Delete the old chains, since there are not references any more.
+		if err := i.deletePUChains(oldCfg.AppChain, oldCfg.NetChain); err != nil {
+			return err
+		}
+
+		// Commit all actions in on iptables-restore function.
+		if err := i.iptInstance.ipt.Commit(); err != nil {
+			return err
+		}
+
+		// Sync all the IPSets with any new information coming from the policy.
+		i.synchronizePUACLs(contextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs())
+
 		return nil
 	}
 
-	// Remove mapping from old chain. By removing the old hooks the new
-	// hooks take priority.
-	if err := i.deleteChainRules(oldCfg); err != nil {
+	i.iptInstance = i.iptv4
+	if err := updateRules(); err != nil {
 		return err
 	}
 
-	// Delete the old chains, since there are not references any more.
-	if err := i.deletePUChains(oldCfg.AppChain, oldCfg.NetChain); err != nil {
+	i.iptInstance = i.iptv6
+	if err := updateRules(); err != nil {
 		return err
 	}
-
-	// Commit all actions in on iptables-restore function.
-	if err := i.iptInstance.ipt.Commit(); err != nil {
-		return err
-	}
-
-	// Sync all the IPSets with any new information coming from the policy.
-	i.synchronizePUACLs(contextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs())
-
-	return nil
 }
 
 // CleanUp requires the implementor to clean up all ACLs and destroy all
 // the IP sets.
 func (i *Instance) CleanUp() error {
 
-	if err := i.cleanACLs(); err != nil {
-		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
+	cleanup := func() error {
+		if err := i.cleanACLs(); err != nil {
+			zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
+		}
+
+		if err := i.iptInstance.ipset.DestroyAll(chainPrefix); err != nil {
+			zap.L().Error("Failed to clean up ipsets", zap.Error(err))
+		}
 	}
 
-	if err := i.iptInstance.ipset.DestroyAll(chainPrefix); err != nil {
-		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
+	i.iptInstance = i.iptv4
+	if err := cleanup(); err != nil {
+		return err
+	}
+
+	i.iptInstance = i.iptv6
+	if err := cleanup(); err != nil {
+		return err
 	}
 
 	return nil
