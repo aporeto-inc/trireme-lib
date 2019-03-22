@@ -34,7 +34,7 @@ func NewDebugClient(cr statscollector.Collector) (DebugClient, error) {
 		collector:     cr,
 		rpchdl:        rpcwrapper.NewRPCWrapper(),
 		secret:        os.Getenv(constants.EnvStatsSecret),
-		debugChannel:  os.Getenv(constants.EnvDebugChannel),
+		debugChannel:  os.Getenv(constants.EnvStatsChannel),
 		debugInterval: defaultDebugIntervalMilliseconds * time.Millisecond,
 		stop:          make(chan bool),
 	}
@@ -46,6 +46,7 @@ func NewDebugClient(cr statscollector.Collector) (DebugClient, error) {
 	if d.secret == "" {
 		return nil, errors.New("no secret provided for debug channel")
 	}
+
 	return d, nil
 }
 
