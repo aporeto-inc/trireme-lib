@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"text/template"
 
@@ -21,7 +22,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
-	i "k8s.io/api"
 )
 
 const (
@@ -67,7 +67,7 @@ const (
 )
 
 type iptablesInstance struct {
-	ipt                 provider.IptablesProvider
+	ipt                 ipImpl
 	ipset               provider.IpsetProvider
 	targetTCPSet        provider.Ipset
 	targetUDPSet        provider.Ipset
@@ -78,7 +78,7 @@ type iptablesInstance struct {
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
 	fqc                     *fqconfig.FilterQueue
-	iptInstance             *iptablesInstance
+	currentInstance         *iptablesInstance
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
 	appPacketIPTableSection string
@@ -94,8 +94,8 @@ type Instance struct {
 	serviceIDToIPsets       map[string]*ipsetInfo
 	puToServiceIDs          map[string][]string
 	conntrackCmd            func([]string)
-	iptV4                   ipImpl
-	iptV6                   ipImpl
+	iptV4                   *iptablesInstance
+	iptV6                   *iptablesInstance
 }
 
 var instance *Instance
@@ -109,52 +109,73 @@ func GetInstance() *Instance {
 }
 
 type ipImpl interface {
-	SetTargetNetworks(*runtime.Configuration)
+	provider.IptablesProvider
+	GetIPSet() provider.IpsetProvider
+	GetIPSetPrefix() string
+	GetIPSetParam() *ipset.Params
+	FilterIPs() func(net.IP) bool
 }
 
-func createIP() *iptablesInstance {
-	iptv4, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
-	}
+type ipFilter func(net.IP) bool
+
+func createIPInstance(impl ipImpl, cfg *runtime.Configuration) {
 
 	// Create all the basic target sets. These are the global target sets
 	// that do not depend on policy configuration. If they already exist
 	// we will delete them and start again.
-	ips := provider.NewGoIPsetProvider()
 
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(ipv4, ips, ipsetV4Param)
+	filterIPs := func(c *runtime.Configuration, filter ipFilter) *runtime.Configuration {
+		filter := func(ips []string) {
+			var filteredIPs []string
+
+			for _, ip := range ips {
+				netIP, _, _ := net.ParseCIDR(ip)
+				if filter(netIP) {
+					filteredIPs = append(filteredIPs, ip)
+				}
+			}
+
+			return filteredIPs
+		}
+
+		return &runtime.Configuration{
+			TCPTargetNetworks: filter(c.TCPTargetNetworks),
+			UDPTargetNetworks: filter(c.UDPTargetNetworks),
+			ExcludedNetworks:  filter(c.ExcludedNetworks),
+		}
+	}
+
+	ips := impl.GetIPSet()
+
+	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(impl.GetIPSetPrefix(), ips, impl.GetIPSetParam())
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
 
-	ipt := &iptablesInstance{
-		ipt:                iptv4,
+	return &iptablesInstance{
+		ipt:                impl,
 		ipset:              ips,
 		targetTCPSet:       targetTCPSet,
 		targetUDPSet:       targetUDPSet,
 		excludedNetworkSet: excludedSet,
-		cfg:                filterIPv4(cfg),
+		cfg:                filterIPs(cfg, impl.IPFilter()),
 	}
-
-	ipt.SetTargetNetworks(cfg)
-}
-
-func createIPv6() *iptablesInstance {
-
 }
 
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration) (*Instance, error) {
-	iptv4 := setupv4(cfg)
-	iptv4 := setupv6(cfg)
+	ipv4Impl, err := ipv4.GetIPv4Instance()
+	iptInstanceV4 := createIPInstance(ipv4Impl)
 
-	return newInstanceWithProviders(fqc, mode, cfg, iptv4, iptv6, ips)
+	ipv6Impl, err := ipv6.GetIPv6Instance()
+	iptInstanceV6 := createIPInstance(ipv6Impl)
+
+	return newInstanceWithProviders(fqc, mode, cfg, iptInstanceV4, iptInstanceV6)
 }
 
 // newInstanceWithProviders is called after ipt and ips have been created. This helps
 // with all the unit testing to be able to mock the providers.
-func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration, ipt provider.IptablesProvider, ips provider.IpsetProvider) (*Instance, error) {
+func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtime.Configuration, iptv4 *iptablesInstance, iptv6 *iptablesInstance) (*Instance, error) {
 
 	if cfg == nil {
 		cfg = &runtime.Configuration{}
@@ -195,31 +216,40 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 //   - UDPTargetNetworks for UDP traffic (by default empty)
 //   - ExcludedNetworks that are always ignored (by default empty)
 
-func (ipt *ipt) SetTargetNetworks(c *runtime.Configuration) error {
+func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 
-	if c == nil {
-		return nil
+	setTargetNetworks := func() {
+		if c == nil {
+			return nil
+		}
+
+		cfg := i.currentInstance.impl.IPFilter(cfg)
+
+		var oldConfig *runtime.Configuration
+
+		if i.currentInstance.cfg == nil {
+			oldConfig = &runtime.Configuration{}
+		} else {
+			oldConfig = i.currentInstance.cfg.DeepCopy()
+		}
+
+		// If there are no target networks, capture all traffic
+		if len(cfg.TCPTargetNetworks) == 0 {
+			cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+		}
+
+		if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {
+			return err
+		}
+
+		i.currentInstance.cfg = cfg
 	}
 
-	cfg := filterIPv4(cfg)
+	i.currentInstance = i.iptv4
+	setTargetNetworks()
 
-	var oldConfig *runtime.Configuration
-	if i.iptInstance.cfg == nil {
-		oldConfig = &runtime.Configuration{}
-	} else {
-		oldConfig = i.iptInstance.cfg.DeepCopy()
-	}
-
-	// If there are no target networks, capture all traffic
-	if len(cfg.TCPTargetNetworks) == 0 {
-		cfg.TCPTargetNetworks = []string{"0.0.0.0/1", "128.0.0.0/1"}
-	}
-
-	if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {
-		return err
-	}
-
-	ipt.cfg = cfg
+	i.currentInstance = i.iptv6
+	setTargetNetworks()
 
 	return nil
 }
@@ -234,29 +264,41 @@ func (i *Instance) Run(ctx context.Context) error {
 		i.CleanUp() // nolint
 	}()
 
-	// Clean any previous ACLs. This is needed in case we crashed at some
-	// earlier point or there are other ACLs that create conflicts. We
-	// try to clean only ACLs related to Trireme.
-	if err := i.cleanACLs(); err != nil {
-		return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
+	run := func() error {
+		// Clean any previous ACLs. This is needed in case we crashed at some
+		// earlier point or there are other ACLs that create conflicts. We
+		// try to clean only ACLs related to Trireme.
+		if err := i.cleanACLs(); err != nil {
+			return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
+		}
+
+		// Initialize all the global Trireme chains. There are several global chaims
+		// that apply to all PUs:
+		// Tri-App/Tri-Net are the main chains for the egress/ingress directions
+		// UID related chains for any UID PUs.
+		// Host, Service, Pid chains for the different modes of operation (host mode, pu mode, host service).
+		// The priority is explicit (Pid activations take precedence of Service activations and Host Services)
+		if err := i.initializeChains(); err != nil {
+			return fmt.Errorf("Unable to initialize chains: %s", err)
+		}
+
+		// Insert the global ACLS. These are the main ACLs that will direct traffic from
+		// the INPUT/OUTPUT chains to the Trireme chains. They also includes the main
+		// rules of the main chains. These rules are never touched again, unless
+		// if we gracefully terminate.
+		if err := i.setGlobalRules(); err != nil {
+			return fmt.Errorf("failed to update synack networks: %s", err)
+		}
 	}
 
-	// Initialize all the global Trireme chains. There are several global chaims
-	// that apply to all PUs:
-	// Tri-App/Tri-Net are the main chains for the egress/ingress directions
-	// UID related chains for any UID PUs.
-	// Host, Service, Pid chains for the different modes of operation (host mode, pu mode, host service).
-	// The priority is explicit (Pid activations take precedence of Service activations and Host Services)
-	if err := i.initializeChains(); err != nil {
-		return fmt.Errorf("Unable to initialize chains: %s", err)
+	i.currentInstance = i.iptv4
+	if err := run(); err != nil {
+		return err
 	}
 
-	// Insert the global ACLS. These are the main ACLs that will direct traffic from
-	// the INPUT/OUTPUT chains to the Trireme chains. They also includes the main
-	// rules of the main chains. These rules are never touched again, unless
-	// if we gracefully terminate.
-	if err := i.setGlobalRules(); err != nil {
-		return fmt.Errorf("failed to update synack networks: %s", err)
+	i.currentInstance = i.iptv6
+	if err := run(); err != nil {
+		run()
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package ipv4
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -9,7 +10,7 @@ import (
 )
 
 const (
-	ipv4 = "ipv4"
+	ipv4String = "ipv4"
 )
 
 var ipsetV4Param *ipset.Params
@@ -18,33 +19,41 @@ func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
-func Setup(cfg) {
-
+type ipv4 struct {
+	ipt provider.IptablesProvider
 }
 
-func () ipsetParms() {
+func GetIPv4Instance() (*ipv4, error) {
+	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
+	}
+
+	return &ipv4{ipt: ipt}, nil
+}
+
+func (i *ipv4) GetIPSet() {
+	return provider.NewGoIPsetProvider()
+}
+
+func (i *ipv4) GetIPSetPrefix() {
+	return ipv4String
+}
+
+func (i *ipv4) GetIPSetParam() {
 	return ipsetV4Param
 }
 
-func filterIPv4(c *runtime.Configuration) *runtime.Configuration {
-	filter := func(ips []string) {
-		var filteredIPs []string
-
-		for _, ip := range ips {
-			netIP, _, _ := net.ParseCIDR(ip)
-			if netIP.To4() != nil {
-				filteredIPs = append(filteredIPs, ip)
-			}
+func (i *ipv4) IPFilter() func(net.IP) bool {
+	ipv4Filter := func(ip net.IP) bool {
+		if ip.To4() != nil {
+			return true
 		}
 
-		return filteredIPs
+		return false
 	}
 
-	return &runtime.Configuration{
-		TCPTargetNetworks: filter(c.TCPTargetNetworks),
-		UDPTargetNetworks: filter(c.UDPTargetNetworks),
-		ExcludedNetworks:  filter(c.ExcludedNetworks),
-	}
+	return ipv4Filter
 }
 
 // SetTargetNetworks updates ths target networks. There are three different
