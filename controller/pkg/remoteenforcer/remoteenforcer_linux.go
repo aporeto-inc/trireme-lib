@@ -107,32 +107,40 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		resp.Status = fmt.Sprintf("remote enforcer is already initialized")
 	}
 
-	if err := s.setupEnforcer(&payload); err != nil {
+	var err error
+
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.setupEnforcer(&payload); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.setupSupervisor(&payload); err != nil {
+	if err = s.setupSupervisor(&payload); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.enforcer.Run(s.ctx); err != nil {
+	if err = s.enforcer.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.statsClient.Run(s.ctx); err != nil {
+	if err = s.statsClient.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.supervisor.Run(s.ctx); err != nil {
+	if err = s.supervisor.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err := s.debugClient.Run(s.ctx); err != nil {
+	if err = s.debugClient.Run(s.ctx); err != nil {
 		resp.Status = "DebugClient" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
@@ -171,12 +179,20 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return fmt.Errorf(resp.Status)
 	}
 
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
 	if err = s.supervisor.Supervise(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
 
-	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
+	if err = s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -201,12 +217,22 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 
-	if err := s.supervisor.Unsupervise(payload.ContextID); err != nil {
+	var err error
+
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.supervisor.Unsupervise(payload.ContextID); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf("unable to clean supervisor: %s", err)
 	}
 
-	if err := s.enforcer.Unenforce(payload.ContextID); err != nil {
+	if err = s.enforcer.Unenforce(payload.ContextID); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf("unable to stop enforcer: %s", err)
 	}
@@ -232,11 +258,21 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 
 	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
 
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
 	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
 		return err
 	}
 
-	return s.supervisor.SetTargetNetworks(payload.Configuration)
+	err = s.supervisor.SetTargetNetworks(payload.Configuration)
+
+	return err
 }
 
 // EnforcerExit is processing messages from the remote that are requesting an exit. In this
@@ -264,6 +300,14 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 		return fmt.Errorf(resp.Status)
 	}
 
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
 	s.secrets, err = secrets.NewSecrets(payload.Secrets)
 	if err != nil {
@@ -271,10 +315,8 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	}
 
 	err = s.enforcer.UpdateSecrets(s.secrets)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return err
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
@@ -290,6 +332,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 		resp.Status = err.Error()
 		return err
 	}
+	resp.Status = ""
 	return nil
 }
 

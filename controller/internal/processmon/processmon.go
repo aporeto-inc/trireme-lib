@@ -34,6 +34,11 @@ const (
 	secretLength                = 32
 )
 
+var (
+	// execCommand is to used to fake exec commands in tests.
+	execCommand = exec.Command
+)
+
 // RemoteMonitor is an instance of processMonitor
 type RemoteMonitor struct {
 	// netNSPath made configurable to enable running tests
@@ -133,6 +138,17 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	procInfo.Lock()
 	defer procInfo.Unlock()
 
+	var err error
+	defer func() {
+		// If we encoutered an error we remove it from the cache. We will
+		// not be monitoring it any more. Caller is responsible for re-launching.
+		if err != nil {
+			p.Lock()
+			defer p.Unlock()
+			p.activeProcesses.Remove(contextID) // nolint errcheck
+		}
+	}()
+
 	// We check if the NetNsPath was given as parameter.
 	// If it was we will use it. Otherwise we will determine it based on the PID.
 	nsPath := refNSPath
@@ -140,24 +156,25 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
 	}
 
-	hoststat, err := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
-	if err != nil {
+	var hoststat os.FileInfo
+	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
 		return false, err
 	}
 
-	pidstat, err := os.Stat(nsPath)
-	if err != nil {
+	var pidstat os.FileInfo
+	if pidstat, err = os.Stat(nsPath); err != nil {
 		return false, fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return false, fmt.Errorf("refused to launch a remote enforcer in host namespace")
+		err = fmt.Errorf("refused to launch a remote enforcer in host namespace")
+		return false, err
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
 		err = os.MkdirAll(p.netNSPath, os.ModeDir)
 		if err != nil {
-			zap.L().Warn("could not create directory", zap.Error(err))
+			zap.L().Warn("could not create directory netns directory", zap.Error(err))
 		}
 	}
 
@@ -168,6 +185,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		zap.L().Warn("Failed to remove namespace link",
 			zap.Error(removeErr))
 	}
+
 	if err = os.Symlink(nsPath, contextFile); err != nil {
 		zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
 	}
@@ -178,7 +196,8 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		return false, err
 	}
 
-	randomkeystring, err := crypto.GenerateRandomString(secretLength)
+	var randomkeystring string
+	randomkeystring, err = crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		// This is a more serious failure. We can't reliably control the remote enforcer
 		return false, fmt.Errorf("unable to generate secret: %s", err)
@@ -194,6 +213,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		refNSPath,
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
+
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
 		if err1 := os.Remove(contextFile); err1 != nil {
@@ -204,7 +224,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	procInfo.process = cmd.Process
 
-	if err := p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
 		return false, fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 
@@ -277,6 +297,13 @@ func (p *RemoteMonitor) KillRemoteEnforcer(contextID string, force bool) error {
 // collectChildExitStatus is an async function which collects status for all launched child processes
 func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 
+	defer func() {
+		if r := recover(); r != nil {
+			zap.L().Error("Policy engine has possibly closed the channel")
+			return
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -305,9 +332,10 @@ func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 				}
 				p.runtimeErrorChannel <- &policy.RuntimeError{
 					ContextID: es.contextID,
-					Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
+					Error:     fmt.Errorf("remote enforcer terminated: %s", es.exitStatus),
 				}
 			}
+
 		}
 	}
 }
@@ -346,7 +374,7 @@ func (p *RemoteMonitor) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnfor
 		zap.Strings("args", cmdArgs),
 	)
 
-	return exec.Command(cmdName, cmdArgs...)
+	return execCommand(cmdName, cmdArgs...)
 }
 
 // getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value

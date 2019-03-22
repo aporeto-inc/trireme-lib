@@ -128,6 +128,20 @@ func (mr *MockEnforcerMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), cfg)
 }
 
+// CleanUp mocks base method
+// nolint
+func (m *MockEnforcer) CleanUp() error {
+	ret := m.ctrl.Call(m, "CleanUp")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanUp indicates an expected call of CleanUp
+// nolint
+func (mr *MockEnforcerMockRecorder) CleanUp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockEnforcer)(nil).CleanUp))
+}
+
 // EnableDatapathPacketTracing mocks base method
 // nolint
 func (m *MockEnforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
