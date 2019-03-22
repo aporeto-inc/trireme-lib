@@ -53,13 +53,16 @@ type BatchProvider struct {
 }
 
 const (
-	restoreCmd = "iptables-restore"
+	restoreCmdV4  = "iptables-restore"
+	restoreCmdV6  = "ip6tables-restore"
+	ipsetStringV4 = "IPV4"
+	ipsetStringV6 = "IPV6"
 )
 
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.New()
+func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.New(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +71,34 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 	// We will only support the batch method if there is iptables-restore and iptables
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
-	if restoreHasWait() {
+	if restoreHasWait(restoreCmdV4) {
+		for _, t := range batchTables {
+			batchTablesMap[t] = true
+		}
+	}
+
+	b := &BatchProvider{
+		ipt:         ipt,
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+	}
+
+	b.commitFunc = b.restore
+
+	return b, nil
+}
+
+func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+	if err != nil {
+		return nil, err
+	}
+
+	batchTablesMap := map[string]bool{}
+	// We will only support the batch method if there is iptables-restore and iptables
+	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
+	// This will allow us to support older kernel versions.
+	if restoreHasWait(restoreCmdV6) {
 		for _, t := range batchTables {
 			batchTablesMap[t] = true
 		}
@@ -339,7 +369,7 @@ func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 	return nil
 }
 
-func restoreHasWait() bool {
+func restoreHasWait(restoreCmd string) bool {
 	cmd := exec.Command(restoreCmd, "--version")
 	cmd.Stdin = bytes.NewReader([]byte{})
 	bytes, err := cmd.CombinedOutput()
