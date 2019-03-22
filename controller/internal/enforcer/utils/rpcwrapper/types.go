@@ -55,12 +55,6 @@ type UpdateSecretsPayload struct {
 	Secrets secrets.PublicSecrets `json:",omitempty"`
 }
 
-//InitSupervisorPayload for supervisor init request
-type InitSupervisorPayload struct {
-	Configuration *runtime.Configuration `json:",omitempty"`
-	CaptureMethod CaptureType            `json:",omitempty"`
-}
-
 // EnforcePayload Payload for enforce request
 type EnforcePayload struct {
 	ContextID string                 `json:",omitempty"`
@@ -68,19 +62,8 @@ type EnforcePayload struct {
 	Secrets   secrets.PublicSecrets  `json:",omitempty"`
 }
 
-//SuperviseRequestPayload for Supervise request
-type SuperviseRequestPayload struct {
-	ContextID string                 `json:",omitempty"`
-	Policy    *policy.PUPolicyPublic `json:",omitempty"`
-}
-
 //UnEnforcePayload payload for unenforce request
 type UnEnforcePayload struct {
-	ContextID string `json:",omitempty"`
-}
-
-//UnSupervisePayload payload for unsupervise request
-type UnSupervisePayload struct {
 	ContextID string `json:",omitempty"`
 }
 
@@ -91,11 +74,6 @@ type InitResponsePayload struct {
 
 //EnforceResponsePayload exported
 type EnforceResponsePayload struct {
-	Status int `json:",omitempty"`
-}
-
-//SuperviseResponsePayload exported
-type SuperviseResponsePayload struct {
 	Status int `json:",omitempty"`
 }
 

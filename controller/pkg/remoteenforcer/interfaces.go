@@ -7,14 +7,8 @@ import (
 const (
 	// InitEnforcer is string for invoking RPC
 	InitEnforcer = "RemoteEnforcer.InitEnforcer"
-	// InitSupervisor is string for invoking RPC
-	InitSupervisor = "RemoteEnforcer.InitSupervisor"
-	//Supervise is string for invoking RPC
-	Supervise = "RemoteEnforcer.Supervise"
 	//Unenforce is string for invoking RPC
 	Unenforce = "RemoteEnforcer.Unenforce"
-	//Unsupervise is string for invoking RPC
-	Unsupervise = "RemoteEnforcer.Unsupervise"
 	//Enforce is string for invoking RPC
 	Enforce = "RemoteEnforcer.Enforce"
 	// EnforcerExit is string for invoking RPC

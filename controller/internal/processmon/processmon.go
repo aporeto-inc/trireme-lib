@@ -221,7 +221,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 }
 
 // KillRemoteEnforcer sends a rpc to the process to exit failing which it will kill the process
-func (p *RemoteMonitor) KillRemoteEnforcer(contextID string) error {
+func (p *RemoteMonitor) KillRemoteEnforcer(contextID string, force bool) error {
 
 	p.Lock()
 	s, err := p.activeProcesses.Get(contextID)
@@ -257,14 +257,16 @@ func (p *RemoteMonitor) KillRemoteEnforcer(contextID string) error {
 
 	select {
 	case err := <-c:
-		if err != nil {
+		if err != nil && force {
 			zap.L().Error("Failed to stop gracefully - forcing kill",
 				zap.Error(err))
+			procInfo.process.Kill() // nolint
 		}
-		procInfo.process.Kill() // nolint
 	case <-time.After(5 * time.Second):
-		zap.L().Error("Time out on terminating remote enforcer - forcing kill")
-		procInfo.process.Kill() // nolint
+		if force {
+			zap.L().Error("Time out on terminating remote enforcer - forcing kill")
+			procInfo.process.Kill() // nolint
+		}
 	}
 
 	p.rpc.DestroyRPCClient(contextID)
@@ -282,7 +284,10 @@ func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 
 		case es := <-p.childExitStatus:
 
-			p.activeProcesses.Remove(es.contextID) // nolint errcheck
+			if err := p.activeProcesses.Remove(es.contextID); err != nil {
+				continue
+			}
+
 			p.rpc.DestroyRPCClient(es.contextID)
 
 			if p.runtimeErrorChannel != nil {

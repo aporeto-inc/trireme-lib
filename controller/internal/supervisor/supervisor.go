@@ -145,12 +145,14 @@ func (s *Config) Unsupervise(contextID string) error {
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
 	puType := cfg.containerInfo.Runtime.PUType()
 
+	fmt.Println("Deleting rules ")
 	// TODO (varks): Similar to configureRules and UpdateRules, DeleteRules should take
 	// only contextID and *policy.PUInfo as function parameters.
 	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, port, puType); err != nil {
+		fmt.Println("Failed to delete ", err)
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
-
+	fmt.Println("no problem deleting ")
 	if err := s.versionTracker.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
 	}

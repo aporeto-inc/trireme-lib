@@ -36,8 +36,8 @@ import (
 
 var cmdLock sync.Mutex
 
-// newServer starts a new server
-func newServer(
+// newRemoteEnforcer starts a new server
+func newRemoteEnforcer(
 	ctx context.Context,
 	cancel context.CancelFunc,
 	service packetprocessor.PacketProcessor,
@@ -46,7 +46,9 @@ func newServer(
 	secret string,
 	statsClient statsclient.StatsClient,
 	debugClient debugclient.DebugClient,
-) (s RemoteIntf, err error) {
+) (*RemoteEnforcer, error) {
+
+	var err error
 
 	var collector statscollector.Collector
 	if statsClient == nil {
@@ -78,6 +80,7 @@ func newServer(
 		debugClient:    debugClient,
 		ctx:            ctx,
 		cancel:         cancel,
+		exit:           make(chan bool),
 	}, nil
 }
 
@@ -213,7 +216,6 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 // SetTargetNetworks calls the same method on the actual enforcer
 func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	fmt.Println("Setting target networks")
 
 	var err error
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
@@ -241,15 +243,9 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 // case we simply cancel the context.
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if s.supervisor != nil {
-		s.supervisor.CleanUp() // nolint
-	}
+	s.cleanup()
 
-	if s.enforcer != nil {
-		s.enforcer.CleanUp() // nolint
-	}
-
-	s.cancel()
+	s.exit <- true
 
 	return nil
 }
@@ -361,6 +357,30 @@ func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload)
 	return nil
 }
 
+// cleanup cleans all the acls and any state of the local enforcer.
+func (s *RemoteEnforcer) cleanup() {
+
+	if s.supervisor != nil {
+		if err := s.supervisor.CleanUp(); err != nil {
+			zap.L().Error("unable to clean supervisor state", zap.Error(err))
+		}
+	}
+
+	if s.enforcer != nil {
+		if err := s.enforcer.CleanUp(); err != nil {
+			zap.L().Error("unable to clean enforcer state", zap.Error(err))
+		}
+	}
+
+	if s.service != nil {
+		if err := s.service.Stop(); err != nil {
+			zap.L().Error("unable to clean service state", zap.Error(err))
+		}
+	}
+
+	s.cancel()
+}
+
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
@@ -384,24 +404,27 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		if err := rpcHandle.StartServer(ctx, "unix", namedPipe, server); err != nil {
+		if err := rpcHandle.StartServer(ctx, "unix", namedPipe, re); err != nil {
 			zap.L().Fatal("Failed to start the server", zap.Error(err))
 		}
 	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	<-c
 
-	fmt.Println("Received kill signal ")
-	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
-		zap.L().Fatal("Failed to stop the server", zap.Error(err))
+	select {
+
+	case <-c:
+		re.cleanup()
+
+	case <-re.exit:
+		zap.L().Info("Remote enforcer exiting ...")
 	}
 
 	return nil
@@ -429,12 +452,12 @@ func validateNamespace() error {
 	pid := strconv.Itoa(os.Getpid())
 	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
 	if err != nil {
-		return fmt.Errorf("unable to identity namespace: %s", err)
+		zap.L().Warn("Unable to identity namespace - ip netns commands not available", zap.Error(err))
 	}
 
 	netnsString := strings.TrimSpace(string(netns))
 	if netnsString == "" {
-		return fmt.Errorf("empty namespace - cannot launch remote enforcer")
+		zap.L().Warn("Unable to identity namespace - ip netns commands returned empty and will not be available")
 	}
 
 	return nil
