@@ -150,8 +150,24 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		uid = p.Runtime.Options().UserID
 	}
 
-	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
+	proxyPrefix := chainPrefix + i.iptInstance.ipt.GetIPSetPrefix() + proxyPortSetPrefix
+	proxySetName := puPortSetName(contextID, proxyPrefix)
 	destSetName, srvSetName := i.getSetNames(proxySetName)
+
+	var portSetName string
+	{
+
+		username := p.Runtime.Options().UserID
+		prefix := ""
+
+		if username != "" {
+			prefix = chainPrefix + i.iptInstance.ipt.GetIPSetPrefix() + uidPortSetPrefix
+		} else {
+			prefix = chainPrefix + i.iptInstance.ipt.GetIPSetPrefix() + processPortSetPrefix
+		}
+
+		portSetName = puPortSetName(contextID, prefix)
+	}
 
 	appSection := ""
 	netSection := ""
@@ -169,8 +185,6 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		appSection = mainAppChain
 		netSection = mainNetChain
 	}
-
-	portSetName := i.getPortSet(contextID)
 
 	cfg := &ACLInfo{
 		ContextID: contextID,
@@ -230,6 +244,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		CgroupMark:   mark,
 		ProxyMark:    proxyMark,
 		ProxySetName: proxySetName,
+		PortSetName:  portSetName,
 
 		// // UID PUs
 		UID:     uid,

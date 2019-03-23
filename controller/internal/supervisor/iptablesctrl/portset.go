@@ -6,12 +6,11 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
 func (i *Instance) getPortSet(contextID string) string {
-	portset, err := i.contextIDToPortSetMap.Get(contextID)
+	portset, err := i.iptInstance.contextIDToPortSetMap.Get(contextID)
 	if err != nil {
 		return ""
 	}
@@ -21,28 +20,17 @@ func (i *Instance) getPortSet(contextID string) string {
 
 // createPortSets creates either UID or process port sets. This is only
 // needed for Linux PUs and it returns immediately for container PUs.
-func (i *Instance) createPortSet(contextID string, puInfo *policy.PUInfo) error {
+func (i *Instance) createPortSet(portSetName string) error {
 
 	if i.mode == constants.RemoteContainer {
 		return nil
 	}
 
-	username := puInfo.Runtime.Options().UserID
-	prefix := ""
-
-	if username != "" {
-		prefix = uidPortSetPrefix
-	} else {
-		prefix = processPortSetPrefix
-	}
-
-	portSetName := puPortSetName(contextID, prefix)
-
 	if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
 		return puseterr
 	}
 
-	i.contextIDToPortSetMap.AddOrUpdate(contextID, portSetName)
+	i.iptInstance.contextIDToPortSetMap.AddOrUpdate(contextID, portSetName)
 	return nil
 }
 
@@ -67,7 +55,7 @@ func (i *Instance) deletePortSet(contextID string) error {
 		return fmt.Errorf("Failed to delete pu port set "+portSetName, zap.Error(err))
 	}
 
-	if err := i.contextIDToPortSetMap.Remove(contextID); err != nil {
+	if err := i.iptInstance.contextIDToPortSetMap.Remove(contextID); err != nil {
 		zap.L().Debug("portset not found for the contextID", zap.String("contextID", contextID))
 	}
 

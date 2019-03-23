@@ -25,24 +25,24 @@ import (
 )
 
 const (
-	chainPrefix          = "TRI-"
-	mainAppChain         = chainPrefix + "App"
-	mainNetChain         = chainPrefix + "Net"
-	uidchain             = chainPrefix + "UID-App"
-	uidInput             = chainPrefix + "UID-Net"
-	appChainPrefix       = chainPrefix + "App-"
-	netChainPrefix       = chainPrefix + "Net-"
+	chainPrefix         = "TRI-"
+	mainAppChain        = chainPrefix + "App"
+	mainNetChain        = chainPrefix + "Net"
+	uidchain            = chainPrefix + "UID-App"
+	uidInput            = chainPrefix + "UID-Net"
+	appChainPrefix      = chainPrefix + "App-"
+	netChainPrefix      = chainPrefix + "Net-"
+	natProxyOutputChain = chainPrefix + "Redir-App"
+	natProxyInputChain  = chainPrefix + "Redir-Net"
+	proxyOutputChain    = chainPrefix + "Prx-App"
+	proxyInputChain     = chainPrefix + "Prx-Net"
+
 	targetTCPNetworkSet  = chainPrefix + "TargetTCP"
 	targetUDPNetworkSet  = chainPrefix + "TargetUDP"
 	excludedNetworkSet   = chainPrefix + "Excluded"
-	uidPortSetPrefix     = chainPrefix + "UID-Port-"
-	processPortSetPrefix = chainPrefix + "ProcPort-"
-	natProxyOutputChain  = chainPrefix + "Redir-App"
-	natProxyInputChain   = chainPrefix + "Redir-Net"
-	proxyOutputChain     = chainPrefix + "Prx-App"
-	proxyInputChain      = chainPrefix + "Prx-Net"
-	proxyPortSetPrefix   = chainPrefix + "Proxy-"
-
+	uidPortSetPrefix     = "UID-Port-"
+	processPortSetPrefix = "ProcPort-"
+	proxyPortSetPrefix   = "Proxy-"
 	// TriremeInput represent the chain that contains pu input rules.
 	TriremeInput = chainPrefix + "Pid-Net"
 	// TriremeOutput represent the chain that contains pu output rules.
@@ -67,12 +67,13 @@ const (
 )
 
 type iptablesInstance struct {
-	ipt                 ipImpl
-	ipset               provider.IpsetProvider
-	targetTCPSet        provider.Ipset
-	targetUDPSet        provider.Ipset
-	excludedNetworksSet provider.Ipset
-	cfg                 *runtime.Configuration
+	ipt                   ipImpl
+	ipset                 provider.IpsetProvider
+	targetTCPSet          provider.Ipset
+	targetUDPSet          provider.Ipset
+	excludedNetworksSet   provider.Ipset
+	cfg                   *runtime.Configuration
+	contextIDToPortSetMap cache.DataStore
 }
 
 // Instance  is the structure holding all information about a implementation
@@ -88,7 +89,6 @@ type Instance struct {
 	appCgroupIPTableSection string
 	appSynAckIPTableSection string
 	mode                    constants.ModeType
-	contextIDToPortSetMap   cache.DataStore
 	createPUPortSet         func(string) error
 	isLegacyKernel          bool
 	serviceIDToIPsets       map[string]*ipsetInfo
@@ -153,12 +153,13 @@ func createIPInstance(impl ipImpl, cfg *runtime.Configuration) {
 	}
 
 	return &iptablesInstance{
-		ipt:                impl,
-		ipset:              ips,
-		targetTCPSet:       targetTCPSet,
-		targetUDPSet:       targetUDPSet,
-		excludedNetworkSet: excludedSet,
-		cfg:                filterIPs(cfg, impl.IPFilter()),
+		ipt:                   impl,
+		ipset:                 ips,
+		targetTCPSet:          targetTCPSet,
+		targetUDPSet:          targetUDPSet,
+		excludedNetworkSet:    excludedSet,
+		cfg:                   filterIPs(cfg, impl.IPFilter()),
+		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 	}
 }
 
@@ -193,7 +194,6 @@ func newInstanceWithProviders(fqc *fqconfig.FilterQueue, mode constants.ModeType
 		netLinuxIPTableSection:  TriremeInput,
 		netPacketIPTableSection: ipTableSectionInput,
 		appSynAckIPTableSection: ipTableSectionOutput,
-		contextIDToPortSetMap:   cache.NewCache("contextIDToPortSetMap"),
 		createPUPortSet:         ipsetCreatePortset,
 		isLegacyKernel:          buildflags.IsLegacyKernel(),
 		serviceIDToIPsets:       map[string]*ipsetInfo{},
@@ -314,17 +314,17 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 		var err error
 		var cfg *ACLInfo
 
+		// We create the generic ACL object that is used for all the templates.
+		cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
+		if err != nil {
+			return err
+		}
+
 		// First we create an IPSet for destination matching ports. This only
 		// applies to Linux type PUs. A port set is associated with every PU,
 		// and packets matching this destination get associated with the context
 		// of the PU.
-		if err = i.createPortSet(contextID, pu); err != nil {
-			return err
-		}
-
-		// We create the generic ACL object that is used for all the templates.
-		cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
-		if err != nil {
+		if err = i.createPortSet(cfg.PortSetName); err != nil {
 			return err
 		}
 
@@ -514,7 +514,7 @@ func (i *Instance) CleanUp() error {
 			zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 		}
 
-		if err := i.iptInstance.ipset.DestroyAll(chainPrefix); err != nil {
+		if err := i.iptInstance.ipset.DestroyAll(chainPrefix + i.iptInstance.ipt.GetIPSetPrefix()); err != nil {
 			zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 		}
 	}

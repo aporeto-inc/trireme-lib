@@ -45,7 +45,7 @@ func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) e
 func (i *Instance) createProxySets(portSetName string) error {
 	destSetName, srvSetName := i.getSetNames(portSetName)
 
-	_, err := i.iptInstance.ipset.NewIpset(destSetName, "hash:net,port", &ipset.Params{})
+	_, err := i.iptInstance.ipset.NewIpset(destSetName, "hash:net,port", i.iptInstance.ipt.GetIPSetParam())
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}

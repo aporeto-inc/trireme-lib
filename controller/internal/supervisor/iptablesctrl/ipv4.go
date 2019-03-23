@@ -1,16 +1,17 @@
-package ipv4
+package iptablesctrl
 
 import (
 	"fmt"
 	"net"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	i "k8s.io/api"
 )
 
 const (
-	ipv4String = "ipv4"
+	ipv4String = "-ipv4-"
 )
 
 var ipsetV4Param *ipset.Params
@@ -36,11 +37,11 @@ func (i *ipv4) GetIPSet() {
 	return provider.NewGoIPsetProvider()
 }
 
-func (i *ipv4) GetIPSetPrefix() {
+func (i *ipv4) GetIPSetPrefix() string {
 	return ipv4String
 }
 
-func (i *ipv4) GetIPSetParam() {
+func (i *ipv4) GetIPSetParam() *ipset.Params {
 	return ipsetV4Param
 }
 

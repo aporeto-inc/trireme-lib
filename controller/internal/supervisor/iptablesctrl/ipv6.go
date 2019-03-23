@@ -1,4 +1,4 @@
-package ipv6
+package iptablesctrl
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	ipv6 = "ipv6"
+	ipv6 = "-ipv6-"
 )
 
 var ipsetV6Param *ipset.Params
