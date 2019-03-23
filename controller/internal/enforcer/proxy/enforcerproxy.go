@@ -65,7 +65,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if initEnforcer {
 		if err := s.initRemoteEnforcer(contextID); err != nil {
-			s.prochdl.KillRemoteEnforcer(contextID, true)
+			s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
 			return err
 		}
 	}
@@ -84,7 +84,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{}); err != nil {
-		s.prochdl.KillRemoteEnforcer(contextID, true)
+		s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
 
@@ -101,7 +101,7 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Unenforce, request, &rpcwrapper.Response{}); err != nil {
-		s.prochdl.KillRemoteEnforcer(contextID, true)
+		s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
 

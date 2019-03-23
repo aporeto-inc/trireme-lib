@@ -21,7 +21,6 @@ import (
 // Why is this public when all members are private ? For golang RPC server requirements
 type RemoteEnforcer struct {
 	rpcSecret      string
-	rpcChannel     string
 	rpcHandle      rpcwrapper.RPCServer
 	collector      statscollector.Collector
 	statsClient    statsclient.StatsClient

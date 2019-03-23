@@ -22,7 +22,6 @@ import (
 
 const (
 	testDirBase = "/tmp"
-	testBinary  = "testbinary"
 )
 
 func launchContainer(path string) int {
@@ -85,7 +84,7 @@ func TestLaunchProcess(t *testing.T) {
 		err := os.MkdirAll("/tmp/1/ns/net", os.ModePerm)
 		So(err, ShouldBeNil)
 		defer func() {
-			os.RemoveAll("/tmp/1/ns/net")
+			os.RemoveAll("/tmp/1/ns/net") // nolint errcheck
 		}()
 
 		err = os.Chdir("testbinary")
@@ -106,7 +105,7 @@ func TestLaunchProcess(t *testing.T) {
 		errChannel := make(chan *policy.RuntimeError)
 
 		rpchdl := rpcwrapper.NewTestRPCClient()
-		contextID := "12345"
+		contextID := "pu1"
 
 		pm := New(ctx, &env.RemoteParameters{}, errChannel, rpchdl)
 		p, ok := pm.(*RemoteMonitor)
@@ -184,7 +183,7 @@ func Test_KillRemoteEnforcer(t *testing.T) {
 		defer close(errChannel)
 
 		rpchdl := rpcwrapper.NewTestRPCClient()
-		contextID := "12345"
+		contextID := "abcd"
 
 		pm := New(ctx, &env.RemoteParameters{}, errChannel, rpchdl)
 		p, ok := pm.(*RemoteMonitor)

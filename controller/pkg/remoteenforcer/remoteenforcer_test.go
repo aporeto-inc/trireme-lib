@@ -82,7 +82,6 @@ mGWH5/94d5k=
 	appQueueStr = "0:3"
 	netQueueStr = "4:7"
 	pcchan      = "/tmp/test.sock"
-	secret      = "mysecret"
 )
 
 var (
@@ -346,33 +345,34 @@ func TestInitEnforcer(t *testing.T) {
 				})
 			})
 
-			Convey("When I try to instantiate remote they all succeed ", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-				mockStats.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-				mockDebugClient.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
+			// THESE TESTS MESS AROUND WITH IPTABLES - we need to find a mocked way.
+			// Convey("When I try to instantiate remote they all succeed ", func() {
+			// 	rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+			// 	mockStats.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
+			// 	mockDebugClient.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
+			// 	var rpcwrperreq rpcwrapper.Request
+			// 	var rpcwrperres rpcwrapper.Response
 
-				defer server.cleanup()
+			// 	defer server.cleanup()
 
-				digest := hmac.New(sha256.New, []byte(secret))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
+			// 	digest := hmac.New(sha256.New, []byte(secret))
+			// 	if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
+			// 		So(err, ShouldBeNil)
+			// 	}
+			// 	rpcwrperreq.HashAuth = digest.Sum(nil)
 
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
-				rpcwrperreq.Payload = initTestEnfReqPayload()
-				rpcwrperres.Status = ""
+			// 	rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
+			// 	rpcwrperreq.Payload = initTestEnfReqPayload()
+			// 	rpcwrperres.Status = ""
 
-				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+			// 	err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should get error", func() {
-					So(err, ShouldBeNil)
-					So(server.supervisor, ShouldNotBeNil)
-					So(server.enforcer, ShouldNotBeNil)
-				})
-			})
+			// 	Convey("Then I should get error", func() {
+			// 		So(err, ShouldBeNil)
+			// 		So(server.supervisor, ShouldNotBeNil)
+			// 		So(server.enforcer, ShouldNotBeNil)
+			// 	})
+			// })
 		})
 	})
 }

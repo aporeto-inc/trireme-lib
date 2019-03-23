@@ -11,7 +11,6 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
@@ -37,7 +36,6 @@ type trireme struct {
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
-	rpchdl               rpcwrapper.RPCClient
 	enablingTrace        chan *traceTrigger
 	locks                sync.Map
 }
