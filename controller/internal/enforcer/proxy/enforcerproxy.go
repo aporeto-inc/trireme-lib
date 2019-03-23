@@ -114,6 +114,8 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	s.Secrets = token
 	s.Unlock()
 
+	var allErrors string
+
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.UpdateSecretsPayload{
@@ -123,8 +125,12 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 
 	for _, contextID := range s.rpchdl.ContextList() {
 		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.UpdateSecrets, request, resp); err != nil {
-			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
+			allErrors = allErrors + " contextID " + contextID + ":" + err.Error()
 		}
+	}
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("unable to update secrets for some remotes: %s", allErrors)
 	}
 
 	return nil
@@ -153,7 +159,9 @@ func (s *ProxyInfo) CleanUp() error {
 
 // EnableDatapathPacketTracing enable nfq packet tracing in remote container
 func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+
 	resp := &rpcwrapper.Response{}
+
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.EnableDatapathPacketTracingPayLoad{
 			Direction: direction,
@@ -161,9 +169,27 @@ func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction pack
 			ContextID: contextID,
 		},
 	}
-	err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableDatapathPacketTracing, request, resp)
-	if err != nil {
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableDatapathPacketTracing, request, resp); err != nil {
 		return fmt.Errorf("unable to enable datapath packet tracing %s -- %s", err, resp.Status)
+	}
+
+	return nil
+}
+
+// EnableIPTablesPacketTracing enable iptables tracing
+func (s *ProxyInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnableIPTablesPacketTracingPayLoad{
+			IPTablesPacketTracing: true,
+			Interval:              interval,
+			ContextID:             contextID,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.EnableIPTablesPacketTracing, request, &rpcwrapper.Response{}); err != nil {
+		return fmt.Errorf("Unable to enable iptables tracing for contextID %s: %s", contextID, err)
 	}
 
 	return nil
@@ -179,15 +205,21 @@ func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 		},
 	}
 
+	var allErrors string
+
 	for _, contextID := range s.rpchdl.ContextList() {
 		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.SetTargetNetworks, request, resp); err != nil {
-			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
+			allErrors = allErrors + " contextID " + contextID + ":" + err.Error()
 		}
 	}
 
 	s.Lock()
 	s.cfg = cfg
 	s.Unlock()
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("Remote enforcers failed: %s", allErrors)
+	}
 
 	return nil
 }
@@ -234,7 +266,8 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 }
 
 // NewProxyEnforcer creates a new proxy to remote enforcers.
-func NewProxyEnforcer(mutualAuth bool,
+func NewProxyEnforcer(
+	mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
 	secrets secrets.Secrets,

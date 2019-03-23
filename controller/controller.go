@@ -286,19 +286,27 @@ func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packet
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
+
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
 		return fmt.Errorf("sysctl command not found")
 	}
+
 	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("remote container iptables tracing will not work %s", err)
 	}
+
 	t.enablingTrace <- &traceTrigger{
 		duration: interval,
 		expiry:   time.Now().Add(interval),
 	}
-	return t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+
+	if err := t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval); err != nil {
+		return err
+	}
+
+	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
 }
 
 func (t *trireme) runIPTraceCollector(ctx context.Context) {

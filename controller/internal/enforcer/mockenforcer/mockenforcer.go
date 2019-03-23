@@ -156,6 +156,20 @@ func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(contextID, direc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
 }
 
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockEnforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockEnforcerMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
+}
+
 // MockDebugInfo is a mock of DebugInfo interface
 // nolint
 type MockDebugInfo struct {
@@ -195,4 +209,18 @@ func (m *MockDebugInfo) EnableDatapathPacketTracing(contextID string, direction 
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
+}
+
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }

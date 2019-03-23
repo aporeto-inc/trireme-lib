@@ -42,22 +42,25 @@ func newRemoteEnforcer(
 	cancel context.CancelFunc,
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
-	rpcChannel string,
 	secret string,
 	statsClient statsclient.StatsClient,
+	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 ) (*RemoteEnforcer, error) {
 
 	var err error
 
-	var collector statscollector.Collector
-	if statsClient == nil {
+	if collector == nil {
 		collector = statscollector.NewCollector()
+	}
+
+	if statsClient == nil {
 		statsClient, err = statsclient.NewStatsClient(collector)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	if debugClient == nil {
 		debugClient, err = debugclient.NewDebugClient(collector)
 		if err != nil {
@@ -72,7 +75,6 @@ func newRemoteEnforcer(
 	return &RemoteEnforcer{
 		collector:      collector,
 		service:        service,
-		rpcChannel:     rpcChannel,
 		rpcSecret:      secret,
 		rpcHandle:      rpcHandle,
 		procMountPoint: procMountPoint,
@@ -91,7 +93,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	zap.L().Debug("Configuring remote enforcer")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("init message authentication failed: %s", resp.Status)
+		resp.Status = fmt.Sprintf("init message authentication failed")
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -100,11 +102,13 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	payload, ok := req.Payload.(rpcwrapper.InitRequestPayload)
 	if !ok {
-		resp.Status = fmt.Sprintf("invalid request payload: %s", resp.Status)
+		resp.Status = fmt.Sprintf("invalid request payload")
+		return fmt.Errorf(resp.Status)
 	}
 
 	if s.supervisor != nil || s.enforcer != nil {
 		resp.Status = fmt.Sprintf("remote enforcer is already initialized")
+		return fmt.Errorf(resp.Status)
 	}
 
 	var err error
@@ -161,7 +165,11 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	payload := req.Payload.(rpcwrapper.EnforcePayload)
+	payload, ok := req.Payload.(rpcwrapper.EnforcePayload)
+	if !ok {
+		resp.Status = "invalid enforcer payload"
+		return fmt.Errorf(resp.Status)
+	}
 
 	plc, err := payload.Policy.ToPrivatePolicy(true)
 	if err != nil {
@@ -215,7 +223,11 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	s.statsClient.SendStats()
 
-	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
+	payload, ok := req.Payload.(rpcwrapper.UnEnforcePayload)
+	if !ok {
+		resp.Status = "invalid unenforcer payload"
+		return fmt.Errorf(resp.Status)
+	}
 
 	var err error
 
@@ -321,34 +333,44 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
 func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "enable datapath packet tracing auth failed"
 		return fmt.Errorf(resp.Status)
 	}
+
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
+
 	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
+
 	resp.Status = ""
 	return nil
 }
 
 // EnableIPTablesPacketTracing enables iptables trace packet tracing
 func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "enable iptable packet tracing auth failed"
 		return fmt.Errorf(resp.Status)
 	}
+
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
+
 	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
+
 	resp.Status = ""
 	return nil
 }
@@ -447,7 +469,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -489,7 +511,7 @@ func validateNamespace() error {
 	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
 	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
 	if nsEnterState != "" {
-		return fmt.Errorf("nsErr: %s nsLogs:", nsEnterState, nsEnterLogMsg)
+		return fmt.Errorf("nsErr: %s nsLogs: %s", nsEnterState, nsEnterLogMsg)
 	}
 
 	pid := strconv.Itoa(os.Getpid())

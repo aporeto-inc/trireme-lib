@@ -44,7 +44,7 @@ type Enforcer interface {
 	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// Cleanup request a clean up of the controllers.
-	CleanUp()error
+	CleanUp() error
 
 	DebugInfo
 }
@@ -53,6 +53,9 @@ type Enforcer interface {
 type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
 	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
+
+	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -176,7 +179,7 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 }
 
 // Cleanup implements the cleanup interface. Not much to do here.
-func (e *enforcer) CleanUp()error {
+func (e *enforcer) CleanUp() error {
 	return nil
 }
 
@@ -189,6 +192,11 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 	return e.transport.EnableDatapathPacketTracing(contextID, direction, interval)
 
+}
+
+// EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	return nil
 }
 
 // New returns a new policy enforcer that implements both the data paths.
