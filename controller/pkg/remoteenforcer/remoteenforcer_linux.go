@@ -34,6 +34,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Initialization functions as variables in order to enable testing.
+var (
+	createEnforcer = enforcer.New
+
+	createSupervisor = supervisor.NewSupervisor
+)
+
 var cmdLock sync.Mutex
 
 // newRemoteEnforcer starts a new server
@@ -385,7 +392,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		return err
 	}
 
-	if s.enforcer, err = enforcer.New(
+	if s.enforcer, err = createEnforcer(
 		payload.MutualAuth,
 		payload.FqConfig,
 		s.collector,
@@ -407,7 +414,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
-	h, err := supervisor.NewSupervisor(
+	h, err := createSupervisor(
 		s.collector,
 		s.enforcer,
 		constants.RemoteContainer,

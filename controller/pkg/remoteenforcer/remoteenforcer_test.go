@@ -14,10 +14,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/mitchellh/hashstructure"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -263,6 +266,39 @@ func TestInitEnforcer(t *testing.T) {
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
+		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
+
+		// Mock the global functions.
+		createEnforcer = func(
+			mutualAuthorization bool,
+			fqConfig *fqconfig.FilterQueue,
+			collector collector.EventCollector,
+			service packetprocessor.PacketProcessor,
+			secrets secrets.Secrets,
+			serverID string,
+			validity time.Duration,
+			mode constants.ModeType,
+			procMountPoint string,
+			externalIPCacheTimeout time.Duration,
+			packetLogs bool,
+			cfg *runtime.Configuration,
+		) (enforcer.Enforcer, error) {
+			return mockEnf, nil
+		}
+
+		createSupervisor = func(
+			collector collector.EventCollector,
+			enforcerInstance enforcer.Enforcer,
+			mode constants.ModeType,
+			cfg *runtime.Configuration,
+			p packetprocessor.PacketProcessor,
+		) (supervisor.Supervisor, error) {
+			return mockSupevisor, nil
+		}
+		defer func() {
+			createSupervisor = supervisor.NewSupervisor
+			createEnforcer = enforcer.New
+		}()
 
 		Convey("When I try to create new server with env set", func() {
 			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
@@ -278,19 +314,11 @@ func TestInitEnforcer(t *testing.T) {
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(false)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
 				rpcwrperreq.Payload = initTestEnfReqPayload()
-				rpcwrperres.Status = ""
-				server.enforcer = mockEnf
 
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
@@ -301,19 +329,11 @@ func TestInitEnforcer(t *testing.T) {
 
 			Convey("When I try to instantiate the enforcer with a bad payload, it should error ", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte(secret))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
 				rpcwrperreq.Payload = initTestEnfPayload()
-				rpcwrperres.Status = ""
-				server.enforcer = mockEnf
 
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
@@ -324,18 +344,12 @@ func TestInitEnforcer(t *testing.T) {
 
 			Convey("When I try to instantiate the enforcer amd the enforcer is initialized, it should fail ", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte(secret))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
 				rpcwrperreq.Payload = initTestEnfReqPayload()
-				rpcwrperres.Status = ""
+
 				server.enforcer = mockEnf
 
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
@@ -345,34 +359,172 @@ func TestInitEnforcer(t *testing.T) {
 				})
 			})
 
-			// THESE TESTS MESS AROUND WITH IPTABLES - we need to find a mocked way.
-			// Convey("When I try to instantiate remote they all succeed ", func() {
-			// 	rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-			// 	mockStats.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-			// 	mockDebugClient.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-			// 	var rpcwrperreq rpcwrapper.Request
-			// 	var rpcwrperres rpcwrapper.Response
+			Convey("When I try to instantiate the enforcer and the enforcer fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
-			// 	defer server.cleanup()
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
 
-			// 	digest := hmac.New(sha256.New, []byte(secret))
-			// 	if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-			// 		So(err, ShouldBeNil)
-			// 	}
-			// 	rpcwrperreq.HashAuth = digest.Sum(nil)
+				rpcwrperreq.Payload = initTestEnfReqPayload()
 
-			// 	rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
-			// 	rpcwrperreq.Payload = initTestEnfReqPayload()
-			// 	rpcwrperres.Status = ""
+				createEnforcer = func(
+					mutualAuthorization bool,
+					fqConfig *fqconfig.FilterQueue,
+					collector collector.EventCollector,
+					service packetprocessor.PacketProcessor,
+					secrets secrets.Secrets,
+					serverID string,
+					validity time.Duration,
+					mode constants.ModeType,
+					procMountPoint string,
+					externalIPCacheTimeout time.Duration,
+					packetLogs bool,
+					cfg *runtime.Configuration,
+				) (enforcer.Enforcer, error) {
+					return nil, fmt.Errorf("failed enforcer")
+				}
 
-			// 	err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
-			// 	Convey("Then I should get error", func() {
-			// 		So(err, ShouldBeNil)
-			// 		So(server.supervisor, ShouldNotBeNil)
-			// 		So(server.enforcer, ShouldNotBeNil)
-			// 	})
-			// })
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("Error while initializing remote enforcer, failed enforcer"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the supervisor fails, it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				createSupervisor = func(
+					collector collector.EventCollector,
+					enforcerInstance enforcer.Enforcer,
+					mode constants.ModeType,
+					cfg *runtime.Configuration,
+					p packetprocessor.PacketProcessor,
+				) (supervisor.Supervisor, error) {
+					return nil, fmt.Errorf("failed supervisor")
+				}
+
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("unable to setup supervisor: failed supervisor"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the controller fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(fmt.Errorf("enforcer run error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enforcer run error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the statclient fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(fmt.Errorf("stats error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("stats error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the supervisor fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(fmt.Errorf("supervisor run"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("supervisor run"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the debug client fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(fmt.Errorf("debug error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and it succeeds it should not error", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get error", func() {
+					So(err, ShouldBeNil)
+				})
+			})
 		})
 	})
 }
