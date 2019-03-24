@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"time"
 
-	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -19,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -107,14 +107,14 @@ type Datapath struct {
 	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
 	packetTracingCache cache.DataStore
 
-	// conntrack handle
-	conntrackHdl conntrack.Conntrack
-
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
 
 	// ack size
 	ackSize uint32
+
+	// conntrack is the conntrack client
+	conntrack *flowtracking.Client
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -241,7 +241,6 @@ func New(
 		ackSize:                secrets.AckSize(),
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
-		conntrackHdl:           conntrack.NewHandle(),
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
@@ -293,7 +292,7 @@ func NewWithDefaults(
 
 	puFromContextID := cache.NewCache("puFromContextID")
 
-	return New(
+	e := New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
 		collector,
@@ -309,6 +308,14 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
+
+	conntrackClient, err := flowtracking.NewClient(context.Background())
+	if err != nil {
+		return nil
+	}
+	e.conntrack = conntrackClient
+
+	return e
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
@@ -464,6 +471,14 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
+	if d.conntrack == nil {
+		conntrackClient, err := flowtracking.NewClient(ctx)
+		if err != nil {
+			return err
+		}
+		d.conntrack = conntrackClient
+	}
+
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
 
@@ -530,7 +545,11 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if app {
 		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
-			zap.L().Error("Could not find pu context for the mark", zap.String("mark", mark))
+			zap.L().Error("Unable to find context for application flow with mark",
+				zap.String("mark", mark),
+				zap.Int("protocol", int(protocol)),
+				zap.Int("port", int(port)),
+			)
 			return nil, errMarkNotFound
 		}
 		return pu.(*pucontext.PUContext), nil

@@ -224,29 +224,25 @@ func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 	udpData = append(udpData, udpdata...)
 	udpData = append(udpData, udptoken...)
 
-	p.udpData = udpData
-
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, p.udpData...)
+	p.Buffer = append(p.Buffer, udpData...)
 
 	p.UpdateUDPChecksum()
 }
 
 // UDPDataAttach Attaches UDP data post encryption.
-func (p *Packet) UDPDataAttach(udpdata []byte) {
+func (p *Packet) UDPDataAttach(header, udpdata []byte) {
 
-	udpData := []byte{}
-	udpData = append(udpData, udpdata...)
-	p.udpData = udpData
-	packetLenIncrease := uint16(len(udpdata))
+	packetLenIncrease := uint16(len(udpdata) + len(header))
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, p.udpData...)
+	p.Buffer = append(p.Buffer, header...)
+	p.Buffer = append(p.Buffer, udpdata...)
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
 	p.UpdateUDPChecksum()
@@ -257,9 +253,6 @@ func (p *Packet) UDPDataDetach() {
 
 	// Create constants for IP header + UDP header. copy ?
 	p.Buffer = p.Buffer[:UDPDataPos]
-	p.udpData = []byte{}
-
-	// IP header/checksum updated on DataAttach.
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
@@ -303,17 +296,46 @@ func (p *Packet) GetUDPType() byte {
 	//          Bit 7 represents encryption. (currently unused).
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.
-	if len(p.Buffer) < (UDPDataPos + UDPSignatureLen) {
-		// Not an Aporeto control packet.
+
+	return GetUDPTypeFromBuffer(p.Buffer)
+
+}
+
+// GetUDPTypeFromBuffer gets the UDP packet from a raw buffer.,
+func GetUDPTypeFromBuffer(buffer []byte) byte {
+
+	if len(buffer) < (UDPDataPos + UDPSignatureLen) {
 		return 0
 	}
 
-	marker := p.Buffer[UDPDataPos:UDPSignatureEnd]
+	marker := buffer[UDPDataPos:UDPSignatureEnd]
+
 	// check for packet signature.
-	if !bytes.Equal(p.Buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
-		zap.L().Debug("Not an Aporeto control Packet", zap.String("flow", p.L4FlowHash()))
+	if !bytes.Equal(buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
+		zap.L().Debug("Not an Aporeto control Packet")
 		return 0
 	}
 	// control packet. byte 0 has packet type information.
 	return marker[0] & UDPPacketMask
+}
+
+// CreateUDPAuthMarker creates a UDP auth marker.
+func CreateUDPAuthMarker(packetType uint8) []byte {
+
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5, 6, 7 represent udp packet type,
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+
+	marker := make([]byte, UDPSignatureLen)
+	// ignore version info as of now.
+	marker[0] |= packetType // byte 0
+	marker[1] = 0           // byte 1
+	// byte 2 - 19
+	copy(marker[2:], []byte(UDPAuthMarker))
+
+	return marker
 }

@@ -110,9 +110,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 	}
 
 	ips := provider.NewGoIPsetProvider()
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize ipsets: %s", err)
-	}
+
 	return newInstanceWithProviders(fqc, mode, cfg, ipt, ips)
 }
 
