@@ -10,9 +10,9 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	enforcerproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	supervisorproxy "go.aporeto.io/trireme-lib/controller/internal/supervisor/proxy"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -42,6 +42,7 @@ type config struct {
 	externalIPcacheTimeout time.Duration
 	runtimeCfg             *runtime.Configuration
 	runtimeErrorChannel    chan *policy.RuntimeError
+	remoteParameters       *env.RemoteParameters
 }
 
 // Option is provided using functional arguments.
@@ -118,6 +119,13 @@ func OptionPacketLogs() Option {
 	}
 }
 
+// OptionRemoteParameters is an option to set the parameters for the remote
+func OptionRemoteParameters(p *env.RemoteParameters) Option {
+	return func(cfg *config) {
+		cfg.remoteParameters = p
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -150,13 +158,13 @@ func (t *trireme) newEnforcers() error {
 			t.config.secret,
 			t.config.serverID,
 			t.config.validity,
-			t.rpchdl,
 			"enforce",
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.runtimeCfg,
 			t.config.runtimeErrorChannel,
+			t.config.remoteParameters,
 		)
 	}
 
@@ -201,17 +209,7 @@ func (t *trireme) newSupervisors() error {
 	}
 
 	if t.config.mode == constants.RemoteContainer {
-		s, err := supervisorproxy.NewProxySupervisor(
-			t.config.collector,
-			t.enforcers[constants.RemoteContainer],
-			t.config.runtimeCfg,
-			t.rpchdl,
-		)
-		if err != nil {
-			zap.L().Error("Unable to create proxy Supervisor:: Returned Error ", zap.Error(err))
-			return nil
-		}
-		t.supervisors[constants.RemoteContainer] = s
+		t.supervisors[constants.RemoteContainer] = supervisorproxy.NewProxySupervisor()
 	}
 
 	if t.config.mode == constants.Sidecar {
@@ -238,7 +236,6 @@ func newTrireme(c *config) TriremeController {
 
 	t := &trireme{
 		config:               c,
-		rpchdl:               rpcwrapper.NewRPCWrapper(),
 		enforcers:            map[constants.ModeType]enforcer.Enforcer{},
 		supervisors:          map[constants.ModeType]supervisor.Supervisor{},
 		puTypeToEnforcerType: map[common.PUType]constants.ModeType{},

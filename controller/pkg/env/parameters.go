@@ -1,31 +1,30 @@
-package logconfig
+package env
 
 import (
 	"os"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/processmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 )
 
-// SetLogParameters sets up environment to be passed to the remote trireme instances.
-func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags claimsheader.CompressionType) {
-
-	h := processmon.GetProcessManagerHdl()
-	if h == nil {
-		panic("Unable to find process manager handle")
-	}
-
-	h.SetLogParameters(logToConsole, logWithID, logLevel, logFormat, compressedTags)
+// RemoteParameters holds all configuration objects that must be passed
+// during the initialization of the monitor.
+type RemoteParameters struct {
+	LogToConsole   bool
+	LogWithID      bool
+	LogLevel       string
+	LogFormat      string
+	CompressedTags claimsheader.CompressionType
 }
 
-// GetLogParameters retrieves log parameters for Remote Enforcer.
-func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType) {
+// GetParameters retrieves log parameters for Remote Enforcer.
+func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
 		logLevel = "info"
 	}
+
 	logFormat = os.Getenv(constants.EnvLogFormat)
 	if logLevel == "" {
 		logFormat = "json"
@@ -45,5 +44,6 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 			compressedTagsVersion = claimsheader.CompressionTypeV2
 		}
 	}
+
 	return
 }

@@ -21,6 +21,20 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+func newSupervisor(
+	collector collector.EventCollector,
+	enforcerInstance enforcer.Enforcer,
+	mode constants.ModeType,
+	cfg *runtime.Configuration,
+) (*Config, error) {
+
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	return s.(*Config), nil
+}
+
 func createPUInfo() *policy.PUInfo {
 
 	rules := policy.IPRuleList{
@@ -84,7 +98,7 @@ func TestNewSupervisor(t *testing.T) {
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(c, e, mode, &runtime.Configuration{})
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -92,7 +106,7 @@ func TestNewSupervisor(t *testing.T) {
 			})
 		})
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(nil, e, mode, &runtime.Configuration{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -100,7 +114,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(c, nil, mode, &runtime.Configuration{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -126,7 +140,7 @@ func TestSupervise(t *testing.T) {
 		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, nil)
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -203,7 +217,7 @@ func TestUnsupervise(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -249,10 +263,9 @@ func TestStart(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e,
+		s, _ := newSupervisor(c, e,
 			constants.RemoteContainer,
 			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}},
-			nil,
 		)
 		So(s, ShouldNotBeNil)
 
@@ -296,7 +309,7 @@ func TestStop(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -331,7 +344,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)

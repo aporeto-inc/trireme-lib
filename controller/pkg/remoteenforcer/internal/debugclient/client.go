@@ -46,6 +46,7 @@ func NewDebugClient(cr statscollector.Collector) (DebugClient, error) {
 	if d.secret == "" {
 		return nil, errors.New("no secret provided for debug channel")
 	}
+
 	return d, nil
 }
 

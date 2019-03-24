@@ -61,7 +61,7 @@ func NewSupervisor(
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
 	p packetprocessor.PacketProcessor,
-) (*Config, error) {
+) (Supervisor, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")

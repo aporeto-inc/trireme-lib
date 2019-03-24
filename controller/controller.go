@@ -11,9 +11,10 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -35,7 +36,6 @@ type trireme struct {
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
-	rpchdl               rpcwrapper.RPCClient
 	enablingTrace        chan *traceTrigger
 	locks                sync.Map
 }
@@ -52,6 +52,13 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
+		remoteParameters: &env.RemoteParameters{
+			LogToConsole:   true,
+			LogFormat:      "console",
+			LogLevel:       "info",
+			LogWithID:      false,
+			CompressedTags: claimsheader.CompressionTypeV1,
+		},
 	}
 
 	for _, opt := range opts {
@@ -89,6 +96,10 @@ func (t *trireme) Run(ctx context.Context) error {
 func (t *trireme) CleanUp() error {
 	for _, s := range t.supervisors {
 		s.CleanUp() // nolint
+	}
+
+	for _, e := range t.enforcers {
+		e.CleanUp() // nolint
 	}
 	return nil
 }
@@ -273,19 +284,27 @@ func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packet
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
+
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
 		return fmt.Errorf("sysctl command not found")
 	}
+
 	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("remote container iptables tracing will not work %s", err)
 	}
+
 	t.enablingTrace <- &traceTrigger{
 		duration: interval,
 		expiry:   time.Now().Add(interval),
 	}
-	return t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+
+	if err := t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval); err != nil {
+		return err
+	}
+
+	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
 }
 
 func (t *trireme) runIPTraceCollector(ctx context.Context) {
@@ -313,7 +332,6 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 				t.config.collector.CollectTraceEvent(messages)
 
 			}
-
 		}
 	}
 
