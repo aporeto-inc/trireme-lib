@@ -52,34 +52,6 @@ func (mr *MockRemoteIntfMockRecorder) InitEnforcer(req, resp interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitEnforcer", reflect.TypeOf((*MockRemoteIntf)(nil).InitEnforcer), req, resp)
 }
 
-// InitSupervisor mocks base method
-// nolint
-func (m *MockRemoteIntf) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	ret := m.ctrl.Call(m, "InitSupervisor", req, resp)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// InitSupervisor indicates an expected call of InitSupervisor
-// nolint
-func (mr *MockRemoteIntfMockRecorder) InitSupervisor(req, resp interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitSupervisor", reflect.TypeOf((*MockRemoteIntf)(nil).InitSupervisor), req, resp)
-}
-
-// Supervise mocks base method
-// nolint
-func (m *MockRemoteIntf) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	ret := m.ctrl.Call(m, "Supervise", req, resp)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Supervise indicates an expected call of Supervise
-// nolint
-func (mr *MockRemoteIntfMockRecorder) Supervise(req, resp interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Supervise", reflect.TypeOf((*MockRemoteIntf)(nil).Supervise), req, resp)
-}
-
 // Unenforce mocks base method
 // nolint
 func (m *MockRemoteIntf) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
@@ -92,20 +64,6 @@ func (m *MockRemoteIntf) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 // nolint
 func (mr *MockRemoteIntfMockRecorder) Unenforce(req, resp interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unenforce", reflect.TypeOf((*MockRemoteIntf)(nil).Unenforce), req, resp)
-}
-
-// Unsupervise mocks base method
-// nolint
-func (m *MockRemoteIntf) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	ret := m.ctrl.Call(m, "Unsupervise", req, resp)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Unsupervise indicates an expected call of Unsupervise
-// nolint
-func (mr *MockRemoteIntfMockRecorder) Unsupervise(req, resp interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unsupervise", reflect.TypeOf((*MockRemoteIntf)(nil).Unsupervise), req, resp)
 }
 
 // Enforce mocks base method
