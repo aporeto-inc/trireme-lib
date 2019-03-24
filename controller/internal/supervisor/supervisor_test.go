@@ -16,7 +16,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
@@ -27,10 +26,9 @@ func newSupervisor(
 	enforcerInstance enforcer.Enforcer,
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
-	p packetprocessor.PacketProcessor,
 ) (*Config, error) {
 
-	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, p)
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
