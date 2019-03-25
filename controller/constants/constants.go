@@ -93,3 +93,9 @@ const (
 	TCPProtoString = "TCP"
 	UDPProtoString = "UDP"
 )
+
+// sockets
+const (
+	StatsChannel = "/var/run/statschannel.sock"
+	DebugChannel = "/var/run/debugchannel.sock"
+)
