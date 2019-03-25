@@ -246,6 +246,7 @@ func TestUnenforce(t *testing.T) {
 
 		Convey("When I try to call unenforce", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Unenforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			prochdl.EXPECT().KillRemoteEnforcer("testServerID", true)
 			err := e.Unenforce("testServerID")
 			So(err, ShouldBeNil)
 		})
@@ -255,8 +256,8 @@ func TestUnenforce(t *testing.T) {
 			prochdl.EXPECT().KillRemoteEnforcer("testServerID", true)
 			err := e.Unenforce("testServerID")
 
-			Convey("Then I should get an error", func() {
-				So(err, ShouldNotBeNil)
+			Convey("Then I should not get an error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})
