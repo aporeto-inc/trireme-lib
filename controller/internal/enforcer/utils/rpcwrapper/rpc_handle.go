@@ -268,13 +268,10 @@ func RegisterTypes() {
 	gob.Register(&oidc.TokenVerifier{})
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))
 
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
 
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))

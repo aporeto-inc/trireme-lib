@@ -493,6 +493,12 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
+// CleanUp implements the cleanup interface.
+func (d *Datapath) CleanUp() error {
+	// TODO add any cleaning up we need to do here.
+	return nil
+}
+
 func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
 
 	item, err := d.puFromContextID.Get(contextID)
@@ -602,5 +608,10 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 		d.packetTracingCache.Remove(contextID) // nolint
 	}()
 
+	return nil
+}
+
+// EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
 }

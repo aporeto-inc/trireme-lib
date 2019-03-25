@@ -40,7 +40,12 @@ type Enforcer interface {
 	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
 
+	// SetTargetNetworks sets the target network configuration of the controllers.
 	SetTargetNetworks(cfg *runtime.Configuration) error
+
+	// Cleanup request a clean up of the controllers.
+	CleanUp() error
+
 	DebugInfo
 }
 
@@ -48,6 +53,9 @@ type Enforcer interface {
 type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
 	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
+
+	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -170,6 +178,11 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
+// Cleanup implements the cleanup interface. Not much to do here.
+func (e *enforcer) CleanUp() error {
+	return nil
+}
+
 // GetFilterQueue returns the current FilterQueueConfig of the transport path.
 func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
@@ -179,6 +192,11 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 	return e.transport.EnableDatapathPacketTracing(contextID, direction, interval)
 
+}
+
+// EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	return nil
 }
 
 // New returns a new policy enforcer that implements both the data paths.

@@ -10,10 +10,12 @@ import "C"
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -27,34 +29,45 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
+// Initialization functions as variables in order to enable testing.
+var (
+	createEnforcer = enforcer.New
+
+	createSupervisor = supervisor.NewSupervisor
+)
+
 var cmdLock sync.Mutex
 
-// newServer starts a new server
-func newServer(
+// newRemoteEnforcer starts a new server
+func newRemoteEnforcer(
 	ctx context.Context,
 	cancel context.CancelFunc,
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
-	rpcChannel string,
 	secret string,
 	statsClient statsclient.StatsClient,
+	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
-) (s RemoteIntf, err error) {
+) (*RemoteEnforcer, error) {
 
-	var collector statscollector.Collector
-	if statsClient == nil {
+	var err error
+
+	if collector == nil {
 		collector = statscollector.NewCollector()
+	}
+
+	if statsClient == nil {
 		statsClient, err = statsclient.NewStatsClient(collector)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	if debugClient == nil {
 		debugClient, err = debugclient.NewDebugClient(collector)
 		if err != nil {
@@ -69,7 +82,6 @@ func newServer(
 	return &RemoteEnforcer{
 		collector:      collector,
 		service:        service,
-		rpcChannel:     rpcChannel,
 		rpcSecret:      secret,
 		rpcHandle:      rpcHandle,
 		procMountPoint: procMountPoint,
@@ -77,36 +89,325 @@ func newServer(
 		debugClient:    debugClient,
 		ctx:            ctx,
 		cancel:         cancel,
+		exit:           make(chan bool),
 	}, nil
 }
 
-// getCEnvVariable returns an environment variable set in the c context
-func getCEnvVariable(name string) string {
+// InitEnforcer is a function called from the controller using RPC. It intializes
+// data structure required by the remote enforcer
+func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	val := C.getenv(C.CString(name))
-	if val == nil {
-		return ""
+	// Check if successfully switched namespace
+	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
+	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
+	if nsEnterState != "" {
+		zap.L().Error("Remote enforcer failed",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+		)
+		resp.Status = fmt.Sprintf("Remote enforcer failed: %s", nsEnterState)
+		return fmt.Errorf(resp.Status)
 	}
 
-	return C.GoString(val)
+	zap.L().Debug("Remote enforcer launched",
+		zap.String("nsLogs", nsEnterLogMsg),
+	)
+	zap.L().Debug("Configuring remote enforcer")
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = fmt.Sprintf("init message authentication failed")
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload, ok := req.Payload.(rpcwrapper.InitRequestPayload)
+	if !ok {
+		resp.Status = fmt.Sprintf("invalid request payload")
+		return fmt.Errorf(resp.Status)
+	}
+
+	if s.supervisor != nil || s.enforcer != nil {
+		resp.Status = fmt.Sprintf("remote enforcer is already initialized")
+		return fmt.Errorf(resp.Status)
+	}
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.setupEnforcer(&payload); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.setupSupervisor(&payload); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.enforcer.Run(s.ctx); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.statsClient.Run(s.ctx); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.supervisor.Run(s.ctx); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.debugClient.Run(s.ctx); err != nil {
+		resp.Status = "DebugClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	resp.Status = ""
+
+	return nil
+}
+
+// Enforce this method calls the enforce method on the enforcer created during initenforcer
+func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enforce message auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload, ok := req.Payload.(rpcwrapper.EnforcePayload)
+	if !ok {
+		resp.Status = "invalid enforcer payload"
+		return fmt.Errorf(resp.Status)
+	}
+
+	plc, err := payload.Policy.ToPrivatePolicy(true)
+	if err != nil {
+		return err
+	}
+
+	puInfo := &policy.PUInfo{
+		ContextID: payload.ContextID,
+		Policy:    plc,
+		Runtime:   policy.NewPURuntimeWithDefaults(),
+	}
+
+	if s.enforcer == nil || s.supervisor == nil {
+		resp.Status = "enforcer not initialized - cannot enforce"
+		return fmt.Errorf(resp.Status)
+	}
+
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.supervisor.Supervise(payload.ContextID, puInfo); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	if err = s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	resp.Status = ""
+
+	return nil
+}
+
+// Unenforce this method calls the unenforce method on the enforcer created from initenforcer
+func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "unenforce message auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	s.statsClient.SendStats()
+
+	payload, ok := req.Payload.(rpcwrapper.UnEnforcePayload)
+	if !ok {
+		resp.Status = "invalid unenforcer payload"
+		return fmt.Errorf(resp.Status)
+	}
+
+	var err error
+
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.supervisor.Unsupervise(payload.ContextID); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf("unable to clean supervisor: %s", err)
+	}
+
+	if err = s.enforcer.Unenforce(payload.ContextID); err != nil {
+		resp.Status = err.Error()
+		return fmt.Errorf("unable to stop enforcer: %s", err)
+	}
+
+	return nil
+}
+
+// SetTargetNetworks calls the same method on the actual enforcer
+func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	var err error
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "SetTargetNetworks message auth failed" //nolint
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	if s.enforcer == nil || s.supervisor == nil {
+		return fmt.Errorf(resp.Status)
+	}
+
+	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
+
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
+		return err
+	}
+
+	err = s.supervisor.SetTargetNetworks(payload.Configuration)
+
+	return err
+}
+
+// EnforcerExit is processing messages from the remote that are requesting an exit. In this
+// case we simply cancel the context.
+func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	s.cleanup()
+
+	s.exit <- true
+
+	return nil
+}
+
+// UpdateSecrets updates the secrets used by the remote enforcer
+func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	var err error
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "updatesecrets auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	if s.enforcer == nil {
+		return fmt.Errorf(resp.Status)
+	}
+
+	// If any error happens, cleanup everything on exit so that we can recover
+	// by launcing a new remote.
+	defer func() {
+		if err != nil {
+			s.cleanup()
+		}
+	}()
+
+	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
+	s.secrets, err = secrets.NewSecrets(payload.Secrets)
+	if err != nil {
+		return err
+	}
+
+	err = s.enforcer.UpdateSecrets(s.secrets)
+
+	return err
+}
+
+// EnableDatapathPacketTracing enable nfq datapath packet tracing
+func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enable datapath packet tracing auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
+
+	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	resp.Status = ""
+	return nil
+}
+
+// EnableIPTablesPacketTracing enables iptables trace packet tracing
+func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enable iptable packet tracing auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
+
+	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	resp.Status = ""
+	return nil
 }
 
 // setup an enforcer
-func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
+func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) error {
+
 	var err error
-
-	if s.enforcer != nil {
-		return nil
-	}
-
-	payload := req.Payload.(rpcwrapper.InitRequestPayload)
 
 	s.secrets, err = secrets.NewSecrets(payload.Secrets)
 	if err != nil {
 		return err
 	}
 
-	if s.enforcer, err = enforcer.New(
+	if s.enforcer, err = createEnforcer(
 		payload.MutualAuth,
 		payload.FqConfig,
 		s.collector,
@@ -126,362 +427,54 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 	return nil
 }
 
-// InitEnforcer is a function called from the controller using RPC. It intializes
-// data structure required by the remote enforcer
-func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
-	// Check if successfully switched namespace
-	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
-	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
-	if nsEnterState != "" {
-		zap.L().Error("Remote enforcer failed",
-			zap.String("nsErr", nsEnterState),
-			zap.String("nsLogs", nsEnterLogMsg),
-		)
-		resp.Status = fmt.Sprintf("Remote enforcer failed: %s", nsEnterState)
-		return fmt.Errorf(resp.Status)
-	}
-
-	// pid := strconv.Itoa(os.Getpid())
-	// netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	// if err != nil {
-	// 	zap.L().Error("Remote enforcer failed: unable to identify namespace",
-	// 		zap.String("nsErr", nsEnterState),
-	// 		zap.String("nsLogs", nsEnterLogMsg),
-	// 		zap.Error(err),
-	// 	)
-	// 	resp.Status = fmt.Sprintf("Remote enforcer failed: unable to identify namespace: %s", err)
-	// 	// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
-	// 	// Could we get rid of status and just always return an error ?
-	// 	//
-	// 	// Dont return error to close RPC channel
-	// }
-
-	// netnsString := strings.TrimSpace(string(netns))
-	// if netnsString == "" {
-	// 	zap.L().Error("Remote enforcer failed: not running in a namespace",
-	// 		zap.String("nsErr", nsEnterState),
-	// 		zap.String("nsLogs", nsEnterLogMsg),
-	// 	)
-	// 	resp.Status = "not running in a namespace"
-	// 	// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
-	// 	// Could we get rid of status and just always return an error ?
-	// 	//
-	// 	// Dont return error to close RPC channel
-	// }
-
-	zap.L().Debug("Remote enforcer launched",
-		zap.String("nsLogs", nsEnterLogMsg),
+	h, err := createSupervisor(
+		s.collector,
+		s.enforcer,
+		constants.RemoteContainer,
+		payload.Configuration,
+		s.service,
 	)
-
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("init message authentication failed: %s", resp.Status)
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	if err := s.setupEnforcer(req); err != nil {
-		resp.Status = err.Error()
-		return fmt.Errorf(resp.Status)
-	}
-
-	if err := s.enforcer.Run(s.ctx); err != nil {
-		resp.Status = err.Error()
-		return fmt.Errorf(resp.Status)
-	}
-
-	if err := s.statsClient.Run(s.ctx); err != nil {
-		resp.Status = err.Error()
-		return fmt.Errorf(resp.Status)
-	}
-
-	if s.supervisor == nil {
-		supervisorHandle, err := supervisor.NewSupervisor(
-			s.collector,
-			s.enforcer,
-			constants.RemoteContainer,
-			nil,
-			s.service,
-		)
-		if err != nil {
-			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
-			return err
-		}
-
-		if err := supervisorHandle.Run(s.ctx); err != nil {
-			zap.L().Error("unable to start the supervisor", zap.Error(err))
-			resp.Status = err.Error()
-			return fmt.Errorf(resp.Status)
-		}
-		s.supervisor = supervisorHandle
-	}
-
-	resp.Status = ""
-	if err := s.debugClient.Run(s.ctx); err != nil {
-		resp.Status = "DebugClient" + err.Error()
-		return errors.New(resp.Status)
-	}
-	return nil
-}
-
-// InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
-func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("supervisor init message auth failed")
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
-	if s.supervisor == nil {
-		if payload.CaptureMethod != rpcwrapper.IPTables {
-			return fmt.Errorf("Unsupported method")
-		}
-
-		cfg := payload.Configuration
-		if payload.Configuration == nil {
-			cfg = &runtime.Configuration{}
-		}
-
-		supervisorHandle, err := supervisor.NewSupervisor(
-			s.collector,
-			s.enforcer,
-			constants.RemoteContainer,
-			cfg,
-			s.service,
-		)
-		if err != nil {
-			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
-			return err
-		}
-
-		if err := supervisorHandle.Run(s.ctx); err != nil {
-			zap.L().Error("unable to start the supervisor", zap.Error(err))
-		}
-
-		s.supervisor = supervisorHandle
-	} else {
-		if err := s.supervisor.SetTargetNetworks(payload.Configuration); err != nil {
-			zap.L().Error("unable to set target networks", zap.Error(err))
-		}
-	}
-
-	resp.Status = ""
-
-	return nil
-}
-
-// Supervise This method calls the supervisor method on the supervisor created during initsupervisor
-func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("supervise message auth failed")
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
-
-	plc, err := payload.Policy.ToPrivatePolicy(false)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to setup supervisor: %s", err)
 	}
-
-	puInfo := &policy.PUInfo{
-		ContextID: payload.ContextID,
-		Policy:    plc,
-		Runtime:   policy.NewPURuntimeWithDefaults(),
-	}
-
-	// TODO - Set PID to 1 - needed only for statistics
-	puInfo.Runtime.SetPid(1)
-
-	if err = s.supervisor.Supervise(payload.ContextID, puInfo); err != nil {
-		zap.L().Error("unable to initialize supervisor",
-			zap.String("ContextID", payload.ContextID),
-			zap.Error(err),
-		)
-		resp.Status = err.Error()
-		return err
-	}
+	s.supervisor = h
 
 	return nil
 }
 
-// Unenforce this method calls the unenforce method on the enforcer created from initenforcer
-func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "unenforce message auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	s.statsClient.SendStats()
-
-	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
-	return s.enforcer.Unenforce(payload.ContextID)
-}
-
-// Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
-func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "unsupervise message auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
-	return s.supervisor.Unsupervise(payload.ContextID)
-}
-
-// SetTargetNetworks calls the same method on the actual enforcer
-func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	var err error
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "SetTargetNetworks message auth failed" //nolint
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-	if s.enforcer == nil {
-		return fmt.Errorf(resp.Status)
-	}
-
-	payload := req.Payload.(rpcwrapper.SetTargetNetworksPayload)
-	if err = s.enforcer.SetTargetNetworks(payload.Configuration); err != nil {
-		return err
-	}
-
-	return s.supervisor.SetTargetNetworks(payload.Configuration)
-}
-
-// Enforce this method calls the enforce method on the enforcer created during initenforcer
-func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enforce message auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-
-	payload := req.Payload.(rpcwrapper.EnforcePayload)
-
-	plc, err := payload.Policy.ToPrivatePolicy(true)
-	if err != nil {
-		return err
-	}
-
-	puInfo := &policy.PUInfo{
-		ContextID: payload.ContextID,
-		Policy:    plc,
-		Runtime:   policy.NewPURuntimeWithDefaults(),
-	}
-
-	if s.enforcer == nil {
-		resp.Status = "enforcer not initialized - cannot enforce"
-		zap.L().Error(resp.Status)
-		return fmt.Errorf(resp.Status)
-	}
-
-	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
-		resp.Status = err.Error()
-		return err
-	}
-
-	resp.Status = ""
-
-	return nil
-}
-
-// EnforcerExit is processing messages from the remote that are requesting an exit. In this
-// case we simply cancel the context.
-func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// cleanup cleans all the acls and any state of the local enforcer.
+func (s *RemoteEnforcer) cleanup() {
 
 	if s.supervisor != nil {
-		s.supervisor.CleanUp() // nolint
+		if err := s.supervisor.CleanUp(); err != nil {
+			zap.L().Error("unable to clean supervisor state", zap.Error(err))
+		}
 	}
+
+	if s.enforcer != nil {
+		if err := s.enforcer.CleanUp(); err != nil {
+			zap.L().Error("unable to clean enforcer state", zap.Error(err))
+		}
+	}
+
+	if s.service != nil {
+		if err := s.service.Stop(); err != nil {
+			zap.L().Error("unable to clean service state", zap.Error(err))
+		}
+	}
+
 	s.cancel()
-
-	return nil
-}
-
-// UpdateSecrets updates the secrets used by the remote enforcer
-func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	var err error
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "updatesecrets auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-	if s.enforcer == nil {
-		return fmt.Errorf(resp.Status)
-	}
-
-	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
-	s.secrets, err = secrets.NewSecrets(payload.Secrets)
-	if err != nil {
-		return err
-	}
-
-	err = s.enforcer.UpdateSecrets(s.secrets)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// EnableDatapathPacketTracing enable nfq datapath packet tracing
-func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enable datapath packet tracing auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
-	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
-		resp.Status = err.Error()
-		return err
-	}
-	return nil
-}
-
-// EnableIPTablesPacketTracing enables iptables trace packet tracing
-func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enable iptable packet tracing auth failed"
-		return fmt.Errorf(resp.Status)
-	}
-	cmdLock.Lock()
-	defer cmdLock.Unlock()
-	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
-	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
-		resp.Status = err.Error()
-		return err
-	}
-	resp.Status = ""
-	return nil
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
+
+	// Before doing anything validate that we are in the right namespace.
+	if err := validateNamespace(); err != nil {
+		return err
+	}
 
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
 	defer cancelMainCtx()
@@ -498,23 +491,60 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil, nil)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		if err := rpcHandle.StartServer(ctx, "unix", namedPipe, server); err != nil {
+		if err := rpcHandle.StartServer(ctx, "unix", namedPipe, re); err != nil {
 			zap.L().Fatal("Failed to start the server", zap.Error(err))
 		}
 	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	<-c
 
-	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
-		zap.L().Fatal("Failed to stop the server", zap.Error(err))
+	select {
+
+	case <-c:
+		re.cleanup()
+
+	case <-re.exit:
+		zap.L().Info("Remote enforcer exiting ...")
+	}
+
+	return nil
+}
+
+// getCEnvVariable returns an environment variable set in the c context
+func getCEnvVariable(name string) string {
+
+	val := C.getenv(C.CString(name))
+	if val == nil {
+		return ""
+	}
+
+	return C.GoString(val)
+}
+
+func validateNamespace() error {
+	// Check if successfully switched namespace
+	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
+	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
+	if nsEnterState != "" {
+		return fmt.Errorf("nsErr: %s nsLogs: %s", nsEnterState, nsEnterLogMsg)
+	}
+
+	pid := strconv.Itoa(os.Getpid())
+	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
+	if err != nil {
+		zap.L().Warn("Unable to identity namespace - ip netns commands not available", zap.Error(err))
+	}
+
+	netnsString := strings.TrimSpace(string(netns))
+	if netnsString == "" {
+		zap.L().Warn("Unable to identity namespace - ip netns commands returned empty and will not be available")
 	}
 
 	return nil
