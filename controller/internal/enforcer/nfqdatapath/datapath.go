@@ -525,7 +525,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 		Action:      actual.Action,
 		DropReason:  mode,
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
