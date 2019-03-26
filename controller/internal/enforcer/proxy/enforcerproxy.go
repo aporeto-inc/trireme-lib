@@ -101,11 +101,10 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Unenforce, request, &rpcwrapper.Response{}); err != nil {
-		s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
-		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
+		zap.L().Error("failed to send message to remote enforcer", zap.Error(err))
 	}
 
-	return nil
+	return s.prochdl.KillRemoteEnforcer(contextID, true)
 }
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances

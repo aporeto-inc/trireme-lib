@@ -1,6 +1,10 @@
 package packet
 
-import "testing"
+import (
+	"encoding/hex"
+	"math/rand"
+	"testing"
+)
 
 type SamplePacketName int
 
@@ -11,6 +15,7 @@ const (
 	synIPLenTooSmall
 	synMissingBytes
 	synBadIPChecksum
+	loopbackAddress = "127.0.0.1"
 )
 
 var testPackets = [][]byte{
@@ -63,7 +68,7 @@ func TestGoodPacket(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synGoodTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 
 	if !pkt.VerifyIPChecksum() {
 		t.Error("Test packet IP checksum failed")
@@ -73,11 +78,11 @@ func TestGoodPacket(t *testing.T) {
 		t.Error("TCP checksum failed")
 	}
 
-	if pkt.DestinationPort != 99 {
+	if pkt.DestPort() != 99 {
 		t.Error("Unexpected destination port")
 	}
 
-	if pkt.SourcePort != 35968 {
+	if pkt.SourcePort() != 35968 {
 		t.Error("Unexpected source port")
 	}
 }
@@ -95,17 +100,60 @@ func TestBadTCPChecknum(t *testing.T) {
 	}
 }
 
+func TestPartialChecksum(t *testing.T) {
+	// Computes a checksum over the given slice.
+	checksum := func(buf []byte) uint16 {
+		checksumDelta := func(buf []byte) uint16 {
+
+			sum := uint32(0)
+
+			for ; len(buf) >= 2; buf = buf[2:] {
+				sum += uint32(buf[0])<<8 | uint32(buf[1])
+			}
+			if len(buf) > 0 {
+				sum += uint32(buf[0]) << 8
+			}
+			for sum > 0xffff {
+				sum = (sum >> 16) + (sum & 0xffff)
+			}
+			return uint16(sum)
+		}
+
+		sum := checksumDelta(buf)
+		csum := ^sum
+		return csum
+	}
+
+	for i := 0; i < 1000; i++ {
+		var randBytes [1500]byte
+
+		rand.Read(randBytes[:])
+
+		csum := checksum(randBytes[:])
+
+		pCsum := partialChecksum(0, randBytes[:500])
+		pCsum = partialChecksum(pCsum, randBytes[500:1000])
+		pCsum = partialChecksum(pCsum, randBytes[1000:])
+		fCSum := finalizeChecksum(pCsum)
+
+		if csum != fCSum {
+			t.Error("Checksum failed")
+		}
+	}
+
+}
+
 func TestAddresses(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	src := pkt.SourceAddress.String()
-	if src != "127.0.0.1" {
+	src := pkt.SourceAddress().String()
+	if src != loopbackAddress {
 		t.Errorf("Unexpected source address %s", src)
 	}
-	dest := pkt.DestinationAddress.String()
-	if dest != "127.0.0.1" {
+	dest := pkt.DestinationAddress().String()
+	if dest != loopbackAddress {
 		t.Errorf("Unexpected destination address %s", src)
 	}
 }
@@ -115,7 +163,7 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.Buffer
+	data := pkt.ipHdr.Buffer
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -150,7 +198,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.Buffer
+	bytes := pkt.ipHdr.Buffer
 	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)
@@ -195,13 +243,13 @@ func TestSetChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadIPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyIPChecksum() {
 		t.Error("Expected bad IP checksum given it is wrong")
 	}
 
 	pkt.UpdateIPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyIPChecksum() {
 		t.Error("IP checksum is wrong after update")
 	}
@@ -211,13 +259,13 @@ func TestSetTCPChecksum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if pkt.VerifyTCPChecksum() {
 		t.Error("Expected bad TCP checksum given it is wrong")
 	}
 
 	pkt.UpdateTCPChecksum()
-	t.Log(pkt.String())
+	t.Log(pkt.PacketToStringTCP())
 	if !pkt.VerifyTCPChecksum() {
 		t.Error("TCP checksum is wrong after update")
 	}
@@ -332,6 +380,28 @@ func TestAddTags(t *testing.T) {
 	*/
 }
 
+func TestUDP(t *testing.T) {
+	udpPacket, _ := hex.DecodeString("4500004b1a294000401108b90a8080800a0c82b400350e1700371e316e4f8180000100010000000003617069066272616e636802696f0000010001c00c000100010000003b00046354e9fa")
+
+	pkt, _ := New(0, udpPacket, "0", true)
+
+	if pkt.SourceAddress().String() != "10.128.128.128" {
+		t.Error("source address udp parsing incorrect")
+	}
+
+	if pkt.DestinationAddress().String() != "10.12.130.180" {
+		t.Error("destination address udp parsing incorrect")
+	}
+
+	if pkt.SourcePort() != uint16(53) {
+		t.Error("source port incorrect udp")
+	}
+
+	if pkt.DestPort() != uint16(3607) {
+		t.Error("destination port incorrect udp")
+	}
+}
+
 func TestRawChecksums(t *testing.T) {
 
 	t.Parallel()
@@ -353,6 +423,93 @@ func TestRawChecksums(t *testing.T) {
 	if c3 != 0xB1E6 {
 		t.Error("Third checksum calculation failed")
 	}
+}
+
+// createTCPAuthenticationOption creates the TCP authentication option -
+func createTCPAuthenticationOption(token []byte) []byte {
+
+	tokenLen := uint8(len(token))
+	options := []byte{TCPAuthenticationOption, 0, 0, 0}
+
+	if tokenLen != 0 {
+		options = append(options, token...)
+	}
+
+	return options
+}
+
+func TestAuthOptions(t *testing.T) {
+	pkt := getTestPacket(t, synGoodTCPChecksum)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
+
+	if err := pkt.TCPDataDetach(4); err != nil {
+		t.Error("tcp data detach failed")
+	}
+
+	// We are now processing as a Trireme packet that needs authorization headers
+	// Create TCP Option
+	tcpOptions := createTCPAuthenticationOption([]byte{})
+	pkt.tcpHdr.tcpOptions = []byte{}
+	if err := pkt.TCPDataAttach(tcpOptions, []byte{}); err != nil {
+		t.Error("tcp data attach failed")
+	}
+
+	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPOptions()...)
+	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPData()...)
+
+	if err := pkt.CheckTCPAuthenticationOption(4); err != nil {
+		t.Error("tcp auth option not found")
+	}
+
+}
+func TestNewPacketFunctions(t *testing.T) {
+	pkt := getTestPacket(t, synGoodTCPChecksum)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
+
+	if pkt.TCPOptionLength() != 0 {
+		t.Error("Test packet option length")
+	}
+
+	if pkt.TCPDataLength() != 0 {
+		t.Error("Test packet IP checksum failed")
+	}
+
+	if pkt.SourcePort() != 35968 {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestPort() != 99 {
+		t.Error("Test packet dest port didnt match")
+	}
+
+	if pkt.SourceAddress().String() != loopbackAddress {
+		t.Error("Test packet source ip didnt match")
+	}
+
+	if pkt.DestinationAddress().String() != loopbackAddress {
+		t.Error("Test packet dest ip didnt match")
+	}
+
+	if pkt.IPProto() != IPProtocolTCP {
+		t.Error("Test packet ip proto didnt match")
+	}
+
+	if pkt.IPTotalLen() != 60 {
+		t.Error("Test packet total length is wrong")
+	}
+
+	if pkt.IPHeaderLen() != 20 {
+		t.Error("Test packet ip header length should be 20")
+	}
+
+	if pkt.GetTCPFlags() != 2 {
+		t.Error("test packet tcp flags didnt match")
+	}
+
 }
 
 func getTestPacket(t *testing.T, id SamplePacketName) *Packet {

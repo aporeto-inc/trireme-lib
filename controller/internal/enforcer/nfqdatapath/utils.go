@@ -104,7 +104,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Action:      actual.Action,
 		Tags:        context.Annotations(),
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
@@ -119,13 +119,13 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
@@ -134,13 +134,13 @@ func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, repor
 func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
@@ -150,14 +150,14 @@ func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID s
 
 	src := &collector.EndPoint{
 		ID:   sourceID,
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 		Type: collector.EnpointTypePU,
 	}
 	dst := &collector.EndPoint{
 		ID:   destID,
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 		Type: collector.EnpointTypePU,
 	}
 
