@@ -271,11 +271,13 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				if policy.IsErrPUAlreadyActivated(err) {
 					// abort early if this PU has already been activated before
 					zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.Error(err))
-					return reconcile.Result{}, nil
+				} else {
+					zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
+					r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
+					return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
 				}
-				zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
-				return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
+			} else {
+				r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
 			}
 
 			// if this is a host network pod, we need to program the net_cls cgroup
@@ -290,13 +292,14 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 						return reconcile.Result{}, nil
 					} else {
 						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.Error(err))
+						r.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", puID, err.Error())
 						return reconcile.Result{}, err
 					}
 				} else {
 					zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID))
+					r.recorder.Eventf(pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", puID)
 				}
 			}
-			r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
 		}
 		return reconcile.Result{}, nil
 
