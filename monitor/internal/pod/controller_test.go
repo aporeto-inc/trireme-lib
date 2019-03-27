@@ -131,7 +131,7 @@ func TestController(t *testing.T) {
 			Status: corev1.PodStatus{
 				Phase: corev1.PodRunning,
 				InitContainerStatuses: []corev1.ContainerStatus{
-					corev1.ContainerStatus{
+					{
 						State: corev1.ContainerState{
 							Terminated: &corev1.ContainerStateTerminated{
 								ExitCode: 0,
@@ -140,7 +140,7 @@ func TestController(t *testing.T) {
 					},
 				},
 				ContainerStatuses: []corev1.ContainerStatus{
-					corev1.ContainerStatus{
+					{
 						State: corev1.ContainerState{
 							Running: &corev1.ContainerStateRunning{
 								StartedAt: metav1.Time{Time: time.Now()},
@@ -161,7 +161,7 @@ func TestController(t *testing.T) {
 			Status: corev1.PodStatus{
 				Phase: corev1.PodRunning,
 				ContainerStatuses: []corev1.ContainerStatus{
-					corev1.ContainerStatus{
+					{
 						State: corev1.ContainerState{
 							Running: &corev1.ContainerStateRunning{
 								StartedAt: metav1.Time{Time: time.Now()},
