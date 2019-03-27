@@ -126,6 +126,8 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 			defer handlePUCancel()
 
+			// NOTE: We should not need to call Stop first, a Destroy should also do a Stop if necessary.
+			//       This should be fixed in the policy engine.
 			// try to call stop, but don't fail if that errors
 			err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
