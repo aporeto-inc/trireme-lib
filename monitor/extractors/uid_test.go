@@ -16,7 +16,7 @@ func createDummyPolicy(event *common.EventInfo) *policy.PURuntime {
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
-		CgroupMark: strconv.Itoa(104),
+		CgroupMark: strconv.Itoa(103),
 		UserID:     event.PUID,
 		Services:   nil,
 	}
@@ -74,7 +74,7 @@ func TestUIDMetadataExtractor(t *testing.T) {
 				marshalledwant, _ = tt.want.MarshalJSON()
 			}
 			if !reflect.DeepEqual(marshaledgot, marshalledwant) {
-				t.Errorf("UIDMetadataExtractor() = %v, want %v", got, tt.want)
+				t.Errorf("\nUIDMetadataExtractor()\ngot  = %s\n, want %s\n", string(marshaledgot), string(marshalledwant))
 			}
 		})
 	}
