@@ -110,7 +110,6 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, cfg *runtim
 	}
 
 	ips := provider.NewGoIPsetProvider()
-
 	return newInstanceWithProviders(fqc, mode, cfg, ipt, ips)
 }
 
