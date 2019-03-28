@@ -129,7 +129,7 @@ void droppriveleges() {
   int groupid = getgroupid("aporeto");
   int userid = getuserid("enforcerd");
   int retval = 0;
-  if (drop_priveleges == NULL) {
+  if (drop_priveleges != NULL) {
     free(hdr);
     free(data);
     return;
