@@ -428,7 +428,7 @@ func contextID2SocketPath(contextID string) string {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", contextID+".sock")
+	return filepath.Join("/opt/aporeto/tmp/aporetosock/", contextID+".sock")
 }
 
 // processIOReader will read from a reader and print it on the calling process
