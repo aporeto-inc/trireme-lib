@@ -58,7 +58,7 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "go.aporeto.io/netlink-go"
-  branch = "ipv6"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/hashicorp/go-version"
