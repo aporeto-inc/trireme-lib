@@ -20,6 +20,7 @@ const (
 	UID
 	Kubernetes
 	SSH
+	Pod
 )
 
 // MonitorConfig specifies the configs for monitors.
