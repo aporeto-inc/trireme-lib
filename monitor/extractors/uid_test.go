@@ -74,7 +74,7 @@ func TestUIDMetadataExtractor(t *testing.T) {
 				marshalledwant, _ = tt.want.MarshalJSON()
 			}
 			if !reflect.DeepEqual(marshaledgot, marshalledwant) {
-				t.Errorf("UIDMetadataExtractor() = %v, want %v", got, tt.want)
+				t.Errorf("\nUIDMetadataExtractor()\ngot  = %s\n, want %s\n", string(marshaledgot), string(marshalledwant))
 			}
 		})
 	}
