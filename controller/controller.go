@@ -11,12 +11,14 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -34,7 +36,6 @@ type trireme struct {
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
-	rpchdl               rpcwrapper.RPCClient
 	enablingTrace        chan *traceTrigger
 	locks                sync.Map
 }
@@ -51,6 +52,13 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
+		remoteParameters: &env.RemoteParameters{
+			LogToConsole:   true,
+			LogFormat:      "console",
+			LogLevel:       "info",
+			LogWithID:      false,
+			CompressedTags: claimsheader.CompressionTypeV1,
+		},
 	}
 
 	for _, opt := range opts {
@@ -88,6 +96,10 @@ func (t *trireme) Run(ctx context.Context) error {
 func (t *trireme) CleanUp() error {
 	for _, s := range t.supervisors {
 		s.CleanUp() // nolint
+	}
+
+	for _, e := range t.enforcers {
+		e.CleanUp() // nolint
 	}
 	return nil
 }
@@ -135,28 +147,28 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 
 // UpdateConfiguration updates the configuration of the controller. Only
 // a limited number of parameters can be updated at run time.
-func (t *trireme) UpdateConfiguration(networks []string) error {
+func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 
 	failure := false
 
 	for _, s := range t.supervisors {
-		err := s.SetTargetNetworks(networks)
+		err := s.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in supervisor", zap.Error(err))
 			failure = true
 		}
 	}
 
 	for _, e := range t.enforcers {
-		err := e.SetTargetNetworks(networks)
+		err := e.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))
 			failure = true
 		}
 	}
 
 	if failure {
-		return fmt.Errorf("Configuration update failed")
+		return fmt.Errorf("configuration update failed")
 	}
 
 	return nil
@@ -272,19 +284,27 @@ func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packet
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
+
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
 		return fmt.Errorf("sysctl command not found")
 	}
+
 	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("remote container iptables tracing will not work %s", err)
 	}
+
 	t.enablingTrace <- &traceTrigger{
 		duration: interval,
 		expiry:   time.Now().Add(interval),
 	}
-	return t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+
+	if err := t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval); err != nil {
+		return err
+	}
+
+	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
 }
 
 func (t *trireme) runIPTraceCollector(ctx context.Context) {
@@ -312,7 +332,6 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 				t.config.collector.CollectTraceEvent(messages)
 
 			}
-
 		}
 	}
 

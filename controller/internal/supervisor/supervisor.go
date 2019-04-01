@@ -15,7 +15,7 @@ import (
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -43,12 +43,10 @@ type Config struct {
 	collector collector.EventCollector
 	// filterQueue is the filterqueue parameters
 	filterQueue *fqconfig.FilterQueue
-	// excludeIPs are the IPs that must be always excluded
-	excludedIPs []string
-	// triremeNetworks are the target networks where Trireme is implemented
-	triremeNetworks []string
 	// service is an external packet service
 	service packetprocessor.PacketProcessor
+	// cfg is the mutable configuration
+	cfg *runtime.Configuration
 
 	sync.Mutex
 }
@@ -57,7 +55,13 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
+func NewSupervisor(
+	collector collector.EventCollector,
+	enforcerInstance enforcer.Enforcer,
+	mode constants.ModeType,
+	cfg *runtime.Configuration,
+	p packetprocessor.PacketProcessor,
+) (Supervisor, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
@@ -68,30 +72,47 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
-	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	return &Config{
+		mode:           mode,
+		impl:           impl,
+		versionTracker: cache.NewCache("SupVersionTracker"),
+		collector:      collector,
+		filterQueue:    filterQueue,
+		service:        p,
+		cfg:            cfg,
+	}, nil
+}
+
+// Run starts the supervisor
+func (s *Config) Run(ctx context.Context) error {
+
+	s.Lock()
+	defer s.Unlock()
+
+	if err := s.impl.Run(ctx); err != nil {
+		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
-	return &Config{
-		mode:            mode,
-		impl:            impl,
-		versionTracker:  cache.NewCache("SupVersionTracker"),
-		collector:       collector,
-		filterQueue:     filterQueue,
-		excludedIPs:     []string{},
-		triremeNetworks: networks,
-		service:         p,
-	}, nil
+	if err := s.impl.SetTargetNetworks(s.cfg); err != nil {
+		return err
+	}
+
+	if s.service != nil {
+		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+	}
+
+	return nil
 }
 
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
 func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
+
 	if pu == nil || pu.Policy == nil || pu.Runtime == nil {
 		return errors.New("Invalid PU or policy info")
 	}
@@ -122,37 +143,16 @@ func (s *Config) Unsupervise(contextID string) error {
 	port := cfg.containerInfo.Policy.ServicesListeningPort()
 
 	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
-	puType := extractors.GetPuType(cfg.containerInfo.Runtime)
+	puType := cfg.containerInfo.Runtime.PUType()
 
 	// TODO (varks): Similar to configureRules and UpdateRules, DeleteRules should take
 	// only contextID and *policy.PUInfo as function parameters.
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, port, puType, cfg.containerInfo.Policy.ExcludedNetworks()); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, port, puType); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
 	if err := s.versionTracker.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
-	}
-
-	return nil
-}
-
-// Run starts the supervisor
-func (s *Config) Run(ctx context.Context) error {
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := s.impl.Run(ctx); err != nil {
-		return fmt.Errorf("unable to start the implementer: %s", err)
-	}
-
-	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
-		return err
-	}
-
-	if s.service != nil {
-		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
 	}
 
 	return nil
@@ -167,23 +167,12 @@ func (s *Config) CleanUp() error {
 }
 
 // SetTargetNetworks sets the target networks of the supervisor
-func (s *Config) SetTargetNetworks(networks []string) error {
+func (s *Config) SetTargetNetworks(cfg *runtime.Configuration) error {
 
 	s.Lock()
 	defer s.Unlock()
 
-	// If there are no target networks, capture all traffic
-	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
-	}
-
-	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
-		return err
-	}
-
-	s.triremeNetworks = networks
-
-	return nil
+	return s.impl.SetTargetNetworks(cfg)
 }
 
 // ACLProvider returns the ACL provider used by the supervisor that can be

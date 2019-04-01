@@ -10,7 +10,8 @@ import (
 type ipsetProviderMockedMethods struct {
 	newMockIPset   func(name string, hasht string, p *ipset.Params) (Ipset, error)
 	getMockIPset   func(name string) Ipset
-	destroyAllMock func() error
+	destroyAllMock func(prefix string) error
+	listIPSetsMock func() ([]string, error)
 }
 
 // TestIpsetProvider is a test implementation for IpsetProvider
@@ -18,7 +19,8 @@ type TestIpsetProvider interface {
 	IpsetProvider
 	MockNewIpset(t *testing.T, impl func(name string, hasht string, p *ipset.Params) (Ipset, error))
 	MockGetIpset(t *testing.T, impl func(name string) Ipset)
-	MockDestroyAll(t *testing.T, impl func() error)
+	MockDestroyAll(t *testing.T, impl func(string) error)
+	MockListIPSets(t *testing.T, impl func() ([]string, error))
 }
 
 type testIpsetProvider struct {
@@ -44,9 +46,14 @@ func (m *testIpsetProvider) MockGetIpset(t *testing.T, impl func(name string) Ip
 	m.currentMocks(t).getMockIPset = impl
 }
 
-func (m *testIpsetProvider) MockDestroyAll(t *testing.T, impl func() error) {
+func (m *testIpsetProvider) MockDestroyAll(t *testing.T, impl func(string) error) {
 
 	m.currentMocks(t).destroyAllMock = impl
+}
+
+func (m *testIpsetProvider) MockListIPSets(t *testing.T, impl func() ([]string, error)) {
+
+	m.currentMocks(t).listIPSetsMock = impl
 }
 
 func (m *testIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
@@ -67,13 +74,22 @@ func (m *testIpsetProvider) GetIpset(name string) Ipset {
 	return NewTestIpset()
 }
 
-func (m *testIpsetProvider) DestroyAll() error {
+func (m *testIpsetProvider) DestroyAll(prefix string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.destroyAllMock != nil {
-		return mock.destroyAllMock()
+		return mock.destroyAllMock(prefix)
 	}
 
 	return nil
+}
+
+func (m *testIpsetProvider) ListIPSets() ([]string, error) {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.listIPSetsMock != nil {
+		return mock.listIPSetsMock()
+	}
+
+	return nil, nil
 }
 
 func (m *testIpsetProvider) currentMocks(t *testing.T) *ipsetProviderMockedMethods {

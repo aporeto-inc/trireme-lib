@@ -8,6 +8,7 @@ import (
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
+	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
 	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -26,6 +27,9 @@ type DockerMonitorOption func(*dockermonitor.Config)
 
 // KubernetesMonitorOption is provided using functional arguments.
 type KubernetesMonitorOption func(*kubernetesmonitor.Config)
+
+// PodMonitorOption is provided using functional arguments.
+type PodMonitorOption func(*podmonitor.Config)
 
 // LinuxMonitorOption is provided using functional arguments.
 type LinuxMonitorOption func(*linuxmonitor.Config)
@@ -217,6 +221,56 @@ func SubOptionMonitorKubernetesExtractor(extractor extractors.KubernetesMetadata
 func SubOptionMonitorKubernetesDockerExtractor(extractor extractors.DockerMetadataExtractor) KubernetesMonitorOption {
 	return func(cfg *kubernetesmonitor.Config) {
 		cfg.DockerExtractor = extractor
+	}
+}
+
+// OptionMonitorPod provides a way to add a Pod monitor and related configuration to be used with New().
+func OptionMonitorPod(opts ...PodMonitorOption) Options {
+	kc := podmonitor.DefaultConfig()
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(kc)
+	}
+
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.Pod] = kc
+	}
+}
+
+// SubOptionMonitorPodKubeconfig provides a way to specify a kubeconfig to use to connect to Kubernetes.
+// In case of an in-cluter config, leave the kubeconfig field blank
+func SubOptionMonitorPodKubeconfig(kubeconfig string) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Kubeconfig = kubeconfig
+	}
+}
+
+// SubOptionMonitorPodNodename provides a way to specify the kubernetes node name.
+// This is useful for filtering
+func SubOptionMonitorPodNodename(nodename string) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Nodename = nodename
+	}
+}
+
+// SubOptionMonitorPodActivateHostPods provides a way to specify if we want to activate Pods launched in host mode.
+func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.EnableHostPods = enableHostPods
+	}
+}
+
+// SubOptionMonitorPodMetadataExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.MetadataExtractor = extractor
+	}
+}
+
+// SubOptionMonitorPodNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
+func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.NetclsProgrammer = netclsprogrammer
 	}
 }
 

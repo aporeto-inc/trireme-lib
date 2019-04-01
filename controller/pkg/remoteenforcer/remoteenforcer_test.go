@@ -18,8 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
@@ -27,15 +25,16 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
 const (
-	PrivatePEMStr = `-----BEGIN EC PRIVATE KEY-----
+	PrivatePEMStr = `-----BEGIN EC PRIVATE KEY----- 
 MHcCAQEEICtUSeD3huL6YqL1ffZczlVg9MxAjplXtsoSRvnXIr2uoAoGCCqGSM49
 AwEHoUQDQgAEuDv6jIPALmJ5VHwHEdmU4fL0c94jLq9KXHPCaa8Bh0MP8VekxsLr
 zhJwGTIppOHzzY3+s6ltYhw8folYdY6aGQ==
@@ -86,7 +85,6 @@ mGWH5/94d5k=
 	appQueueStr = "0:3"
 	netQueueStr = "4:7"
 	pcchan      = "/tmp/test.sock"
-	secret      = "mysecret"
 )
 
 var (
@@ -119,6 +117,7 @@ func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 		fmt.Println("CompackPKI creation failed with:", err)
 	}
 	initEnfPayload.Secrets = s.PublicSecrets()
+	initEnfPayload.Configuration = &runtime.Configuration{}
 	return initEnfPayload
 }
 
@@ -143,15 +142,6 @@ func filterQ() *fqconfig.FilterQueue {
 	initFilterQ.ApplicationQueuesSynAckStr = appQueueStr
 
 	return &initFilterQ
-}
-
-func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervisorPayload {
-	var initSupPayload rpcwrapper.InitSupervisorPayload
-
-	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32", "172.0.0.0/8", "10.0.0.0/8"}
-	initSupPayload.CaptureMethod = ctype
-
-	return initSupPayload
 }
 
 func initIdentity(id string) *policy.TagStore {
@@ -201,26 +191,6 @@ func getHash(payload interface{}) []byte {
 	return buf
 }
 
-func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
-
-	var initPayload rpcwrapper.SuperviseRequestPayload
-	idString := "$namespace=/sibicentos @usr:role=client AporetoContextID=59812ccc27b430000135fbf3"
-	anoString := "@sys:name=/nervous_hermann @usr:role=client @usr:vendor=CentOS $id=59812ccc27b430000135fbf3 $namespace=/sibicentos @usr:build-date=20170705 @usr:license=GPLv2 @usr:name=CentOS Base Image $nativecontextid=ac0d3577e808 $operationalstatus=Running role=client $id=59812ccc27b430000135fbf3 $identity=processingunit $namespace=/sibicentos $protected=false $type=Docker @sys:image=centos @usr:role=client $description=centos $enforcerid=598236b81c252c000102665d $name=centos $id=59812ccc27b430000135fbf3 $namespace=/sibicentos"
-
-	initPayload.ContextID = "ac0d3577e808"
-	initPayload.Policy = &policy.PUPolicyPublic{
-		ManagementID:     "59812ccc27b430000135fbf3",
-		TriremeAction:    2,
-		IPs:              policy.ExtendedMap{"bridge": "172.17.0.2"},
-		Identity:         initIdentity(idString),
-		TransmitterRules: initTrans(),
-		Annotations:      initAnnotations(anoString),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
-	}
-
-	return initPayload
-}
-
 func initTestEnfPayload() rpcwrapper.EnforcePayload {
 
 	var initPayload rpcwrapper.EnforcePayload
@@ -235,7 +205,6 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 		Identity:         initIdentity(idString),
 		Annotations:      initAnnotations(anoString),
 		TransmitterRules: initTrans(),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
 	}
 
 	return initPayload
@@ -250,58 +219,38 @@ func initTestUnEnfPayload() rpcwrapper.UnEnforcePayload {
 	return initPayload
 }
 
-func initTestUnSupPayload() rpcwrapper.UnSupervisePayload {
-
-	var initPayload rpcwrapper.UnSupervisePayload
-
-	initPayload.ContextID = "ac0d3577e808"
-
-	return initPayload
-}
-
-func TestNewServer(t *testing.T) {
+func Test_NewRemoteEnforcer(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+		statsClient := mockstatsclient.NewMockStatsClient(ctrl)
+		debugClient := mockdebugclient.NewMockDebugClient(ctrl)
+		collector := mockstatscollector.NewMockCollector(ctrl)
 
 		Convey("When I try to create new server with no env set", func() {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
+
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient)
 
 			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, secret)
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-
-			Convey("Then I should get no error", func() {
-				So(server, ShouldNotBeNil)
 				So(err, ShouldBeNil)
+				So(server, ShouldNotBeNil)
+				So(server.service, ShouldBeNil)
+				So(server.rpcHandle, ShouldEqual, rpcHdl)
+				So(server.procMountPoint, ShouldResemble, constants.DefaultProcMountPoint)
+				So(server.statsClient, ShouldEqual, statsClient)
+				So(server.debugClient, ShouldEqual, debugClient)
+				So(server.ctx, ShouldEqual, ctx)
+				So(server.cancel, ShouldEqual, cancel)
+				So(server.exit, ShouldNotBeNil)
 			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -316,11 +265,40 @@ func TestInitEnforcer(t *testing.T) {
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
-		mocksupervisor := mocksupervisor.NewMockSupervisor(ctrl)
+		mockCollector := mockstatscollector.NewMockCollector(ctrl)
+		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
 
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
+		// Mock the global functions.
+		createEnforcer = func(
+			mutualAuthorization bool,
+			fqConfig *fqconfig.FilterQueue,
+			collector collector.EventCollector,
+			service packetprocessor.PacketProcessor,
+			secrets secrets.Secrets,
+			serverID string,
+			validity time.Duration,
+			mode constants.ModeType,
+			procMountPoint string,
+			externalIPCacheTimeout time.Duration,
+			packetLogs bool,
+			cfg *runtime.Configuration,
+		) (enforcer.Enforcer, error) {
+			return mockEnf, nil
+		}
+
+		createSupervisor = func(
+			collector collector.EventCollector,
+			enforcerInstance enforcer.Enforcer,
+			mode constants.ModeType,
+			cfg *runtime.Configuration,
+			p packetprocessor.PacketProcessor,
+		) (supervisor.Supervisor, error) {
+			return mockSupevisor, nil
+		}
+		defer func() {
+			createSupervisor = supervisor.NewSupervisor
+			createEnforcer = enforcer.New
+		}()
 
 		Convey("When I try to create new server with env set", func() {
 			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
@@ -328,443 +306,225 @@ func TestInitEnforcer(t *testing.T) {
 			serr = os.Setenv(constants.EnvStatsSecret, "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
 			So(serr, ShouldBeNil)
 			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, mockStats, mockDebugClient)
-			server, ok := remoteIntf.(*RemoteEnforcer)
 
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
+			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
+			ctx, cancel := context.WithCancel(context.Background())
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient)
+			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(false)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
 				rpcwrperreq.Payload = initTestEnfReqPayload()
-				rpcwrperres.Status = ""
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldResemble, errors.New("init message authentication failed"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer with a bad payload, it should error ", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfPayload()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldResemble, errors.New("invalid request payload"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer amd the enforcer is initialized, it should fail ", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
 				server.enforcer = mockEnf
 
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, errors.New("init message authentication failed: not running in a namespace"))
+					So(err, ShouldResemble, errors.New("remote enforcer is already initialized"))
 				})
 			})
 
-			Convey("When I try to initiate an enforcer", func() {
+			Convey("When I try to instantiate the enforcer and the enforcer fails, it should fail and cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-				mockEnf.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-				mockStats.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-				mockDebugClient.EXPECT().Run(gomock.Any()).Times(1).Return(nil)
-				server.supervisor = mocksupervisor
 
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
 				rpcwrperreq.Payload = initTestEnfReqPayload()
-				rpcwrperres.Status = ""
-				server.enforcer = mockEnf
+
+				createEnforcer = func(
+					mutualAuthorization bool,
+					fqConfig *fqconfig.FilterQueue,
+					collector collector.EventCollector,
+					service packetprocessor.PacketProcessor,
+					secrets secrets.Secrets,
+					serverID string,
+					validity time.Duration,
+					mode constants.ModeType,
+					procMountPoint string,
+					externalIPCacheTimeout time.Duration,
+					packetLogs bool,
+					cfg *runtime.Configuration,
+				) (enforcer.Enforcer, error) {
+					return nil, fmt.Errorf("failed enforcer")
+				}
 
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-				serr = os.Setenv(constants.EnvStatsChannel, "")
-				So(serr, ShouldBeNil)
-				serr = os.Setenv(constants.EnvStatsSecret, "")
-				So(serr, ShouldBeNil)
-			})
-		})
-	})
-}
-
-func TestInitSupervisor(t *testing.T) {
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-
-		rpcHdl := rpcwrapper.NewRPCServer()
-		var rpcWrpper rpcwrapper.RPCWrapper
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldResemble, &rpcWrpper)
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
-
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to initiate the supervisor with invalid secret", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get error for no enforcer", func() {
-					So(err, ShouldResemble, errors.New("supervisor init message auth failed"))
-				})
-			})
-
-			Convey("When I try to initiate the supervisor with IPSets support", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPSets)
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get error for no IPset support", func() {
-					So(err, ShouldResemble, errors.New("Unsupported method"))
-				})
-			})
-
-			Convey("When I try to initiate the supervisor with no enforcer", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get error for no enforcer", func() {
+				Convey("Then I should get error", func() {
 					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("Error while initializing remote enforcer, failed enforcer"))
 				})
 			})
 
-			Convey("When I try to initiate the supervisor with enforcer", func() {
+			Convey("When I try to instantiate the enforcer and the supervisor fails, it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-				rpcwrperres.Status = ""
+				rpcwrperreq.Payload = initTestEnfReqPayload()
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
+				createSupervisor = func(
+					collector collector.EventCollector,
+					enforcerInstance enforcer.Enforcer,
+					mode constants.ModeType,
+					cfg *runtime.Configuration,
+					p packetprocessor.PacketProcessor,
+				) (supervisor.Supervisor, error) {
+					return nil, fmt.Errorf("failed supervisor")
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				mockEnf.EXPECT().CleanUp()
 
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-
-			Convey("When I try to initiate the supervisor with another supervisor running", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{}, nil)
-
-				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
-		})
-	})
-}
-
-func TestLaunchRemoteEnforcer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
-
-		Convey("When I try to create new server with no env set", func() {
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, secret)
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
-
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to start the server", func() {
-				serr = os.Setenv(constants.EnvContextSocket, pcchan)
-				So(serr, ShouldBeNil)
-				envpipe := os.Getenv(constants.EnvContextSocket)
-				rpcHdl.EXPECT().StartServer(gomock.Any(), "unix", envpipe, server).Times(1).Return(nil)
-
-				Convey("Then I expect to call start server one time with required parameters", func() {
-					err := rpcHdl.StartServer(context.Background(), "unix", envpipe, server)
-
-					Convey("I should not get any error", func() {
-						So(err, ShouldBeNil)
-					})
-				})
-			})
-
-			Convey("When I try to exit the enforcer with no enforcer and supervisor", func() {
-				server.statsClient = nil
-				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-
-			Convey("When I try to exit the enforcer with supervisor", func() {
-				server.statsClient = nil
-				c := &collector.DefaultCollector{}
-				_, scrts, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
-				server.enforcer = nil
-				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
-		})
-	})
-}
-
-func TestSupervise(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
-
-		Convey("When I try to create new server with no env set", func() {
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
-
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to send supervise command with invalid secret", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(false)
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-				rpcwrperreq.Payload = initTestSupPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-				server.supervisor = mockSup
-
-				err := server.Supervise(rpcwrperreq, &rpcwrperres)
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, errors.New("supervise message auth failed"))
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("unable to setup supervisor: failed supervisor"))
 				})
 			})
 
-			Convey("When I try to send supervise command", func() {
+			Convey("When I try to instantiate the enforcer and the controller fails to run, it should clean up", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-				mockSup.EXPECT().Supervise("ac0d3577e808", gomock.Any()).Times(1).Return(nil)
+
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-				rpcwrperreq.Payload = initTestSupPayload()
-				rpcwrperres.Status = ""
+				rpcwrperreq.Payload = initTestEnfReqPayload()
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-				server.supervisor = mockSup
+				mockEnf.EXPECT().Run(server.ctx).Return(fmt.Errorf("enforcer run error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
 
-				err := server.Supervise(rpcwrperreq, &rpcwrperres)
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should get no error", func() {
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enforcer run error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the statclient fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(fmt.Errorf("stats error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("stats error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the supervisor fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(fmt.Errorf("supervisor run"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("supervisor run"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and the debug client fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(fmt.Errorf("debug error"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
+				})
+			})
+
+			Convey("When I try to instantiate the enforcer and it succeeds it should not error", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get error", func() {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -776,42 +536,21 @@ func TestEnforce(t *testing.T) {
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
-
-		Convey("When I try to create new server with no env set", func() {
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
+		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
+		ctx, cancel := context.WithCancel(context.TODO())
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
 
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
+			server := &RemoteEnforcer{
+				rpcHandle:  rpcHdl,
+				supervisor: mockSup,
+				enforcer:   mockEnf,
+				ctx:        ctx,
+				cancel:     cancel,
+			}
 
 			Convey("When I try to send enforce command with invalid secret", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(false)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(false)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -829,434 +568,352 @@ func TestEnforce(t *testing.T) {
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
 					So(err, ShouldResemble, errors.New("enforce message auth failed"))
 				})
 			})
 
-			Convey("When I try to send enforce command for local container", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+			Convey("When I try to send enforce command with wrong payload it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
-				rpcwrperreq.Payload = initTestEnfPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				rpcwrperreq.Payload = initTestEnfReqPayload()
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldBeNil)
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("invalid enforcer payload"))
 				})
 			})
 
-			Convey("When I try to send enforce command for local server", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-				mockEnf.EXPECT().Enforce("b06f47830f64", gomock.Any()).Times(1).Return(nil)
+			Convey("When I try to send enforce command and the supervisor is nil, it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
 				rpcwrperreq.Payload = initTestEnfPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-				server.enforcer = mockEnf
+				server.supervisor = nil
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should get no error", func() {
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enforcer not initialized - cannot enforce"))
+				})
+			})
+
+			Convey("When I try to send enforce command and the supervisor fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockSup.EXPECT().Supervise(gomock.Any(), gomock.Any()).Return(fmt.Errorf("supervisor error"))
+				mockSup.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfPayload()
+
+				err := server.Enforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("supervisor error"))
+				})
+			})
+
+			Convey("When I try to send enforce command and the enforcer fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockSup.EXPECT().Supervise(gomock.Any(), gomock.Any()).Return(nil)
+				mockEnf.EXPECT().Enforce(gomock.Any(), gomock.Any()).Return(fmt.Errorf("enforcer error"))
+				mockSup.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfPayload()
+
+				err := server.Enforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enforcer error"))
+				})
+			})
+
+			Convey("When the enforce command succeeds, I should get no errors", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockSup.EXPECT().Supervise(gomock.Any(), gomock.Any()).Return(nil)
+				mockEnf.EXPECT().Enforce(gomock.Any(), gomock.Any()).Return(nil)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfPayload()
+
+				err := server.Enforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get an error ", func() {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
 		})
 	})
 }
 
-func TestUnEnforce(t *testing.T) {
+func Test_UnEnforce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := rpcwrapper.NewRPCServer()
+	Convey("Given a new server", t, func() {
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
+		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
+		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
+		ctx, cancel := context.WithCancel(context.TODO())
 
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
+		Convey("With proper initialization", func() {
 
-		Convey("When I try to create new server with no env set", func() {
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
+			server := &RemoteEnforcer{
+				rpcHandle:   rpcHdl,
+				supervisor:  mockSup,
+				enforcer:    mockEnf,
+				ctx:         ctx,
+				cancel:      cancel,
+				statsClient: mockStats,
+			}
 
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
-
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to send Unenforce command with invalid secret", func() {
+			Convey("When I try to send unenforce command with invalid secret", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(false)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
 				rpcwrperreq.Payload = initTestUnEnfPayload()
 				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				collector := &collector.DefaultCollector{}
-				_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
 					So(err, ShouldResemble, errors.New("unenforce message auth failed"))
 				})
 			})
 
-			Convey("When I try to send Unenforce", func() {
-				mockEnf.EXPECT().Unenforce("b06f47830f64").Times(1).Return(nil)
+			Convey("When I try to send unenforce command with wrong payload it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockStats.EXPECT().SendStats()
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
-				rpcwrperreq.Payload = initTestUnEnfPayload()
-				rpcwrperres.Status = ""
+				rpcwrperreq.Payload = initTestEnfReqPayload()
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				server.enforcer = mockEnf
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should not get any error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
-		})
-	})
-}
-
-func TestUnSupervise(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := rpcwrapper.NewRPCServer()
-		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
-
-		Convey("When I try to create new server with no env set", func() {
-			var service packetprocessor.PacketProcessor
-			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
-			So(serr, ShouldBeNil)
-			var service packetprocessor.PacketProcessor
-			pcchan := os.Getenv(constants.EnvStatsChannel)
-			secret := os.Getenv(constants.EnvStatsSecret)
-			ctx, cancel := context.WithCancel(context.Background())
-			remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-			server, ok := remoteIntf.(*RemoteEnforcer)
-
-			Convey("Then I should get no error", func() {
-				So(ok, ShouldBeTrue)
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to send unsupervise command with invalid secret", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-				rpcwrperreq.Payload = initTestUnSupPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				c := &collector.DefaultCollector{}
-				_, scrts, _ := secrets.CreateCompactPKITestSecrets()
-
-				prevRawSocket := nfqdatapath.GetUDPRawSocket
-				defer func() {
-					nfqdatapath.GetUDPRawSocket = prevRawSocket
-				}()
-				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-					return nil, nil
-				}
-
-				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
-
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
-
-				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldResemble, errors.New("unsupervise message auth failed"))
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("invalid unenforcer payload"))
 				})
 			})
 
-			Convey("When I try to send unsupervise command", func() {
-				mockSup.EXPECT().Unsupervise("ac0d3577e808").Times(1).Return(nil)
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-				rpcwrperreq.Payload = initTestUnSupPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-				server.supervisor = mockSup
-
-				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					So(err, ShouldBeNil)
-				})
-			})
-			serr = os.Setenv(constants.EnvStatsChannel, "")
-			So(serr, ShouldBeNil)
-			serr = os.Setenv(constants.EnvStatsSecret, "")
-			So(serr, ShouldBeNil)
-		})
-	})
-}
-
-func TestEnableDatapathPacketTracing(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-	mockEnf := mockenforcer.NewMockEnforcer(ctrl)
-	Convey("Given i start a remote", t, func() {
-		serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-		So(serr, ShouldBeNil)
-		serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
-		So(serr, ShouldBeNil)
-		var service packetprocessor.PacketProcessor
-		pcchan := os.Getenv(constants.EnvStatsChannel)
-		secret := os.Getenv(constants.EnvStatsSecret)
-		ctx, cancel := context.WithCancel(context.Background())
-		remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-		server, ok := remoteIntf.(*RemoteEnforcer)
-		Convey("Then I should get no error", func() {
-			So(ok, ShouldBeTrue)
-			So(server, ShouldNotBeNil)
-			So(err, ShouldBeNil)
-		})
-		Convey("I receive an invalid EnableDatapathTracking message", func() {
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(false)
-			err := server.EnableDatapathPacketTracing(rpcwrapper.Request{}, &rpcwrapper.Response{})
-			So(err, ShouldNotBeNil)
-		})
-		Convey("I receive a valid EnableDatapathTracking message", func() {
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(true)
-
-			var rpcwrperreq rpcwrapper.Request
-			var rpcwrperres rpcwrapper.Response
-
-			rpcwrperreq.HashAuth = []byte{0xDE, 0xBD, 0x1C, 0x6A, 0x2A, 0x51, 0xC0, 0x02, 0x4B, 0xD7, 0xD1, 0x82, 0x78, 0x8A, 0xC4, 0xF1, 0xBE, 0xBF, 0x00, 0x89, 0x47, 0x0F, 0x13, 0x71, 0xAB, 0x4C, 0x0D, 0xD9, 0x9D, 0x85, 0x45, 0x04}
-			rpcwrperreq.Payload = initTestEnfPayload()
-			rpcwrperres.Status = ""
-
-			digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-				So(err, ShouldBeNil)
-			}
-			rpcwrperreq.HashAuth = digest.Sum(nil)
-			server.enforcer = mockEnf
-			mockEnf.EXPECT().Enforce(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			err := server.Enforce(rpcwrperreq, &rpcwrperres)
-			So(err, ShouldBeNil)
-			request := rpcwrapper.Request{
-				Payload: rpcwrapper.EnableDatapathPacketTracingPayLoad{
-					ContextID: "b06f47830f64",
-					Direction: packettracing.NetworkOnly,
-					Interval:  10 * time.Second,
-				},
-			}
-			mockEnf.EXPECT().EnableDatapathPacketTracing("b06f47830f64", packettracing.NetworkOnly, 10*time.Second).Times(1).Return(nil)
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(true)
-			err = server.EnableDatapathPacketTracing(request, &rpcwrapper.Response{})
-			So(err, ShouldBeNil)
-		})
-
-	})
-
-}
-
-func TestEnableIPTablesPacketTracing(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-	mockSup := mocksupervisor.NewMockSupervisor(ctrl)
-	Convey("Given i start a remote", t, func() {
-		serr := os.Setenv(constants.EnvStatsChannel, pcchan)
-		So(serr, ShouldBeNil)
-		serr = os.Setenv(constants.EnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
-		So(serr, ShouldBeNil)
-		var service packetprocessor.PacketProcessor
-		pcchan := os.Getenv(constants.EnvStatsChannel)
-		secret := os.Getenv(constants.EnvStatsSecret)
-		ctx, cancel := context.WithCancel(context.Background())
-		remoteIntf, err := newServer(ctx, cancel, service, rpcHdl, pcchan, secret, nil, nil)
-		server, ok := remoteIntf.(*RemoteEnforcer)
-		Convey("Then I should get no error", func() {
-			So(ok, ShouldBeTrue)
-			So(server, ShouldNotBeNil)
-			So(err, ShouldBeNil)
-		})
-		Convey("I receive an invalid EnableIPTablesPacketTracking message", func() {
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), secret).Times(1).Return(false)
-			err := server.EnableDatapathPacketTracing(rpcwrapper.Request{}, &rpcwrapper.Response{})
-			So(err, ShouldNotBeNil)
-		})
-
-		Convey("I receive a valid EnableIPTablesPacketTracking message", func() {
-			var rpcwrperreq rpcwrapper.Request
-			var rpcwrperres rpcwrapper.Response
-
-			rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-			rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
-			rpcwrperres.Status = ""
-
-			digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-				So(err, ShouldBeNil)
-			}
-			rpcwrperreq.HashAuth = digest.Sum(nil)
-
-			collector := &collector.DefaultCollector{}
-			_, secret, _ := secrets.CreateCompactPKITestSecrets()
-
-			prevRawSocket := nfqdatapath.GetUDPRawSocket
-			defer func() {
-				nfqdatapath.GetUDPRawSocket = prevRawSocket
-			}()
-			nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-				return nil, nil
-			}
-
-			server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-			err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
-			mockSup.EXPECT().Supervise("ac0d3577e808", gomock.Any()).Times(1).Return(nil)
-			rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-			rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-			rpcwrperreq.Payload = initTestSupPayload()
-			rpcwrperres.Status = ""
-
-			digest = hmac.New(sha256.New, []byte("InvalidSecret"))
-			if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
-				So(err, ShouldBeNil)
-			}
-			server.supervisor = mockSup
-			rpcwrperreq.HashAuth = digest.Sum(nil)
-			err = server.Supervise(rpcwrperreq, &rpcwrperres)
-
-			Convey("Then I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-			Convey("With the supervisor configured if i call enableiptable packet tracing", func() {
-				tracerequest := rpcwrapper.Request{
-					Payload: rpcwrapper.EnableIPTablesPacketTracingPayLoad{
-						IPTablesPacketTracing: true,
-						Interval:              10 * time.Second,
-						ContextID:             "ac0d3577e808",
-					},
-				}
-				mockSup.EXPECT().EnableIPTablesPacketTracing(gomock.Any(), "ac0d3577e808", 10*time.Second)
+			Convey("When I try to send unenforce command and the supervisor fails, it should fail and cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				err := server.EnableIPTablesPacketTracing(tracerequest, &rpcwrapper.Response{})
-				So(err, ShouldBeNil)
+				mockStats.EXPECT().SendStats()
+				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(fmt.Errorf("supervisor error"))
+				mockSup.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestUnEnfPayload()
+
+				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("unable to clean supervisor: supervisor error"))
+				})
+			})
+
+			Convey("When I try to send unenforce command and the enforcer fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockStats.EXPECT().SendStats()
+				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(nil)
+				mockEnf.EXPECT().Unenforce(gomock.Any()).Return(fmt.Errorf("enforcer error"))
+				mockSup.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestUnEnfPayload()
+
+				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("unable to stop enforcer: enforcer error"))
+				})
+			})
+
+			Convey("When the enforce command succeeds, I should get no errors", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockStats.EXPECT().SendStats()
+				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(nil)
+				mockEnf.EXPECT().Unenforce(gomock.Any()).Return(nil)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestUnEnfPayload()
+
+				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get an error ", func() {
+					So(err, ShouldBeNil)
+				})
+			})
+		})
+	})
+}
+
+func Test_EnableDatapathPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a new server", t, func() {
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
+		ctx, cancel := context.WithCancel(context.TODO())
+
+		Convey("With proper initialization", func() {
+
+			server := &RemoteEnforcer{
+				rpcHandle: rpcHdl,
+				enforcer:  mockEnf,
+				ctx:       ctx,
+				cancel:    cancel,
+			}
+
+			Convey("When I try to enable datapath tracing and the validity fails, it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(false)
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableDatapathPacketTracingPayLoad{}
+				rpcwrperres.Status = ""
+
+				err := server.EnableDatapathPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enable datapath packet tracing auth failed"))
+				})
+			})
+
+			Convey("When I try to enable datapath tracing  and the enforcer fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableDatapathPacketTracingPayLoad{}
+
+				err := server.EnableDatapathPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("error"))
+				})
+			})
+
+			Convey("When the enforce command succeeds, I should get no errors", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableDatapathPacketTracingPayLoad{}
+
+				err := server.EnableDatapathPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get an error ", func() {
+					So(err, ShouldBeNil)
+				})
+			})
+		})
+	})
+}
+
+func Test_EnableIPTablesPacketTracing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a new server", t, func() {
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
+		ctx, cancel := context.WithCancel(context.TODO())
+
+		Convey("With proper initialization", func() {
+
+			server := &RemoteEnforcer{
+				rpcHandle:  rpcHdl,
+				supervisor: mockSup,
+				ctx:        ctx,
+				cancel:     cancel,
+			}
+
+			Convey("When I try to enable datapath tracing and the validity fails, it should fail", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(false)
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableIPTablesPacketTracingPayLoad{}
+				rpcwrperres.Status = ""
+
+				err := server.EnableIPTablesPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("enable iptable packet tracing auth failed"))
+				})
+			})
+
+			Convey("When I try to enable datapath tracing  and the enforcer fails, it should fail and cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockSup.EXPECT().EnableIPTablesPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableIPTablesPacketTracingPayLoad{}
+
+				err := server.EnableIPTablesPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("error"))
+				})
+			})
+
+			Convey("When the enforce command succeeds, I should get no errors", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
+				mockSup.EXPECT().EnableIPTablesPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = rpcwrapper.EnableIPTablesPacketTracingPayLoad{}
+
+				err := server.EnableIPTablesPacketTracing(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should not get an error ", func() {
+					So(err, ShouldBeNil)
+				})
 			})
 		})
 	})

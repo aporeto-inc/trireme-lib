@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
 // updateTargetNetworks updates the set of target networks. Tries to minimize
 // read/writes to the ipset structures
-func (i *Instance) updateTargetNetworks(old, new []string) error {
+func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) error {
 
 	deleteMap := map[string]bool{}
 	for _, net := range old {
@@ -25,39 +26,18 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 			deleteMap[net] = false
 			continue
 		}
-
-		if err := i.addToIPset(targetNetworkSet, net); err != nil {
+		if err := i.addToIPset(set, net); err != nil {
 			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
-			if err := i.delFromIPset(targetNetworkSet, net); err != nil {
+			if err := i.delFromIPset(set, net); err != nil {
 				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}
 	}
-	return nil
-}
-
-// createTargetSet creates a new target set
-func (i *Instance) createTargetSet(networks []string) error {
-
-	ips, err := i.ipset.NewIpset(targetNetworkSet, "hash:net", &ipset.Params{})
-	if err != nil {
-		return fmt.Errorf("unable to create ipset for %s: %s", targetNetworkSet, err)
-	}
-
-	i.targetSet = ips
-
-	for _, net := range networks {
-		if err := i.addToIPset(targetNetworkSet, net); err != nil {
-			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
-
-		}
-	}
-
 	return nil
 }
 
@@ -132,10 +112,10 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 
 //getSetNamePair returns a pair of strings represent proxySetNames
 func (i *Instance) getSetNames(portSetName string) (string, string) {
-	return "dst-" + portSetName, "srv-" + portSetName
+	return portSetName + "-dst", portSetName + "-srv"
 }
 
-//Not using ipset from coreos library they don't support bitmap:port
+// Not using ipset from coreos library they don't support bitmap:port
 func ipsetCreatePortset(setname string) error {
 	//Bitmap type is not supported by the ipset library
 	path, _ := exec.LookPath("ipset")

@@ -7,6 +7,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -28,9 +29,7 @@ type Request struct {
 
 //exported consts from the package
 const (
-	SUCCESS      = 0
-	StatsChannel = "/var/run/statschannel.sock"
-	DebugChannel = "/var/run/debugchannel.sock"
+	SUCCESS = 0
 )
 
 //Response is the response for every RPC call. This is used to carry the status of the actual function call
@@ -41,25 +40,19 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig               *fqconfig.FilterQueue `json:",omitempty"`
-	MutualAuth             bool                  `json:",omitempty"`
-	PacketLogs             bool                  `json:",omitempty"`
-	Validity               time.Duration         `json:",omitempty"`
-	ServerID               string                `json:",omitempty"`
-	ExternalIPCacheTimeout time.Duration         `json:",omitempty"`
-	Secrets                secrets.PublicSecrets `json:",omitempty"`
-	TargetNetworks         []string              `json:",omitempty"`
+	FqConfig               *fqconfig.FilterQueue  `json:",omitempty"`
+	MutualAuth             bool                   `json:",omitempty"`
+	PacketLogs             bool                   `json:",omitempty"`
+	Validity               time.Duration          `json:",omitempty"`
+	ServerID               string                 `json:",omitempty"`
+	ExternalIPCacheTimeout time.Duration          `json:",omitempty"`
+	Secrets                secrets.PublicSecrets  `json:",omitempty"`
+	Configuration          *runtime.Configuration `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers
 type UpdateSecretsPayload struct {
 	Secrets secrets.PublicSecrets `json:",omitempty"`
-}
-
-//InitSupervisorPayload for supervisor init request
-type InitSupervisorPayload struct {
-	TriremeNetworks []string    `json:",omitempty"`
-	CaptureMethod   CaptureType `json:",omitempty"`
 }
 
 // EnforcePayload Payload for enforce request
@@ -69,19 +62,8 @@ type EnforcePayload struct {
 	Secrets   secrets.PublicSecrets  `json:",omitempty"`
 }
 
-//SuperviseRequestPayload for Supervise request
-type SuperviseRequestPayload struct {
-	ContextID string                 `json:",omitempty"`
-	Policy    *policy.PUPolicyPublic `json:",omitempty"`
-}
-
 //UnEnforcePayload payload for unenforce request
 type UnEnforcePayload struct {
-	ContextID string `json:",omitempty"`
-}
-
-//UnSupervisePayload payload for unsupervise request
-type UnSupervisePayload struct {
 	ContextID string `json:",omitempty"`
 }
 
@@ -92,11 +74,6 @@ type InitResponsePayload struct {
 
 //EnforceResponsePayload exported
 type EnforceResponsePayload struct {
-	Status int `json:",omitempty"`
-}
-
-//SuperviseResponsePayload exported
-type SuperviseResponsePayload struct {
 	Status int `json:",omitempty"`
 }
 
@@ -116,14 +93,9 @@ type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
 }
 
-//ExcludeIPRequestPayload carries the list of excluded ips
-type ExcludeIPRequestPayload struct {
-	IPs []string `json:",omitempty"`
-}
-
-//SetTargetNetworks carries the payload for target networks
-type SetTargetNetworks struct {
-	TargetNetworks []string `json:",omitempty"`
+//SetTargetNetworksPayload carries the payload for target networks
+type SetTargetNetworksPayload struct {
+	Configuration *runtime.Configuration `json:",omitempty"`
 }
 
 // EnableIPTablesPacketTracingPayLoad is the payload message to enable iptable trace in remote containers

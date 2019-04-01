@@ -88,6 +88,14 @@ const (
 
 // Protocol constants
 const (
-	TCPProtoNum = "6"
-	UDPProtoNum = "17"
+	TCPProtoNum    = "6"
+	UDPProtoNum    = "17"
+	TCPProtoString = "TCP"
+	UDPProtoString = "UDP"
+)
+
+// sockets
+const (
+	StatsChannel = "/var/run/statschannel.sock"
+	DebugChannel = "/var/run/debugchannel.sock"
 )

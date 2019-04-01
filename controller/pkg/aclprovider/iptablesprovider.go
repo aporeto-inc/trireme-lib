@@ -16,6 +16,13 @@ import (
 // IptablesProvider is an abstraction of all the methods an implementation of userspace
 // iptables need to provide.
 type IptablesProvider interface {
+	BaseIPTables
+	// Commit will commit changes if it is a batch provider.
+	Commit() error
+}
+
+// BaseIPTables is the base interface of iptables functions.
+type BaseIPTables interface {
 	// Append apends a rule to chain of table
 	Append(table, chain string, rulespec ...string) error
 	// Insert inserts a rule to a chain of table at the required pos
@@ -30,18 +37,18 @@ type IptablesProvider interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
-	// Commit will commit changes if it is a batch provider.
-	Commit() error
 }
 
 // BatchProvider uses iptables-restore to program ACLs
 type BatchProvider struct {
-	ipt *iptables.IPTables
+	ipt BaseIPTables
 
 	//        TABLE      CHAIN    RULES
 	rules       map[string]map[string][]string
 	batchTables map[string]bool
 
+	// Allowing for custom commit functions for testing
+	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
 }
 
@@ -67,11 +74,34 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 		}
 	}
 
+	b := &BatchProvider{
+		ipt:         ipt,
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+	}
+
+	b.commitFunc = b.restore
+
+	return b, nil
+}
+
+// NewCustomBatchProvider is a custom batch provider wher the downstream
+// iptables utility is provided by the caller. Very useful for testing
+// the ACL functions with a mock.
+func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) error, batchTables []string) *BatchProvider {
+
+	batchTablesMap := map[string]bool{}
+
+	for _, t := range batchTables {
+		batchTablesMap[t] = true
+	}
+
 	return &BatchProvider{
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
-	}, nil
+		commitFunc:  commit,
+	}
 }
 
 // Append will append the provided rule to the local cache or call
@@ -247,7 +277,22 @@ func (b *BatchProvider) Commit() error {
 	if len(b.batchTables) == 0 {
 		return nil
 	}
-	return b.restore()
+
+	buf, err := b.createDataBuffer()
+	if err != nil {
+		return fmt.Errorf("Failed to crete buffer %s", err)
+	}
+
+	return b.commitFunc(buf)
+}
+
+// RetrieveTable allows a caller to retrieve the final table. Mostly
+// needed for debuging and unit tests.
+func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
+	b.Lock()
+	defer b.Unlock()
+
+	return b.rules
 }
 
 func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
@@ -278,12 +323,7 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 }
 
 // restore will save the current DB to iptables.
-func (b *BatchProvider) restore() error {
-
-	buf, err := b.createDataBuffer()
-	if err != nil {
-		return fmt.Errorf("Failed to crete buffer %s", err)
-	}
+func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 
 	cmd := exec.Command(restoreCmd, "--wait")
 	cmd.Stdin = buf

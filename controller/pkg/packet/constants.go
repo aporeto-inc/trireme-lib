@@ -2,37 +2,35 @@ package packet
 
 const (
 	// minIPPacketLen is the min ip packet size for TCP packet
-	minTCPIPPacketLen = 40
+	minTCPIPPacketLen = 20
 	// minIPPacketLen is the min ip packet size for UDP packet
-	minUDPIPPacketLen = 28
+	minUDPIPPacketLen = 8
 	// minIPHdrSize
-	minIPHdrSize = 20
-
-	minIPHdrWords = (minIPHdrSize / 4)
+	minIPv4HdrSize = 20
 )
 
 // IP Header field position constants
 const (
 	// ipHdrLenPos is location of IP (entire packet) length
-	ipHdrLenPos = 0
+	ipv4HdrLenPos = 0
 
 	// ipLengthPos is location of IP (entire packet) length
-	ipLengthPos = 2
+	ipv4LengthPos = 2
 
 	// ipIDPos is location of IP Identifier
-	IPIDPos = 4
+	ipv4IDPos = 4
 
 	// ipProtoPos is the location of the IP Protocol
-	ipProtoPos = 9
+	ipv4ProtoPos = 9
 
 	// ipChecksumPos is location of IP checksum
-	ipChecksumPos = 10
+	ipv4ChecksumPos = 10
 
 	// ipSourceAddrPos is location of source IP address
-	ipSourceAddrPos = 12
+	ipv4SourceAddrPos = 12
 
 	// ipDestAddrPos is location of destination IP address
-	ipDestAddrPos = 16
+	ipv4DestAddrPos = 16
 )
 
 // IP Protocol numbers
@@ -46,31 +44,32 @@ const (
 
 // IP Header masks
 const (
-	ipHdrLenMask = 0xF
+	ipv4HdrLenMask = 0x0F
+	ipv4ProtoMask  = 0xF0
 )
 
 // TCP Header field position constants
 const (
 	// tcpSourcePortPos is the location of source port
-	tcpSourcePortPos = 20
+	tcpSourcePortPos = 0
 
 	// tcpDestPortPos is the location of destination port
-	tcpDestPortPos = 22
+	tcpDestPortPos = 2
 
 	// tcpSeqPos is the location of seq
-	tcpSeqPos = 24
+	tcpSeqPos = 4
 
 	// tcpAckPos is the location of seq
-	tcpAckPos = 28
+	tcpAckPos = 8
 
 	// tcpDataOffsetPos is the location of the TCP data offset
-	tcpDataOffsetPos = 32
+	tcpDataOffsetPos = 12
 
 	//tcpFlagsOfsetPos is the location of the TCP flags
-	tcpFlagsOffsetPos = 33
+	tcpFlagsOffsetPos = 13
 
 	// TCPChecksumPos is the location of TCP checksum
-	TCPChecksumPos = 36
+	tcpChecksumPos = 16
 )
 
 // TCP Header masks
@@ -111,14 +110,16 @@ const (
 
 // UDP related constants.
 const (
+	// udpSourcePortPos is the location of source port
+	udpSourcePortPos = 0
+	// udpDestPortPos is the location of destination port
+	udpDestPortPos = 2
 	// UDPLengthPos is the location of UDP length
-	UDPLengthPos = 24
+	udpLengthPos = 4
 	// UDPChecksumPos is the location of UDP checksum
-	UDPChecksumPos = 26
+	udpChecksumPos = 6
 	// UDPDataPos is the location of UDP data
-	UDPDataPos = 28
-	// UDPBeginPos is the location of UDP Header
-	UDPBeginPos = 20
+	UDPDataPos = 8
 	// UDPSynMask is a mask for the UDP Syn flags
 	UDPSynMask = 0x10
 	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet
@@ -127,8 +128,10 @@ const (
 	UDPAckMask = 0x30
 	// UDPFinAckMask mask that identifies the FinAck packets
 	UDPFinAckMask = 0x40
+	// UDPDataPacket is a simple data packet
+	UDPDataPacket = 0x80
 	// UDPPacketMask identifies type of UDP packet.
-	UDPPacketMask = 0x70
+	UDPPacketMask = 0xF0
 )
 
 const (
@@ -139,9 +142,9 @@ const (
 	// UDPSignatureLen is the length of signature on UDP control packet.
 	UDPSignatureLen = 20
 	// UDPAuthMarkerOffset is the beginning of UDPAuthMarker
-	UDPAuthMarkerOffset = 30
+	udpAuthMarkerOffset = 10
 	// UDPSignatureEnd is the end of UDPSignature.
-	UDPSignatureEnd = UDPDataPos + UDPSignatureLen
+	udpSignatureEnd = UDPDataPos + UDPSignatureLen
 	// UDPJwtTokenOffset is beginning of Jwt Token.
-	UDPJwtTokenOffset = 48
+	udpJwtTokenOffset = 28
 )

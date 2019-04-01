@@ -45,26 +45,6 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 		Port: 0,
 	}
 
-	// TODO: Make this a const
-	NfnlBuffSize := (75 * 1024)
-	sockrcvbuf := 500 * NfnlBuffSize
-	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, sockrcvbuf); err != nil {
-		syscall.Close(fd) // nolint
-		return nil, fmt.Errorf("Received error %s while setting socket Option SO_RCVBUF", err)
-	}
-	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, sockrcvbuf); err != nil {
-		syscall.Close(fd) // nolint
-		return nil, fmt.Errorf("Received error %s while setting socket Option SO_SNDBUF", err)
-	}
-	lingerconf := &syscall.Linger{
-		Onoff:  1,
-		Linger: 0,
-	}
-	if err := syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, lingerconf); err != nil {
-		syscall.Close(fd) // nolint
-		return nil, fmt.Errorf("Received error %s while setting socket Option SO_SNDBUF", err)
-	}
-
 	return &rawsocket{
 		fd:     fd,
 		insock: insock,
@@ -74,7 +54,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 
 func (sock *rawsocket) WriteSocket(buf []byte) error {
 	//This is an IP frame dest address at byte[16]
-	copy(sock.insock.Addr[:], buf[16:])
+	copy(sock.insock.Addr[:], buf[16:20])
 	if err := syscall.Sendto(sock.fd, buf[:], 0, sock.insock); err != nil {
 		return fmt.Errorf("received error %s while sending to socket", err)
 	}

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"time"
 
-	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -19,13 +18,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
@@ -107,14 +107,14 @@ type Datapath struct {
 	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
 	packetTracingCache cache.DataStore
 
-	// conntrack handle
-	conntrackHdl conntrack.Conntrack
-
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
 
 	// ack size
 	ackSize uint32
+
+	// conntrack is the conntrack client
+	conntrack *flowtracking.Client
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -167,7 +167,7 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
-	targetNetworks []string,
+	cfg *runtime.Configuration,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -241,13 +241,12 @@ func New(
 		ackSize:                secrets.AckSize(),
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
-		conntrackHdl:           conntrack.NewHandle(),
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
 	}
 
-	if err = d.SetTargetNetworks(targetNetworks); err != nil {
+	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
@@ -293,7 +292,7 @@ func NewWithDefaults(
 
 	puFromContextID := cache.NewCache("puFromContextID")
 
-	return New(
+	e := New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
 		collector,
@@ -307,8 +306,16 @@ func NewWithDefaults(
 		defaultPacketLogs,
 		tokenAccessor,
 		puFromContextID,
-		targetNetworks,
+		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
+
+	conntrackClient, err := flowtracking.NewClient(context.Background())
+	if err != nil {
+		return nil
+	}
+	e.conntrack = conntrackClient
+
+	return e
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
@@ -321,9 +328,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.Type() == common.LinuxProcessPU ||
-		pu.Type() == common.UIDLoginPU ||
-		pu.Type() == common.SSHSessionPU {
+	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
@@ -341,10 +346,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			if err != nil {
 				continue
 			}
-			// check for host pu and add ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
 
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromTCPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
@@ -359,8 +362,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			}
 
 			// check for host pu and add its ports to the end.
-			puType := extractors.GetPuType(puInfo.Runtime)
-			if puType == extractors.HostPU {
+			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromUDPPort.AddPortSpecToEnd(portSpec)
 			} else {
 				d.contextIDFromUDPPort.AddPortSpec(portSpec)
@@ -445,7 +447,10 @@ func (d *Datapath) Unenforce(contextID string) error {
 }
 
 // SetTargetNetworks sets new target networks used by datapath
-func (d *Datapath) SetTargetNetworks(networks []string) error {
+func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
+
+	networks := cfg.TCPTargetNetworks
+
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
@@ -466,6 +471,14 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
+	if d.conntrack == nil {
+		conntrackClient, err := flowtracking.NewClient(ctx)
+		if err != nil {
+			return err
+		}
+		d.conntrack = conntrackClient
+	}
+
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
 
@@ -479,6 +492,12 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 
 	d.secrets = token
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
+}
+
+// CleanUp implements the cleanup interface.
+func (d *Datapath) CleanUp() error {
+	// TODO add any cleaning up we need to do here.
+	return nil
 }
 
 func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
@@ -506,7 +525,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 		Action:      actual.Action,
 		DropReason:  mode,
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
@@ -532,7 +551,11 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if app {
 		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
-			zap.L().Error("Could not find pu context for the mark", zap.String("mark", mark))
+			zap.L().Error("Unable to find context for application flow with mark",
+				zap.String("mark", mark),
+				zap.Int("protocol", int(protocol)),
+				zap.Int("port", int(port)),
+			)
 			return nil, errMarkNotFound
 		}
 		return pu.(*pucontext.PUContext), nil
@@ -586,5 +609,10 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 		d.packetTracingCache.Remove(contextID) // nolint
 	}()
 
+	return nil
+}
+
+// EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
+func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
 }

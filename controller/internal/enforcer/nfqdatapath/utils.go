@@ -1,8 +1,6 @@
 package nfqdatapath
 
 import (
-	"net"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -46,22 +44,6 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
 	d.reportFlow(p, src, dst, context, mode, report, packet)
-}
-
-func (d *Datapath) reportUDPExternalFlow(p *packet.Packet, context *pucontext.PUContext, app bool, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-
-	if report == nil {
-		report = &policy.FlowPolicy{
-			Action:    policy.Reject,
-			PolicyID:  "default",
-			ServiceID: "default",
-		}
-	}
-	if packet == nil {
-		packet = report
-	}
-
-	d.reportExternalServiceFlow(context, report, packet, app, p)
 }
 
 func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
@@ -122,7 +104,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Action:      actual.Action,
 		Tags:        context.Annotations(),
 		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto,
+		L4Protocol:  p.IPProto(),
 		Count:       1,
 	}
 
@@ -137,13 +119,13 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
@@ -152,13 +134,13 @@ func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, repor
 func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 	}
 
 	dst := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
@@ -168,14 +150,14 @@ func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID s
 
 	src := &collector.EndPoint{
 		ID:   sourceID,
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+		IP:   p.SourceAddress().String(),
+		Port: p.SourcePort(),
 		Type: collector.EnpointTypePU,
 	}
 	dst := &collector.EndPoint{
 		ID:   destID,
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+		IP:   p.DestinationAddress().String(),
+		Port: p.DestPort(),
 		Type: collector.EnpointTypePU,
 	}
 
@@ -184,13 +166,4 @@ func (d *Datapath) generateEndpoints(p *packet.Packet, sourceID string, destID s
 	}
 
 	return src, dst
-}
-
-func addressMatch(ip net.IP, targets []*net.IPNet) bool {
-	for _, t := range targets {
-		if t.Contains(ip) {
-			return true
-		}
-	}
-	return false
 }

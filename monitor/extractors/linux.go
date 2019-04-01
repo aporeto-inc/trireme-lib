@@ -19,21 +19,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	portspec "go.aporeto.io/trireme-lib/utils/portspec"
-	"go.uber.org/zap"
-)
-
-const (
-
-	// PuType is the type of host svc (network only or otherwise)
-	PuType = "$PuType"
-	// LinuxPU represents the PU type
-	LinuxPU = "LinuxPU"
-
-	// HostModeNetworkPU represents host pu in network only mode.
-	HostModeNetworkPU = "HostNetworkPU"
-
-	// HostPU represent host pu in true sense (both incoming and outgoing)
-	HostPU = "HostPU"
 )
 
 // LinuxMetadataExtractorType is a type of Linux metadata extractors
@@ -60,7 +45,7 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, options), nil
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
@@ -116,7 +101,7 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, &options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
 }
 
 // ProcessInfo returns all metadata captured by a process
@@ -263,47 +248,30 @@ func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedM
 	return nil
 }
 
-// GetPuType returns puType stored by policy extensions.
-func GetPuType(runtime policy.RuntimeReader) string {
-
-	if e := policyExtensions(runtime); e != nil {
-		if putype, ok := e.Get(PuType); ok {
-			zap.L().Debug("extracted PuType as", zap.String("puType", putype))
-			return putype
-		}
-		return ""
-	}
-	return ""
-}
-
 // IsHostmodePU returns true if puType stored by policy extensions is hostmode PU
 func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
+
+	if runtime == nil {
+		return false
+	}
 
 	if mode != constants.LocalServer {
 		return false
 	}
 
-	if e := policyExtensions(runtime); e != nil {
-		putype, ok := e.Get(PuType)
-		zap.L().Debug("extracted PuType as", zap.String("puType", putype))
-		return ok && (putype == HostModeNetworkPU || putype == HostPU)
-
-	}
-	return false
+	return runtime.PUType() == common.HostPU || runtime.PUType() == common.HostNetworkPU
 }
 
 // IsHostPU returns true if puType stored by policy extensions is host PU
 func IsHostPU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
 
+	if runtime == nil {
+		return false
+	}
+
 	if mode != constants.LocalServer {
 		return false
 	}
 
-	if e := policyExtensions(runtime); e != nil {
-		putype, ok := e.Get(PuType)
-		zap.L().Debug("extracted PuType as", zap.String("puType", putype))
-		return ok && putype == HostPU
-
-	}
-	return false
+	return runtime.PUType() == common.HostPU
 }

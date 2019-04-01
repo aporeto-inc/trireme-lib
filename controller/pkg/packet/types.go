@@ -136,6 +136,43 @@ func TCPFlagsToStr(flags uint8) string {
 }
 
 // Packet is the main structure holding packet information
+
+type iphdr struct {
+	Buffer []byte
+
+	// IP Header fields
+	ipHeaderLen        uint8
+	ipProto            uint8
+	ipTotalLength      uint16
+	ipID               uint16
+	ipChecksum         uint16
+	sourceAddress      net.IP
+	destinationAddress net.IP
+}
+
+type tcphdr struct {
+	tcpOptions []byte
+	tcpData    []byte
+
+	sourcePort      uint16
+	destinationPort uint16
+
+	tcpSeq         uint32
+	tcpAck         uint32
+	tcpDataOffset  uint8
+	tcpFlags       uint8
+	tcpChecksum    uint16
+	tcpTotalLength uint16
+}
+
+type udphdr struct {
+	sourcePort      uint16
+	destinationPort uint16
+	udpChecksum     uint16
+	udpData         []byte
+}
+
+//Packet structure
 type Packet struct {
 	// Metadata
 	context uint64
@@ -143,37 +180,9 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	// Buffers : input/output buffer
-	Buffer     []byte
-	tcpOptions []byte
-	tcpData    []byte
-
-	// IP Header fields
-	ipHeaderLen        uint8
-	IPProto            uint8
-	IPTotalLength      uint16
-	ipID               uint16
-	ipChecksum         uint16
-	SourceAddress      net.IP
-	DestinationAddress net.IP
-
-	// L4 Header Fields
-	SourcePort      uint16
-	DestinationPort uint16
-	// L4 Header Begin Position
-	l4BeginPos uint16
-
-	// TCP Specific fields
-	TCPSeq        uint32
-	TCPAck        uint32
-	tcpDataOffset uint8
-	TCPFlags      uint8
-	TCPChecksum   uint16
-
-	// UDP Specific fields.
-	UDPChecksum uint16
-	udpData     []byte
-
+	ipHdr  iphdr
+	tcpHdr tcphdr
+	udpHdr udphdr
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata
