@@ -255,7 +255,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 				zap.Error(werr),
 			)
 		}
-		return fmt.Errorf("enforcer failed to update policy for pu %s: %s", contextID, err)
+		return fmt.Errorf("unable to update policy for pu %s: %s", contextID, err)
 	}
 
 	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {

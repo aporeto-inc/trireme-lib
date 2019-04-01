@@ -171,7 +171,7 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 		}
 		for _, spec := range prefixes[len][binPrefix] {
 			if spec.ports.Overlaps(e.Ports) {
-				return fmt.Errorf("Service port overlap for a given IP not allowed: ip %s, port %s", addr.String(), e.Ports.String())
+				return fmt.Errorf("service port overlap for a given IP not allowed: ip %s, port %s", addr.String(), e.Ports.String())
 			}
 		}
 		prefixes[len][binPrefix] = append(prefixes[len][binPrefix], record)
@@ -196,7 +196,7 @@ func (s *ServiceCache) addHostService(e *common.Service, record *entry, local bo
 		}
 		for _, spec := range hostCache[host] {
 			if spec.ports.Overlaps(e.Ports) {
-				return fmt.Errorf("Service port overlap for a given host not allowed: host %s, port %s", host, e.Ports.String())
+				return fmt.Errorf("service port overlap for a given host not allowed: host %s, port %s", host, e.Ports.String())
 			}
 		}
 		hostCache[host] = append(hostCache[host], record)
@@ -261,7 +261,7 @@ func (s *ServiceCache) addPorts(e *common.Service, record *entry, local bool) er
 
 	for _, spec := range s.localPorts {
 		if spec.ports.Overlaps(e.Ports) {
-			return fmt.Errorf("Service port overlap in the global port list: %+v %s", e.Addresses, e.Ports.String())
+			return fmt.Errorf("service port overlap in the global port list: %+v %s", e.Addresses, e.Ports.String())
 		}
 	}
 
