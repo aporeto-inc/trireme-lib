@@ -429,7 +429,7 @@ func contextID2SocketPath(contextID string) string {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/opt/aporeto/tmp/aporetosock/", strings.Replace(contextID, "/", "_", -1)+".sock")
+	return filepath.Join("/var/run/aporetosock/", strings.Replace(contextID, "/", "_", -1)+".sock")
 
 }
 
