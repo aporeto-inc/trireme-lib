@@ -173,9 +173,7 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	}
 	userid, uerr := user.LookupUser("enforcerd")
 	groupid, gerr := user.LookupGroup("aporeto")
-	zap.L().Error("UserID", zap.Int("userid", userid.Uid), zap.Int("groupID", groupid.Gid))
 	if uerr == nil && gerr == nil {
-		zap.L().Error("Trying CHownError", zap.Error(err))
 		if err := os.Chown(path, userid.Uid, groupid.Gid); err != nil {
 			zap.L().Error("Cannot Chown", zap.Error(err))
 		}
