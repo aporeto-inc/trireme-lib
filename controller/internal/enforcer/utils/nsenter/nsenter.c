@@ -120,12 +120,8 @@ void droppriveleges() {
   cap_user_header_t hdr = malloc(sizeof(struct __user_cap_header_struct));
   cap_user_data_t data = malloc(2*sizeof(struct __user_cap_data_struct));
   char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
-  /* if (container_pid_env == NULL) { */
-  /*   free(hdr); */
-  /*   free(data); */
-  /*   return; */
-  /* } */
   char *drop_priveleges = getenv("DROP_PRIVELEGES");
+
   int groupid = getgroupid("aporeto");
   int userid = getuserid("enforcerd");
   int retval = 0;
