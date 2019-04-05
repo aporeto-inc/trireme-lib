@@ -94,19 +94,19 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in nfq: %s", err)
+			return fmt.Errorf("unable to enforce in nfq: %s", err)
 		}
 	}
 
 	if e.proxy != nil {
 		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in proxy: %s", err)
+			return fmt.Errorf("unable to enforce in proxy: %s", err)
 		}
 	}
 
 	if e.secrets != nil {
 		if err := e.secrets.Enforce(puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in secrets proxy: %s", err)
+			return fmt.Errorf("unable to enforce in secrets proxy: %s", err)
 		}
 	}
 

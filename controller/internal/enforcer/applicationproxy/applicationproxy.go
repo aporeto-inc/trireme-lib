@@ -103,17 +103,17 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	data, err := p.puFromID.Get(puID)
 	if err != nil || data == nil {
-		return fmt.Errorf("Undefined PU - Context not found: %s", puID)
+		return fmt.Errorf("undefined PU - Context not found: %s", puID)
 	}
 
 	puContext, ok := data.(*pucontext.PUContext)
 	if !ok {
-		return fmt.Errorf("Internal error - bad data types for puContext")
+		return fmt.Errorf("bad data types for puContext")
 	}
 
 	sctx, err := p.registry.Register(puID, puInfo, puContext, p.secrets)
 	if err != nil {
-		return fmt.Errorf("Unable to register PU - policy conflicts detected: %s", err)
+		return fmt.Errorf("policy conflicts detected: %s", err)
 	}
 
 	caPool := p.expandCAPool(sctx.RootCA)
@@ -123,7 +123,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if c, cerr := p.clients.Get(puID); cerr == nil {
 		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPool)
 		if perr != nil {
-			zap.L().Error("Failed to update certificates and services", zap.Error(perr))
+			zap.L().Error("unable to update certificates and services", zap.Error(perr))
 			return perr
 		}
 		return nil
