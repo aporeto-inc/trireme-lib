@@ -203,6 +203,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 				zap.Int("port", port),
 				zap.Error(err),
 			)
+			return
 		}
 		listenerType = serviceData.ServiceType
 	} else {
