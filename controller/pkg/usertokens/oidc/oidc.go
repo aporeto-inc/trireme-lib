@@ -15,7 +15,6 @@ import (
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
-	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -68,9 +67,9 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 	// If it is not a compliant provider we should report and error here.
 	provider, err := oidc.NewProvider(ctx, v.ProviderURL)
 	if err != nil {
-		zap.L().Error("Failed to initialize OIDC provider", zap.Error(err), zap.String("Provider URL", v.ProviderURL))
 		return nil, fmt.Errorf("Failed to initialize provider: %s", err)
 	}
+
 	oidConfig := &oidc.Config{
 		ClientID:          v.ClientID,
 		SkipClientIDCheck: true,
