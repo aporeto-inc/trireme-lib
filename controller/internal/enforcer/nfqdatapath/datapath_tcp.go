@@ -1021,7 +1021,8 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 		return nil, errNonPUTraffic
 	}
-	return connection.NewTCPConnection(context, p), nil
+
+	return nil, errInvalidNetState
 }
 
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
