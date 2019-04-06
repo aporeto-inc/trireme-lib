@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"strconv"
@@ -31,26 +30,26 @@ var errIPPacketCorrupt = errors.New("IP packet is smaller than min IP size of 20
 var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
 var errTCPAuthOption = errors.New("tcp authentication option not found")
 
-func init() {
-	PacketLogLevel = false
-	debugContext = 0
-	debugContextApp = 0 //PacketStageIncoming
-	debugContextNet = 0 //PacketStageOutgoing
+// func init() {
+// 	PacketLogLevel = false
+// 	debugContext = 0
+// 	debugContextApp = 0 //PacketStageIncoming
+// 	debugContextNet = 0 //PacketStageOutgoing
 
-	cbuf := fmt.Sprintf(" Network:0x%04x Application:0x%04x",
-		PacketTypeNetwork,
-		PacketTypeApplication)
+// 	cbuf := fmt.Sprintf(" Network:0x%04x Application:0x%04x",
+// 		PacketTypeNetwork,
+// 		PacketTypeApplication)
 
-	fbuf := fmt.Sprintf(" Incoming:0x%04x Auth:0x%04x Service:0x%04x Outgoing:0x%04x",
-		PacketStageIncoming,
-		PacketStageAuth,
-		PacketStageService,
-		PacketStageOutgoing)
+// 	fbuf := fmt.Sprintf(" Incoming:0x%04x Auth:0x%04x Service:0x%04x Outgoing:0x%04x",
+// 		PacketStageIncoming,
+// 		PacketStageAuth,
+// 		PacketStageService,
+// 		PacketStageOutgoing)
 
-	flag.Uint64Var(&debugContext, "debug-packet-context", 0, "packet contexts to debug -"+cbuf+fbuf)
-	flag.Uint64Var(&debugContextApp, "debug-packet-context-app", 0, "app packet contexts to debug -"+fbuf)
-	flag.Uint64Var(&debugContextNet, "debug-packet-context-net", 0, "net packet contexts to debug -"+fbuf)
-}
+// 	// flag.Uint64Var(&debugContext, "debug-packet-context", 0, "packet contexts to debug -"+cbuf+fbuf)
+// 	// flag.Uint64Var(&debugContextApp, "debug-packet-context-app", 0, "app packet contexts to debug -"+fbuf)
+// 	// flag.Uint64Var(&debugContextNet, "debug-packet-context-net", 0, "net packet contexts to debug -"+fbuf)
+// }
 
 // New returns a pointer to Packet structure built from the
 // provided bytes buffer which is expected to contain valid TCP/IP
