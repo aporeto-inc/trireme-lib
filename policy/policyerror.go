@@ -17,6 +17,12 @@ const (
 
 	// PUAlreadyActivated error reason
 	PUAlreadyActivated ErrorReason = "PUAlreadyActivated"
+
+	// PUPolicyPending error reason indicates that policy activation is pending.
+	PUPolicyPending ErrorReason = "PUPolicyPending"
+
+	// PUPolicyEnforcementFailed error reason indicates that enforcement failed.
+	PUPolicyEnforcementFailed
 )
 
 var policyErrorDescription = map[ErrorReason]string{
@@ -81,6 +87,24 @@ func ErrPUAlreadyActivated(puID string, err error) error {
 	}
 }
 
+// ErrPUPolicyPending creates a new PU policy pending error.
+func ErrPUPolicyPending(puID string, err error) error {
+	return &Error{
+		puID:   puID,
+		reason: PUPolicyPending,
+		err:    err,
+	}
+}
+
+// ErrPUPolicyEnforcementFailed creates a new PU policy pending error.
+func ErrPUPolicyEnforcementFailed(puID string, err error) error {
+	return &Error{
+		puID:   puID,
+		reason: PUPolicyEnforcementFailed,
+		err:    err,
+	}
+}
+
 // IsErrPUNotFound checks if this error is a PU not found error
 func IsErrPUNotFound(err error) bool {
 	switch t := err.(type) {
@@ -116,6 +140,26 @@ func IsErrPUAlreadyActivated(err error) bool {
 	switch t := err.(type) {
 	case *Error:
 		return t.reason == PUAlreadyActivated
+	default:
+		return false
+	}
+}
+
+// IsErrPUPolicyPending checks if this error is a PU policy pending error.
+func IsErrPUPolicyPending(err error) bool {
+	switch t := err.(type) {
+	case *Error:
+		return t.reason == PUPolicyPending
+	default:
+		return false
+	}
+}
+
+// IsErrPUEnforcementFailed checks if this error is a PU policy pending error.
+func IsErrPUEnforcementFailed(err error) bool {
+	switch t := err.(type) {
+	case *Error:
+		return t.reason == PUPolicyEnforcementFailed
 	default:
 		return false
 	}
