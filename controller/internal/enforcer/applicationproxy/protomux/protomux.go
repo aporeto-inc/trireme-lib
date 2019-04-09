@@ -210,6 +210,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
 			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
+			return
 		}
 		listenerType = pctx.Type
 	}
