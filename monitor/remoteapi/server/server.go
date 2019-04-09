@@ -63,11 +63,9 @@ func (e *EventServer) Run(ctx context.Context) error {
 
 	// We make the socket accesible to all users of the system.
 	// TODO: create a trireme group for this
-	zap.L().Error("Making socket accessible", zap.String("socket", addr.String()))
-	if err := os.Chmod(addr.String(), 0776); err != nil {
+	if err := os.Chmod(addr.String(), 0766); err != nil {
 		return fmt.Errorf("Cannot make the socket accessible to all users: %s", err)
 	}
-
 	listener := &UIDListener{nl}
 
 	// Start serving HTTP requests in the background
