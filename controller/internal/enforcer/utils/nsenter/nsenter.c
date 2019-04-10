@@ -255,6 +255,9 @@ void setupiptables() {
     if (groupid != -1 && userid != -1) {
         int retval= 0;
 	retval = chown("/run/xtables.lock",userid,groupid);
+	if (retval <0) {
+	  printf("Failed to change ownership of xtables.lock\n")
+	}
     }
   }
   return;
