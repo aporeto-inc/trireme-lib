@@ -152,25 +152,27 @@ func TestLaunchProcess(t *testing.T) {
 
 		})
 
-		Convey("if the process is not already activated and the namespace is there", func() {
-			rpchdl.MockGetRPCClient(t, func(string) (*rpcwrapper.RPCHdl, error) {
-				return nil, nil
+		// Run this test only if you are root. It will fail for non root users
+		if os.Getuid() == 0 {
+			Convey("if the process is not already activated and the namespace is there", func() {
+				rpchdl.MockGetRPCClient(t, func(string) (*rpcwrapper.RPCHdl, error) {
+					return nil, nil
+				})
+				pid := launchContainer(testDirBase)
+				defer killContainer()
+				os.MkdirAll(remoteEnforcerTempBuildPath, 0777)                                           // nolint
+				exec.Command("cp", "/bin/ls", remoteEnforcerTempBuildPath+remoteEnforcerBuildName).Run() // nolint
+				execCommand = fakeExecCommand
+				initialize, err := p.LaunchRemoteEnforcer(contextID, pid, refNSPath, "", "my secret", "/proc/")
+				exec.Command("rm", "-rf", remoteEnforcerTempBuildPath).Run() // nolint
+				So(initialize, ShouldBeTrue)
+				So(err, ShouldBeNil)
+
+				_, err = p.activeProcesses.Get(contextID)
+				So(err, ShouldBeNil)
+
 			})
-			pid := launchContainer(testDirBase)
-			defer killContainer()
-			os.MkdirAll(remoteEnforcerTempBuildPath, 0777)                                           // nolint
-			exec.Command("cp", "/bin/ls", remoteEnforcerTempBuildPath+remoteEnforcerBuildName).Run() // nolint
-			execCommand = fakeExecCommand
-			initialize, err := p.LaunchRemoteEnforcer(contextID, pid, refNSPath, "", "my secret", "/proc/")
-			exec.Command("rm", "-rf", remoteEnforcerTempBuildPath).Run() // nolint
-			So(initialize, ShouldBeTrue)
-			So(err, ShouldBeNil)
-
-			_, err = p.activeProcesses.Get(contextID)
-			So(err, ShouldBeNil)
-
-		})
-
+		}
 		close(errChannel)
 
 	})
