@@ -159,8 +159,8 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	}
 
 	var hoststat os.FileInfo
-	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
-		fmt.Println("163", err)
+	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "self/ns/net")); err != nil {
+		fmt.Println("163", err, os.Getuid())
 		return false, err
 	}
 
