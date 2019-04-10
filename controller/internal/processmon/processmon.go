@@ -126,6 +126,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	p.Lock()
 	if _, err := p.activeProcesses.Get(contextID); err == nil {
 		p.Unlock()
+		fmt.Println("129")
 		return false, nil
 	}
 
@@ -159,16 +160,19 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	var hoststat os.FileInfo
 	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
+		fmt.Println("163")
 		return false, err
 	}
 
 	var pidstat os.FileInfo
 	if pidstat, err = os.Stat(nsPath); err != nil {
+		fmt.Println("169")
 		return false, fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 		err = fmt.Errorf("refused to launch a remote enforcer in host namespace")
+		fmt.Println("175")
 		return false, err
 	}
 
@@ -194,6 +198,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 
 	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
+		fmt.Println("201")
 		return false, err
 	}
 
@@ -201,6 +206,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	randomkeystring, err = crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		// This is a more serious failure. We can't reliably control the remote enforcer
+		fmt.Println("209")
 		return false, fmt.Errorf("unable to generate secret: %s", err)
 	}
 
@@ -220,12 +226,14 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		if err1 := os.Remove(contextFile); err1 != nil {
 			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
 		}
+		fmt.Println("229")
 		return false, fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
 	procInfo.process = cmd.Process
 
 	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+		fmt.Println("239")
 		return false, fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 

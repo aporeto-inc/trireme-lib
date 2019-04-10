@@ -159,7 +159,8 @@ func TestLaunchProcess(t *testing.T) {
 			pid := launchContainer(testDirBase)
 			defer killContainer()
 			os.MkdirAll(remoteEnforcerTempBuildPath, 0777)
-			exec.Command("cp", "/bin/ls", remoteEnforcerTempBuildPath+remoteEnforcerBuildName).Run() // nolint
+			_, err := exec.Command("cp", "/bin/ls", remoteEnforcerTempBuildPath+remoteEnforcerBuildName).Run() // nolint
+			fmt.Println("Error")
 			initialize, err := p.LaunchRemoteEnforcer(contextID, pid, refNSPath, "", "my secret", "/proc")
 			exec.Command("rm", "-rf", remoteEnforcerTempBuildPath).Run() // nolint
 			So(initialize, ShouldBeTrue)
