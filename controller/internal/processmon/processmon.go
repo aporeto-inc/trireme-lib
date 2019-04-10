@@ -160,7 +160,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	var hoststat os.FileInfo
 	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
-		fmt.Println("163")
+		fmt.Println("163", err)
 		return false, err
 	}
 
