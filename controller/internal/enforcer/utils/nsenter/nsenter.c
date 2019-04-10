@@ -250,7 +250,11 @@ void nsexec(void) {
 void setupiptables() {
   char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
   if (container_pid_env == NULL){
-    chmod("/run/xtables.lock",0666);
+    int groupid = getgroupid("aporeto");
+    int userid = getuserid("enforcerd");
+    if (groupid != -1 && userid != -1) {
+	chown("/run/xtables.lock",uid,gid);
+      }
   }
   return;
 }
