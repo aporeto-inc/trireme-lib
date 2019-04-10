@@ -253,7 +253,7 @@ void setupiptables() {
     int groupid = getgroupid("aporeto");
     int userid = getuserid("enforcerd");
     if (groupid != -1 && userid != -1) {
-	chown("/run/xtables.lock",uid,gid);
+	chown("/run/xtables.lock",userid,groupid);
       }
   }
   return;
