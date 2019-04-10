@@ -36,8 +36,8 @@ const (
 )
 
 var (
-	// execCommand is to used to fake exec commands in tests.
-	execCommand = exec.Command
+// execCommand is to used to fake exec commands in tests.
+//execCommand = exec.Command
 )
 
 // RemoteMonitor is an instance of processMonitor
