@@ -6,7 +6,7 @@ echo "" > coverage.txt
 ./mockgen.sh
 
 for d in $(go list ./... | grep -v mock); do
-    sudo -E /bin/bash -c 'go test -race -tags test -coverprofile=profile.out -covermode=atomic $d'
+    go test -race -tags test -coverprofile=profile.out -covermode=atomic $d
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
         rm profile.out
