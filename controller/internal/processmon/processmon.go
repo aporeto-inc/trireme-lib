@@ -126,7 +126,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	p.Lock()
 	if _, err := p.activeProcesses.Get(contextID); err == nil {
 		p.Unlock()
-		fmt.Println("129")
 		return false, nil
 	}
 
@@ -160,7 +159,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	var hoststat os.FileInfo
 	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "self/ns/net")); err != nil {
-		fmt.Println("163", err, os.Getuid())
 		return false, err
 	}
 
