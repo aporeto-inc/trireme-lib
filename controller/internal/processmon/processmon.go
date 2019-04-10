@@ -166,7 +166,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	var pidstat os.FileInfo
 	if pidstat, err = os.Stat(nsPath); err != nil {
-		fmt.Println("169")
+		fmt.Println("169", err, os.Getuid())
 		return false, fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
