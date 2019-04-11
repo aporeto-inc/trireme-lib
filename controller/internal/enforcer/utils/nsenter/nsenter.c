@@ -249,7 +249,7 @@ void nsexec(void) {
 
 void setupiptables() {
   char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
-  char *in_container = getenv("IN_CONTAINER")
+  char *in_container = getenv("IN_CONTAINER");
   if (container_pid_env == NULL){
     int groupid = getgroupid("aporeto");
     int userid = getuserid("enforcerd");
