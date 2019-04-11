@@ -248,18 +248,21 @@ void nsexec(void) {
 
 
 void setupiptables() {
-  /* char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID"); */
-  /* if (container_pid_env == NULL){ */
-  /*   int groupid = getgroupid("aporeto"); */
-  /*   int userid = getuserid("enforcerd"); */
-  /*   if (groupid != -1 && userid != -1) { */
-  /*       int retval= 0; */
-  /* 	retval = chown("/run/xtables.lock",userid,groupid); */
-  /* 	if (retval <0) { */
-  /* 	  printf("Failed to change ownership of xtables.lock\n"); */
-  /* 	} */
-  /*   } */
-  /* } */
+  char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
+  char *in_container = getenv("IN_CONTAINER")
+  if (container_pid_env == NULL){
+    int groupid = getgroupid("aporeto");
+    int userid = getuserid("enforcerd");
+    if (groupid != -1 && userid != -1) {
+        int retval= 0;
+	if (in_container != NULL){
+	  retval = chown("/run/xtables.lock",userid,groupid);
+	  if (retval <0) {
+	    printf("Failed to change ownership of xtables.lock\n");
+	  }
+	}
+    }
+  }
   return;
 }
 
