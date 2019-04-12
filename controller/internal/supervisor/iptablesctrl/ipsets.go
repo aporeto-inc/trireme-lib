@@ -45,7 +45,7 @@ func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) e
 func (i *Instance) createProxySets(portSetName string) error {
 	destSetName, srvSetName := i.getSetNames(portSetName)
 
-	_, err := i.ipset.NewIpset(destSetName, "hash:net,port", &ipset.Params{})
+	_, err := i.iptInstance.ipset.NewIpset(destSetName, "hash:net,port", i.iptInstance.impl.GetIPSetParam())
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}
@@ -61,6 +61,7 @@ func (i *Instance) createProxySets(portSetName string) error {
 
 func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
 
+	ipFilter := i.iptInstance.impl.IPFilter()
 	dstSetName, srvSetName := i.getSetNames(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
@@ -73,10 +74,12 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 		addresses := dependentService.NetworkInfo.Addresses
 		min, max := dependentService.NetworkInfo.Ports.Range()
 		for _, addr := range addresses {
-			for i := int(min); i <= int(max); i++ {
-				pair := addr.String() + "," + strconv.Itoa(i)
-				if err := vipTargetSet.Add(pair, 0); err != nil {
-					return fmt.Errorf("unable to add dependent ip %s to target networks ipset: %s", pair, err)
+			if ipFilter(addr.IP) {
+				for i := int(min); i <= int(max); i++ {
+					pair := addr.String() + "," + strconv.Itoa(i)
+					if err := vipTargetSet.Add(pair, 0); err != nil {
+						return fmt.Errorf("unable to add dependent ip %s to target networks ipset: %s", pair, err)
+					}
 				}
 			}
 		}

@@ -135,7 +135,12 @@ func TCPFlagsToStr(flags uint8) string {
 	return s
 }
 
-// Packet is the main structure holding packet information
+type IPver int
+
+const (
+	V4 IPver = iota
+	V6
+)
 
 type iphdr struct {
 	Buffer []byte
@@ -146,6 +151,7 @@ type iphdr struct {
 	ipTotalLength      uint16
 	ipID               uint16
 	ipChecksum         uint16
+	version            IPver
 	sourceAddress      net.IP
 	destinationAddress net.IP
 }
