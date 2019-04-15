@@ -28,7 +28,7 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 			continue
 		}
 
-		runtimeTags.AppendKeyValue("@app:ssh:"+parts[0], parts[1])
+		runtimeTags.AppendKeyValue("@usr:ssh:"+parts[0], parts[1])
 	}
 
 	options := &policy.OptionsType{
