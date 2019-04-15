@@ -17,10 +17,38 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
+	"os/user"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 )
+
+func getGroupList(username string) ([]string, error) {
+	slog, _ := syslog.New(syslog.LOG_ALERT|syslog.LOG_AUTH, "mypam")
+	defer func() {
+		_ = slog.Close()
+	}()
+	userhdl, err := user.Lookup(username)
+	if err != nil {
+		return nil, err
+	}
+	gids, err := userhdl.GroupIds()
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]string, len(gids))
+	index := 0
+	for _, gid := range gids {
+		grphdl, err := user.LookupGroupId(gid)
+		if err != nil {
+			continue
+		}
+		groups[index] = "groupname=" + grphdl.Name
+		index++
+
+	}
+	return groups[:index], nil
+}
 
 // nolint
 //export pam_sm_open_session
@@ -31,6 +59,9 @@ func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C
 	metadatamap := []string{}
 	userstring := "user=" + C.GoString(user)
 	metadatamap = append(metadatamap, userstring)
+	if groups, err := getGroupList(C.GoString(user)); err == nil {
+		metadatamap = append(metadatamap, groups...)
+	}
 
 	if service != nil {
 		metadatamap = append(metadatamap, "SessionType="+C.GoString(service))
