@@ -125,11 +125,7 @@ func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUP
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
-	lock, ok := t.locks.Load(puID)
-	if !ok {
-		return nil
-	}
-
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 	return t.doUpdatePolicy(puID, plc, runtime)
