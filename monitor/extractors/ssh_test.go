@@ -12,7 +12,7 @@ import (
 func testRuntime() *policy.PURuntime {
 
 	tags := policy.NewTagStore()
-	tags.AppendKeyValue("@app:ssh:app", "web")
+	tags.AppendKeyValue("@usr:ssh:app", "web")
 	tags.AppendKeyValue("$cert", "ss")
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
