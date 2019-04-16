@@ -1,100 +1,106 @@
 package acls
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/ipcache"
 )
+
+// acl holds all the ACLS in an internal DB
+
+type acl struct {
+	cache ipcache.IPcache
+}
 
 func newACL() *acl {
 	return &acl{
-		sortedPrefixLens: make([]int, 0),
-		prefixLenMap:     make(map[int]*prefixRules),
+		cache: ipcache.NewIPCache(),
 	}
 }
 
-// acl holds all the ACLS in an internal DB
-type acl struct {
-	sortedPrefixLens []int
-	prefixLenMap     map[int]*prefixRules
+var errNoMatch = errors.New("No Match")
+
+func (a *acl) addToCache(ip net.IP, mask int, port string, policy *policy.FlowPolicy) error {
+	var err error
+	var portList portActionList
+
+	r, err := newPortAction(port, policy)
+	if err != nil {
+		return fmt.Errorf("unable to create port action: %s", err)
+	}
+
+	val, exists := a.cache.Get(ip, mask)
+	if !exists {
+		portList = portActionList{}
+	} else {
+		portList = val.(portActionList)
+	}
+
+	portList = append(portList, r)
+
+	a.cache.Put(ip, mask, portList)
+
+	return nil
 }
 
-func (a *acl) reverseSort() {
+func (a *acl) matchRule(ip net.IP, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+	report = preReport
 
-	// Get reverse sorted prefix lengths for reject rules
-	for k := range a.prefixLenMap {
-		a.sortedPrefixLens = append(a.sortedPrefixLens, k)
+	err = errNoMatch
+
+	lookup := func(val interface{}) bool {
+		if val != nil {
+			portList := val.(portActionList)
+
+			report, packet, err = portList.lookup(port, report)
+			if err == nil {
+				return true
+			}
+		}
+		return false
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(a.sortedPrefixLens)))
+
+	a.cache.RunIP(ip, lookup)
+
+	return report, packet, err
 }
 
 func (a *acl) addRule(rule policy.IPRule) (err error) {
-	ruleAdd := func(address, port string, policy *policy.FlowPolicy) error {
-		var subnet, mask uint32
-
-		parts := strings.Split(address, "/")
-
-		subnetSlice := net.ParseIP(parts[0])
-		if subnetSlice == nil {
-			return fmt.Errorf("invalid ip address: %s", parts[0])
-		}
-
-		subnet = binary.BigEndian.Uint32(subnetSlice.To4())
-
-		maskValue := 0
-
-		switch len(parts) {
-		case 1:
-			mask = 0xFFFFFFFF
-			maskValue = 32
-
-		case 2:
-			maskValue, err = strconv.Atoi(parts[1])
-			if err != nil {
-				return fmt.Errorf("invalid address: %s", err)
-			}
-
-			if mask > 32 {
-				return fmt.Errorf("invalid mask value: %d", mask)
-			}
-			mask = binary.BigEndian.Uint32(net.CIDRMask(maskValue, 32))
-
-		default:
-			return fmt.Errorf("invalid address: %s", address)
-		}
-		plenRules, ok := a.prefixLenMap[maskValue]
-		if !ok {
-			plenRules = &prefixRules{
-				mask:  mask,
-				rules: make(map[uint32]portActionList),
-			}
-			a.prefixLenMap[maskValue] = plenRules
-		}
-
-		r, err := newPortAction(port, policy)
-		if err != nil {
-			return fmt.Errorf("unable to create port action: %s", err)
-		}
-
-		subnet = subnet & mask
-		plenRules.rules[subnet] = append(plenRules.rules[subnet], r)
-		return nil
-	}
 
 	for _, proto := range rule.Protocols {
 		if strings.ToLower(proto) == constants.TCPProtoNum {
 			for _, address := range rule.Addresses {
 				for _, port := range rule.Ports {
-					if err := ruleAdd(address, port, rule.Policy); err != nil {
+					var mask int
+					parts := strings.Split(address, "/")
+					ip := net.ParseIP(parts[0])
+					if ip == nil {
+						return fmt.Errorf("invalid ip address: %s", parts[0])
+					}
+
+					if len(parts) == 1 {
+						if ip.To4() != nil {
+							mask = 32
+						} else {
+							mask = 128
+						}
+					} else {
+						mask, err = strconv.Atoi(parts[1])
+						if err != nil {
+							return fmt.Errorf("invalid address: %s", err)
+						}
+					}
+
+					if err := a.addToCache(ip, mask, port, rule.Policy); err != nil {
 						return err
 					}
+
 				}
 			}
 		}
@@ -104,31 +110,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 }
 
 // getMatchingAction does lookup in acl in a common way for accept/reject rules.
-func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+func (a *acl) getMatchingAction(ip net.IP, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
-	report = preReport
-
-	addr := binary.BigEndian.Uint32(ip)
-
-	// Iterate over all the bitmasks we have
-	for _, len := range a.sortedPrefixLens {
-
-		rules, ok := a.prefixLenMap[len]
-		if !ok {
-			continue
-		}
-
-		// Do a lookup as a hash to see if we have a match
-		actionList, ok := rules.rules[addr&rules.mask]
-		if !ok {
-			continue
-		}
-
-		report, packet, err = actionList.lookup(port, report)
-		if err == nil {
-			return
-		}
-	}
-
-	return report, packet, errors.New("No match")
+	return a.matchRule(ip, port, preReport)
 }
