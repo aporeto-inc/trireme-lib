@@ -25,7 +25,7 @@ func TestIPCache(t *testing.T) {
 		So(ok, ShouldEqual, true)
 		So(val.(string), ShouldEqual, "24mask")
 
-		val, ok = ipcache.Get(ip, 10)
+		_, ok = ipcache.Get(ip, 10)
 		So(ok, ShouldEqual, false)
 
 		var found bool
@@ -78,7 +78,7 @@ func TestIPCache(t *testing.T) {
 		So(ok, ShouldEqual, true)
 		So(val.(string), ShouldEqual, str2)
 
-		val, ok = ipcache.Get(ip, 10)
+		_, ok = ipcache.Get(ip, 10)
 		So(ok, ShouldEqual, false)
 
 		var found bool
@@ -96,5 +96,20 @@ func TestIPCache(t *testing.T) {
 
 		ipcache.RunIP(ip, testFunc)
 		So(found, ShouldEqual, true)
+		m := map[string]bool{}
+		m[str1] = true
+		m[str2] = true
+
+		testRunVal := func(val interface{}) interface{} {
+			if val != nil {
+				s := val.(string)
+				delete(m, s)
+			}
+
+			return val
+		}
+
+		ipcache.RunVal(testRunVal)
+		So(len(m), ShouldEqual, 0)
 	})
 }
