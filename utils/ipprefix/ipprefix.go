@@ -5,6 +5,7 @@ import (
 	"net"
 )
 
+//IPcache is an interface which provides functionality to store ip's and do longest prefix match
 type IPcache interface {
 	Put(net.IP, int, interface{})
 	Get(net.IP, int) (interface{}, bool)
@@ -22,6 +23,7 @@ type ipcache struct {
 	ipv6 []map[[16]byte]interface{}
 }
 
+//NewIPCache creates an object which is implementing the interface IPcache
 func NewIPCache() *ipcache {
 	return &ipcache{
 		ipv4: make([]map[uint32]interface{}, ipv4MaskSize),
