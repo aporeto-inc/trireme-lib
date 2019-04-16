@@ -29,7 +29,7 @@ func NewIPCache() *ipcache {
 	}
 }
 
-// Put replaces the old value
+// Put takes an argument an ip address, mask and value. It is used as a cache for quick lookup
 func (cache *ipcache) Put(ip net.IP, mask int, val interface{}) {
 	if ip.To4() != nil {
 		ip = ip.To4()
@@ -55,6 +55,7 @@ func (cache *ipcache) Put(ip net.IP, mask int, val interface{}) {
 	}
 }
 
+// Get takes an argument the IP address and mask and returns the value that is stored for that key.
 func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 
 	if ip.To4() != nil {
@@ -85,38 +86,8 @@ func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 	return nil, false
 }
 
-func (cache *ipcache) Find(ip net.IP) (interface{}, bool) {
-
-	if ip.To4() != nil {
-		ip = ip.To4()
-		for i := 32; i >= 0; i-- {
-			m := cache.ipv4[i]
-			if m != nil {
-				val, ok := m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(i, 32))]
-				if ok {
-					return val, true
-				}
-			}
-		}
-	} else {
-		ip = ip.To16()
-
-		for i := 128; i >= 0; i-- {
-			m := cache.ipv6[i]
-			if m != nil {
-				var maskip [16]byte
-				copy(maskip[:], ip.Mask(net.CIDRMask(i, 128)))
-				val, ok := m[maskip]
-				if ok {
-					return val, true
-				}
-			}
-		}
-	}
-
-	return nil, false
-}
-
+// RunIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs in reverse sorted order of subnet masks
+// It then calls the function supplied by the user on the value stored and if it succeeds then it returns.
 func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
 	if ip.To4() != nil {
 		ip = ip.To4()
@@ -125,10 +96,8 @@ func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
 			m := cache.ipv4[i]
 			if m != nil {
 				val, ok := m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(i, 32))]
-				if ok {
-					if f(val) {
-						return
-					}
+				if ok && f(val) {
+					return
 				}
 			}
 		}
@@ -141,16 +110,16 @@ func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
 				var maskip [16]byte
 				copy(maskip[:], ip.Mask(net.CIDRMask(i, 128)))
 				val, ok := m[maskip]
-				if ok {
-					if f(val) {
-						return
-					}
+				if ok && f(val) {
+					return
 				}
 			}
 		}
 	}
 }
 
+// RunVal takes an argument a function which is called on all the values stored in the
+// cache. It updates the cache value with the new value that is returned by the function
 func (cache *ipcache) RunVal(f func(val interface{}) interface{}) {
 	for mask, m := range cache.ipv4 {
 		if m == nil {
