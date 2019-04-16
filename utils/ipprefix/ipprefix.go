@@ -12,9 +12,9 @@ type IPcache interface {
 	RunIP(net.IP, func(val interface{}) bool)
 }
 
-var (
-	ipv4Masks = 32 + 1
-	ipv6Masks = 128 + 1
+const (
+	ipv4MaskSize = 32 + 1
+	ipv6MaskSize = 128 + 1
 )
 
 type ipcache struct {
@@ -24,8 +24,8 @@ type ipcache struct {
 
 func NewIPCache() *ipcache {
 	return &ipcache{
-		ipv4: make([]map[uint32]interface{}, ipv4Masks),
-		ipv6: make([]map[[16]byte]interface{}, ipv6Masks),
+		ipv4: make([]map[uint32]interface{}, ipv4MaskSize),
+		ipv6: make([]map[[16]byte]interface{}, ipv6MaskSize),
 	}
 }
 
@@ -86,13 +86,13 @@ func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 	return nil, false
 }
 
-// RunIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs in reverse sorted order of subnet masks
+// RunIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs with the longest prefix match.
 // It then calls the function supplied by the user on the value stored and if it succeeds then it returns.
 func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
 	if ip.To4() != nil {
 		ip = ip.To4()
 
-		for i := 32; i >= 0; i-- {
+		for i := len(cache.ipv4) - 1; i >= 0; i-- {
 			m := cache.ipv4[i]
 			if m != nil {
 				val, ok := m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(i, 32))]
@@ -104,7 +104,7 @@ func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
 	} else {
 		ip = ip.To16()
 
-		for i := 128; i >= 0; i-- {
+		for i := len(cache.ipv6) - 1; i >= 0; i-- {
 			m := cache.ipv6[i]
 			if m != nil {
 				var maskip [16]byte
