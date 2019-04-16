@@ -24,7 +24,7 @@ type ipcache struct {
 }
 
 //NewIPCache creates an object which is implementing the interface IPcache
-func NewIPCache() *ipcache {
+func NewIPCache() IPcache {
 	return &ipcache{
 		ipv4: make([]map[uint32]interface{}, ipv4MaskSize),
 		ipv6: make([]map[[16]byte]interface{}, ipv6MaskSize),
