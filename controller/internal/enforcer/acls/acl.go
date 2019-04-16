@@ -9,18 +9,18 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/ipcache"
+	"go.aporeto.io/trireme-lib/utils/ipprefix"
 )
 
 // acl holds all the ACLS in an internal DB
 
 type acl struct {
-	cache ipcache.IPcache
+	cache ipprefix.IPcache
 }
 
 func newACL() *acl {
 	return &acl{
-		cache: ipcache.NewIPCache(),
+		cache: ipprefix.NewIPCache(),
 	}
 }
 

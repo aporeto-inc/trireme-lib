@@ -1,4 +1,4 @@
-package ipcache
+package ipprefix
 
 import (
 	"encoding/binary"
