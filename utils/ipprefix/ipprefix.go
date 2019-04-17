@@ -3,6 +3,7 @@ package ipprefix
 import (
 	"encoding/binary"
 	"net"
+	"sync"
 )
 
 //IPcache is an interface which provides functionality to store ip's and do longest prefix match
@@ -20,10 +21,12 @@ const (
 
 type ipcacheV4 struct {
 	ipv4 []map[uint32]interface{}
+	sync.RWMutex
 }
 
 type ipcacheV6 struct {
 	ipv6 []map[[16]byte]interface{}
+	sync.RWMutex
 }
 
 type ipcache struct {
@@ -32,6 +35,9 @@ type ipcache struct {
 }
 
 func (cache *ipcacheV4) Put(ip net.IP, mask int, val interface{}) {
+	cache.Lock()
+	defer cache.Unlock()
+
 	if cache.ipv4[mask] == nil {
 		cache.ipv4[mask] = map[uint32]interface{}{}
 	}
@@ -42,6 +48,9 @@ func (cache *ipcacheV4) Put(ip net.IP, mask int, val interface{}) {
 }
 
 func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
+	cache.RLock()
+	defer cache.RUnlock()
+
 	m := cache.ipv4[mask]
 	if m != nil {
 		val, ok := m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(mask, 32))]
@@ -55,6 +64,8 @@ func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
 }
 
 func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
+	cache.Lock()
+	defer cache.Unlock()
 	for i := len(cache.ipv4) - 1; i >= 0; i-- {
 		m := cache.ipv4[i]
 		if m != nil {
@@ -64,9 +75,12 @@ func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
 			}
 		}
 	}
+
 }
 
 func (cache *ipcacheV4) RunVal(f func(val interface{}) interface{}) {
+	cache.Lock()
+	defer cache.Unlock()
 	for mask, m := range cache.ipv4 {
 		if m == nil {
 			continue
