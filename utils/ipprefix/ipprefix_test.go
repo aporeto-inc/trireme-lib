@@ -1,115 +1,158 @@
 package ipprefix
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/magiconair/properties/assert"
 )
 
-func TestIPCache(t *testing.T) {
-	Convey("Test the ip cache for long prefix match ipv4", t, func() {
+func TestPutGetV4(t *testing.T) {
+	ipcache := NewIPCache()
 
-		ipcache := NewIPCache()
+	ip := net.ParseIP("10.0.0.1")
+	str1 := "32mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 32, str1)
+	ipcache.Put(ip, 24, str2)
 
-		ip := net.ParseIP("10.0.0.1")
-		str1 := "32mask"
-		str2 := "24mask"
-		ipcache.Put(ip, 32, str1)
-		ipcache.Put(ip, 24, str2)
+	val, ok := ipcache.Get(ip, 32)
+	assert.Equal(t, ok, true, "Get should return Success")
+	assert.Equal(t, val.(string), str1, fmt.Sprintf("Returned value should be %s", str1))
+	val, ok = ipcache.Get(net.ParseIP("10.0.0.2"), 24)
+	assert.Equal(t, ok, true, "Get should return Success")
+	assert.Equal(t, val.(string), str2, fmt.Sprintf("Returned value should be %s", str2))
 
-		val, ok := ipcache.Get(ip, 32)
-		So(ok, ShouldEqual, true)
-		So(val.(string), ShouldEqual, "32mask")
-		val, ok = ipcache.Get(ip, 24)
-		So(ok, ShouldEqual, true)
-		So(val.(string), ShouldEqual, "24mask")
+	_, ok = ipcache.Get(ip, 10)
+	assert.Equal(t, ok, false, "Get should return nil")
+}
 
-		_, ok = ipcache.Get(ip, 10)
-		So(ok, ShouldEqual, false)
+func TestPutGetV6(t *testing.T) {
+	ipcache := NewIPCache()
 
-		var found bool
-		testRunIP := func(val interface{}) bool {
-			found = false
-			if val != nil {
-				str := val.(string)
+	ip := net.ParseIP("8000::220")
+	str1 := "128mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 128, str1)
+	ipcache.Put(ip, 24, str2)
 
-				if str == "32mask" {
-					found = true
-				}
+	val, ok := ipcache.Get(ip, 128)
+	assert.Equal(t, ok, true, "Get should return success")
+	assert.Equal(t, val.(string), str1, fmt.Sprintf("Returned value should be %s", str1))
+	val, ok = ipcache.Get(ip, 24)
+	assert.Equal(t, ok, true, "Get should return success")
+	assert.Equal(t, val.(string), str2, fmt.Sprintf("Returned value should be %s", str2))
+
+	_, ok = ipcache.Get(ip, 10)
+	assert.Equal(t, ok, false, "Get should return nil")
+}
+
+func TestRunIPV4(t *testing.T) {
+	var found bool
+
+	ipcache := NewIPCache()
+
+	ip := net.ParseIP("10.0.0.1")
+	str1 := "32mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 32, str1)
+	ipcache.Put(ip, 24, str2)
+
+	testRunIP := func(val interface{}) bool {
+		found = false
+		if val != nil {
+			str := val.(string)
+
+			if str == str1 {
+				found = true
 			}
-			return true
+		}
+		return true
+	}
+
+	ipcache.RunIP(ip, testRunIP)
+	assert.Equal(t, found, true, "found should be true")
+}
+
+func TestRunIPv6(t *testing.T) {
+
+	var found bool
+
+	ipcache := NewIPCache()
+
+	ip := net.ParseIP("8000::220")
+	str1 := "128mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 128, str1)
+	ipcache.Put(ip, 24, str2)
+
+	testRunIP := func(val interface{}) bool {
+		found = false
+		if val != nil {
+			str := val.(string)
+
+			if str == str1 {
+				found = true
+			}
+		}
+		return true
+	}
+
+	ipcache.RunIP(ip, testRunIP)
+	assert.Equal(t, found, true, "found should be true")
+}
+
+func TestRunValIPv4(t *testing.T) {
+
+	ipcache := NewIPCache()
+
+	ip := net.ParseIP("10.0.0.1")
+	str1 := "32mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 32, str1)
+	ipcache.Put(ip, 24, str2)
+
+	m := map[string]bool{}
+	m[str1] = true
+	m[str2] = true
+
+	testRunVal := func(val interface{}) interface{} {
+		if val != nil {
+			s := val.(string)
+			delete(m, s)
 		}
 
-		ipcache.RunIP(ip, testRunIP)
-		So(found, ShouldEqual, true)
+		return val
+	}
 
-		m := map[string]bool{}
-		m[str1] = true
-		m[str2] = true
+	ipcache.RunVal(testRunVal)
+	assert.Equal(t, len(m), 0, "map should be of length 0")
+}
 
-		testRunVal := func(val interface{}) interface{} {
-			if val != nil {
-				s := val.(string)
-				delete(m, s)
-			}
+func TestRunValIPv6(t *testing.T) {
 
-			return val
+	ipcache := NewIPCache()
+
+	ip := net.ParseIP("8000::220")
+	str1 := "128mask"
+	str2 := "24mask"
+	ipcache.Put(ip, 128, str1)
+	ipcache.Put(ip, 24, str2)
+
+	m := map[string]bool{}
+	m[str1] = true
+	m[str2] = true
+
+	testRunVal := func(val interface{}) interface{} {
+		if val != nil {
+			s := val.(string)
+			delete(m, s)
 		}
 
-		ipcache.RunVal(testRunVal)
-		So(len(m), ShouldEqual, 0)
-	})
+		return val
+	}
 
-	Convey("Test the ip cache for long prefix match ipv6", t, func() {
-
-		ipcache := NewIPCache()
-
-		ip := net.ParseIP("8000::220")
-		str1 := "128mask"
-		str2 := "24mask"
-		ipcache.Put(ip, 128, str1)
-		ipcache.Put(ip, 24, str2)
-
-		val, ok := ipcache.Get(ip, 128)
-		So(ok, ShouldEqual, true)
-		So(val.(string), ShouldEqual, str1)
-		val, ok = ipcache.Get(ip, 24)
-		So(ok, ShouldEqual, true)
-		So(val.(string), ShouldEqual, str2)
-
-		_, ok = ipcache.Get(ip, 10)
-		So(ok, ShouldEqual, false)
-
-		var found bool
-		testFunc := func(val interface{}) bool {
-			found = false
-			if val != nil {
-				str := val.(string)
-
-				if str == str1 {
-					found = true
-				}
-			}
-			return true
-		}
-
-		ipcache.RunIP(ip, testFunc)
-		So(found, ShouldEqual, true)
-		m := map[string]bool{}
-		m[str1] = true
-		m[str2] = true
-
-		testRunVal := func(val interface{}) interface{} {
-			if val != nil {
-				s := val.(string)
-				delete(m, s)
-			}
-
-			return val
-		}
-
-		ipcache.RunVal(testRunVal)
-		So(len(m), ShouldEqual, 0)
-	})
+	ipcache.RunVal(testRunVal)
+	assert.Equal(t, len(m), 0, "map should be of length 0")
 }
