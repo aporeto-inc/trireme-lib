@@ -251,6 +251,8 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 		return iptRule
 	}
 
+	iptRules = append(iptRules, i.generateExtensionsRules(rule, chain, proto)...)
+
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
 		nflog := []string{"-m", "state", "--state", "NEW",
 			"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}
@@ -285,6 +287,27 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	}
 
 	return iptRules, reverseRules
+}
+
+// generateExtensionsRules creates rules based on the extension type and its values
+func (i *Instance) generateExtensionsRules(rule *aclIPset, chain, proto string) [][]string {
+
+	var extensionRules [][]string
+
+	if byteCodes, ok := rule.extensions["bpf"]; ok {
+		for _, byteCode := range byteCodes {
+			extensionRules = append(extensionRules, []string{
+				i.appPacketIPTableContext,
+				"OUTPUT",
+				"-p", proto,
+				"--match", " multiport", "--dports", strings.Join(rule.ports, ","),
+				"-m", "bpf", "--bytecode", fmt.Sprintf("'%s'", byteCode),
+				"-j", "DROP",
+			})
+		}
+	}
+
+	return extensionRules
 }
 
 // sortACLsInBuckets will process all the rules and add them in a list of buckets
