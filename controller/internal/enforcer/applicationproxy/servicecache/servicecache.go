@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/ipcache"
+	"go.aporeto.io/trireme-lib/utils/ipprefix"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -27,9 +27,9 @@ func (e entryList) Delete(i int) entryList {
 
 // ServiceCache is a new service cache
 type ServiceCache struct {
-	// ipcaches is map[prefixlength][prefix] -> array of entries indexed by port
-	local  ipcache.IPcache
-	remote ipcache.IPcache
+	// ipprefixs is map[prefixlength][prefix] -> array of entries indexed by port
+	local  ipprefix.IPcache
+	remote ipprefix.IPcache
 	// hostcaches is map[host] -> array of entries indexed by port.
 	remoteHosts map[string]entryList
 	localHosts  map[string]entryList
@@ -43,8 +43,8 @@ type ServiceCache struct {
 func NewTable() *ServiceCache {
 
 	return &ServiceCache{
-		local:       ipcache.NewIPCache(),
-		remote:      ipcache.NewIPCache(),
+		local:       ipprefix.NewIPCache(),
+		remote:      ipprefix.NewIPCache(),
 		remoteHosts: map[string]entryList{},
 		localHosts:  map[string]entryList{},
 	}

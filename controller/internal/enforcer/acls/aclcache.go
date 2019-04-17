@@ -16,16 +16,6 @@ type ACLCache struct {
 	observe *acl
 }
 
-type prefixRules4 struct {
-	mask  uint32
-	rules map[uint32]portActionList
-}
-
-type prefixRules6 struct {
-	mask  []byte
-	rules map[[16]byte]portActionList
-}
-
 // NewACLCache creates a new ACL cache
 func NewACLCache() *ACLCache {
 	return &ACLCache{

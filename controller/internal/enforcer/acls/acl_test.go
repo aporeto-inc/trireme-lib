@@ -58,7 +58,7 @@ var (
 				PolicyID: "udp0/0"}},
 	}
 	// rulesPrefixLens holds unique prefix lens in rules above.
-	rulesPrefixLens = 5
+//	rulesPrefixLens = 5
 )
 
 func TestLookup(t *testing.T) {
