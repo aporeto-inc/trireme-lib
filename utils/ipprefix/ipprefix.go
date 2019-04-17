@@ -66,6 +66,7 @@ func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
 func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
 	cache.Lock()
 	defer cache.Unlock()
+
 	for i := len(cache.ipv4) - 1; i >= 0; i-- {
 		m := cache.ipv4[i]
 		if m != nil {
@@ -81,6 +82,7 @@ func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
 func (cache *ipcacheV4) RunVal(f func(val interface{}) interface{}) {
 	cache.Lock()
 	defer cache.Unlock()
+
 	for mask, m := range cache.ipv4 {
 		if m == nil {
 			continue
@@ -104,6 +106,9 @@ func (cache *ipcacheV4) RunVal(f func(val interface{}) interface{}) {
 }
 
 func (cache *ipcacheV6) Put(ip net.IP, mask int, val interface{}) {
+	cache.Lock()
+	defer cache.Unlock()
+
 	if cache.ipv6[mask] == nil {
 		cache.ipv6[mask] = map[[16]byte]interface{}{}
 	}
@@ -116,6 +121,9 @@ func (cache *ipcacheV6) Put(ip net.IP, mask int, val interface{}) {
 }
 
 func (cache *ipcacheV6) Get(ip net.IP, mask int) (interface{}, bool) {
+	cache.RLock()
+	defer cache.RUnlock()
+
 	m := cache.ipv6[mask]
 
 	if m != nil {
@@ -132,6 +140,8 @@ func (cache *ipcacheV6) Get(ip net.IP, mask int) (interface{}, bool) {
 }
 
 func (cache *ipcacheV6) RunIP(ip net.IP, f func(val interface{}) bool) {
+	cache.Lock()
+	defer cache.Unlock()
 
 	for i := len(cache.ipv6) - 1; i >= 0; i-- {
 		m := cache.ipv6[i]
@@ -147,6 +157,9 @@ func (cache *ipcacheV6) RunIP(ip net.IP, f func(val interface{}) bool) {
 }
 
 func (cache *ipcacheV6) RunVal(f func(val interface{}) interface{}) {
+	cache.Lock()
+	defer cache.Unlock()
+
 	for mask, m := range cache.ipv6 {
 		if m == nil {
 			continue
