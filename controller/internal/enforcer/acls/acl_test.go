@@ -71,8 +71,6 @@ func TestLookup(t *testing.T) {
 			err := a.addRule(r)
 			So(err, ShouldBeNil)
 		}
-		//		a.reverseSort()
-		//So(len(a.prefixLenMap), ShouldEqual, rulesPrefixLens)
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")
@@ -140,10 +138,13 @@ func TestLookup(t *testing.T) {
 
 func TestObservedLookup(t *testing.T) {
 
+	ip1 := "200.17.0.0/17"
+	ip2 := "200.18.0.0/17"
+	ip3 := "200.0.0.0/9"
 	var (
 		rulesWithObservation = policy.IPRuleList{
 			policy.IPRule{
-				Addresses: []string{"200.17.0.0/17"},
+				Addresses: []string{ip1},
 				Ports:     []string{"401"},
 				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
@@ -152,7 +153,7 @@ func TestObservedLookup(t *testing.T) {
 					PolicyID:      "observed-continue-tcp200.17/17"},
 			},
 			policy.IPRule{
-				Addresses: []string{"200.18.0.0/17"},
+				Addresses: []string{ip2},
 				Ports:     []string{"401"},
 				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
@@ -161,7 +162,7 @@ func TestObservedLookup(t *testing.T) {
 					PolicyID:      "observed-applied-tcp200.18/17"},
 			},
 			policy.IPRule{
-				Addresses: []string{"200.0.0.0/9"},
+				Addresses: []string{ip3},
 				Ports:     []string{"401"},
 				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
@@ -169,8 +170,6 @@ func TestObservedLookup(t *testing.T) {
 					PolicyID: "tcp200/9"},
 			},
 		}
-		// rulesWithObservationPrefixLens holds unique prefix lens in rules above.
-		//rulesWithObservationPrefixLens = 2
 	)
 
 	Convey("Given a good DB", t, func() {
@@ -180,8 +179,16 @@ func TestObservedLookup(t *testing.T) {
 			err := a.addRule(r)
 			So(err, ShouldBeNil)
 		}
-		//a.reverseSort()
-		///So(len(a.prefixLenMap), ShouldEqual, rulesWithObservationPrefixLens)
+
+		// Ensure all the elements are there in the cache
+		cidrs := []string{ip1, ip2, ip3}
+
+		for _, cidr := range cidrs {
+			ip, ipnet, _ := net.ParseCIDR(cidr)
+			size, _ := ipnet.Mask.Size()
+			_, ok := a.cache.Get(ip, size)
+			So(ok, ShouldEqual, true)
+		}
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action and observed action", func() {
 			ip := net.ParseIP("200.17.0.1")
