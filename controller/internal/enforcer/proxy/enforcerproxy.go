@@ -61,7 +61,8 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return err
 	}
 
-	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
+	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID),
+		zap.Reflect("Policy Object", puInfo))
 
 	if initEnforcer {
 		if err := s.initRemoteEnforcer(contextID); err != nil {
