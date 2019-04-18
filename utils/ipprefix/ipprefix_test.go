@@ -8,21 +8,25 @@ import (
 	"github.com/magiconair/properties/assert"
 )
 
+const (
+	mask24  = "24mask"
+	mask32  = "32mask"
+	mask128 = "128mask"
+)
+
 func TestPutGetV4(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("10.0.0.1")
-	str1 := "32mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 32, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 32, mask32)
+	ipcache.Put(ip, 24, mask24)
 
 	val, ok := ipcache.Get(ip, 32)
 	assert.Equal(t, ok, true, "Get should return Success")
-	assert.Equal(t, val.(string), str1, fmt.Sprintf("Returned value should be %s", str1))
+	assert.Equal(t, val.(string), mask32, fmt.Sprintf("Returned value should be %s", mask32))
 	val, ok = ipcache.Get(net.ParseIP("10.0.0.2"), 24)
 	assert.Equal(t, ok, true, "Get should return Success")
-	assert.Equal(t, val.(string), str2, fmt.Sprintf("Returned value should be %s", str2))
+	assert.Equal(t, val.(string), mask24, fmt.Sprintf("Returned value should be %s", mask24))
 
 	_, ok = ipcache.Get(ip, 10)
 	assert.Equal(t, ok, false, "Get should return nil")
@@ -32,17 +36,15 @@ func TestPutGetV6(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("8000::220")
-	str1 := "128mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 128, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 128, mask128)
+	ipcache.Put(ip, 24, mask24)
 
 	val, ok := ipcache.Get(ip, 128)
 	assert.Equal(t, ok, true, "Get should return success")
-	assert.Equal(t, val.(string), str1, fmt.Sprintf("Returned value should be %s", str1))
+	assert.Equal(t, val.(string), mask128, fmt.Sprintf("Returned value should be %s", mask128))
 	val, ok = ipcache.Get(ip, 24)
 	assert.Equal(t, ok, true, "Get should return success")
-	assert.Equal(t, val.(string), str2, fmt.Sprintf("Returned value should be %s", str2))
+	assert.Equal(t, val.(string), mask24, fmt.Sprintf("Returned value should be %s", mask24))
 
 	_, ok = ipcache.Get(ip, 10)
 	assert.Equal(t, ok, false, "Get should return nil")
@@ -54,17 +56,15 @@ func TestRunIPV4(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("10.0.0.1")
-	str1 := "32mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 32, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 32, mask32)
+	ipcache.Put(ip, 24, mask24)
 
 	testRunIP := func(val interface{}) bool {
 		found = false
 		if val != nil {
 			str := val.(string)
 
-			if str == str1 {
+			if str == mask32 {
 				found = true
 			}
 		}
@@ -82,17 +82,15 @@ func TestRunIPv6(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("8000::220")
-	str1 := "128mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 128, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 128, mask128)
+	ipcache.Put(ip, 24, mask24)
 
 	testRunIP := func(val interface{}) bool {
 		found = false
 		if val != nil {
 			str := val.(string)
 
-			if str == str1 {
+			if str == mask128 {
 				found = true
 			}
 		}
@@ -108,14 +106,12 @@ func TestRunValIPv4(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("10.0.0.1")
-	str1 := "32mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 32, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 32, mask32)
+	ipcache.Put(ip, 24, mask24)
 
 	m := map[string]bool{}
-	m[str1] = true
-	m[str2] = true
+	m[mask32] = true
+	m[mask24] = true
 
 	testRunVal := func(val interface{}) interface{} {
 		if val != nil {
@@ -135,14 +131,12 @@ func TestRunValIPv6(t *testing.T) {
 	ipcache := NewIPCache()
 
 	ip := net.ParseIP("8000::220")
-	str1 := "128mask"
-	str2 := "24mask"
-	ipcache.Put(ip, 128, str1)
-	ipcache.Put(ip, 24, str2)
+	ipcache.Put(ip, 128, mask128)
+	ipcache.Put(ip, 24, mask24)
 
 	m := map[string]bool{}
-	m[str1] = true
-	m[str2] = true
+	m[mask128] = true
+	m[mask24] = true
 
 	testRunVal := func(val interface{}) interface{} {
 		if val != nil {
