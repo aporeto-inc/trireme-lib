@@ -564,7 +564,7 @@ type aclIPset struct {
 	ipset      string
 	ports      []string
 	protocols  []string
-	extensions map[string][]string
+	extensions []string
 	policy     *policy.FlowPolicy
 }
 

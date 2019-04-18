@@ -242,7 +242,7 @@ type IPRule struct {
 	Addresses  []string
 	Ports      []string
 	Protocols  []string
-	Extensions map[string][]string
+	Extensions []string
 	Policy     *FlowPolicy
 }
 

@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -293,21 +294,28 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	return iptRules, reverseRules
 }
 
-// programExtensionsRules programs iptable rules for the given instruction
+// programExtensionsRules programs iptable rules for the given extensions
 func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto string) error {
 
-	if byteCodes, ok := rule.extensions["bpf"]; ok {
-		for _, byteCode := range byteCodes {
-			rulesspec := []string{
-				"-p", proto,
-				"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
-				"-m", "bpf",
-				"--bytecode", byteCode,
-				"-j", "DROP",
-			}
-			if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
-				return fmt.Errorf("unable to program rule for extension bpf: %v", err)
-			}
+	for _, ext := range rule.extensions {
+		rulesspec := []string{
+			"-p", proto,
+			"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
+		}
+
+		// Do not split any string that is wrapped with "
+		extensionRuleParts := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`).FindAllString(ext, -1)
+
+		// Remove any " from the string
+		strippedRuleParts := []string{}
+		for _, extRule := range extensionRuleParts {
+			strippedRuleParts = append(strippedRuleParts, strings.Replace(extRule, "\"", "", -1))
+		}
+
+		rulesspec = append(rulesspec, strippedRuleParts...)
+
+		if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
+			return fmt.Errorf("unable to program extension rules: %v", err)
 		}
 	}
 
