@@ -297,12 +297,12 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 // programExtensionsRules programs iptable rules for the given extensions
 func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto string) error {
 
-	for _, ext := range rule.extensions {
-		rulesspec := []string{
-			"-p", proto,
-			"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
-		}
+	rulesspec := []string{
+		"-p", proto,
+		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
+	}
 
+	for _, ext := range rule.extensions {
 		args, err := shellwords.Parse(ext)
 		if err != nil {
 			return fmt.Errorf("unable to parse extension %s: %v", ext, err)
