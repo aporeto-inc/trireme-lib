@@ -30,7 +30,7 @@ func TestPutGetV4(t *testing.T) {
 	assert.Equal(t, ok, true, "Get should return Success")
 	assert.Equal(t, val.(string), mask24, fmt.Sprintf("Returned value should be %s", mask24))
 
-	val, ok = ipcache.Get(net.ParseIP("8.8.8.8"), 0)
+	_, ok = ipcache.Get(net.ParseIP("8.8.8.8"), 0)
 	assert.Equal(t, ok, true, "should be found in cache")
 
 	_, ok = ipcache.Get(ip, 10)
@@ -52,7 +52,7 @@ func TestPutGetV6(t *testing.T) {
 	assert.Equal(t, ok, true, "Get should return success")
 	assert.Equal(t, val.(string), mask24, fmt.Sprintf("Returned value should be %s", mask24))
 
-	val, ok = ipcache.Get(net.ParseIP("abcd::200"), 0)
+	_, ok = ipcache.Get(net.ParseIP("abcd::200"), 0)
 	assert.Equal(t, ok, true, "Get should return success")
 
 	_, ok = ipcache.Get(ip, 10)
