@@ -238,21 +238,14 @@ func (i *iptables) SetTargetNetworks(c *runtime.Configuration) error {
 	return nil
 }
 
-// SetTargetNetworks updates ths target networks. There are three different
-// types of target networks:
-//   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
-//   - UDPTargetNetworks for UDP traffic (by default empty)
-//   - ExcludedNetworks that are always ignored (by default empty)
-
-func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
-
-	i.iptv4.SetTargetNetworks(c)
-	i.iptv6.SetTargetNetworks(c)
-
-	return nil
-}
-
 func (i *iptables) Run(ctx context.Context) error {
+
+	go func() {
+		<-ctx.Done()
+		zap.L().Debug("Cleaning the iptable rules")
+
+		i.CleanUp() // nolint
+	}()
 
 	// Clean any previous ACLs. This is needed in case we crashed at some
 	// earlier point or there are other ACLs that create conflicts. We
@@ -278,29 +271,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	if err := i.setGlobalRules(); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
-
-	return nil
-}
-
-// Run starts the iptables controller
-func (i *Instance) Run(ctx context.Context) error {
-
-	go func() {
-		<-ctx.Done()
-		zap.L().Debug("Stop the supervisor")
-
-		i.CleanUp() // nolint
-	}()
-
-	i.iptv4.Run(ctx)
-	i.iptv6.Run(ctx)
-
-	return nil
-}
-
-func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
-	i.iptv4.ConfigureRules(version, contextID, pu)
-	i.iptv6.ConfigureRules(version, contextID, pu)
 
 	return nil
 }
@@ -409,18 +379,6 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	return nil
 }
 
-// DeleteRules implements the DeleteRules interface. This is responsible
-// for cleaning all ACLs and associated chains, as well as ll the sets
-// that we have created. Note, that this only clears up the state
-// for a given processing unit.
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
-
-	i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType)
-	i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType)
-
-	return nil
-}
-
 func (i *iptables) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
 	if policyrules == nil {
@@ -468,20 +426,6 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	return nil
 }
 
-// UpdateRules implements the update part of the interface. Update will call
-// installrules to install the new rules and then it will delete the old rules.
-// For installations that do not have latests iptables-restore we time
-// the operations so that the switch is almost atomic, by creating the new rules
-// first. For latest kernel versions iptables-restorce will update all the rules
-// in one shot.
-func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
-
-	i.iptv4.UpdateRules(version, contextID, containerInfo, oldContainerInfo)
-	i.iptv6.UpdateRules(version, contextID, containerInfo, oldContainerInfo)
-
-	return nil
-}
-
 func (i *iptables) CleanUp() error {
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
@@ -490,16 +434,6 @@ func (i *iptables) CleanUp() error {
 	if err := i.ipset.DestroyAll(i.impl.GetIPSetPrefix()); err != nil {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
-
-	return nil
-}
-
-// CleanUp requires the implementor to clean up all ACLs and destroy all
-// the IP sets.
-func (i *Instance) CleanUp() error {
-
-	i.iptv4.CleanUp()
-	i.iptv6.CleanUp()
 
 	return nil
 }
@@ -960,4 +894,100 @@ func flushUDPConntrack(networks []string) {
 	// 		zap.L().Warn("Failed to remove destination conntrack entries for UDP target network", zap.Error(err))
 	// 	}
 	// }
+}
+
+// SetTargetNetworks updates ths target networks. There are three different
+// types of target networks:
+//   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
+//   - UDPTargetNetworks for UDP traffic (by default empty)
+//   - ExcludedNetworks that are always ignored (by default empty)
+
+func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
+
+	if err := i.iptv4.SetTargetNetworks(c); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.SetTargetNetworks(c); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Run starts the iptables controller
+func (i *Instance) Run(ctx context.Context) error {
+
+	if err := i.iptv4.Run(ctx); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.Run(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
+	if err := i.iptv4.ConfigureRules(version, contextID, pu); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.ConfigureRules(version, contextID, pu); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteRules implements the DeleteRules interface. This is responsible
+// for cleaning all ACLs and associated chains, as well as ll the sets
+// that we have created. Note, that this only clears up the state
+// for a given processing unit.
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
+
+	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateRules implements the update part of the interface. Update will call
+// installrules to install the new rules and then it will delete the old rules.
+// For installations that do not have latests iptables-restore we time
+// the operations so that the switch is almost atomic, by creating the new rules
+// first. For latest kernel versions iptables-restorce will update all the rules
+// in one shot.
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
+
+	if err := i.iptv4.UpdateRules(version, contextID, containerInfo, oldContainerInfo); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.UpdateRules(version, contextID, containerInfo, oldContainerInfo); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CleanUp requires the implementor to clean up all ACLs and destroy all
+// the IP sets.
+func (i *Instance) CleanUp() error {
+
+	if err := i.iptv4.CleanUp(); err != nil {
+		return err
+	}
+
+	if err := i.iptv6.CleanUp(); err != nil {
+		return err
+	}
+
+	return nil
 }
