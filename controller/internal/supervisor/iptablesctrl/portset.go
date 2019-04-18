@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (i *Instance) getPortSet(iptInstance *iptablesInstance, contextID string) string {
-	portset, err := iptInstance.contextIDToPortSetMap.Get(contextID)
+func (i *iptables) getPortSet(contextID string) string {
+	portset, err := i.contextIDToPortSetMap.Get(contextID)
 	if err != nil {
 		return ""
 	}
@@ -20,13 +20,13 @@ func (i *Instance) getPortSet(iptInstance *iptablesInstance, contextID string) s
 
 // createPortSets creates either UID or process port sets. This is only
 // needed for Linux PUs and it returns immediately for container PUs.
-func (i *Instance) createPortSet(iptInstance *iptablesInstance, contextID string, username string) error {
+func (i *iptables) createPortSet(contextID string, username string) error {
 
 	if i.mode == constants.RemoteContainer {
 		return nil
 	}
 
-	ipsetPrefix := iptInstance.impl.GetIPSetPrefix()
+	ipsetPrefix := i.impl.GetIPSetPrefix()
 
 	prefix := ""
 
@@ -42,19 +42,19 @@ func (i *Instance) createPortSet(iptInstance *iptablesInstance, contextID string
 		return puseterr
 	}
 
-	iptInstance.contextIDToPortSetMap.AddOrUpdate(contextID, portSetName)
+	i.contextIDToPortSetMap.AddOrUpdate(contextID, portSetName)
 	return nil
 }
 
 // deletePortSet delets the ports set that was created for a Linux PU.
 // It returns without errors for container PUs.
-func (i *Instance) deletePortSet(iptInstance *iptablesInstance, contextID string) error {
+func (i *iptables) deletePortSet(contextID string) error {
 
 	if i.mode == constants.RemoteContainer {
 		return nil
 	}
 
-	portSetName := i.getPortSet(iptInstance, contextID)
+	portSetName := i.getPortSet(contextID)
 	if portSetName == "" {
 		return fmt.Errorf("Failed to find port set")
 	}
@@ -67,8 +67,30 @@ func (i *Instance) deletePortSet(iptInstance *iptablesInstance, contextID string
 		return fmt.Errorf("Failed to delete pu port set "+portSetName, zap.Error(err))
 	}
 
-	if err := iptInstance.contextIDToPortSetMap.Remove(contextID); err != nil {
+	if err := i.contextIDToPortSetMap.Remove(contextID); err != nil {
 		zap.L().Debug("portset not found for the contextID", zap.String("contextID", contextID))
+	}
+
+	return nil
+}
+
+// DeletePortFromPortSet deletes ports from port sets
+func (i *iptables) DeletePortFromPortSet(contextID string, port string) error {
+	portSetName := i.getPortSet(contextID)
+	if portSetName == "" {
+		return fmt.Errorf("unable to get portset for contextID %s", contextID)
+	}
+
+	ips := ipset.IPSet{
+		Name: portSetName,
+	}
+
+	if _, err := strconv.Atoi(port); err != nil {
+		return fmt.Errorf("invalid port: %s", err)
+	}
+
+	if err := ips.Del(port); err != nil {
+		return fmt.Errorf("unable to delete port from portset: %s", err)
 	}
 
 	return nil
@@ -77,33 +99,29 @@ func (i *Instance) deletePortSet(iptInstance *iptablesInstance, contextID string
 // DeletePortFromPortSet deletes ports from port sets
 func (i *Instance) DeletePortFromPortSet(contextID string, port string) error {
 
-	deletePortFromPortSet := func(iptInstance *iptablesInstance) error {
-		portSetName := i.getPortSet(iptInstance, contextID)
-		if portSetName == "" {
-			return fmt.Errorf("unable to get portset for contextID %s", contextID)
-		}
+	i.iptv4.DeletePortFromPortSet(contextID, port)
+	i.iptv6.DeletePortFromPortSet(contextID, port)
 
-		ips := ipset.IPSet{
-			Name: portSetName,
-		}
+	return nil
+}
 
-		if _, err := strconv.Atoi(port); err != nil {
-			return fmt.Errorf("invalid port: %s", err)
-		}
-
-		if err := ips.Del(port); err != nil {
-			return fmt.Errorf("unable to delete port from portset: %s", err)
-		}
-
-		return nil
+// AddPortToPortSet adds ports to the portsets
+func (i *iptables) AddPortToPortSet(contextID string, port string) error {
+	portSetName := i.getPortSet(contextID)
+	if portSetName == "" {
+		return fmt.Errorf("unable to get portset for contextID %s", contextID)
 	}
 
-	if err := deletePortFromPortSet(i.iptv4); err != nil {
-		return err
+	ips := ipset.IPSet{
+		Name: portSetName,
 	}
 
-	if err := deletePortFromPortSet(i.iptv6); err != nil {
-		return err
+	if _, err := strconv.Atoi(port); err != nil {
+		return fmt.Errorf("invalid port: %s", err)
+	}
+
+	if err := ips.Add(port, 0); err != nil {
+		return fmt.Errorf("unable to add port to portset: %s", err)
 	}
 
 	return nil
@@ -112,34 +130,8 @@ func (i *Instance) DeletePortFromPortSet(contextID string, port string) error {
 // AddPortToPortSet adds ports to the portsets
 func (i *Instance) AddPortToPortSet(contextID string, port string) error {
 
-	addPortToPortSet := func(iptInstance *iptablesInstance) error {
-		portSetName := i.getPortSet(iptInstance, contextID)
-		if portSetName == "" {
-			return fmt.Errorf("unable to get portset for contextID %s", contextID)
-		}
-
-		ips := ipset.IPSet{
-			Name: portSetName,
-		}
-
-		if _, err := strconv.Atoi(port); err != nil {
-			return fmt.Errorf("invalid port: %s", err)
-		}
-
-		if err := ips.Add(port, 0); err != nil {
-			return fmt.Errorf("unable to add port to portset: %s", err)
-		}
-
-		return nil
-	}
-
-	if err := addPortToPortSet(i.iptv4); err != nil {
-		return err
-	}
-
-	if err := addPortToPortSet(i.iptv6); err != nil {
-		return err
-	}
+	i.iptv4.AddPortToPortSet(contextID, port)
+	i.iptv6.AddPortToPortSet(contextID, port)
 
 	return nil
 }

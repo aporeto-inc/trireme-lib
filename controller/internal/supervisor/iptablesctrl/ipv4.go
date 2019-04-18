@@ -22,7 +22,7 @@ func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
-func GetIPv4Instance() (*ipv4, error) {
+func GetIPv4Impl() (*ipv4, error) {
 	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)

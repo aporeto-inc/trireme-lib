@@ -14,7 +14,7 @@ import (
 
 // updateTargetNetworks updates the set of target networks. Tries to minimize
 // read/writes to the ipset structures
-func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) error {
+func (i *iptables) updateTargetNetworks(set provider.Ipset, old, new []string) error {
 
 	deleteMap := map[string]bool{}
 	for _, net := range old {
@@ -26,14 +26,14 @@ func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) e
 			deleteMap[net] = false
 			continue
 		}
-		if err := i.addToIPset(set, net); err != nil {
+		if err := addToIPset(set, net); err != nil {
 			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
-			if err := i.delFromIPset(set, net); err != nil {
+			if err := delFromIPset(set, net); err != nil {
 				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}
@@ -42,10 +42,10 @@ func (i *Instance) updateTargetNetworks(set provider.Ipset, old, new []string) e
 }
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
-func (i *Instance) createProxySets(portSetName string) error {
+func (i *iptables) createProxySets(portSetName string) error {
 	destSetName, srvSetName := i.getSetNames(portSetName)
 
-	_, err := i.iptInstance.ipset.NewIpset(destSetName, "hash:net,port", i.iptInstance.impl.GetIPSetParam())
+	_, err := i.ipset.NewIpset(destSetName, "hash:net,port", i.impl.GetIPSetParam())
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}
@@ -59,9 +59,9 @@ func (i *Instance) createProxySets(portSetName string) error {
 	return nil
 }
 
-func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
+func (i *iptables) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
 
-	ipFilter := i.iptInstance.impl.IPFilter()
+	ipFilter := i.impl.IPFilter()
 	dstSetName, srvSetName := i.getSetNames(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
@@ -114,7 +114,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 }
 
 //getSetNamePair returns a pair of strings represent proxySetNames
-func (i *Instance) getSetNames(portSetName string) (string, string) {
+func (i *iptables) getSetNames(portSetName string) (string, string) {
 	return portSetName + "-dst", portSetName + "-srv"
 }
 

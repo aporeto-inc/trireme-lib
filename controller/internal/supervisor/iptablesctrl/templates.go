@@ -132,12 +132,12 @@ func chainName(contextID string, version int) (app, net string, err error) {
 	return app, net, nil
 }
 
-func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
+func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
 
 	var appChain, netChain string
 	var err error
 
-	ipsetPrefix := i.iptInstance.impl.GetIPSetPrefix()
+	ipsetPrefix := i.impl.GetIPSetPrefix()
 
 	if contextID != "" {
 		appChain, netChain, err = chainName(contextID, version)
@@ -177,7 +177,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		netSection = mainNetChain
 	}
 
-	portSetName := i.getPortSet(i.iptInstance, contextID)
+	portSetName := i.getPortSet(contextID)
 
 	cfg := &ACLInfo{
 		ContextID: contextID,
@@ -221,8 +221,8 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ExclusionsSet:         ipsetPrefix + excludedNetworkSet,
 
 		// IPv4 vs IPv6
-		DefaultIP:     i.iptInstance.impl.GetDefaultIP(),
-		needICMPRules: i.iptInstance.impl.NeedICMP(),
+		DefaultIP:     i.impl.GetDefaultIP(),
+		needICMPRules: i.impl.NeedICMP(),
 
 		// UDP rules
 		Numpackets:   numPackets,
