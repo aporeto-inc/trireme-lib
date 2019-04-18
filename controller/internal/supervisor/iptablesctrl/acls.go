@@ -35,7 +35,7 @@ type rulesInfo struct {
 // cgroupChainRules provides the rules for redirecting to a processing unit
 // specific chain based for Linux processed and based on the cgroups and net_cls
 // configuration.
-func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
+func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 
 	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
 	// cgroup match modules, source ports are used  to trap outgoing traffic.
@@ -75,7 +75,7 @@ func (i *Instance) cgroupChainRules(cfg *ACLInfo) [][]string {
 	return append(rules, i.proxyRules(cfg)...)
 }
 
-func (i *Instance) uidChainRules(cfg *ACLInfo) [][]string {
+func (i *iptables) uidChainRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(uidChainTemplate).Parse(uidChainTemplate))
 
@@ -92,7 +92,7 @@ func (i *Instance) uidChainRules(cfg *ACLInfo) [][]string {
 
 // containerChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) containerChainRules(cfg *ACLInfo) [][]string {
+func (i *iptables) containerChainRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(containerChainTemplate).Parse(containerChainTemplate))
 
@@ -106,7 +106,7 @@ func (i *Instance) containerChainRules(cfg *ACLInfo) [][]string {
 
 // proxyRules creates the rules that allow traffic to go through if it is handled
 // by the services.
-func (i *Instance) proxyRules(cfg *ACLInfo) [][]string {
+func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 
 	tmpl := template.Must(template.New(proxyChainTemplate).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
@@ -122,7 +122,7 @@ func (i *Instance) proxyRules(cfg *ACLInfo) [][]string {
 }
 
 // trapRules provides the packet capture rules that are defined for each processing unit.
-func (i *Instance) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
+func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 
 	tmpl := template.Must(template.New(packetCaptureTemplate).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
@@ -130,6 +130,9 @@ func (i *Instance) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 		},
 		"isUIDProcess": func() bool {
 			return cfg.UID != ""
+		},
+		"needICMP": func() bool {
+			return cfg.needICMPRules
 		},
 	}).Parse(packetCaptureTemplate))
 
@@ -144,14 +147,14 @@ func (i *Instance) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func (i *Instance) addContainerChain(appChain string, netChain string) error {
+func (i *iptables) addContainerChain(appChain string, netChain string) error {
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
+	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
+		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
 	}
 
-	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
+	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
+		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
 	}
 
 	return nil
@@ -159,7 +162,7 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 // processRulesFromList is a generic helper that parses a set of rules and sends the corresponding
 // ACL commands.
-func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
+func (i *iptables) processRulesFromList(rulelist [][]string, methodType string) error {
 	var err error
 	for _, cr := range rulelist {
 		// HACK: Adding a retry loop to avoid iptables error of "invalid argument"
@@ -168,7 +171,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 		for retry := 0; retry < 3; retry++ {
 			switch methodType {
 			case "Append":
-				if err = i.ipt.Append(cr[0], cr[1], cr[2:]...); err == nil {
+				if err = i.impl.Append(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
 			case "Insert":
@@ -177,12 +180,12 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 					zap.L().Error("Incorrect format for iptables insert")
 					return errors.New("invalid format")
 				}
-				if err = i.ipt.Insert(cr[0], cr[1], order, cr[3:]...); err == nil {
+				if err = i.impl.Insert(cr[0], cr[1], order, cr[3:]...); err == nil {
 					break L
 				}
 
 			case "Delete":
-				if err = i.ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
+				if err = i.impl.Delete(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
 
@@ -199,7 +202,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(cfg *ACLInfo) error {
+func (i *iptables) addChainRules(cfg *ACLInfo) error {
 
 	if i.mode != constants.LocalServer {
 		return i.processRulesFromList(i.containerChainRules(cfg), "Append")
@@ -213,19 +216,21 @@ func (i *Instance) addChainRules(cfg *ACLInfo) error {
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
+func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 }
 
-func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
+func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
 	iptRules := [][]string{}
 	reverseRules := [][]string{}
+
+	ipsetPrefix := i.impl.GetIPSetPrefix()
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
 	baseRule := func(proto string) []string {
 		iptRule := []string{
-			i.appPacketIPTableContext,
+			appPacketIPTableContext,
 			chain,
 			"-p", proto,
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
@@ -238,7 +243,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 
 		// only tcp uses target networks
 		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
-			targetNet := []string{"-m", "set", "!", "--match-set", targetTCPNetworkSet, ipMatchDirection}
+			targetNet := []string{"-m", "set", "!", "--match-set", ipsetPrefix + targetTCPNetworkSet, ipMatchDirection}
 			iptRule = append(iptRule, targetNet...)
 		}
 
@@ -274,7 +279,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 
 		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
 			reverseRules = append(reverseRules, []string{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				reverseChain,
 				"-p", proto,
 				"-m", "set", "--match-set", rule.ipset, reverseDirection,
@@ -292,7 +297,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 // in order to support observation only of ACL actions. The parameters
 // must provide the chain and whether it is App or Net ACLs so that the rules
 // can be created accordingly.
-func (i *Instance) sortACLsInBuckets(contextID, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
+func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
 
 	rulesBucket := &rulesInfo{
 		RejectObserveApply:    [][]string{},
@@ -351,7 +356,7 @@ func (i *Instance) sortACLsInBuckets(contextID, chain string, reverseChain strin
 
 // addExternalACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addExternalACLs(contextID string, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
+func (i *iptables) addExternalACLs(contextID string, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
 	rulesBucket := i.sortACLsInBuckets(contextID, chain, reverseChain, rules, isAppAcls)
 
@@ -374,7 +379,7 @@ func (i *Instance) addExternalACLs(contextID string, chain string, reverseChain 
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
+func (i *iptables) deleteChainRules(cfg *ACLInfo) error {
 
 	if i.mode != constants.LocalServer {
 		return i.processRulesFromList(i.containerChainRules(cfg), "Delete")
@@ -388,36 +393,36 @@ func (i *Instance) deleteChainRules(cfg *ACLInfo) error {
 }
 
 // deletePUChains removes all the container specific chains and basic rules
-func (i *Instance) deletePUChains(appChain, netChain string) error {
+func (i *iptables) deletePUChains(appChain, netChain string) error {
 
-	if err := i.ipt.ClearChain(i.appPacketIPTableContext, appChain); err != nil {
+	if err := i.impl.ClearChain(appPacketIPTableContext, appChain); err != nil {
 		zap.L().Warn("Failed to clear the container ack packets chain",
 			zap.String("appChain", appChain),
-			zap.String("context", i.appPacketIPTableContext),
+			zap.String("context", appPacketIPTableContext),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
+	if err := i.impl.DeleteChain(appPacketIPTableContext, appChain); err != nil {
 		zap.L().Warn("Failed to delete the container ack packets chain",
 			zap.String("appChain", appChain),
-			zap.String("context", i.appPacketIPTableContext),
+			zap.String("context", appPacketIPTableContext),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.ClearChain(i.netPacketIPTableContext, netChain); err != nil {
+	if err := i.impl.ClearChain(netPacketIPTableContext, netChain); err != nil {
 		zap.L().Warn("Failed to clear the container net packets chain",
 			zap.String("netChain", netChain),
-			zap.String("context", i.netPacketIPTableContext),
+			zap.String("context", netPacketIPTableContext),
 			zap.Error(err),
 		)
 	}
 
-	if err := i.ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
+	if err := i.impl.DeleteChain(netPacketIPTableContext, netChain); err != nil {
 		zap.L().Warn("Failed to delete the container net packets chain",
 			zap.String("netChain", netChain),
-			zap.String("context", i.netPacketIPTableContext),
+			zap.String("context", netPacketIPTableContext),
 			zap.Error(err),
 		)
 	}
@@ -426,12 +431,13 @@ func (i *Instance) deletePUChains(appChain, netChain string) error {
 }
 
 // setGlobalRules installs the global rules
-func (i *Instance) setGlobalRules() error {
+func (i *iptables) setGlobalRules() error {
 
 	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
 	}
+	ipsetPrefix := i.impl.GetIPSetPrefix()
 
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
@@ -449,19 +455,19 @@ func (i *Instance) setGlobalRules() error {
 	}
 
 	// nat rules cannot be templated, since they interfere with Docker.
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = i.impl.Insert(appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-p", "tcp",
 		"-m", "addrtype", "--dst-type", "LOCAL",
-		"-m", "set", "!", "--match-set", excludedNetworkSet, "src",
+		"-m", "set", "!", "--match-set", ipsetPrefix+excludedNetworkSet, "src",
 		"-j", natProxyInputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(i.appProxyIPTableContext,
+	err = i.impl.Insert(appProxyIPTableContext,
 		ipTableSectionOutput, 1,
-		"-m", "set", "!", "--match-set", excludedNetworkSet, "dst",
+		"-m", "set", "!", "--match-set", ipsetPrefix+excludedNetworkSet, "dst",
 		"-j", natProxyOutputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
@@ -470,7 +476,7 @@ func (i *Instance) setGlobalRules() error {
 	return nil
 }
 
-func (i *Instance) removeGlobalHooks(cfg *ACLInfo) error {
+func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
@@ -487,7 +493,7 @@ func (i *Instance) removeGlobalHooks(cfg *ACLInfo) error {
 	return nil
 }
 
-func (i *Instance) cleanACLs() error { // nolint
+func (i *iptables) cleanACLs() error { // nolint
 	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
@@ -516,32 +522,32 @@ func (i *Instance) cleanACLs() error { // nolint
 
 		// Flush the chains
 		if rule[2] == "-F" {
-			if err := i.ipt.ClearChain(rule[1], rule[3]); err != nil {
+			if err := i.impl.ClearChain(rule[1], rule[3]); err != nil {
 				zap.L().Error("unable to flush chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
 			}
 		}
 
 		// Delete the chains
 		if rule[2] == "-X" {
-			if err := i.ipt.DeleteChain(rule[1], rule[3]); err != nil {
+			if err := i.impl.DeleteChain(rule[1], rule[3]); err != nil {
 				zap.L().Error("unable to delete chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
 			}
 		}
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appPacketIPTableContext, chainPrefix)
+	i.cleanACLSection(appPacketIPTableContext, chainPrefix)
 
-	i.ipt.Commit() // nolint
+	i.impl.Commit() // nolint
 
 	// Always return nil here. No reason to block anything if cleans fail.
 	return nil
 }
 
 // cleanACLSection flushes and deletes all chains with Prefix - Trireme
-func (i *Instance) cleanACLSection(context, chainPrefix string) {
+func (i *iptables) cleanACLSection(context, chainPrefix string) {
 
-	rules, err := i.ipt.ListChains(context)
+	rules, err := i.impl.ListChains(context)
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
 			zap.String("context", context),
@@ -552,14 +558,14 @@ func (i *Instance) cleanACLSection(context, chainPrefix string) {
 	for _, rule := range rules {
 
 		if strings.Contains(rule, chainPrefix) {
-			if err := i.ipt.ClearChain(context, rule); err != nil {
+			if err := i.impl.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
 					zap.String("context", context),
 					zap.String("section", rule),
 					zap.Error(err),
 				)
 			}
-			if err := i.ipt.DeleteChain(context, rule); err != nil {
+			if err := i.impl.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),
 					zap.String("section", rule),

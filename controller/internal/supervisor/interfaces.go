@@ -53,6 +53,6 @@ type Implementor interface {
 	// CleanUp requests the implementor to clean up all ACLs
 	CleanUp() error
 
-	// ACLProvider returns the ACL provider used by the implementor
-	ACLProvider() provider.IptablesProvider
+	// ACLProviderV4 returns the ACL provider used by the implementor
+	ACLProvider() []provider.IptablesProvider
 }

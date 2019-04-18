@@ -14,7 +14,7 @@ import (
 // processing. A services processor must implement this interface.
 type PacketProcessor interface {
 	// Initialize  initializes any ACLs that the processor requires
-	Initialize(fq *fqconfig.FilterQueue, p provider.IptablesProvider)
+	Initialize(fq *fqconfig.FilterQueue, p []provider.IptablesProvider)
 
 	// Stop stops the packet processor
 	Stop() error
