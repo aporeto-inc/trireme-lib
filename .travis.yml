@@ -5,7 +5,7 @@ dist: trusty
 go_import_path: go.aporeto.io/trireme-lib
 
 go:
- - 1.12.2
+ - 1.12.x
 
 addons:
    apt:
