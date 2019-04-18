@@ -73,34 +73,42 @@ func (a *acl) matchRule(ip net.IP, port uint16, preReport *policy.FlowPolicy) (r
 
 func (a *acl) addRule(rule policy.IPRule) (err error) {
 
+	addCache := func(address, port string) error {
+		var mask int
+		parts := strings.Split(address, "/")
+		ip := net.ParseIP(parts[0])
+		if ip == nil {
+			return fmt.Errorf("invalid ip address: %s", parts[0])
+		}
+
+		if len(parts) == 1 {
+			if ip.To4() != nil {
+				mask = 32
+			} else {
+				mask = 128
+			}
+		} else {
+			mask, err = strconv.Atoi(parts[1])
+			if err != nil {
+				return fmt.Errorf("invalid address: %s", err)
+			}
+		}
+
+		if err := a.addToCache(ip, mask, port, rule.Policy); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	for _, proto := range rule.Protocols {
-		if strings.ToLower(proto) == constants.TCPProtoNum {
-			for _, address := range rule.Addresses {
-				for _, port := range rule.Ports {
-					var mask int
-					parts := strings.Split(address, "/")
-					ip := net.ParseIP(parts[0])
-					if ip == nil {
-						return fmt.Errorf("invalid ip address: %s", parts[0])
-					}
-
-					if len(parts) == 1 {
-						if ip.To4() != nil {
-							mask = 32
-						} else {
-							mask = 128
-						}
-					} else {
-						mask, err = strconv.Atoi(parts[1])
-						if err != nil {
-							return fmt.Errorf("invalid address: %s", err)
-						}
-					}
-
-					if err := a.addToCache(ip, mask, port, rule.Policy); err != nil {
-						return err
-					}
-
+		if strings.ToLower(proto) != constants.TCPProtoNum {
+			continue
+		}
+		for _, address := range rule.Addresses {
+			for _, port := range rule.Ports {
+				if err := addCache(address, port); err != nil {
+					return err
 				}
 			}
 		}
