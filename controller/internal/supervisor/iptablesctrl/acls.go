@@ -3,11 +3,11 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/mattn/go-shellwords"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
@@ -303,16 +303,12 @@ func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto string) e
 			"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 		}
 
-		// Do not split any string that is wrapped with "
-		extensionRuleParts := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`).FindAllString(ext, -1)
-
-		// Remove any " from the string
-		strippedRuleParts := []string{}
-		for _, extRule := range extensionRuleParts {
-			strippedRuleParts = append(strippedRuleParts, strings.Replace(extRule, "\"", "", -1))
+		args, err := shellwords.Parse(ext)
+		if err != nil {
+			return fmt.Errorf("unable to parse extension %s: %v", ext, err)
 		}
 
-		rulesspec = append(rulesspec, strippedRuleParts...)
+		rulesspec = append(rulesspec, args...)
 
 		if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
 			return fmt.Errorf("unable to program extension rules: %v", err)
