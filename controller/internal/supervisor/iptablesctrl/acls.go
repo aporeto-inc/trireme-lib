@@ -251,7 +251,11 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 		return iptRule
 	}
 
-	iptRules = append(iptRules, i.generateExtensionsRules(rule, chain, proto)...)
+	if err := i.programExtensionsRules(rule, chain, proto); err != nil {
+		zap.L().Warn("unable to program extension rules",
+			zap.Error(err),
+		)
+	}
 
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
 		nflog := []string{"-m", "state", "--state", "NEW",
@@ -289,25 +293,25 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	return iptRules, reverseRules
 }
 
-// generateExtensionsRules creates rules based on the extension type and its values
-func (i *Instance) generateExtensionsRules(rule *aclIPset, chain, proto string) [][]string {
-
-	var extensionRules [][]string
+// programExtensionsRules programs iptable rules for the given instruction
+func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto string) error {
 
 	if byteCodes, ok := rule.extensions["bpf"]; ok {
 		for _, byteCode := range byteCodes {
-			extensionRules = append(extensionRules, []string{
-				i.appPacketIPTableContext,
-				"OUTPUT",
+			rulesspec := []string{
 				"-p", proto,
-				"--match", " multiport", "--dports", strings.Join(rule.ports, ","),
-				"-m", "bpf", "--bytecode", fmt.Sprintf("'%s'", byteCode),
+				"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
+				"-m", "bpf",
+				"--bytecode", byteCode,
 				"-j", "DROP",
-			})
+			}
+			if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
+				return fmt.Errorf("unable to program rule for extension bpf: %v", err)
+			}
 		}
 	}
 
-	return extensionRules
+	return nil
 }
 
 // sortACLsInBuckets will process all the rules and add them in a list of buckets
