@@ -6,12 +6,22 @@ import (
 	"sync"
 )
 
+type FuncOnKeys func(val interface{}) bool
+type FuncOnVals func(val interface{}) interface{}
+
 //IPcache is an interface which provides functionality to store ip's and do longest prefix match
 type IPcache interface {
+	// Put takes an argument an ip address, mask and value.
 	Put(net.IP, int, interface{})
+	// Get takes an argument the IP address and mask and returns the value that is stored for that key.
 	Get(net.IP, int) (interface{}, bool)
-	RunVal(func(val interface{}) interface{})
-	RunIP(net.IP, func(val interface{}) bool)
+	// RunFuncOnLpmIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs with the longest prefix match.
+	// It then calls the function supplied by the user on the value stored and if it succeeds then it returns.
+	RunFuncOnLpmIP(net.IP, FuncOnKeys)
+	// RunFuncOnVals takes an argument a function which is called on all the values stored in the
+	// cache. This can be used to update the old values with the new values. If the new value is nil,
+	// it will delete the key.
+	RunFuncOnVals(FuncOnVals)
 }
 
 const (
@@ -63,7 +73,7 @@ func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
 	return nil, false
 }
 
-func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
+func (cache *ipcacheV4) RunFuncOnLpmIP(ip net.IP, f func(val interface{}) bool) {
 	cache.Lock()
 	defer cache.Unlock()
 
@@ -79,7 +89,7 @@ func (cache *ipcacheV4) RunIP(ip net.IP, f func(val interface{}) bool) {
 
 }
 
-func (cache *ipcacheV4) RunVal(f func(val interface{}) interface{}) {
+func (cache *ipcacheV4) RunFuncOnVals(f func(val interface{}) interface{}) {
 	cache.Lock()
 	defer cache.Unlock()
 
@@ -139,7 +149,7 @@ func (cache *ipcacheV6) Get(ip net.IP, mask int) (interface{}, bool) {
 	return nil, false
 }
 
-func (cache *ipcacheV6) RunIP(ip net.IP, f func(val interface{}) bool) {
+func (cache *ipcacheV6) RunFuncOnLpmIP(ip net.IP, f func(val interface{}) bool) {
 	cache.Lock()
 	defer cache.Unlock()
 
@@ -156,7 +166,7 @@ func (cache *ipcacheV6) RunIP(ip net.IP, f func(val interface{}) bool) {
 	}
 }
 
-func (cache *ipcacheV6) RunVal(f func(val interface{}) interface{}) {
+func (cache *ipcacheV6) RunFuncOnVals(f func(val interface{}) interface{}) {
 	cache.Lock()
 	defer cache.Unlock()
 
@@ -189,7 +199,6 @@ func NewIPCache() IPcache {
 	}
 }
 
-// Put takes an argument an ip address, mask and value. It is used as a cache for quick lookup
 func (cache *ipcache) Put(ip net.IP, mask int, val interface{}) {
 	if ip.To4() != nil {
 		cache.ipv4.Put(ip.To4(), mask, val)
@@ -199,7 +208,6 @@ func (cache *ipcache) Put(ip net.IP, mask int, val interface{}) {
 	cache.ipv6.Put(ip.To16(), mask, val)
 }
 
-// Get takes an argument the IP address and mask and returns the value that is stored for that key.
 func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 
 	if ip.To4() != nil {
@@ -209,21 +217,17 @@ func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 	return cache.ipv6.Get(ip.To16(), mask)
 }
 
-// RunIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs with the longest prefix match.
-// It then calls the function supplied by the user on the value stored and if it succeeds then it returns.
-func (cache *ipcache) RunIP(ip net.IP, f func(val interface{}) bool) {
+func (cache *ipcache) RunFuncOnLpmIP(ip net.IP, f FuncOnKeys) {
 	if ip.To4() != nil {
-		cache.ipv4.RunIP(ip.To4(), f)
+		cache.ipv4.RunFuncOnLpmIP(ip.To4(), f)
 		return
 	}
 
-	cache.ipv6.RunIP(ip.To16(), f)
+	cache.ipv6.RunFuncOnLpmIP(ip.To16(), f)
 }
 
-// RunVal takes an argument a function which is called on all the values stored in the
-// cache. It updates the cache value with the new value that is returned by the function
-func (cache *ipcache) RunVal(f func(val interface{}) interface{}) {
+func (cache *ipcache) RunFuncOnVals(f FuncOnVals) {
 
-	cache.ipv4.RunVal(f)
-	cache.ipv6.RunVal(f)
+	cache.ipv4.RunFuncOnVals(f)
+	cache.ipv6.RunFuncOnVals(f)
 }

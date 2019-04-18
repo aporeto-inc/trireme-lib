@@ -66,7 +66,7 @@ func (a *acl) matchRule(ip net.IP, port uint16, preReport *policy.FlowPolicy) (r
 		return false
 	}
 
-	a.cache.RunIP(ip, lookup)
+	a.cache.RunFuncOnLpmIP(ip, lookup)
 
 	return report, packet, err
 }

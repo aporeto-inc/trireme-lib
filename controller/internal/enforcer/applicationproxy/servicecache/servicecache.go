@@ -139,7 +139,7 @@ func (s *ServiceCache) DeleteByID(id string, local bool) {
 		return r
 	}
 
-	cache.RunVal(deleteMatching)
+	cache.RunFuncOnVals(deleteMatching)
 }
 
 func deleteMatchingPorts(list entryList, id string) entryList {
@@ -244,7 +244,7 @@ func (s *ServiceCache) findIP(ip net.IP, port int, local bool) interface{} {
 		return false
 	}
 
-	cache.RunIP(ip, findMatch)
+	cache.RunFuncOnLpmIP(ip, findMatch)
 	return data
 }
 
