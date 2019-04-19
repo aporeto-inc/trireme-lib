@@ -712,7 +712,6 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					t := ipt.RetrieveTable()
-					printTable(t)
 					for chain, rules := range t["mangle"] {
 						So(expectedMangleAfterPUUpdate, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedMangleAfterPUUpdate[chain])
@@ -732,7 +731,6 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 							So(rules, ShouldResemble, expectedGlobalMangleChains[chain])
 						}
 
-						printTable(t)
 						for chain, rules := range t["nat"] {
 							if len(rules) > 0 {
 								So(expectedGlobalNATChains, ShouldContainKey, chain)
@@ -1024,7 +1022,6 @@ func Test_OperationWithContainers(t *testing.T) {
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := ipt.RetrieveTable()
-				printTable(t)
 
 				for chain, rules := range t["mangle"] {
 					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
@@ -1048,10 +1045,13 @@ func Test_OperationWithContainers(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					t := ipt.RetrieveTable()
+					if err != nil {
+						printTable(t)
+					}
 
 					So(t["mangle"], ShouldNotBeNil)
 					So(t["nat"], ShouldNotBeNil)
-					printTable(t)
+
 					for chain, rules := range t["mangle"] {
 						So(expectedContainerGlobalMangleChains, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalMangleChains[chain])
