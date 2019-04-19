@@ -118,6 +118,10 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 		return nil
 	}
 
+	return nil
+}
+
+func (d *DockerMonitor) initMonitor(ctx context.Context) error {
 	if d.syncAtStart && d.config.Policy != nil {
 
 		options := types.ContainerListOptions{All: true}
@@ -149,7 +153,6 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 	// Start processing the events
 	go d.eventProcessors(ctx)
-
 	return nil
 }
 
@@ -654,14 +657,22 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 
 	done := make(chan bool)
-	go func() {
-		for errg := d.setupDockerDaemon(); errg != nil; {
+	go func(gctx context.Context) {
+
+		for {
+			errg := d.setupDockerDaemon()
+			if errg == nil {
+				if err := d.initMonitor(gctx); err != nil {
+					zap.L().Debug("Unable to init monitor")
+				}
+				break
+			}
 			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(errg))
 			<-time.After(dockerRetryTimer)
 			continue
 		}
 		done <- true
-	}()
+	}(ctx)
 
 	select {
 	case <-ctx.Done():
