@@ -252,7 +252,7 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 		return iptRule
 	}
 
-	if err := i.programExtensionsRules(rule, chain, proto); err != nil {
+	if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
 		zap.L().Warn("unable to program extension rules",
 			zap.Error(err),
 		)
@@ -295,10 +295,11 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 }
 
 // programExtensionsRules programs iptable rules for the given extensions
-func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto string) error {
+func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
 
 	rulesspec := []string{
 		"-p", proto,
+		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
 		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 	}
 
