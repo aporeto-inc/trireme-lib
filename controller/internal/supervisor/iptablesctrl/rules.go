@@ -64,6 +64,7 @@ var cgroupCaptureTemplate = `
 
 {{if isHostPU}}
 {{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.Mark}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.NetSection}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
 {{if isUDPPorts}}
