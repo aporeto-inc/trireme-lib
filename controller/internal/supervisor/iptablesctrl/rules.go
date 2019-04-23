@@ -210,6 +210,11 @@ var deleteChains = `
 
 -t {{.MangleTable}} -F {{.UIDOutput}}
 -t {{.MangleTable}} -X {{.UIDOutput}}
+
+-t {{.MangleTable}} -F {{.SelfAppChain}}
+-t {{.MangleTable}} -X {{.SelfAppChain}}
+-t {{.MangleTable}} -F {{.SelfNetChain}}
+-t {{.MangleTable}} -X {{.SelfNetChain}}
 {{end}}
 
 -t {{.MangleTable}} -F {{.MangleProxyAppChain}}
