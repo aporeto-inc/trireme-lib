@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ipv4String = "ipv4-"
+	ipv4String = "v4-"
 )
 
 var ipsetV4Param *ipset.Params
@@ -29,10 +29,6 @@ func GetIPv4Impl() (*ipv4, error) {
 	}
 
 	return &ipv4{ipt: ipt}, nil
-}
-
-func (i *ipv4) GetIPSet() provider.IpsetProvider {
-	return provider.NewGoIPsetProvider()
 }
 
 func (i *ipv4) GetIPSetPrefix() string {
@@ -93,4 +89,8 @@ func (i *ipv4) Commit() error {
 
 func (i *ipv4) Delete(table, chain string, rulespec ...string) error {
 	return i.ipt.Delete(table, chain, rulespec...)
+}
+
+func (i *ipv4) RetrieveTable() map[string]map[string][]string {
+	return i.ipt.RetrieveTable()
 }

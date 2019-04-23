@@ -87,7 +87,7 @@ type iptables struct {
 	puToServiceIDs        map[string][]string
 }
 
-// Instance  is the structure holding all information about a implementation
+//Instance is the structure holding the ipv4 and ipv6 handles
 type Instance struct {
 	iptv4 *iptables
 	iptv6 *iptables
@@ -105,7 +105,6 @@ func GetInstance() *Instance {
 
 type ipImpl interface {
 	provider.IptablesProvider
-	GetIPSet() provider.IpsetProvider
 	GetIPSetPrefix() string
 	GetIPSetParam() *ipset.Params
 	IPFilter() func(net.IP) bool
@@ -140,13 +139,11 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl ipImpl, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
+func createIPInstance(impl ipImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
 
 	// Create all the basic target sets. These are the global target sets
 	// that do not depend on policy configuration. If they already exist
 	// we will delete them and start again.
-
-	ips := impl.GetIPSet()
 
 	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(impl.GetIPSetPrefix(), ips, impl.GetIPSetParam())
 	if err != nil {
@@ -173,12 +170,15 @@ func createIPInstance(impl ipImpl, fqc *fqconfig.FilterQueue, mode constants.Mod
 
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+
+	ips := provider.NewGoIPsetProvider()
+
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
 
-	iptInstanceV4, err := createIPInstance(ipv4Impl, fqc, mode)
+	iptInstanceV4, err := createIPInstance(ipv4Impl, ips, fqc, mode)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
@@ -188,7 +188,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
 
-	iptInstanceV6, err := createIPInstance(ipv6Impl, fqc, mode)
+	iptInstanceV6, err := createIPInstance(ipv6Impl, ips, fqc, mode)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
@@ -723,7 +723,7 @@ func (i *iptables) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 		if i.serviceIDToIPsets[rule.Policy.ServiceID] == nil {
 			ips := map[string]bool{}
 
-			ipsetName := puPortSetName(contextID, ipsetPrefix+"Ext-"+hashServiceID(rule.Policy.ServiceID))
+			ipsetName := puPortSetName(contextID, ipsetPrefix+"ext-"+hashServiceID(rule.Policy.ServiceID))
 			set, err := i.ipset.NewIpset(ipsetName, "hash:net", ipsetParams)
 			if err != nil {
 				return nil, err
@@ -948,11 +948,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
 
 	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
-		return err
+		zap.L().Warn("Delete rules for iptables v4 returned error")
 	}
 
 	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
-		return err
+		zap.L().Warn("Delete rules for iptables v6 returned error")
 	}
 
 	return nil

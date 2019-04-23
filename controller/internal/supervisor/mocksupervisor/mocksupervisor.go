@@ -240,10 +240,14 @@ func (mr *MockImplementorMockRecorder) CleanUp() *gomock.Call {
 
 // ACLProvider mocks base method
 // nolint
-func (m *MockImplementor) ACLProvider() aclprovider.IptablesProvider {
+func (m *MockImplementor) ACLProvider() []aclprovider.IptablesProvider {
 	ret := m.ctrl.Call(m, "ACLProvider")
 	ret0, _ := ret[0].(aclprovider.IptablesProvider)
-	return ret0
+
+	ret = m.ctrl.Call(m, "ACLProvider")
+	ret1, _ := ret[0].(aclprovider.IptablesProvider)
+
+	return []aclprovider.IptablesProvider{ret0, ret1}
 }
 
 // ACLProvider indicates an expected call of ACLProvider

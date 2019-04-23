@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ipv6String = "ipv6-"
+	ipv6String = "v6-"
 )
 
 type ipv6 struct {
@@ -31,10 +31,6 @@ func GetIPv6Impl() (*ipv6, error) {
 	}
 
 	return &ipv6{ipt: ipt}, nil
-}
-
-func (i *ipv6) GetIPSet() provider.IpsetProvider {
-	return provider.NewGoIPsetProvider()
 }
 
 func (i *ipv6) GetIPSetPrefix() string {
@@ -127,4 +123,8 @@ func (i *ipv6) Delete(table, chain string, rulespec ...string) error {
 	}
 
 	return i.ipt.Delete(table, chain, rulespec...)
+}
+
+func (i *ipv6) RetrieveTable() map[string]map[string][]string {
+	return i.ipt.RetrieveTable()
 }

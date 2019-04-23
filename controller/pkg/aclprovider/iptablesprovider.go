@@ -19,6 +19,8 @@ type IptablesProvider interface {
 	BaseIPTables
 	// Commit will commit changes if it is a batch provider.
 	Commit() error
+	// RetrieveTable allows a caller to retrieve the final table.
+	RetrieveTable() map[string]map[string][]string
 }
 
 // BaseIPTables is the base interface of iptables functions.

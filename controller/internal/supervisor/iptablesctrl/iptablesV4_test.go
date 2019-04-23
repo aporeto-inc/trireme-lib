@@ -19,11 +19,25 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
-func createTestInstance(mode constants.ModeType) (*Instance, error) {
-	ips := provider.NewTestIpsetProvider()
-	ipt := provider.NewTestIptablesProvider()
+func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvider, iptv4 provider.IptablesProvider, iptv6 provider.IptablesProvider, mode constants.ModeType) (*Instance, error) {
 
-	return newInstanceWithProviders(fqconfig.NewFilterQueueWithDefaults(), mode, &runtime.Configuration{}, ipt, ips)
+	ipv4Impl := &ipv4{ipt: iptv4}
+	ipv6Impl := &ipv6{ipt: iptv6}
+
+	iptInstanceV4, err := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create v4 instance: %s", err)
+	}
+
+	iptInstanceV6, err := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
+	}
+
+	iptInstanceV4.conntrackCmd = func([]string) {}
+	iptInstanceV6.conntrackCmd = func([]string) {}
+
+	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
 
 // Fake iptables controller that always returns succes.
@@ -127,27 +141,33 @@ func (m *memoryIPSetProvider) ListIPSets() ([]string, error) {
 	return allSets, nil
 }
 
-func TestNewInstance(t *testing.T) {
+func TestNewInstanceV4(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := createTestInstance(constants.RemoteContainer)
+			ipsv4 := provider.NewTestIpsetProvider()
+			ipsv6 := provider.NewTestIpsetProvider()
+			iptv4 := provider.NewTestIptablesProvider()
+			iptv6 := provider.NewTestIptablesProvider()
+
+			i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.RemoteContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
-				So(i.appPacketIPTableSection, ShouldResemble, "OUTPUT")
-				So(i.netPacketIPTableSection, ShouldResemble, "INPUT")
 			})
 		})
 	})
 
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a Linux server implemenetation and iptables exists", func() {
-			i, err := createTestInstance(constants.LocalServer)
+			ipsv4 := provider.NewTestIpsetProvider()
+			ipsv6 := provider.NewTestIpsetProvider()
+			iptv4 := provider.NewTestIptablesProvider()
+			iptv6 := provider.NewTestIptablesProvider()
+
+			i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
-				So(i.appPacketIPTableSection, ShouldResemble, "OUTPUT")
-				So(i.netPacketIPTableSection, ShouldResemble, "INPUT")
 			})
 		})
 	})
@@ -155,17 +175,15 @@ func TestNewInstance(t *testing.T) {
 
 func Test_NegativeConfigureRules(t *testing.T) {
 	Convey("Given a valid instance", t, func() {
-		ips := provider.NewTestIpsetProvider()
-		ipt := provider.NewTestIptablesProvider()
-		i, err := newInstanceWithProviders(
-			fqconfig.NewFilterQueueWithDefaults(),
-			constants.LocalServer,
-			nil,
-			ipt,
-			ips,
-		)
+		ipsv4 := provider.NewTestIpsetProvider()
+		ipsv6 := provider.NewTestIpsetProvider()
+		iptv4 := provider.NewTestIptablesProvider()
+		iptv6 := provider.NewTestIptablesProvider()
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 		So(err, ShouldBeNil)
-		i.conntrackCmd = func([]string) {}
+		cfg := &runtime.Configuration{}
+		i.SetTargetNetworks(cfg)
 
 		ipl := policy.ExtendedMap{}
 		policyrules := policy.NewPUPolicy("Context",
@@ -191,19 +209,21 @@ func Test_NegativeConfigureRules(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			i.createPUPortSet = func(string) error { return nil }
+			i.iptv4.createPUPortSet = func(string) error { return nil }
+			i.iptv6.createPUPortSet = func(string) error { return nil }
 			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I configure the rules and the port set fails, it should error ", func() {
-			i.createPUPortSet = func(string) error { return fmt.Errorf("error") }
+			i.iptv4.createPUPortSet = func(string) error { return fmt.Errorf("error") }
+			i.iptv6.createPUPortSet = func(string) error { return fmt.Errorf("error") }
 			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When I configure the rules and the proxy set fails, it should error", func() {
-			ips.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
+			ipsv4.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
 			err := i.ConfigureRules(1, "ID", containerinfo)
@@ -211,7 +231,7 @@ func Test_NegativeConfigureRules(t *testing.T) {
 		})
 
 		Convey("When I configure the rules and acls fail, it should error", func() {
-			ipt.MockAppend(t, func(table, chain string, rulespec ...string) error {
+			iptv4.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
 			err := i.ConfigureRules(1, "ID", containerinfo)
@@ -219,7 +239,7 @@ func Test_NegativeConfigureRules(t *testing.T) {
 		})
 
 		Convey("When I configure the rules and commit fails, it should error", func() {
-			ipt.MockCommit(t, func() error {
+			iptv4.MockCommit(t, func() error {
 				return fmt.Errorf("error")
 			})
 			err := i.ConfigureRules(1, "ID", containerinfo)
@@ -231,29 +251,29 @@ func Test_NegativeConfigureRules(t *testing.T) {
 var (
 	expectedGlobalMangleChains = map[string][]string{
 		"INPUT": {
-			"-m set ! --match-set TRI-Excluded src -j TRI-Net",
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-j TRI-Pid-App",
 			"-j TRI-Svc-App",
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-Net",
-			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -276,10 +296,10 @@ var (
 
 	expectedGlobalNATChains = map[string][]string{
 		"PREROUTING": {
-			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net",
+			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-Redir-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -290,36 +310,36 @@ var (
 	}
 
 	expectedGlobalIPSets = map[string][]string{
-		targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
-		targetUDPNetworkSet: {"10.0.0.0/8"},
-		excludedNetworkSet:  {"127.0.0.1"},
+		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
+		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
+		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 	}
 
 	expectedMangleAfterPUInsert = map[string][]string{
 		"INPUT": {
-			"-m set ! --match-set TRI-Excluded src -j TRI-Net",
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-j TRI-Pid-App",
 			"-j TRI-Svc-App",
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-Net",
-			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -334,13 +354,13 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
@@ -351,26 +371,26 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-ext-w5frVvhspu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
@@ -379,18 +399,18 @@ var (
 
 	expectedNATAfterPUInsert = map[string][]string{
 		"PREROUTING": {
-			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net",
+			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-Redir-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 		"POSTROUTING": {
 			"-p udp -m addrtype --src-type LOCAL -m multiport --source-ports 5000 -j ACCEPT",
@@ -398,43 +418,43 @@ var (
 	}
 
 	expectedIPSetsAfterPUInsert = map[string][]string{
-		targetTCPNetworkSet:       {"0.0.0.0/1", "128.0.0.0/1"},
-		targetUDPNetworkSet:       {"10.0.0.0/8"},
-		excludedNetworkSet:        {"127.0.0.1"},
-		"TRI-ProcPort-pu19gtV":    {},
-		"TRI-ext-6zlJIvP3pu19gtV": {"30.0.0.0/24"},
-		"TRI-ext-uNdc0vdcpu19gtV": {"30.0.0.0/24"},
-		"TRI-ext-w5frVvhspu19gtV": {"40.0.0.0/24"},
-		"TRI-ext-IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
-		"TRI-Proxy-pu19gtV-dst":   {},
-		"TRI-Proxy-pu19gtV-srv":   {},
+		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
+		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
+		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
+		"TRI-v4-ProcPort-pu19gtV":            {},
+		"TRI-v4-ext-6zlJIpu19gtV":            {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0pu19gtV":            {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVpu19gtV":            {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLspu19gtV":            {"40.0.0.0/24"},
+		"TRI-v4-Proxy-pu19gtV-dst":           {},
+		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}
 
 	expectedMangleAfterPUUpdate = map[string][]string{
 		"INPUT": {
-			"-m set ! --match-set TRI-Excluded src -j TRI-Net",
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-j TRI-Pid-App",
 			"-j TRI-Svc-App",
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
 			"-j TRI-UID-Net",
-			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
@@ -444,18 +464,18 @@ var (
 			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
 		},
 		"TRI-Pid-Net": {
-			"-p tcp -m set --match-set TRI-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--1",
+			"-p tcp -m set --match-set TRI-v4-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--1",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
@@ -466,21 +486,21 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
@@ -490,27 +510,30 @@ var (
 
 func Test_OperationWithLinuxServices(t *testing.T) {
 	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
 		commitFunc := func(buf *bytes.Buffer) error {
 			return nil
 		}
 
-		ipt := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
-		So(ipt, ShouldNotBeNil)
-		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-		i, err := newInstanceWithProviders(
-			fqconfig.NewFilterQueueWithDefaults(),
-			constants.LocalServer,
-			&runtime.Configuration{
-				TCPTargetNetworks: []string{"0.0.0.0/0"},
-				UDPTargetNetworks: []string{"10.0.0.0/8"},
-				ExcludedNetworks:  []string{"127.0.0.1"},
-			},
-			ipt,
-			ips,
-		)
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
-		i.conntrackCmd = func([]string) {}
+
+		i.SetTargetNetworks(cfg)
 
 		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -518,14 +541,14 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
 
-			for set, targets := range ips.sets {
+			for set, targets := range ipsv4.sets {
 				So(expectedGlobalIPSets, ShouldContainKey, set)
 				for target := range targets.set {
 					So(expectedGlobalIPSets[set], ShouldContain, target)
 				}
 			}
 
-			t := ipt.RetrieveTable()
+			t := i.iptv4.impl.RetrieveTable()
 			So(t, ShouldNotBeNil)
 			So(len(t), ShouldEqual, 2)
 			So(t["mangle"], ShouldNotBeNil)
@@ -543,8 +566,12 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				// Mock the exec commands
-				i.createPUPortSet = func(setName string) error {
-					_, err := ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
+				i.iptv4.createPUPortSet = func(setName string) error {
+					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
+					return err
+				}
+				i.iptv6.createPUPortSet = func(setName string) error {
+					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
 					return err
 				}
 
@@ -642,7 +669,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 
 				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
-				t := ipt.RetrieveTable()
+				t := i.iptv4.impl.RetrieveTable()
 
 				for chain, rules := range t["mangle"] {
 					So(expectedMangleAfterPUInsert, ShouldContainKey, chain)
@@ -654,7 +681,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					So(rules, ShouldResemble, expectedNATAfterPUInsert[chain])
 				}
 
-				for set, targets := range ips.sets {
+				for set, targets := range ipsv4.sets {
 					So(expectedIPSetsAfterPUInsert, ShouldContainKey, set)
 					for target := range targets.set {
 						So(expectedIPSetsAfterPUInsert[set], ShouldContain, target)
@@ -711,7 +738,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
-					t := ipt.RetrieveTable()
+					t := i.iptv4.impl.RetrieveTable()
 					for chain, rules := range t["mangle"] {
 						So(expectedMangleAfterPUUpdate, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedMangleAfterPUUpdate[chain])
@@ -721,7 +748,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
 						So(err, ShouldBeNil)
 
-						t := ipt.RetrieveTable()
+						t := i.iptv4.impl.RetrieveTable()
 
 						So(t["mangle"], ShouldNotBeNil)
 						So(t["nat"], ShouldNotBeNil)
@@ -741,7 +768,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 						Convey("When I cancel the context, it should cleanup", func() {
 							cancel()
 							time.Sleep(1 * time.Second)
-							t := ipt.RetrieveTable()
+							t := i.iptv4.impl.RetrieveTable()
 							So(len(t["mangle"]), ShouldEqual, 2)
 						})
 					})
@@ -754,24 +781,24 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 var (
 	expectedContainerGlobalMangleChains = map[string][]string{
 		"INPUT": {
-			"-m set ! --match-set TRI-Excluded src -j TRI-Net",
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
-			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -783,10 +810,10 @@ var (
 
 	expectedContainerGlobalNATChains = map[string][]string{
 		"PREROUTING": {
-			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net",
+			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-Redir-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -797,66 +824,66 @@ var (
 	}
 
 	expectedContainerGlobalIPSets = map[string][]string{
-		targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
-		targetUDPNetworkSet: {"10.0.0.0/8"},
-		excludedNetworkSet:  {"127.0.0.1"},
+		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
+		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
+		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 	}
 
 	expectedContainerMangleAfterPUInsert = map[string][]string{
 		"INPUT": {
-			"-m set ! --match-set TRI-Excluded src -j TRI-Net",
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
-			"-m set --match-set TRI-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst src,src -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
-			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-ext-uNdc0vdcpu19gtV dst -m state --state NEW -m set ! --match-set TRI-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-ext-6zlJIvP3pu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
@@ -865,58 +892,61 @@ var (
 
 	expectedContainerNATAfterPUInsert = map[string][]string{
 		"PREROUTING": {
-			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net",
+			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
 		"OUTPUT": {
-			"-m set ! --match-set TRI-Excluded dst -j TRI-Redir-App",
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 	}
 
 	expectedContainerIPSetsAfterPUInsert = map[string][]string{
-		targetTCPNetworkSet:       {"0.0.0.0/1", "128.0.0.0/1"},
-		targetUDPNetworkSet:       {"10.0.0.0/8"},
-		excludedNetworkSet:        {"127.0.0.1"},
-		"TRI-ProcPort-pu19gtV":    {},
-		"TRI-ext-6zlJIvP3pu19gtV": {"30.0.0.0/24"},
-		"TRI-ext-uNdc0vdcpu19gtV": {"30.0.0.0/24"},
-		"TRI-ext-w5frVvhspu19gtV": {"40.0.0.0/24"},
-		"TRI-ext-IuSLsD1Rpu19gtV": {"40.0.0.0/24"},
-		"TRI-Proxy-pu19gtV-dst":   {},
-		"TRI-Proxy-pu19gtV-srv":   {},
+		"TRI-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
+		"TRI-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
+		"TRI-v4-" + excludedNetworkSet:  {"127.0.0.1"},
+		"TRI-v4-ProcPort-pu19gtV":       {},
+		"TRI-v4-ext-6zlJIpu19gtV":       {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0pu19gtV":       {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVpu19gtV":       {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLspu19gtV":       {"40.0.0.0/24"},
+		"TRI-v4-Proxy-pu19gtV-dst":      {},
+		"TRI-v4-Proxy-pu19gtV-srv":      {},
 	}
 )
 
 func Test_OperationWithContainers(t *testing.T) {
 	Convey("Given an iptables controller with a memory backend for containers ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
 		commitFunc := func(buf *bytes.Buffer) error {
 			return nil
 		}
 
-		ipt := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
-		So(ipt, ShouldNotBeNil)
-		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-		i, err := newInstanceWithProviders(
-			fqconfig.NewFilterQueueWithDefaults(),
-			constants.RemoteContainer,
-			&runtime.Configuration{
-				TCPTargetNetworks: []string{"0.0.0.0/0"},
-				UDPTargetNetworks: []string{"10.0.0.0/8"},
-				ExcludedNetworks:  []string{"127.0.0.1"},
-			},
-			ipt,
-			ips,
-		)
-		i.conntrackCmd = func([]string) {}
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.RemoteContainer)
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
+
+		i.SetTargetNetworks(cfg)
 
 		Convey("When I start the controller, I should get the right global chains and sets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -924,14 +954,14 @@ func Test_OperationWithContainers(t *testing.T) {
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
 
-			for set, targets := range ips.sets {
+			for set, targets := range ipsv4.sets {
 				So(expectedContainerGlobalIPSets, ShouldContainKey, set)
 				for target := range targets.set {
 					So(expectedContainerGlobalIPSets[set], ShouldContain, target)
 				}
 			}
 
-			t := ipt.RetrieveTable()
+			t := i.iptv4.impl.RetrieveTable()
 			So(t, ShouldNotBeNil)
 			So(len(t), ShouldEqual, 2)
 			So(t["mangle"], ShouldNotBeNil)
@@ -949,8 +979,13 @@ func Test_OperationWithContainers(t *testing.T) {
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				// Mock the exec commands
-				i.createPUPortSet = func(setName string) error {
-					_, err := ips.NewIpset(setName, "bitmap:port", &ipset.Params{})
+				i.iptv4.createPUPortSet = func(setName string) error {
+					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
+					return err
+				}
+
+				i.iptv6.createPUPortSet = func(setName string) error {
+					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
 					return err
 				}
 
@@ -1021,7 +1056,7 @@ func Test_OperationWithContainers(t *testing.T) {
 				})
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
-				t := ipt.RetrieveTable()
+				t := i.iptv4.impl.RetrieveTable()
 
 				for chain, rules := range t["mangle"] {
 					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
@@ -1033,7 +1068,7 @@ func Test_OperationWithContainers(t *testing.T) {
 					So(rules, ShouldResemble, expectedContainerNATAfterPUInsert[chain])
 				}
 
-				for set, targets := range ips.sets {
+				for set, targets := range ipsv4.sets {
 					So(expectedContainerIPSetsAfterPUInsert, ShouldContainKey, set)
 					for target := range targets.set {
 						So(expectedContainerIPSetsAfterPUInsert[set], ShouldContain, target)
@@ -1044,7 +1079,7 @@ func Test_OperationWithContainers(t *testing.T) {
 					err := i.DeleteRules(0, "pu1", "0", "0", "10", "", "0", common.ContainerPU)
 					So(err, ShouldBeNil)
 
-					t := ipt.RetrieveTable()
+					t := i.iptv4.impl.RetrieveTable()
 					if err != nil {
 						printTable(t)
 					}
@@ -1065,7 +1100,7 @@ func Test_OperationWithContainers(t *testing.T) {
 					Convey("When I cancel the context, it should cleanup", func() {
 						cancel()
 						time.Sleep(1 * time.Second)
-						t := ipt.RetrieveTable()
+						t := i.iptv4.impl.RetrieveTable()
 						So(len(t["mangle"]), ShouldEqual, 2)
 					})
 				})
