@@ -20,7 +20,11 @@ var triremChains = `
 `
 
 var globalRules = `
-
+{{if isLocalServer}}
+{{.MangleTable}} INPUT -m mark --mark 0x600 -m addrtype -d 127.0.0.53/32 -p udp --dport 53  -j {{.SelfNetChain}}
+{{.MangleTable}} INPUT -m mark --mark 0x600 -m addrtype -d 127.0.0.53/32 -p udp --sport 53  -j {{.SelfNetChain}}
+{{.MangleTable}} {{.SelfNetChain}} -p udp --dport 53 -m mark --mark 0x600 -j ACCEPT
+{{end}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
@@ -34,6 +38,11 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{.TriremeInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.NetworkSvcInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.HostInput}}
+{{end}}
+{{if isLocalServer}}
+{{.MangleTable}} OUTPUT -m cgroup --cgroup 0x600 -d 127.0.0.53/32 -p udp --dport 53 -j {{.SelfAppChain}}
+{{.MangleTable}} {{.SelfAppChain}} -j MARK --set-mark 0x600
+{{.MangleTable}} {{.SelfAppChain}} -j ACCEPT
 {{end}}
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.MangleProxyAppChain}}
