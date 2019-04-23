@@ -22,7 +22,7 @@ var triremChains = `
 var globalRules = `
 {{if isLocalServer}}
 {{.MangleTable}} INPUT -m mark --mark 0x600 -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL  -j {{.SelfNetChain}}
-{{.MangleTable}} {{.SelfNetChain}} -m mark --mark 0x600 -j ACCEPT
+{{.MangleTable}} {{.SelfNetChain}} -p udp --dport 53 -m mark --mark 0x600 -j ACCEPT
 {{end}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
@@ -39,7 +39,7 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{.HostInput}}
 {{end}}
 {{if isLocalServer}}
-{{.MangleTable}} OUTPUT -m cgroup --cgroup 0x600  -j {{.SelfAppChain}}
+{{.MangleTable}} OUTPUT -m cgroup --cgroup 0x600  -p udp --dport 53 -j {{.SelfAppChain}}
 {{.MangleTable}} {{.SelfAppChain}} -j MARK --set-mark 0x600
 {{.MangleTable}} {{.SelfAppChain}} -j ACCEPT
 {{end}}
