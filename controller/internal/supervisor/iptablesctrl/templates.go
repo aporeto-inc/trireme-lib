@@ -63,11 +63,12 @@ type ACLInfo struct {
 	MangleProxyAppChain string
 	PreRouting          string
 
-	AppChain   string
-	NetChain   string
-	AppSection string
-	NetSection string
-
+	AppChain     string
+	NetChain     string
+	AppSection   string
+	NetSection   string
+	SelfAppChain string
+	SelfNetChain string
 	// common info
 	DefaultConnmark       string
 	QueueBalanceAppSyn    string
@@ -194,10 +195,12 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		MangleProxyAppChain: proxyOutputChain,
 		PreRouting:          ipTableSectionPreRouting,
 
-		AppChain:   appChain,
-		NetChain:   netChain,
-		AppSection: appSection,
-		NetSection: netSection,
+		AppChain:     appChain,
+		NetChain:     netChain,
+		SelfAppChain: SelfAppChain,
+		SelfNetChain: SelfNetChain,
+		AppSection:   appSection,
+		NetSection:   netSection,
 
 		// common info
 		DefaultConnmark:       strconv.Itoa(int(constants.DefaultConnMark)),
