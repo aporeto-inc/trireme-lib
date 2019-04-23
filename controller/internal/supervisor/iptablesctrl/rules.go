@@ -21,8 +21,8 @@ var triremChains = `
 
 var globalRules = `
 {{if isLocalServer}}
-{{.MangleTable}} INPUT -m mark --mark 0x600 -m addrtype -d 127.0.0.53/32 -p udp --dport 53  -j {{.SelfNetChain}}
-{{.MangleTable}} INPUT -m mark --mark 0x600 -m addrtype -d 127.0.0.53/32 -p udp --sport 53  -j {{.SelfNetChain}}
+{{.MangleTable}} INPUT -m mark --mark 0x600  -d 127.0.0.53/32 -p udp --dport 53  -j {{.SelfNetChain}}
+{{.MangleTable}} INPUT -m mark --mark 0x600  -d 127.0.0.53/32 -p udp --sport 53  -j {{.SelfNetChain}}
 {{.MangleTable}} {{.SelfNetChain}} -p udp --dport 53 -m mark --mark 0x600 -j ACCEPT
 {{end}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
