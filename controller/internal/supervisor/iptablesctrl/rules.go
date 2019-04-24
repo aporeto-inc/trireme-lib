@@ -21,9 +21,9 @@ var triremChains = `
 
 var globalRules = `
 {{if isLocalServer}}
-{{.MangleTable}} INPUT -m mark --mark 0x600  -d 127.0.0.53/32 -p udp --dport 53  -j {{.SelfNetChain}}
-{{.MangleTable}} INPUT -m mark --mark 0x600  -d 127.0.0.53/32 -p udp --sport 53  -j {{.SelfNetChain}}
-{{.MangleTable}} {{.SelfNetChain}} -p udp --dport 53 -m mark --mark 0x600 -j ACCEPT
+{{.MangleTable}} {{.MainNetChain}} -p udp --dport 53 -d 127.0.0.53/32 -j {{.SelfNetChain}}
+{{.MangleTable}} {{.SelfNetChain}} -j LOG --log-prefix "INPUT"
+{{.MangleTable}} {{.SelfNetChain}} -j ACCEPT
 {{end}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
@@ -39,12 +39,13 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{.NetworkSvcInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.HostInput}}
 {{end}}
+
+{{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{if isLocalServer}}
-{{.MangleTable}} OUTPUT -m cgroup --cgroup 0x600 -d 127.0.0.53/32 -p udp --dport 53 -j {{.SelfAppChain}}
-{{.MangleTable}} {{.SelfAppChain}} -j MARK --set-mark 0x600
+{{.MangleTable}} {{.MainAppChain}} -m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j {{.SelfAppChain}}
+{{.MangleTable}} {{.SelfAppChain}} -j LOG --log-prefix OUTPUT
 {{.MangleTable}} {{.SelfAppChain}} -j ACCEPT
 {{end}}
-{{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.MangleProxyAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -m mark --mark {{.RawSocketMark}} -j ACCEPT
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
