@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	ipv4String = "v4-"
+	ipv4String    = "v4-"
+	IPv4DefaultIP = "0.0.0.0/0"
 )
 
 var ipsetV4Param *ipset.Params
@@ -23,6 +24,8 @@ func init() {
 	ipsetV4Param = &ipset.Params{}
 }
 
+// GetIPv4Impl creates the instance of ipv4 struct which implements the interface
+// ipImpl
 func GetIPv4Impl() (*ipv4, error) {
 	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
 	if err != nil {
@@ -42,18 +45,15 @@ func (i *ipv4) GetIPSetParam() *ipset.Params {
 
 func (i *ipv4) IPFilter() func(net.IP) bool {
 	ipv4Filter := func(ip net.IP) bool {
-		if ip.To4() != nil {
-			return true
-		}
 
-		return false
+		return (ip.To4() != nil)
 	}
 
 	return ipv4Filter
 }
 
 func (i *ipv4) GetDefaultIP() string {
-	return "0.0.0.0/0"
+	return IPv4DefaultIP
 }
 
 func (i *ipv4) NeedICMP() bool {
@@ -61,11 +61,8 @@ func (i *ipv4) NeedICMP() bool {
 }
 
 func (i *ipv4) ProtocolAllowed(proto string) bool {
-	if strings.ToLower(proto) == "icmpv6" {
-		return false
-	}
 
-	return true
+	return !(strings.ToLower(proto) == "icmpv6")
 }
 
 func (i *ipv4) Append(table, chain string, rulespec ...string) error {

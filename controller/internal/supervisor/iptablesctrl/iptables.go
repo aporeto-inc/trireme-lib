@@ -61,7 +61,6 @@ const (
 	HostModeOutput = chainPrefix + "Hst-App"
 
 	ipTableSectionOutput     = "OUTPUT"
-	ipTableSectionInput      = "INPUT"
 	ipTableSectionPreRouting = "PREROUTING"
 	appPacketIPTableContext  = "mangle"
 	netPacketIPTableContext  = "mangle"
@@ -220,7 +219,7 @@ func (i *iptables) SetTargetNetworks(c *runtime.Configuration) error {
 
 	// If there are no target networks, capture all traffic
 	if len(c.TCPTargetNetworks) == 0 {
-		c.TCPTargetNetworks = []string{"0.0.0.0/0", "::/0"}
+		c.TCPTargetNetworks = []string{"IPv4DefaultIP", "IPv6DefaultIP"}
 	}
 	cfg := filterNetworks(c, i.impl.IPFilter())
 	var oldConfig *runtime.Configuration
@@ -276,10 +275,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	return nil
 }
 
-// ConfigureRules implments the ConfigureRules interface. It will create the
-// port sets and then it will call install rules to create all the ACLs for
-// the given chains. PortSets are only created here. Updates will use the
-// exact same logic.
 func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
 
 	var err error
@@ -595,7 +590,7 @@ type aclIPset struct {
 func addToIPset(set provider.Ipset, data string) error {
 
 	// ipset can not program this rule
-	if data == "0.0.0.0/0" {
+	if data == "IPv4DefaultIP" {
 		if err := addToIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
@@ -608,7 +603,7 @@ func addToIPset(set provider.Ipset, data string) error {
 	}
 
 	// ipset can not program this rule
-	if data == "::/0" {
+	if data == "IPv6DefaultIP" {
 		if err := addToIPset(set, "::/1"); err != nil {
 			return err
 		}
@@ -625,7 +620,7 @@ func addToIPset(set provider.Ipset, data string) error {
 
 func delFromIPset(set provider.Ipset, data string) error {
 
-	if data == "0.0.0.0/0" {
+	if data == "IPv4DefaultIP" {
 		if err := delFromIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
@@ -635,7 +630,7 @@ func delFromIPset(set provider.Ipset, data string) error {
 		}
 	}
 
-	if data == "::/0" {
+	if data == "IPv6DefaultIP" {
 		if err := delFromIPset(set, "::/1"); err != nil {
 			return err
 		}
@@ -904,7 +899,6 @@ func flushUDPConntrack(networks []string) {
 //   - TCPTargetNetworks for TCP traffic (by default 0.0.0.0/0)
 //   - UDPTargetNetworks for UDP traffic (by default empty)
 //   - ExcludedNetworks that are always ignored (by default empty)
-
 func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 
 	if err := i.iptv4.SetTargetNetworks(c); err != nil {
@@ -932,6 +926,10 @@ func (i *Instance) Run(ctx context.Context) error {
 	return nil
 }
 
+// ConfigureRules implments the ConfigureRules interface. It will create the
+// port sets and then it will call install rules to create all the ACLs for
+// the given chains. PortSets are only created here. Updates will use the
+// exact same logic.
 func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
 	if err := i.iptv4.ConfigureRules(version, contextID, pu); err != nil {
 		return err

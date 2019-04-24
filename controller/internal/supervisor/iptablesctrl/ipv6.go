@@ -10,13 +10,15 @@ import (
 )
 
 const (
-	ipv6String = "v6-"
+	ipv6String    = "v6-"
+	IPv6DefaultIP = "::/0"
 )
 
 type ipv6 struct {
 	ipt provider.IptablesProvider
 }
 
+// IPv6Disabled flag is used to enable/disable ipv6 feature.
 var IPv6Disabled bool
 var ipsetV6Param *ipset.Params
 
@@ -25,6 +27,8 @@ func init() {
 	IPv6Disabled = true
 }
 
+// GetIPv6Impl creates the instance of ipv6 struct which implements
+// the interface ipImpl
 func GetIPv6Impl() (*ipv6, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err != nil {
@@ -44,18 +48,14 @@ func (i *ipv6) GetIPSetParam() *ipset.Params {
 
 func (i *ipv6) IPFilter() func(net.IP) bool {
 	ipv6Filter := func(ip net.IP) bool {
-		if ip.To4() == nil {
-			return true
-		}
-
-		return false
+		return (ip.To4() == nil)
 	}
 
 	return ipv6Filter
 }
 
 func (i *ipv6) GetDefaultIP() string {
-	return "::/0"
+	return IPv6DefaultIP
 }
 
 func (i *ipv6) NeedICMP() bool {
@@ -63,11 +63,7 @@ func (i *ipv6) NeedICMP() bool {
 }
 
 func (i *ipv6) ProtocolAllowed(proto string) bool {
-	if strings.ToLower(proto) == "icmp" {
-		return false
-	}
-
-	return true
+	return !(strings.ToLower(proto) == "icmp")
 }
 
 func (i *ipv6) Append(table, chain string, rulespec ...string) error {

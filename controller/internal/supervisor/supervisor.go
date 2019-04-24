@@ -259,7 +259,7 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 		}
 
 		// anonymous go func to flush debug iptables after interval
-		go func() {
+		go func(ipt provider.IptablesProvider) {
 			for {
 				select {
 				case <-ctx.Done():
@@ -271,7 +271,7 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 					}
 				}
 			}
-		}()
+		}(ipt)
 	}
 	return nil
 }

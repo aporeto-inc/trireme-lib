@@ -183,7 +183,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 		So(err, ShouldBeNil)
 		cfg := &runtime.Configuration{}
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) // nolint
 
 		ipl := policy.ExtendedMap{}
 		policyrules := policy.NewPUPolicy("Context",
@@ -533,7 +533,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) //nolint
 
 		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -946,7 +946,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) //nolint
 
 		Convey("When I start the controller, I should get the right global chains and sets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
