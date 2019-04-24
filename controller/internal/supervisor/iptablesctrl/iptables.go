@@ -142,15 +142,6 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
 
-	// Create all the basic target sets. These are the global target sets
-	// that do not depend on policy configuration. If they already exist
-	// we will delete them and start again.
-
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(impl.GetIPSetPrefix(), ips, impl.GetIPSetParam())
-	if err != nil {
-		return nil, fmt.Errorf("unable to create global sets: %s", err)
-	}
-
 	return &iptables{
 		impl:                  impl,
 		fqc:                   fqc,
@@ -159,9 +150,6 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		createPUPortSet:       ipsetCreatePortset,
 		isLegacyKernel:        buildflags.IsLegacyKernel(),
 		conntrackCmd:          flushUDPConntrack,
-		targetTCPSet:          targetTCPSet,
-		targetUDPSet:          targetUDPSet,
-		excludedNetworksSet:   excludedSet,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 		serviceIDToIPsets:     map[string]*ipsetInfo{},
@@ -253,6 +241,24 @@ func (i *iptables) Run(ctx context.Context) error {
 	// try to clean only ACLs related to Trireme.
 	if err := i.cleanACLs(); err != nil {
 		return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
+	}
+
+	// Create all the basic target sets. These are the global target sets
+	// that do not depend on policy configuration. If they already exist
+	// we will delete them and start again.
+	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.impl.GetIPSetPrefix(), i.ipset, i.impl.GetIPSetParam())
+	if err != nil {
+		return fmt.Errorf("unable to create global sets: %s", err)
+	}
+
+	i.targetTCPSet = targetTCPSet
+	i.targetUDPSet = targetUDPSet
+	i.excludedNetworksSet = excludedSet
+
+	if err := i.updateAllTargetNetworks(i.cfg, &runtime.Configuration{}); err != nil {
+		// If there is a failure try to clean up on exit.
+		i.ipset.DestroyAll(chainPrefix) // nolint errcheck
+		return fmt.Errorf("unable to initialize target networks: %s", err)
 	}
 
 	// Initialize all the global Trireme chains. There are several global chaims
