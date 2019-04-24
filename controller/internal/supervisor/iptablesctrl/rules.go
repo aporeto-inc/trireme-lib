@@ -22,6 +22,7 @@ var triremChains = `
 var globalRules = `
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -p udp --dport 53 -d 127.0.0.53/32 -j {{.SelfNetChain}}
+{{.MangleTable}} {{.MainNetChain}} -p udp --sport 53 -j {{.SelfNetChain}}
 {{.MangleTable}} {{.SelfNetChain}} -j LOG --log-prefix "INPUT"
 {{.MangleTable}} {{.SelfNetChain}} -j ACCEPT
 {{end}}
