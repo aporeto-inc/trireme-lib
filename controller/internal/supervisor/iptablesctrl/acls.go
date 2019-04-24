@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/mattn/go-shellwords"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
