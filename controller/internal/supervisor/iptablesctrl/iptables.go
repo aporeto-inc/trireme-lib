@@ -102,6 +102,7 @@ func GetInstance() *Instance {
 	return instance
 }
 
+// IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
 type IPImpl interface {
 	provider.IptablesProvider
 	GetIPSetPrefix() string
