@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"net"
+	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -58,6 +59,14 @@ func (i *ipv6) GetDefaultIP() string {
 }
 
 func (i *ipv6) NeedICMP() bool {
+	return true
+}
+
+func (i *ipv6) ProtocolAllowed(proto string) bool {
+	if strings.ToLower(proto) == "icmp" {
+		return false
+	}
+
 	return true
 }
 

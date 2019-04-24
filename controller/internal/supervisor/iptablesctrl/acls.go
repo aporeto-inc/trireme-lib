@@ -322,6 +322,10 @@ func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain strin
 
 		for _, proto := range rule.protocols {
 
+			if !i.impl.ProtocolAllowed(proto) {
+				continue
+			}
+
 			acls, r := i.generateACLRules(contextID, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 

@@ -173,7 +173,7 @@ func TestNewInstanceV4(t *testing.T) {
 	})
 }
 
-func Test_NegativeConfigureRules(t *testing.T) {
+func Test_NegativeConfigureRulesV4(t *testing.T) {
 	Convey("Given a valid instance", t, func() {
 		ipsv4 := provider.NewTestIpsetProvider()
 		ipsv6 := provider.NewTestIpsetProvider()
@@ -211,14 +211,14 @@ func Test_NegativeConfigureRules(t *testing.T) {
 		Convey("When I configure the rules with no errors, it should succeed", func() {
 			i.iptv4.createPUPortSet = func(string) error { return nil }
 			i.iptv6.createPUPortSet = func(string) error { return nil }
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I configure the rules and the port set fails, it should error ", func() {
 			i.iptv4.createPUPortSet = func(string) error { return fmt.Errorf("error") }
 			i.iptv6.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -226,7 +226,7 @@ func Test_NegativeConfigureRules(t *testing.T) {
 			ipsv4.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -234,7 +234,7 @@ func Test_NegativeConfigureRules(t *testing.T) {
 			iptv4.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -242,14 +242,14 @@ func Test_NegativeConfigureRules(t *testing.T) {
 			iptv4.MockCommit(t, func() error {
 				return fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 	})
 }
 
 var (
-	expectedGlobalMangleChains = map[string][]string{
+	expectedGlobalMangleChainsV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
@@ -294,7 +294,7 @@ var (
 		"TRI-UID-Net": {},
 	}
 
-	expectedGlobalNATChains = map[string][]string{
+	expectedGlobalNATChainsV4 = map[string][]string{
 		"PREROUTING": {
 			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
@@ -309,13 +309,13 @@ var (
 		},
 	}
 
-	expectedGlobalIPSets = map[string][]string{
+	expectedGlobalIPSetsV4 = map[string][]string{
 		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 	}
 
-	expectedMangleAfterPUInsert = map[string][]string{
+	expectedMangleAfterPUInsertV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
@@ -397,7 +397,7 @@ var (
 		},
 	}
 
-	expectedNATAfterPUInsert = map[string][]string{
+	expectedNATAfterPUInsertV4 = map[string][]string{
 		"PREROUTING": {
 			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
@@ -417,7 +417,7 @@ var (
 		},
 	}
 
-	expectedIPSetsAfterPUInsert = map[string][]string{
+	expectedIPSetsAfterPUInsertV4 = map[string][]string{
 		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
@@ -430,7 +430,7 @@ var (
 		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}
 
-	expectedMangleAfterPUUpdate = map[string][]string{
+	expectedMangleAfterPUUpdateV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
@@ -508,7 +508,7 @@ var (
 	}
 )
 
-func Test_OperationWithLinuxServices(t *testing.T) {
+func Test_OperationWithLinuxServicesV4(t *testing.T) {
 	Convey("Given an iptables controller with a memory backend ", t, func() {
 		cfg := &runtime.Configuration{
 			TCPTargetNetworks: []string{"0.0.0.0/0"},
@@ -542,9 +542,9 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for set, targets := range ipsv4.sets {
-				So(expectedGlobalIPSets, ShouldContainKey, set)
+				So(expectedGlobalIPSetsV4, ShouldContainKey, set)
 				for target := range targets.set {
-					So(expectedGlobalIPSets[set], ShouldContain, target)
+					So(expectedGlobalIPSetsV4[set], ShouldContain, target)
 				}
 			}
 
@@ -555,13 +555,13 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 			So(t["nat"], ShouldNotBeNil)
 
 			for chain, rules := range t["mangle"] {
-				So(expectedGlobalMangleChains, ShouldContainKey, chain)
-				So(rules, ShouldResemble, expectedGlobalMangleChains[chain])
+				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
 			}
 
 			for chain, rules := range t["nat"] {
-				So(expectedGlobalNATChains, ShouldContainKey, chain)
-				So(rules, ShouldResemble, expectedGlobalNATChains[chain])
+				So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
@@ -667,24 +667,24 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					},
 				})
 
-				err = i.ConfigureRules(0, "pu1", puInfo)
+				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
 
 				for chain, rules := range t["mangle"] {
-					So(expectedMangleAfterPUInsert, ShouldContainKey, chain)
-					So(rules, ShouldResemble, expectedMangleAfterPUInsert[chain])
+					So(expectedMangleAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedMangleAfterPUInsertV4[chain])
 				}
 
 				for chain, rules := range t["nat"] {
-					So(expectedNATAfterPUInsert, ShouldContainKey, chain)
-					So(rules, ShouldResemble, expectedNATAfterPUInsert[chain])
+					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
 				}
 
 				for set, targets := range ipsv4.sets {
-					So(expectedIPSetsAfterPUInsert, ShouldContainKey, set)
+					So(expectedIPSetsAfterPUInsertV4, ShouldContainKey, set)
 					for target := range targets.set {
-						So(expectedIPSetsAfterPUInsert[set], ShouldContain, target)
+						So(expectedIPSetsAfterPUInsertV4[set], ShouldContain, target)
 					}
 				}
 
@@ -735,17 +735,17 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 						CgroupMark: "10",
 					})
 
-					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()
 					for chain, rules := range t["mangle"] {
-						So(expectedMangleAfterPUUpdate, ShouldContainKey, chain)
-						So(rules, ShouldResemble, expectedMangleAfterPUUpdate[chain])
+						So(expectedMangleAfterPUUpdateV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedMangleAfterPUUpdateV4[chain])
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
 						So(err, ShouldBeNil)
 
 						t := i.iptv4.impl.RetrieveTable()
@@ -754,14 +754,14 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 						So(t["nat"], ShouldNotBeNil)
 
 						for chain, rules := range t["mangle"] {
-							So(expectedGlobalMangleChains, ShouldContainKey, chain)
-							So(rules, ShouldResemble, expectedGlobalMangleChains[chain])
+							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
 						}
 
 						for chain, rules := range t["nat"] {
 							if len(rules) > 0 {
-								So(expectedGlobalNATChains, ShouldContainKey, chain)
-								So(rules, ShouldResemble, expectedGlobalNATChains[chain])
+								So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
 							}
 						}
 
@@ -779,7 +779,7 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 }
 
 var (
-	expectedContainerGlobalMangleChains = map[string][]string{
+	expectedContainerGlobalMangleChainsV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
@@ -808,7 +808,7 @@ var (
 		},
 	}
 
-	expectedContainerGlobalNATChains = map[string][]string{
+	expectedContainerGlobalNATChainsV4 = map[string][]string{
 		"PREROUTING": {
 			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
@@ -823,13 +823,13 @@ var (
 		},
 	}
 
-	expectedContainerGlobalIPSets = map[string][]string{
+	expectedContainerGlobalIPSetsV4 = map[string][]string{
 		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 	}
 
-	expectedContainerMangleAfterPUInsert = map[string][]string{
+	expectedContainerMangleAfterPUInsertV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
 		},
@@ -890,7 +890,7 @@ var (
 		},
 	}
 
-	expectedContainerNATAfterPUInsert = map[string][]string{
+	expectedContainerNATAfterPUInsertV4 = map[string][]string{
 		"PREROUTING": {
 			"-p tcp -m addrtype --dst-type LOCAL -m set ! --match-set TRI-v4-Excluded src -j TRI-Redir-Net",
 		},
@@ -907,7 +907,7 @@ var (
 		},
 	}
 
-	expectedContainerIPSetsAfterPUInsert = map[string][]string{
+	expectedContainerIPSetsAfterPUInsertV4 = map[string][]string{
 		"TRI-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI-v4-" + excludedNetworkSet:  {"127.0.0.1"},
@@ -921,7 +921,7 @@ var (
 	}
 )
 
-func Test_OperationWithContainers(t *testing.T) {
+func Test_OperationWithContainersV4(t *testing.T) {
 	Convey("Given an iptables controller with a memory backend for containers ", t, func() {
 		cfg := &runtime.Configuration{
 			TCPTargetNetworks: []string{"0.0.0.0/0"},
@@ -955,9 +955,9 @@ func Test_OperationWithContainers(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for set, targets := range ipsv4.sets {
-				So(expectedContainerGlobalIPSets, ShouldContainKey, set)
+				So(expectedContainerGlobalIPSetsV4, ShouldContainKey, set)
 				for target := range targets.set {
-					So(expectedContainerGlobalIPSets[set], ShouldContain, target)
+					So(expectedContainerGlobalIPSetsV4[set], ShouldContain, target)
 				}
 			}
 
@@ -968,13 +968,13 @@ func Test_OperationWithContainers(t *testing.T) {
 			So(t["nat"], ShouldNotBeNil)
 
 			for chain, rules := range t["mangle"] {
-				So(expectedContainerGlobalMangleChains, ShouldContainKey, chain)
-				So(rules, ShouldResemble, expectedContainerGlobalMangleChains[chain])
+				So(expectedContainerGlobalMangleChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedContainerGlobalMangleChainsV4[chain])
 			}
 
 			for chain, rules := range t["nat"] {
-				So(expectedContainerGlobalNATChains, ShouldContainKey, chain)
-				So(rules, ShouldResemble, expectedContainerGlobalNATChains[chain])
+				So(expectedContainerGlobalNATChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedContainerGlobalNATChainsV4[chain])
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
@@ -1054,29 +1054,29 @@ func Test_OperationWithContainers(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
-				err := i.ConfigureRules(0, "pu1", puInfo)
+				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
 
 				for chain, rules := range t["mangle"] {
-					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
-					So(rules, ShouldResemble, expectedContainerMangleAfterPUInsert[chain])
+					So(expectedContainerMangleAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedContainerMangleAfterPUInsertV4[chain])
 				}
 
 				for chain, rules := range t["nat"] {
-					So(expectedContainerNATAfterPUInsert, ShouldContainKey, chain)
-					So(rules, ShouldResemble, expectedContainerNATAfterPUInsert[chain])
+					So(expectedContainerNATAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedContainerNATAfterPUInsertV4[chain])
 				}
 
 				for set, targets := range ipsv4.sets {
-					So(expectedContainerIPSetsAfterPUInsert, ShouldContainKey, set)
+					So(expectedContainerIPSetsAfterPUInsertV4, ShouldContainKey, set)
 					for target := range targets.set {
-						So(expectedContainerIPSetsAfterPUInsert[set], ShouldContain, target)
+						So(expectedContainerIPSetsAfterPUInsertV4[set], ShouldContain, target)
 					}
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.DeleteRules(0, "pu1", "0", "0", "10", "", "0", common.ContainerPU)
+					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", "0", common.ContainerPU)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()
@@ -1088,13 +1088,13 @@ func Test_OperationWithContainers(t *testing.T) {
 					So(t["nat"], ShouldNotBeNil)
 
 					for chain, rules := range t["mangle"] {
-						So(expectedContainerGlobalMangleChains, ShouldContainKey, chain)
-						So(rules, ShouldResemble, expectedContainerGlobalMangleChains[chain])
+						So(expectedContainerGlobalMangleChainsV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedContainerGlobalMangleChainsV4[chain])
 					}
 
 					for chain, rules := range t["nat"] {
-						So(expectedContainerGlobalNATChains, ShouldContainKey, chain)
-						So(rules, ShouldResemble, expectedContainerGlobalNATChains[chain])
+						So(expectedContainerGlobalNATChainsV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedContainerGlobalNATChainsV4[chain])
 					}
 
 					Convey("When I cancel the context, it should cleanup", func() {

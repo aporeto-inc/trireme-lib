@@ -107,6 +107,7 @@ type ipImpl interface {
 	provider.IptablesProvider
 	GetIPSetPrefix() string
 	GetIPSetParam() *ipset.Params
+	ProtocolAllowed(proto string) bool
 	IPFilter() func(net.IP) bool
 	GetDefaultIP() string
 	NeedICMP() bool

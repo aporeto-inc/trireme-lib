@@ -157,7 +157,6 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 
 	rule := strings.Join(rulespec, " ")
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
-
 	return nil
 }
 
