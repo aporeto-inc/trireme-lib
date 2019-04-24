@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/mattn/go-shellwords"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
@@ -251,6 +252,12 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 		return iptRule
 	}
 
+	if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
+		zap.L().Warn("unable to program extension rules",
+			zap.Error(err),
+		)
+	}
+
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
 		nflog := []string{"-m", "state", "--state", "NEW",
 			"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}
@@ -285,6 +292,31 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	}
 
 	return iptRules, reverseRules
+}
+
+// programExtensionsRules programs iptable rules for the given extensions
+func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
+
+	rulesspec := []string{
+		"-p", proto,
+		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
+		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
+	}
+
+	for _, ext := range rule.extensions {
+		args, err := shellwords.Parse(ext)
+		if err != nil {
+			return fmt.Errorf("unable to parse extension %s: %v", ext, err)
+		}
+
+		rulesspec = append(rulesspec, args...)
+
+		if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
+			return fmt.Errorf("unable to program extension rules: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // sortACLsInBuckets will process all the rules and add them in a list of buckets
