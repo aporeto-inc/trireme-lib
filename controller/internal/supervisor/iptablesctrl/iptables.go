@@ -70,7 +70,7 @@ const (
 )
 
 type iptables struct {
-	impl                  ipImpl
+	impl                  IPImpl
 	fqc                   *fqconfig.FilterQueue
 	mode                  constants.ModeType
 	createPUPortSet       func(string) error
@@ -102,7 +102,7 @@ func GetInstance() *Instance {
 	return instance
 }
 
-type ipImpl interface {
+type IPImpl interface {
 	provider.IptablesProvider
 	GetIPSetPrefix() string
 	GetIPSetParam() *ipset.Params
@@ -139,7 +139,7 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl ipImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
+func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
 
 	// Create all the basic target sets. These are the global target sets
 	// that do not depend on policy configuration. If they already exist

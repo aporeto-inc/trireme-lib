@@ -30,7 +30,7 @@ func init() {
 
 // GetIPv6Impl creates the instance of ipv6 struct which implements
 // the interface ipImpl
-func GetIPv6Impl() (ipImpl, error) {
+func GetIPv6Impl() (IPImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err != nil {
 		zap.L().Error("Unable to initialize ipv6 iptables :%s", zap.Error(err))
