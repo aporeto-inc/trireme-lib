@@ -80,7 +80,7 @@ func TestRunIPV4(t *testing.T) {
 		return true
 	}
 
-	ipcache.RunIP(ip, testRunIP)
+	ipcache.RunFuncOnLpmIP(ip, testRunIP)
 	assert.Equal(t, found, true, "found should be true")
 }
 
@@ -106,7 +106,7 @@ func TestRunIPv6(t *testing.T) {
 		return true
 	}
 
-	ipcache.RunIP(ip, testRunIP)
+	ipcache.RunFuncOnLpmIP(ip, testRunIP)
 	assert.Equal(t, found, true, "found should be true")
 }
 
@@ -131,7 +131,7 @@ func TestRunValIPv4(t *testing.T) {
 		return val
 	}
 
-	ipcache.RunVal(testRunVal)
+	ipcache.RunFuncOnVals(testRunVal)
 	assert.Equal(t, len(m), 0, "map should be of length 0")
 }
 
@@ -156,6 +156,6 @@ func TestRunValIPv6(t *testing.T) {
 		return val
 	}
 
-	ipcache.RunVal(testRunVal)
+	ipcache.RunFuncOnVals(testRunVal)
 	assert.Equal(t, len(m), 0, "map should be of length 0")
 }

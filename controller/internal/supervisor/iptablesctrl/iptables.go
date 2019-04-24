@@ -585,10 +585,11 @@ type ipsetInfo struct {
 }
 
 type aclIPset struct {
-	ipset     string
-	ports     []string
-	protocols []string
-	policy    *policy.FlowPolicy
+	ipset      string
+	ports      []string
+	protocols  []string
+	extensions []string
+	policy     *policy.FlowPolicy
 }
 
 func addToIPset(set provider.Ipset, data string) error {
@@ -795,10 +796,11 @@ func (i *iptables) createACLIPSets(contextID string, rules policy.IPRuleList) ([
 		}
 
 		acls = append(acls, aclIPset{
-			ipset:     info.ipset,
-			ports:     rule.Ports,
-			protocols: rule.Protocols,
-			policy:    rule.Policy,
+			ipset:      info.ipset,
+			ports:      rule.Ports,
+			protocols:  rule.Protocols,
+			extensions: rule.Extensions,
+			policy:     rule.Policy,
 		})
 	}
 
