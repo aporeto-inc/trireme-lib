@@ -6,7 +6,11 @@ import (
 	"sync"
 )
 
+// FuncOnKeys is the type of func which will operate on the value associated with the lpm ip.
 type FuncOnKeys func(val interface{}) bool
+
+// FuncOnVals is the type of the func which will operate on each value and will return a new value for each
+// associated value.
 type FuncOnVals func(val interface{}) interface{}
 
 //IPcache is an interface which provides functionality to store ip's and do longest prefix match
