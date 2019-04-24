@@ -39,10 +39,7 @@ type testIptablesProvider struct {
 
 // NewTestIptablesProvider returns a new TestManipulator.
 func NewTestIptablesProvider() TestIptablesProvider {
-	return &testIptablesProvider{
-		lock:  &sync.Mutex{},
-		mocks: map[*testing.T]*iptablesProviderMockedMethods{},
-	}
+	return &testIptablesProvider{lock: &sync.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
 }
 
 func (m *testIptablesProvider) MockAppend(t *testing.T, impl func(table, chain string, rulespec ...string) error) {
