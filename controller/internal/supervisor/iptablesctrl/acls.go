@@ -7,7 +7,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/mattn/go-shellwords"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
@@ -300,7 +299,7 @@ func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain stri
 }
 
 // programExtensionsRules programs iptable rules for the given extensions
-func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
+func (i *iptables) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
 
 	rulesspec := []string{
 		"-p", proto,
@@ -316,7 +315,7 @@ func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchD
 
 		rulesspec = append(rulesspec, args...)
 
-		if err := i.ipt.Append(i.appPacketIPTableContext, chain, rulesspec...); err != nil {
+		if err := i.impl.Append(appPacketIPTableContext, chain, rulesspec...); err != nil {
 			return fmt.Errorf("unable to program extension rules: %v", err)
 		}
 	}

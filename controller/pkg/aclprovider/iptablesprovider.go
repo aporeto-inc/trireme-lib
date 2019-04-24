@@ -60,7 +60,7 @@ const (
 	restoreCmdV6 = "ip6tables-restore"
 )
 
-// NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
+// NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
 func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	ipt, err := iptables.New()
@@ -90,6 +90,8 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	return b, nil
 }
 
+// NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
+// external package.
 func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
 	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
 	if err != nil {
