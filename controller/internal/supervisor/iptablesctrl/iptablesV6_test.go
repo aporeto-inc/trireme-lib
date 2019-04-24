@@ -66,7 +66,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 		So(err, ShouldBeNil)
 		cfg := &runtime.Configuration{}
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) //nolint
 
 		ipl := policy.ExtendedMap{}
 		policyrules := policy.NewPUPolicy("Context",
@@ -421,7 +421,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) //nolint
 
 		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -488,6 +488,16 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						Addresses: []string{"1122::/64"},
 						Ports:     []string{"443"},
 						Protocols: []string{"icmpv6"},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept,
+							ServiceID: "s3",
+							PolicyID:  "3",
+						},
+					},
+					policy.IPRule{
+						Addresses: []string{"40.0.0.0/24"},
+						Ports:     []string{"443"},
+						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
 							ServiceID: "s3",
@@ -838,7 +848,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg)
+		i.SetTargetNetworks(cfg) //nolint
 
 		Convey("When I start the controller, I should get the right global chains and sets", func() {
 			ctx, cancel := context.WithCancel(context.Background())

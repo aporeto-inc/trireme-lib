@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	ipv4String    = "v4-"
+	ipv4String = "v4-"
+	// IPv4DefaultIP is the default ip address of ipv4 subnets
 	IPv4DefaultIP = "0.0.0.0/0"
 )
 
@@ -26,7 +27,7 @@ func init() {
 
 // GetIPv4Impl creates the instance of ipv4 struct which implements the interface
 // ipImpl
-func GetIPv4Impl() (*ipv4, error) {
+func GetIPv4Impl() (ipImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)

@@ -219,7 +219,7 @@ func (i *iptables) SetTargetNetworks(c *runtime.Configuration) error {
 
 	// If there are no target networks, capture all traffic
 	if len(c.TCPTargetNetworks) == 0 {
-		c.TCPTargetNetworks = []string{"IPv4DefaultIP", "IPv6DefaultIP"}
+		c.TCPTargetNetworks = []string{IPv4DefaultIP, IPv6DefaultIP}
 	}
 	cfg := filterNetworks(c, i.impl.IPFilter())
 	var oldConfig *runtime.Configuration
@@ -590,7 +590,7 @@ type aclIPset struct {
 func addToIPset(set provider.Ipset, data string) error {
 
 	// ipset can not program this rule
-	if data == "IPv4DefaultIP" {
+	if data == IPv4DefaultIP {
 		if err := addToIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
@@ -603,7 +603,7 @@ func addToIPset(set provider.Ipset, data string) error {
 	}
 
 	// ipset can not program this rule
-	if data == "IPv6DefaultIP" {
+	if data == IPv6DefaultIP {
 		if err := addToIPset(set, "::/1"); err != nil {
 			return err
 		}
@@ -620,7 +620,7 @@ func addToIPset(set provider.Ipset, data string) error {
 
 func delFromIPset(set provider.Ipset, data string) error {
 
-	if data == "IPv4DefaultIP" {
+	if data == IPv4DefaultIP {
 		if err := delFromIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
@@ -630,7 +630,7 @@ func delFromIPset(set provider.Ipset, data string) error {
 		}
 	}
 
-	if data == "IPv6DefaultIP" {
+	if data == IPv6DefaultIP {
 		if err := delFromIPset(set, "::/1"); err != nil {
 			return err
 		}

@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	ipv6String    = "v6-"
+	ipv6String = "v6-"
+	// IPv6DefaultIP is the default IP subnet of ipv6
 	IPv6DefaultIP = "::/0"
 )
 
@@ -29,7 +30,7 @@ func init() {
 
 // GetIPv6Impl creates the instance of ipv6 struct which implements
 // the interface ipImpl
-func GetIPv6Impl() (*ipv6, error) {
+func GetIPv6Impl() (ipImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err != nil {
 		zap.L().Error("Unable to initialize ipv6 iptables :%s", zap.Error(err))
