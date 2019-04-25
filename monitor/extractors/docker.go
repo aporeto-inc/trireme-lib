@@ -24,6 +24,7 @@ type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, erro
 // DefaultMetadataExtractor is the default metadata extractor for Docker
 func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
+	// trigger new build
 	tags := policy.NewTagStore()
 	// TODO: Remove OLDTAGS
 	tags.AppendKeyValue("@sys:image", info.Config.Image)
