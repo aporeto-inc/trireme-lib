@@ -166,17 +166,13 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
-
 	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode)
+
 	ipv6Impl, err := GetIPv6Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
-
 	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
-	}
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
