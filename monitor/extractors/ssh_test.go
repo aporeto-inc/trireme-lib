@@ -18,7 +18,7 @@ func testRuntime() *policy.PURuntime {
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	options := &policy.OptionsType{
 		CgroupName: "/1234",
-		CgroupMark: strconv.FormatUint(105, 10),
+		CgroupMark: strconv.FormatUint(104, 10),
 	}
 
 	return policy.NewPURuntime("curl", 1234, "", tags, runtimeIps, common.SSHSessionPU, options)
