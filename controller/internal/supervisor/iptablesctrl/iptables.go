@@ -141,7 +141,6 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 }
 
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) (*iptables, error) {
-
 	return &iptables{
 		impl:                  impl,
 		fqc:                   fqc,
@@ -254,12 +253,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
-
-	if err := i.updateAllTargetNetworks(i.cfg, &runtime.Configuration{}); err != nil {
-		// If there is a failure try to clean up on exit.
-		i.ipset.DestroyAll(chainPrefix) // nolint errcheck
-		return fmt.Errorf("unable to initialize target networks: %s", err)
-	}
 
 	// Initialize all the global Trireme chains. There are several global chaims
 	// that apply to all PUs:

@@ -65,6 +65,12 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 
 		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
 		So(err, ShouldBeNil)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = i.Run(ctx)
+		So(err, ShouldBeNil)
 		cfg := &runtime.Configuration{}
 		i.SetTargetNetworks(cfg) //nolint
 
@@ -421,12 +427,12 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg) //nolint
-
 		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+
 			So(err, ShouldBeNil)
 
 			for set, targets := range ipsv6.sets {
@@ -848,13 +854,12 @@ func Test_OperationWithContainersV6(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
-		i.SetTargetNetworks(cfg) //nolint
-
 		Convey("When I start the controller, I should get the right global chains and sets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
+			i.SetTargetNetworks(cfg) //nolint
 
 			for set, targets := range ipsv6.sets {
 				So(expectedContainerGlobalIPSetsV6, ShouldContainKey, set)
