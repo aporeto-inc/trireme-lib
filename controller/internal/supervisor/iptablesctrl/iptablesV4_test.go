@@ -24,15 +24,8 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	ipv4Impl := &ipv4{ipt: iptv4}
 	ipv6Impl := &ipv6{ipt: iptv6}
 
-	iptInstanceV4, err := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create v4 instance: %s", err)
-	}
-
-	iptInstanceV6, err := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
-	}
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
