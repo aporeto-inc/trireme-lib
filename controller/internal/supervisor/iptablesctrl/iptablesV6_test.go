@@ -17,13 +17,8 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
-func EnableIPv6() {
-	IPv6Disabled = false
-}
-
 func TestNewInstanceV6(t *testing.T) {
 
-	EnableIPv6()
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
 			ipsv4 := provider.NewTestIpsetProvider()
@@ -56,7 +51,7 @@ func TestNewInstanceV6(t *testing.T) {
 }
 
 func Test_NegativeConfigureRulesV6(t *testing.T) {
-	EnableIPv6()
+
 	Convey("Given a valid instance", t, func() {
 		ipsv4 := provider.NewTestIpsetProvider()
 		ipsv6 := provider.NewTestIpsetProvider()
@@ -402,7 +397,7 @@ var (
 )
 
 func Test_OperationWithLinuxServicesV6(t *testing.T) {
-	EnableIPv6()
+
 	Convey("Given an iptables controller with a memory backend ", t, func() {
 		cfg := &runtime.Configuration{
 			TCPTargetNetworks: []string{"::/0"},
@@ -829,7 +824,7 @@ var (
 )
 
 func Test_OperationWithContainersV6(t *testing.T) {
-	EnableIPv6()
+
 	Convey("Given an iptables controller with a memory backend for containers ", t, func() {
 		cfg := &runtime.Configuration{
 			TCPTargetNetworks: []string{"::/0"},

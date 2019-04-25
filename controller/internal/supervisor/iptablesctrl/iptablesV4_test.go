@@ -22,7 +22,7 @@ import (
 func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvider, iptv4 provider.IptablesProvider, iptv6 provider.IptablesProvider, mode constants.ModeType) (*Instance, error) {
 
 	ipv4Impl := &ipv4{ipt: iptv4}
-	ipv6Impl := &ipv6{ipt: iptv6}
+	ipv6Impl := &ipv6{ipt: iptv6, ipv6Disabled: false}
 
 	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
 	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
