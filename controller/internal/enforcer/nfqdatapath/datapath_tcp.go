@@ -46,8 +46,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		)
 	}
 
-	//var conn *connection.TCPConnection
-
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
 	switch p.GetTCPFlags() & packet.TCPSynAckMask {
@@ -300,12 +298,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	dstAddr := make([]byte, len(tcpPacket.DestinationAddress()))
-	copy(dstAddr, tcpPacket.DestinationAddress())
+	dstAddr := tcpPacket.DestinationAddress()
+	dstPort := tcpPacket.DestPort()
 
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, tcpPacket.DestPort())
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, dstPort)
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, dstPort)
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
