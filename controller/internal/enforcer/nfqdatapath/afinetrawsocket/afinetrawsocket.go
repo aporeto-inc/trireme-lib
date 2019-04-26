@@ -38,7 +38,6 @@ const (
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
 	WriteSocket(buf []byte, version packet.IPver) error
-	CloseSocket() error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -106,13 +105,6 @@ func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver) error {
 			return fmt.Errorf("received error %s while sending to socket", err)
 		}
 	}
-
-	return nil
-}
-
-func (sock *rawsocket) CloseSocket() error {
-	syscall.Close(sock.insockv4.fd)
-	syscall.Close(sock.insockv6.fd)
 
 	return nil
 }
