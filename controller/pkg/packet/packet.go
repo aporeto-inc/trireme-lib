@@ -545,6 +545,7 @@ func (p *Packet) GetBuffer(offset int) []byte {
 	return p.ipHdr.Buffer[offset:]
 }
 
+// IPversion returns the version of ip packet
 func (p *Packet) IPversion() IPver {
 	return p.ipHdr.version
 }

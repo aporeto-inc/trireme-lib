@@ -14,7 +14,7 @@ import (
 // Helpher functions for the package, mainly for debugging and validation
 // They are not used by the main package
 
-// VerifyIPChecksum returns true if the IP header checksum is correct
+// VerifyIPv4Checksum returns true if the IP header checksum is correct
 // for this packet, false otherwise. Note that the checksum is not
 // modified.
 func (p *Packet) VerifyIPv4Checksum() bool {
@@ -24,7 +24,7 @@ func (p *Packet) VerifyIPv4Checksum() bool {
 	return sum == p.ipHdr.ipChecksum
 }
 
-// UpdateIPChecksum computes the IP header checksum and updates the
+// UpdateIPv4Checksum computes the IP header checksum and updates the
 // packet with the value.
 func (p *Packet) UpdateIPv4Checksum() {
 
