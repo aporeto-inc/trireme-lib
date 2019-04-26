@@ -33,6 +33,18 @@ const (
 	ipv4DestAddrPos = 16
 )
 
+const (
+	ipv6HeaderLen = 40
+
+	ipv6PayloadLenPos = 4
+
+	ipv6ProtoPos = 6
+
+	ipv6SourceAddrPos = 8
+
+	ipv6DestAddrPos = 24
+)
+
 // IP Protocol numbers
 const (
 	// IPProtocolTCP defines the constant for UDP protocol number
