@@ -464,6 +464,7 @@ func TestAuthOptions(t *testing.T) {
 	}
 
 }
+
 func TestNewPacketFunctions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
 	PacketLogLevel = true
