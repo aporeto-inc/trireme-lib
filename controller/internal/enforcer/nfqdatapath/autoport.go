@@ -232,7 +232,6 @@ func (d *defaultRead) readProcNetTCP() (inodeMap map[string]string, userMap map[
 		// userName is required as they are keys to lookup tables.
 		userName, err := getUserName(uid)
 		if err != nil {
-			// zap.L().Debug("Error converting to username", zap.Error(err))
 			continue
 		}
 

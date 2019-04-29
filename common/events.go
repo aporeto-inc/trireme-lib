@@ -34,7 +34,6 @@ const (
 
 	// TriremeSocket is the standard API server Trireme socket path
 	TriremeSocket = "/var/run/aporetosock/trireme.sock"
-	//TriremeSocket = "/opt/aporeto/tmp/aporetosock/trireme.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.
