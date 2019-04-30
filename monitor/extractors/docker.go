@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"go.aporeto.io/trireme-lib/common"
@@ -23,6 +24,7 @@ type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, erro
 // DefaultMetadataExtractor is the default metadata extractor for Docker
 func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
+	// trigger new build
 	tags := policy.NewTagStore()
 	// TODO: Remove OLDTAGS
 	tags.AppendKeyValue("@sys:image", info.Config.Image)
@@ -32,7 +34,18 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 	tags.AppendKeyValue("@app:docker:name", info.Name)
 
 	for k, v := range info.Config.Labels {
-		tags.AppendKeyValue("@usr:"+k, v)
+		if len(strings.TrimSpace(k)) == 0 {
+			continue
+		}
+		value := v
+		if len(v) == 0 {
+			value = "<empty>"
+		}
+		if !strings.HasPrefix(k, UserLabelPrefix) {
+			tags.AppendKeyValue(UserLabelPrefix+k, value)
+		} else {
+			tags.AppendKeyValue(k, value)
+		}
 	}
 
 	ipa := policy.ExtendedMap{
