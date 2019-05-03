@@ -224,6 +224,13 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 	reverseRules := [][]string{}
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
 
+	if len(rule.extensions) > 0 {
+		if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
+			zap.L().Warn("Failed to program custom rule", zap.Error(err))
+		}
+		return iptRules, reverseRules
+	}
+
 	baseRule := func(proto string) []string {
 		iptRule := []string{
 			i.appPacketIPTableContext,
@@ -250,12 +257,6 @@ func (i *Instance) generateACLRules(contextID string, rule *aclIPset, chain stri
 		}
 
 		return iptRule
-	}
-
-	if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
-		zap.L().Warn("unable to program extension rules",
-			zap.Error(err),
-		)
 	}
 
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
@@ -300,7 +301,6 @@ func (i *Instance) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchD
 	rulesspec := []string{
 		"-p", proto,
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 	}
 
 	for _, ext := range rule.extensions {
