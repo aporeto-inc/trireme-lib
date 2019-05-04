@@ -65,7 +65,8 @@ type Datapath struct {
 	nflogger       nflog.NFLogger
 	procMountPoint string
 
-	targetNetworks *acls.ACLCache
+	targetNetworks    *acls.ACLCache
+	targetNetworksSet bool
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
 	puFromContextID cache.DataStore
@@ -452,7 +453,10 @@ func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
 	networks := cfg.TCPTargetNetworks
 
 	if len(networks) == 0 {
+		d.targetNetworksSet = false
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	} else {
+		d.targetNetworksSet = true
 	}
 
 	d.targetNetworks = acls.NewACLCache()

@@ -300,23 +300,22 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
-
+	_, _, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
 	if perr != nil {
 		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
-
+		d.reportExternalServiceFlow(context, report, policy, true, tcpPacket)
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
 		}
-
-		d.reportExternalServiceFlow(context, report, pkt, true, tcpPacket)
 		return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet")
 	}
 
-	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.DestinationAddress().String() + ":" + strconv.Itoa(int(tcpPacket.DestPort()))); err == nil {
+	if plc, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.DestinationAddress().String() + ":" + strconv.Itoa(int(tcpPacket.DestPort()))); err == nil && plc != nil {
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
-		return policy, nil
+		policyAcction := plc.(*policy.FlowPolicy)
+		d.reportExternalServiceFlow(context, policyAcction, policyAcction, true, tcpPacket)
+		return plc, nil
 	}
 
 	// We are now processing as a Trireme packet that needs authorization headers
@@ -325,7 +324,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Create a token
 	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
-
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +640,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+
+		if _, _, err := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort()); err == nil && d.targetNetworksSet {
+			return nil, nil, fmt.Errorf("SYNACK received from target networks-drop")
+		}
 
 		if _, err := d.puFromContextID.Get(conn.Context.ID()); err != nil {
 			// PU has been deleted. Ignore these packets
