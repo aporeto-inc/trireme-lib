@@ -641,7 +641,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
-		if _, _, err := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort()); err == nil && d.targetNetworksSet {
+		if _, _, err := d.targetNetworks.GetMatchingAction(tcpPacket.SourceAddress(), tcpPacket.SourcePort()); err == nil && d.targetNetworksSet {
 			return nil, nil, fmt.Errorf("SYNACK received from target networks-drop")
 		}
 
