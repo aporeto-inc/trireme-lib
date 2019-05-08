@@ -76,23 +76,26 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
-	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
-	var processError error
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
-	if err != nil {
-		netPacket.Print(packet.PacketFailureCreate)
-	} else if netPacket.IPProto() == packet.IPProtocolTCP {
-		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
-	} else if netPacket.IPProto() == packet.IPProtocolUDP {
-		udpConn, processError = d.ProcessNetworkUDPPacket(netPacket)
-	} else {
-		processError = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto())
 
+	// Parse the packet - drop if parsing fails
+	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
+
+	if err != nil {
+		zap.L().Debug("Packet creation failed in network path")
+		return
 	}
 
-	if processError != nil {
+	if netPacket.IPProto() == packet.IPProtocolTCP {
+		tcpConn, err = d.processNetworkTCPPackets(netPacket)
+	} else if netPacket.IPProto() == packet.IPProtocolUDP {
+		udpConn, err = d.ProcessNetworkUDPPacket(netPacket)
+	} else {
+		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto())
+	}
+
+	if err != nil {
 		zap.L().Debug("Dropping packet on network path",
 			zap.Error(err),
 			zap.String("SourceIP", netPacket.SourceAddress().String()),
@@ -110,7 +113,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 				p:       netPacket,
 				tcpConn: tcpConn,
 				udpConn: nil,
-				err:     processError,
+				err:     err,
 				network: true,
 			})
 		} else if netPacket.IPProto() == packet.IPProtocolUDP {
@@ -119,7 +122,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 				p:       netPacket,
 				tcpConn: nil,
 				udpConn: udpConn,
-				err:     processError,
+				err:     err,
 				network: true,
 			})
 		}
@@ -163,24 +166,36 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
+	var tcpConn *connection.TCPConnection
+	var udpConn *connection.UDPConnection
+
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
 	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, strconv.Itoa(p.Mark), true)
 
-	var processError error
-	var tcpConn *connection.TCPConnection
-	var udpConn *connection.UDPConnection
 	if err != nil {
-		appPacket.Print(packet.PacketFailureCreate)
-	} else if appPacket.IPProto() == packet.IPProtocolTCP {
-		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
-	} else if appPacket.IPProto() == packet.IPProtocolUDP {
-		udpConn, processError = d.ProcessApplicationUDPPacket(appPacket)
-	} else {
-		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
+		zap.L().Debug("Packet creation failed in Application path")
+		return
 	}
-	if processError != nil {
+
+	if appPacket.IPProto() == packet.IPProtocolTCP {
+		tcpConn, err = d.processApplicationTCPPackets(appPacket)
+	} else if appPacket.IPProto() == packet.IPProtocolUDP {
+		udpConn, err = d.ProcessApplicationUDPPacket(appPacket)
+	} else {
+		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
+	}
+
+	if err != nil {
+		zap.L().Debug("Dropping packet on application path",
+			zap.Error(err),
+			zap.String("SourceIP", appPacket.SourceAddress().String()),
+			zap.String("DestiatnionIP", appPacket.DestinationAddress().String()),
+			zap.Int("SourcePort", int(appPacket.SourcePort())),
+			zap.Int("DestinationPort", int(appPacket.DestPort())),
+			zap.Int("Protocol", int(appPacket.IPProto())),
+		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
@@ -191,7 +206,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 				p:       appPacket,
 				tcpConn: tcpConn,
 				udpConn: nil,
-				err:     processError,
+				err:     err,
 				network: false,
 			})
 		} else if appPacket.IPProto() == packet.IPProtocolUDP {
@@ -200,7 +215,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 				p:       appPacket,
 				tcpConn: nil,
 				udpConn: udpConn,
-				err:     processError,
+				err:     err,
 				network: false,
 			})
 		}
