@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,28 +138,30 @@ func (d *Datapath) findPorts() {
 		return
 	}
 
-	for _, cgroup := range cgroupList {
+	for _, cgroupPath := range cgroupList {
 		/* cgroup is also the contextID */
 		newMap := map[string]bool{}
+
+		cgroup := filepath.Base(cgroupPath)
 
 		// check if a PU exists with that contextID and is marked with auto port
 		pu, err := d.puFromContextID.Get(cgroup)
 		if err != nil {
-			zap.L().Debug("autoPortDiscovery: failed to get PU from cgroup", zap.String("cgroup", cgroup))
+			zap.L().Debug("autoPortDiscovery: failed to get PU from cgroup", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup))
 			continue
 		}
 		p := pu.(*pucontext.PUContext)
 		if !p.Autoport() {
-			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()))
+			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
 
-		procs, err := readFiles.listCgroupProcesses(cgroup)
+		procs, err := readFiles.listCgroupProcesses(cgroupPath)
 		if err != nil {
-			zap.L().Warn("autoPortDiscovery: Cgroup processes could not be retrieved", zap.Error(err))
+			zap.L().Warn("autoPortDiscovery: Cgroup processes could not be retrieved", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.Error(err))
 			continue
 		}
-		zap.L().Debug("autoPortDiscovery: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.Strings("procs", procs))
+		zap.L().Debug("autoPortDiscovery: processes for cgroup detected", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.Strings("procs", procs))
 
 		for _, proc := range procs {
 			openSockFDs := readFiles.readOpenSockFD(proc)
