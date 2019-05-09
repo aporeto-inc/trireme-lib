@@ -377,6 +377,10 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		prevPU.(*pucontext.PUContext).CancelFunc()
 	}
 
+	zap.L().Error("Updated policy",
+		zap.String("contextID", puInfo.ContextID),
+		zap.String("policyID", puInfo.Policy.ManagementID()),
+	)
 	// Cache PU from contextID for management and policy updates
 	d.puFromContextID.AddOrUpdate(contextID, pu)
 
