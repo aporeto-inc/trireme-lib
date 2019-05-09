@@ -471,7 +471,7 @@ var (
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0  -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
