@@ -141,8 +141,13 @@ func (d *Datapath) findPorts() {
 
 		// check if a PU exists with that contextID and is marked with auto port
 		pu, err := d.puFromContextID.Get(cgroup)
-
-		if err != nil || !pu.(*pucontext.PUContext).Autoport() {
+		if err != nil {
+			zap.L().Debug("autoport: failed to get PU from cgroup", zap.String("cgroup", cgroup))
+			continue
+		}
+		p := pu.(*pucontext.PUContext)
+		if !p.Autoport() {
+			zap.L().Debug("autoport: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.String("type", p.Type()))
 			continue
 		}
 
@@ -151,6 +156,7 @@ func (d *Datapath) findPorts() {
 			zap.L().Warn("Cgroup processes could not be retrieved", zap.Error(err))
 			continue
 		}
+		zap.L().Debug("autoport: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.String("type", p.Type()), zap.Strings("procs", procs))
 
 		for _, proc := range procs {
 			openSockFDs := readFiles.readOpenSockFD(proc)
