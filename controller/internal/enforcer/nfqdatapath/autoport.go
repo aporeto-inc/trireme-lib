@@ -61,7 +61,9 @@ func getUserName(uid string) (string, error) {
 
 func (d *Datapath) autoPortDiscovery() {
 	for {
+		zap.L().Debug("autoPortDiscovery: before findPorts")
 		d.findPorts()
+		zap.L().Debug("autoPortDiscovery: after findPorts")
 		time.Sleep(2 * time.Second)
 	}
 }
