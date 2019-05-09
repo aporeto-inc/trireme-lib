@@ -291,7 +291,6 @@ func NewWithDefaults(
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
-
 	e := New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
@@ -308,7 +307,6 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 	)
-
 	conntrackClient, err := flowtracking.NewClient(context.Background())
 	if err != nil {
 		return nil
