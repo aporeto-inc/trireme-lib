@@ -104,6 +104,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			zap.Int("SourcePort", int(netPacket.SourcePort())),
 			zap.Int("DestinationPort", int(netPacket.DestPort())),
 			zap.Int("Protocol", int(netPacket.IPProto())),
+			zap.String("Timestamp", time.Now().String()),
 		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
