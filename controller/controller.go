@@ -242,7 +242,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 	if !mustEnforce(contextID, containerInfo) {
 		return nil
 	}
-
+	zap.L().Error("Updating policy",
+		zap.String("contextID", contextID),
+		zap.String("policyID", newPolicy.ManagementID()),
+	)
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		if werr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); werr != nil {
