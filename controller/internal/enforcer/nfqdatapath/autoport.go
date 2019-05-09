@@ -147,7 +147,7 @@ func (d *Datapath) findPorts() {
 		}
 		p := pu.(*pucontext.PUContext)
 		if !p.Autoport() {
-			zap.L().Debug("autoport: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.String("type", p.Type()))
+			zap.L().Debug("autoport: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
 
@@ -156,7 +156,7 @@ func (d *Datapath) findPorts() {
 			zap.L().Warn("Cgroup processes could not be retrieved", zap.Error(err))
 			continue
 		}
-		zap.L().Debug("autoport: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.String("type", p.Type()), zap.Strings("procs", procs))
+		zap.L().Debug("autoport: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.Strings("procs", procs))
 
 		for _, proc := range procs {
 			openSockFDs := readFiles.readOpenSockFD(proc)
