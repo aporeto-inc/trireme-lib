@@ -153,7 +153,7 @@ func (d *Datapath) findPorts() {
 		}
 		p := pu.(*pucontext.PUContext)
 
-		if !p.Autoport() || !(p.Type() == common.LinuxProcessPU && strings.HasPrefix(cgroupPath, common.TriremeDockerHostNetwork)) {
+		if !p.Autoport() || !strings.HasPrefix(cgroupPath, common.TriremeDockerHostNetwork) {
 			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
