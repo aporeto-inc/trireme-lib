@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
@@ -155,7 +154,7 @@ func (d *Datapath) findPorts() {
 
 		// TODO: For some reason the AutoPort setting on the Docker Host Network PUs does not seem to be taking effect.
 		//       For now we are safe to just test here for the common.TriremeDockerHostNetwork prefix, as we are going to have AutoPort set on all of them
-		if !p.Autoport() && !strings.HasPrefix(cgroupPath, common.TriremeDockerHostNetwork) {
+		if !p.Autoport() {
 			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
