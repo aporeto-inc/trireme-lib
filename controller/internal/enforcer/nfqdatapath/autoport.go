@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
@@ -151,7 +152,8 @@ func (d *Datapath) findPorts() {
 			continue
 		}
 		p := pu.(*pucontext.PUContext)
-		if !p.Autoport() {
+		p.Ty
+		if !p.Autoport() || !(p.Type() == common.LinuxProcessPU && strings.HasPrefix(cgroupPath, common.TriremeDockerHostNetwork)) {
 			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
