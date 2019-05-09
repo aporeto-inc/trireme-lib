@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/kardianos/osext"
+	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
 )
 
@@ -266,7 +267,7 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: "",
-		TriremePath:      "",
+		TriremePath:      common.TriremeDockerHostNetwork,
 	}
 
 	return controller

@@ -83,12 +83,12 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 				err := iptablesInstance.DeletePortFromPortSet(k, v)
 
 				if err != nil {
-					zap.L().Debug("Delete port set returned error", zap.Error(err))
+					zap.L().Debug("autoPortDiscovery: Delete port set returned error", zap.Error(err))
 				}
 				// delete the port from contextIDFromTCPPort cache
 				err = d.contextIDFromTCPPort.RemoveStringPorts(v)
 				if err != nil {
-					zap.L().Debug("can not remove port from cache", zap.Error(err))
+					zap.L().Debug("autoPortDiscovery: can not remove port from cache", zap.Error(err))
 				}
 			}
 		}
@@ -105,7 +105,7 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
 				err = iptablesInstance.AddPortToPortSet(k, v)
 				if err != nil {
-					zap.L().Error("Failed to add port to portset", zap.String("context", k), zap.String("port", v))
+					zap.L().Error("autoPortDiscovery: Failed to add port to portset", zap.String("context", k), zap.String("port", v))
 				}
 			}
 		}
@@ -128,12 +128,12 @@ func (d *Datapath) findPorts() {
 	lastRun = time.Now()
 
 	cgroupList := readFiles.getCgroupList()
+	zap.L().Debug("autoPortDiscovery: list of cgroups", zap.Strings("cgroupList", cgroupList))
 
 	newPUToPortsMap := map[string]map[string]bool{}
 	inodeMap, userMap, err := readFiles.readProcNetTCP()
-
 	if err != nil {
-		zap.L().Error("/proc/net/tcp read failed with error", zap.Error(err))
+		zap.L().Error("autoPortDiscovery: /proc/net/tcp read failed with error", zap.Error(err))
 		return
 	}
 
@@ -144,21 +144,21 @@ func (d *Datapath) findPorts() {
 		// check if a PU exists with that contextID and is marked with auto port
 		pu, err := d.puFromContextID.Get(cgroup)
 		if err != nil {
-			zap.L().Debug("autoport: failed to get PU from cgroup", zap.String("cgroup", cgroup))
+			zap.L().Debug("autoPortDiscovery: failed to get PU from cgroup", zap.String("cgroup", cgroup))
 			continue
 		}
 		p := pu.(*pucontext.PUContext)
 		if !p.Autoport() {
-			zap.L().Debug("autoport: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()))
+			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
 
 		procs, err := readFiles.listCgroupProcesses(cgroup)
 		if err != nil {
-			zap.L().Warn("Cgroup processes could not be retrieved", zap.Error(err))
+			zap.L().Warn("autoPortDiscovery: Cgroup processes could not be retrieved", zap.Error(err))
 			continue
 		}
-		zap.L().Debug("autoport: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.Strings("procs", procs))
+		zap.L().Debug("autoPortDiscovery: processes for cgroup detected", zap.String("cgroup", cgroup), zap.String("id", p.ID()), zap.Strings("procs", procs))
 
 		for _, proc := range procs {
 			openSockFDs := readFiles.readOpenSockFD(proc)
