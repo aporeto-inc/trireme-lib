@@ -62,9 +62,7 @@ func getUserName(uid string) (string, error) {
 
 func (d *Datapath) autoPortDiscovery() {
 	for {
-		zap.L().Debug("autoPortDiscovery: before findPorts")
 		d.findPorts()
-		zap.L().Debug("autoPortDiscovery: after findPorts")
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -82,7 +80,6 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 		for v := range vs {
 			if m == nil || !m[v] {
 				err := iptablesInstance.DeletePortFromPortSet(k, v)
-
 				if err != nil {
 					zap.L().Debug("autoPortDiscovery: Delete port set returned error", zap.Error(err))
 				}
@@ -129,7 +126,6 @@ func (d *Datapath) findPorts() {
 	lastRun = time.Now()
 
 	cgroupList := readFiles.getCgroupList()
-	zap.L().Debug("autoPortDiscovery: list of cgroups", zap.Strings("cgroupList", cgroupList))
 
 	newPUToPortsMap := map[string]map[string]bool{}
 	inodeMap, userMap, err := readFiles.readProcNetTCP()
@@ -152,8 +148,7 @@ func (d *Datapath) findPorts() {
 		}
 		p := pu.(*pucontext.PUContext)
 
-		// TODO: For some reason the AutoPort setting on the Docker Host Network PUs does not seem to be taking effect.
-		//       For now we are safe to just test here for the common.TriremeDockerHostNetwork prefix, as we are going to have AutoPort set on all of them
+		// we skip AutoPort discovery if it is not enabled
 		if !p.Autoport() {
 			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
