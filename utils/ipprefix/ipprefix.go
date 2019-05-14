@@ -6,25 +6,27 @@ import (
 	"sync"
 )
 
-// FuncOnKeys is the type of func which will operate on the value associated with the lpm ip.
-type FuncOnKeys func(val interface{}) bool
+// FuncOnLpmIP is the type of func which will operate on the value associated with the lpm ip.
+type FuncOnLpmIP func(val interface{}) bool
 
-// FuncOnVals is the type of the func which will operate on each value and will return a new value for each
-// associated value.
+// FuncOnVals is the type of the func which will operate on each value and will return a new value
+// for each associated value.
 type FuncOnVals func(val interface{}) interface{}
 
 //IPcache is an interface which provides functionality to store ip's and do longest prefix match
 type IPcache interface {
 	// Put takes an argument an ip address, mask and value.
 	Put(net.IP, int, interface{})
-	// Get takes an argument the IP address and mask and returns the value that is stored for that key.
+	// Get takes an argument the IP address and mask and returns the value that is stored for
+	// that key.
 	Get(net.IP, int) (interface{}, bool)
-	// RunFuncOnLpmIP function takes as an argument an IP address and a function. It finds the subnet to which this IP belongs with the longest prefix match.
-	// It then calls the function supplied by the user on the value stored and if it succeeds then it returns.
-	RunFuncOnLpmIP(net.IP, FuncOnKeys)
-	// RunFuncOnVals takes an argument a function which is called on all the values stored in the
-	// cache. This can be used to update the old values with the new values. If the new value is nil,
-	// it will delete the key.
+	// RunFuncOnLpmIP function takes as an argument an IP address and a function. It finds the
+	// subnet to which this IP belongs with the longest prefix match. It then calls the
+	// function supplied by the user on the value stored and if it succeeds then it returns.
+	RunFuncOnLpmIP(net.IP, FuncOnLpmIP)
+	// RunFuncOnVals takes an argument a function which is called on all the values stored in
+	// the cache. This can be used to update the old values with the new values. If the new
+	// value is nil, it will delete the key.
 	RunFuncOnVals(FuncOnVals)
 }
 
@@ -68,7 +70,6 @@ func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
 	m := cache.ipv4[mask]
 	if m != nil {
 		val, ok := m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(mask, 32))]
-
 		if ok {
 			return val, true
 		}
@@ -139,12 +140,10 @@ func (cache *ipcacheV6) Get(ip net.IP, mask int) (interface{}, bool) {
 	defer cache.RUnlock()
 
 	m := cache.ipv6[mask]
-
 	if m != nil {
 		var maskip [16]byte
 		copy(maskip[:], ip.Mask(net.CIDRMask(mask, 128)))
 		val, ok := m[maskip]
-
 		if ok {
 			return val, true
 		}
@@ -221,7 +220,7 @@ func (cache *ipcache) Get(ip net.IP, mask int) (interface{}, bool) {
 	return cache.ipv6.Get(ip.To16(), mask)
 }
 
-func (cache *ipcache) RunFuncOnLpmIP(ip net.IP, f FuncOnKeys) {
+func (cache *ipcache) RunFuncOnLpmIP(ip net.IP, f FuncOnLpmIP) {
 	if ip.To4() != nil {
 		cache.ipv4.RunFuncOnLpmIP(ip.To4(), f)
 		return
