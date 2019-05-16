@@ -31,31 +31,37 @@ type SocketWriter interface {
 
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
-	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+
+	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+
 	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 		syscall.Close(fd) // nolint
 		return nil, fmt.Errorf("Received error %s while setting socket Option SO_MARK", err)
 	}
-
-	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1); err != nil {
+	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 0); err != nil {
 		syscall.Close(fd) // nolint
 		return nil, fmt.Errorf("Received error %s while setting socket Option IP_HDRINCL", err)
 	}
+	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DONT); err != nil {
+		syscall.Close(fd) // nolint
+		return nil, fmt.Errorf("Received error %s while setting socket Option IP_PMTUDISC_DONT", err)
+	}
+
 	insock := &syscall.SockaddrInet4{
 		Port: 0,
 	}
-
 	return &rawsocket{
 		fd:     fd,
 		insock: insock,
 	}, nil
-
 }
 
 func (sock *rawsocket) WriteSocket(buf []byte) error {
 	//This is an IP frame dest address at byte[16]
 	copy(sock.insock.Addr[:], buf[16:20])
-	if err := syscall.Sendto(sock.fd, buf[:], 0, sock.insock); err != nil {
+
+	// skip the IP header
+	if err := syscall.Sendto(sock.fd, buf[20:], 0, sock.insock); err != nil {
 		return fmt.Errorf("received error %s while sending to socket", err)
 	}
 	return nil
