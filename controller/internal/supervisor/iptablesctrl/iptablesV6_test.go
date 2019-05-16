@@ -95,14 +95,14 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		Convey("When I configure the rules with no errors, it should succeed", func() {
 			i.iptv4.createPUPortSet = func(string) error { return nil }
 			i.iptv6.createPUPortSet = func(string) error { return nil }
-			err := i.iptv6.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I configure the rules and the port set fails, it should error ", func() {
 			i.iptv4.createPUPortSet = func(string) error { return fmt.Errorf("error") }
 			i.iptv6.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			err := i.iptv6.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -110,7 +110,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			ipsv6.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
-			err := i.iptv6.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -118,7 +118,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			iptv6.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
-			err := i.iptv6.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -566,7 +566,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					},
 				})
 
-				err = i.iptv6.ConfigureRules(0, "pu1", puInfo)
+				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv6.impl.RetrieveTable()
 
@@ -635,7 +635,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						CgroupMark: "10",
 					})
 
-					err := i.iptv6.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv6.impl.RetrieveTable()
@@ -956,7 +956,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
-				err := i.iptv6.ConfigureRules(0, "pu1", puInfo)
+				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv6.impl.RetrieveTable()
 

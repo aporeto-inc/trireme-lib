@@ -734,7 +734,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						CgroupMark: "10",
 					})
 
-					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()
