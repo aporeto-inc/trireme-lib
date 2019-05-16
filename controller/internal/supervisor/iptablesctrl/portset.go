@@ -27,19 +27,17 @@ func (i *iptables) createPortSet(contextID string, username string) error {
 	}
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
-
 	prefix := ""
-
 	if username != "" {
 		prefix = ipsetPrefix + uidPortSetPrefix
 	} else {
 		prefix = ipsetPrefix + processPortSetPrefix
 	}
-
 	portSetName := puPortSetName(contextID, prefix)
 
-	if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
-		return puseterr
+	_, err := i.ipset.NewIpset(portSetName, "", nil)
+	if err != nil {
+		return err
 	}
 
 	i.contextIDToPortSetMap.AddOrUpdate(contextID, portSetName)

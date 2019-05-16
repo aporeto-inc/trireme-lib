@@ -73,7 +73,6 @@ type iptables struct {
 	impl                  IPImpl
 	fqc                   *fqconfig.FilterQueue
 	mode                  constants.ModeType
-	createPUPortSet       func(string) error
 	isLegacyKernel        bool
 	conntrackCmd          func([]string)
 	ipset                 provider.IpsetProvider
@@ -147,7 +146,6 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		fqc:                   fqc,
 		mode:                  mode,
 		ipset:                 ips,
-		createPUPortSet:       ipsetCreatePortset,
 		isLegacyKernel:        buildflags.IsLegacyKernel(),
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,

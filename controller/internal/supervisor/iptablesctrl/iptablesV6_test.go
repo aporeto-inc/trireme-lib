@@ -93,17 +93,8 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			i.iptv4.createPUPortSet = func(string) error { return nil }
-			i.iptv6.createPUPortSet = func(string) error { return nil }
 			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
-		})
-
-		Convey("When I configure the rules and the port set fails, it should error ", func() {
-			i.iptv4.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			i.iptv6.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			err := i.ConfigureRules(1, "ID", containerinfo)
-			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When I configure the rules and the proxy set fails, it should error", func() {
@@ -454,15 +445,6 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
-				// Mock the exec commands
-				i.iptv4.createPUPortSet = func(setName string) error {
-					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-				i.iptv6.createPUPortSet = func(setName string) error {
-					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
 
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
@@ -880,16 +862,6 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
-				// Mock the exec commands
-				i.iptv4.createPUPortSet = func(setName string) error {
-					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-
-				i.iptv6.createPUPortSet = func(setName string) error {
-					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
 
 				appACLs := policy.IPRuleList{
 					policy.IPRule{

@@ -102,6 +102,11 @@ type memoryIPSetProvider struct {
 }
 
 func (m *memoryIPSetProvider) NewIpset(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+
+	if m.sets == nil {
+		return nil, fmt.Errorf("error")
+	}
+
 	_, ok := m.sets[name]
 	if ok {
 		return nil, fmt.Errorf("set exists")
@@ -168,6 +173,7 @@ func TestNewInstanceV4(t *testing.T) {
 
 func Test_NegativeConfigureRulesV4(t *testing.T) {
 	Convey("Given a valid instance", t, func() {
+
 		ipsv4 := provider.NewTestIpsetProvider()
 		ipsv6 := provider.NewTestIpsetProvider()
 		iptv4 := provider.NewTestIptablesProvider()
@@ -209,17 +215,8 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			i.iptv4.createPUPortSet = func(string) error { return nil }
-			i.iptv6.createPUPortSet = func(string) error { return nil }
 			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
-		})
-
-		Convey("When I configure the rules and the port set fails, it should error ", func() {
-			i.iptv4.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			i.iptv6.createPUPortSet = func(string) error { return fmt.Errorf("error") }
-			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
-			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When I configure the rules and the proxy set fails, it should error", func() {
@@ -564,16 +561,6 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
-				// Mock the exec commands
-				i.iptv4.createPUPortSet = func(setName string) error {
-					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-				i.iptv6.createPUPortSet = func(setName string) error {
-					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
 						Addresses: []string{"30.0.0.0/24"},
@@ -976,17 +963,6 @@ func Test_OperationWithContainersV4(t *testing.T) {
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
-				// Mock the exec commands
-				i.iptv4.createPUPortSet = func(setName string) error {
-					_, err := ipsv4.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-
-				i.iptv6.createPUPortSet = func(setName string) error {
-					_, err := ipsv6.NewIpset(setName, "bitmap:port", &ipset.Params{})
-					return err
-				}
-
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
 						Addresses: []string{"30.0.0.0/24"},

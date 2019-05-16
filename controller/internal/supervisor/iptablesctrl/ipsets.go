@@ -2,9 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
-	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -45,13 +43,14 @@ func (i *iptables) updateTargetNetworks(set provider.Ipset, old, new []string) e
 func (i *iptables) createProxySets(portSetName string) error {
 	destSetName, srvSetName := i.getSetNames(portSetName)
 
+	// create ipset for net,port match
 	_, err := i.ipset.NewIpset(destSetName, "hash:net,port", i.impl.GetIPSetParam())
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}
 
-	err = i.createPUPortSet(srvSetName)
-
+	// create ipset for port match
+	_, err = i.ipset.NewIpset(srvSetName, "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srvSetName, err)
 	}
@@ -116,23 +115,4 @@ func (i *iptables) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 //getSetNamePair returns a pair of strings represent proxySetNames
 func (i *iptables) getSetNames(portSetName string) (string, string) {
 	return portSetName + "-dst", portSetName + "-srv"
-}
-
-// Not using ipset from coreos library they don't support bitmap:port
-func ipsetCreatePortset(setname string) error {
-	//Bitmap type is not supported by the ipset library
-	path, _ := exec.LookPath("ipset")
-	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(out), "set with the same name already exists") {
-			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
-			// Clean up the existing set
-			if _, cerr := exec.Command(path, "-F", setname).CombinedOutput(); cerr != nil {
-				return fmt.Errorf("Failed to clean up existing ipset: %s", err)
-			}
-			return nil
-		}
-		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
-	}
-	return err
 }
