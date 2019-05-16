@@ -438,6 +438,6 @@ func processIOReader(fd io.Reader, contextID string) {
 		if err != nil {
 			return
 		}
-		fmt.Print("[" + contextID + "]:" + str)
+		fmt.Print(str)
 	}
 }
