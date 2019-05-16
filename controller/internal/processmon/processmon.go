@@ -193,7 +193,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 
-	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
+	if err = p.pollStdOutAndErr(cmd); err != nil {
 		return false, err
 	}
 
@@ -344,7 +344,6 @@ func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 // pollStdOutAndErr polls std out and err
 func (p *RemoteMonitor) pollStdOutAndErr(
 	cmd *exec.Cmd,
-	contextID string,
 ) (err error) {
 
 	stdout, err := cmd.StdoutPipe()
