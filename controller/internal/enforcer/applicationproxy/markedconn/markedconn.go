@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	"go.aporeto.io/trireme-lib/utils/netinterfaces"
 	"go.uber.org/zap"
 )
 
@@ -225,15 +226,18 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 func GetInterfaces() map[string]struct{} {
 	ipmap := map[string]struct{}{}
 
-	ifaces, _ := net.Interfaces()
-	for _, intf := range ifaces {
-		addrs, _ := intf.Addrs()
-		for _, addr := range addrs {
-			ip, _, _ := net.ParseCIDR(addr.String())
+	ifaces, err := netinterfaces.GetInterfacesInfo()
+	if err != nil {
+		zap.L().Debug("Unable to get interfaces info", zap.Error(err))
+	}
+
+	for _, iface := range ifaces {
+		for _, ip := range iface.IPs {
 			if ip.To4() != nil {
 				ipmap[ip.String()] = struct{}{}
 			}
 		}
 	}
+
 	return ipmap
 }
