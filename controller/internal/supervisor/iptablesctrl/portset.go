@@ -2,9 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
-	"strconv"
 
-	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.uber.org/zap"
 )
@@ -57,10 +55,7 @@ func (i *iptables) deletePortSet(contextID string) error {
 		return fmt.Errorf("Failed to find port set")
 	}
 
-	ips := ipset.IPSet{
-		Name: portSetName,
-	}
-
+	ips := i.ipset.GetIpset(portSetName)
 	if err := ips.Destroy(); err != nil {
 		return fmt.Errorf("Failed to delete pu port set "+portSetName, zap.Error(err))
 	}
@@ -74,19 +69,13 @@ func (i *iptables) deletePortSet(contextID string) error {
 
 // DeletePortFromPortSet deletes ports from port sets
 func (i *iptables) DeletePortFromPortSet(contextID string, port string) error {
+
 	portSetName := i.getPortSet(contextID)
 	if portSetName == "" {
 		return fmt.Errorf("unable to get portset for contextID %s", contextID)
 	}
 
-	ips := ipset.IPSet{
-		Name: portSetName,
-	}
-
-	if _, err := strconv.Atoi(port); err != nil {
-		return fmt.Errorf("invalid port: %s", err)
-	}
-
+	ips := i.ipset.GetIpset(portSetName)
 	if err := ips.Del(port); err != nil {
 		return fmt.Errorf("unable to delete port from portset: %s", err)
 	}
@@ -110,19 +99,12 @@ func (i *Instance) DeletePortFromPortSet(contextID string, port string) error {
 
 // AddPortToPortSet adds ports to the portsets
 func (i *iptables) AddPortToPortSet(contextID string, port string) error {
+
 	portSetName := i.getPortSet(contextID)
 	if portSetName == "" {
 		return fmt.Errorf("unable to get portset for contextID %s", contextID)
 	}
-
-	ips := ipset.IPSet{
-		Name: portSetName,
-	}
-
-	if _, err := strconv.Atoi(port); err != nil {
-		return fmt.Errorf("invalid port: %s", err)
-	}
-
+	ips := i.ipset.GetIpset(portSetName)
 	if err := ips.Add(port, 0); err != nil {
 		return fmt.Errorf("unable to add port to portset: %s", err)
 	}

@@ -215,7 +215,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
@@ -223,7 +223,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			ipsv4.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
-			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -231,7 +231,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			iptv4.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
-			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -239,7 +239,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			iptv4.MockCommit(t, func() error {
 				return fmt.Errorf("error")
 			})
-			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 	})
@@ -418,7 +418,7 @@ var (
 		"TRI" + "-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
-		"TRI-v4-ProcPort-pu19gtV":            {},
+		"TRI-v4-ProcPort-pu19gtV":            {"8080"},
 		"TRI-v4-ext-6zlJIpu19gtV":            {"30.0.0.0/24"},
 		"TRI-v4-ext-uNdc0pu19gtV":            {"30.0.0.0/24"},
 		"TRI-v4-ext-w5frVpu19gtV":            {"40.0.0.0/24"},
@@ -653,7 +653,9 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 				})
 
-				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
+				err = i.ConfigureRules(0, "pu1", puInfo)
+				So(err, ShouldBeNil)
+				err = i.AddPortToPortSet("pu1", "8080")
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
 
@@ -733,7 +735,8 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
 						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
 						So(err, ShouldBeNil)
-
+						err = i.DeletePortFromPortSet("pu1", "8080")
+						So(err, ShouldBeNil)
 						t := i.iptv4.impl.RetrieveTable()
 
 						So(t["mangle"], ShouldNotBeNil)
@@ -897,7 +900,7 @@ var (
 		"TRI-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI-v4-" + excludedNetworkSet:  {"127.0.0.1"},
-		"TRI-v4-ProcPort-pu19gtV":       {},
+		"TRI-v4-ProcPort-pu19gtV":       {"8080"},
 		"TRI-v4-ext-6zlJIpu19gtV":       {"30.0.0.0/24"},
 		"TRI-v4-ext-uNdc0pu19gtV":       {"30.0.0.0/24"},
 		"TRI-v4-ext-w5frVpu19gtV":       {"40.0.0.0/24"},
@@ -1028,7 +1031,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
-				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
+				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
 

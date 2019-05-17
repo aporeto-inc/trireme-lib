@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -62,9 +61,7 @@ func (i *iptables) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 
 	ipFilter := i.impl.IPFilter()
 	dstSetName, srvSetName := i.getSetNames(portSetName)
-	vipTargetSet := ipset.IPSet{
-		Name: dstSetName,
-	}
+	vipTargetSet := i.ipset.GetIpset(dstSetName)
 	if ferr := vipTargetSet.Flush(); ferr != nil {
 		zap.L().Warn("Unable to flush the vip proxy set")
 	}
@@ -84,9 +81,7 @@ func (i *iptables) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 		}
 	}
 
-	srvTargetSet := ipset.IPSet{
-		Name: srvSetName,
-	}
+	srvTargetSet := i.ipset.GetIpset(srvSetName)
 	if ferr := srvTargetSet.Flush(); ferr != nil {
 		zap.L().Warn("Unable to flush the pip proxy set")
 	}

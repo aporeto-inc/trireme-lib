@@ -502,16 +502,13 @@ func (i *iptables) configureLinuxRules(cfg *ACLInfo) error {
 }
 
 func (i *iptables) deleteProxySets(proxyPortSetName string) error { // nolint
+
 	dstPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
-	ips := ipset.IPSet{
-		Name: dstPortSetName,
-	}
+	ips := i.ipset.GetIpset(dstPortSetName)
 	if err := ips.Destroy(); err != nil {
 		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", dstPortSetName), zap.Error(err))
 	}
-	ips = ipset.IPSet{
-		Name: srvPortSetName,
-	}
+	ips = i.ipset.GetIpset(srvPortSetName)
 	if err := ips.Destroy(); err != nil {
 		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srvPortSetName), zap.Error(err))
 	}
@@ -644,10 +641,7 @@ func (i *iptables) removePUFromExternalNetworks(contextID string, serviceID stri
 	delete(info.contextIDs, contextID)
 
 	if len(info.contextIDs) == 0 {
-		ips := ipset.IPSet{
-			Name: info.ipset,
-		}
-
+		ips := i.ipset.GetIpset(info.ipset)
 		if err := ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to destroy ipset " + info.ipset)
 		}
