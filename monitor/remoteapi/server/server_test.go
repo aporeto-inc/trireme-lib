@@ -115,17 +115,6 @@ func TestValidateTypes(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 
-		Convey("If the event name has bad charaters, it should error.", func() {
-			event := &common.EventInfo{
-				EventType: common.EventStart,
-				PUType:    common.ContainerPU,
-				Name:      "^^^",
-			}
-
-			err := validateTypes(event)
-			So(err, ShouldNotBeNil)
-		})
-
 		Convey("If the cgroup has bad charaters, it should error.", func() {
 			event := &common.EventInfo{
 				EventType: common.EventStart,
@@ -335,7 +324,7 @@ func TestCreate(t *testing.T) {
 				Name:      "^^^^",
 				Cgroup:    "/trireme/123",
 				NS:        "/var/run/docker/netns/6f7287cc342b",
-				IPs:       map[string]string{"bridge": "172.17.0.1"},
+				IPs:       map[string]string{"bridge": "172.17.0.1", "ip": "thisisnotip"},
 			}
 
 			b := new(bytes.Buffer)
