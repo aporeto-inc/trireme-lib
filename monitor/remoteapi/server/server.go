@@ -188,10 +188,6 @@ func validateTypes(event *common.EventInfo) error {
 		return fmt.Errorf("invalid pu type %v", event.PUType)
 	}
 
-	if !regexStrings.Match([]byte(event.Name)) {
-		return fmt.Errorf("Name is not of the right format")
-	}
-
 	if len(event.Cgroup) > 0 && !regexCgroup.Match([]byte(event.Cgroup)) {
 		return fmt.Errorf("Invalid cgroup format: %s", event.Cgroup)
 	}
