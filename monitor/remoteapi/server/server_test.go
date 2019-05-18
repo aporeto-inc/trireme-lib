@@ -119,7 +119,7 @@ func TestValidateTypes(t *testing.T) {
 			event := &common.EventInfo{
 				EventType: common.EventStart,
 				PUType:    common.ContainerPU,
-				Name:      "coolguy@gmail.com",
+				Name:      "utf8-_!@#%&\" (*)+.,/$!:;<>=?{}~",
 			}
 
 			err := validateTypes(event)
