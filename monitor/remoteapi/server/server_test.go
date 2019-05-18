@@ -115,6 +115,17 @@ func TestValidateTypes(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 
+		Convey("If the event name has utf8 charaters, it should succeed.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "coolguy@gmail.com",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldBeNil)
+		})
+
 		Convey("If the cgroup has bad charaters, it should error.", func() {
 			event := &common.EventInfo{
 				EventType: common.EventStart,
