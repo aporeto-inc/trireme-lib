@@ -381,8 +381,17 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	}
 
 	// We now process packets that need authorization options
-
 	// Create TCP Option
+	if conn.GetState() == connection.TCPSynAckSend {
+		// We recevied a SYNACK retry means the ack got delayed.
+		// We are resending the synack packet which is going to reset the connection state on the client
+		// We will recalc nonces here to ensure that the ack lost/delayed in transit does not cause us to accept the connection
+		// This will force both ends to repeat the synack
+		newConn, err := connect.NewTCPConnection(context, tcpPacket)
+		d.netOrigConnectionTracker.LockedModify(tcpPacket.L4ReverseFlowHash(), newConn)
+		d.appReplyConnectionTracker.LockedModify(tcpPacket.L4FlowHash(), newConn)
+		conn = newConn
+	}
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	claimsHeader := claimsheader.NewClaimsHeader(
