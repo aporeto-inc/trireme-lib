@@ -387,9 +387,16 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		// We are resending the synack packet which is going to reset the connection state on the client
 		// We will recalc nonces here to ensure that the ack lost/delayed in transit does not cause us to accept the connection
 		// This will force both ends to repeat the synack
-		newConn, err := connect.NewTCPConnection(context, tcpPacket)
-		d.netOrigConnectionTracker.LockedModify(tcpPacket.L4ReverseFlowHash(), newConn)
-		d.appReplyConnectionTracker.LockedModify(tcpPacket.L4FlowHash(), newConn)
+		newConn := connection.NewTCPConnection(context, tcpPacket)
+		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), newConn)
+		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), newConn)
+		zap.L().Error("APPSYNACK retry",
+			zap.String("SourceIP", tcpPacket.SourceAddress().String()),
+			zap.String("DestinationIP", tcpPacket.DestinationAddress().String()),
+			zap.Int("SourcePort", int(tcpPacket.SourcePort())),
+			zap.Int("DestinationPort", int(tcpPacket.DestPort())),
+			zap.Int("Protocol", int(tcpPacket.IPProto())),
+		)
 		conn = newConn
 	}
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
