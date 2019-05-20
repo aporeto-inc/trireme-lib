@@ -93,13 +93,14 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	}
 
 	if processError != nil {
-		zap.L().Debug("Dropping packet on network path",
-			zap.Error(err),
+		zap.L().Error("Dropping packet on network path",
+			zap.Error(processError),
 			zap.String("SourceIP", netPacket.SourceAddress().String()),
 			zap.String("DestiatnionIP", netPacket.DestinationAddress().String()),
 			zap.Int("SourcePort", int(netPacket.SourcePort())),
 			zap.Int("DestinationPort", int(netPacket.DestPort())),
 			zap.Int("Protocol", int(netPacket.IPProto())),
+			zap.Int("mark", p.Mark),
 		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
@@ -180,7 +181,17 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else {
 		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
 	}
+
 	if processError != nil {
+		zap.L().Error("Dropping packet on application path",
+			zap.Error(processError),
+			zap.String("SourceIP", appPacket.SourceAddress().String()),
+			zap.String("DestiatnionIP", appPacket.DestinationAddress().String()),
+			zap.Int("SourcePort", int(appPacket.SourcePort())),
+			zap.Int("DestinationPort", int(appPacket.DestPort())),
+			zap.Int("Protocol", int(appPacket.IPProto())),
+			zap.Int("mark", p.Mark),
+		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
