@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/mdlayher/netlink"
 	"github.com/pkg/errors"
@@ -396,6 +397,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			zap.Int("SourcePort", int(tcpPacket.SourcePort())),
 			zap.Int("DestinationPort", int(tcpPacket.DestPort())),
 			zap.Int("Protocol", int(tcpPacket.IPProto())),
+			zap.Time("now", time.Now()),
 		)
 		conn = newConn
 	}
