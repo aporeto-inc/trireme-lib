@@ -21,6 +21,7 @@ var globalRules = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
+{{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 -m tcp --tcp-flags SYN,ACK ACK -m connmark --mark {{.DefaultConnmark}} -m comment --comment capture-ack-with-fastopen-option -j NFQUEUE --queue-balance {{.QueueBalanceNetAck }}
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
