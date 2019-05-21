@@ -2,6 +2,7 @@ package extractors
 
 import (
 	"fmt"
+	"strings"
 
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -60,8 +61,15 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 
 	podLabels := pod.GetLabels()
 	if podLabels == nil {
-		zap.L().Debug("couldn't get labels.")
-		return nil, false, nil
+		podLabels = make(map[string]string)
+	}
+	for key, value := range podLabels {
+		if len(strings.TrimSpace(key)) == 0 {
+			delete(podLabels, key)
+		}
+		if len(value) == 0 {
+			podLabels[key] = "<empty>"
+		}
 	}
 
 	tags := policy.NewTagStoreFromMap(podLabels)

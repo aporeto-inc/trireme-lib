@@ -163,6 +163,7 @@ func (m *KubernetesMonitor) decorateRuntime(puID string, runtimeInfo policy.Runt
 		extensions[constants.DockerHostPUID] = puID
 		options := puRuntime.Options()
 		options.PolicyExtensions = extensions
+		options.AutoPort = true
 
 		// set Options on docker runtime.
 		puRuntime.SetOptions(options)
