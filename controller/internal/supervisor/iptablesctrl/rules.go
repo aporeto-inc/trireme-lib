@@ -21,6 +21,7 @@ var globalRules = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
+{{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 -m tcp --tcp-flags SYN,ACK ACK -m connmark --mark {{.DefaultConnmark}} -m comment --comment capture-ack-with-fastopen-option -j NFQUEUE --queue-balance {{.QueueBalanceNetAck }}
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
@@ -65,6 +66,7 @@ var cgroupCaptureTemplate = `
 
 {{if isHostPU}}
 {{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.Mark}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.NetSection}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
 {{if isUDPPorts}}
@@ -134,7 +136,7 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
-{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
 
 {{if needDnsRules}}
@@ -147,7 +149,7 @@ var packetCaptureTemplate = `
 {{end}}
 {{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m state --state ESTABLISHED -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
-{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0  -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
 `
 
