@@ -27,6 +27,7 @@ var globalRules = `
 {{end}}
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
 {{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
+{{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 -m comment --comment capture-everything-with-aporeto-option -j NFQUEUE --queue-balance {{.QueueBalanceNetAck }}
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.TriremeInput}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.NetworkSvcInput}}
