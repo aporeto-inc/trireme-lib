@@ -115,7 +115,7 @@ func TestValidateTypes(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 
-		Convey("If the event name has utf8 charaters, it should succeed.", func() {
+		Convey("If the event name has utf8 charaters and it is NOT UIDPAM PU, it should succeed.", func() {
 			event := &common.EventInfo{
 				EventType: common.EventStart,
 				PUType:    common.ContainerPU,
@@ -124,6 +124,17 @@ func TestValidateTypes(t *testing.T) {
 
 			err := validateTypes(event)
 			So(err, ShouldBeNil)
+		})
+
+		Convey("If the event name has utf8 charaters and it is UIDPAM PU, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.UIDLoginPU,
+				Name:      "utf8-_!@#%&\" (*)+.,/$!:;<>=?{}~",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
 		})
 
 		Convey("If the cgroup has bad charaters, it should error.", func() {
