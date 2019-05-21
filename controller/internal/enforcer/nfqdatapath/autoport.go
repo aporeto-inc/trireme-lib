@@ -150,7 +150,6 @@ func (d *Datapath) findPorts() {
 
 		// we skip AutoPort discovery if it is not enabled
 		if !p.Autoport() {
-			zap.L().Debug("autoPortDiscovery: PU has no AutoPort enabled", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.String("id", p.ID()))
 			continue
 		}
 
