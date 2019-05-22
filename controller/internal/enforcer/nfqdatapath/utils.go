@@ -27,7 +27,7 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil && mode == collector.PolicyDrop {
+	if conn != nil && mode == collector.PolicyDropClient {
 		conn.SetReported(connection.RejectReported)
 	}
 
@@ -57,7 +57,7 @@ func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPC
 }
 
 func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil && mode == collector.PolicyDrop {
+	if conn != nil && mode == collector.PolicyDropClient {
 		conn.SetReported(connection.RejectReported)
 	}
 
@@ -93,7 +93,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 
 	dropReason := ""
 	if report.Action.Rejected() || actual.Action.Rejected() {
-		dropReason = collector.PolicyDrop
+		dropReason = collector.PolicyDropACL
 	}
 
 	record := &collector.FlowRecord{

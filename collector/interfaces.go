@@ -31,8 +31,16 @@ const (
 	InvalidState = "state"
 	// InvalidNonse indicates that the nonse check failed
 	InvalidNonse = "nonse"
-	// PolicyDrop indicates that the flow is rejected because of the policy decision
+	// PolicyDropServer indicates that the flow is rejected because of the policy decision
 	PolicyDrop = "policy"
+	// PolicyDropServer indicates that the flow is rejected because of the policy decision
+	PolicyDropServer = "serverpolicy"
+	// PolicyDropClient indicates that the flow is rejected because of the policy decision
+	PolicyDropClient = "clientpolicy"
+	// PolicyDropAck indicates that the flow is rejected because of the policy decision
+	PolicyDropAck = "ackpolicy"
+	// PolicyDropACL indicates that the flow is rejected because of the policy decision
+	PolicyDropACL = "ACLpolicy"
 	// APIPolicyDrop indicates that the request was dropped because of failed API validation.
 	APIPolicyDrop = "api"
 	// UnableToDial indicates that the proxy cannot dial out the connection
