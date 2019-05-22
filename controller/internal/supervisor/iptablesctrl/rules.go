@@ -136,7 +136,7 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG  --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -p tcp -j DROP
-{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
 
 {{if needDnsRules}}
@@ -151,7 +151,7 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -p tcp -j DROP
-{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
 `
 
