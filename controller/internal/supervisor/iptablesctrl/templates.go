@@ -156,7 +156,7 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	appSection := ""
 	netSection := ""
 	switch puType {
-	case common.LinuxProcessPU:
+	case common.LinuxProcessPU, common.SSHSessionPU:
 		appSection = TriremeOutput
 		netSection = TriremeInput
 	case common.HostNetworkPU:
