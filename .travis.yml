@@ -5,7 +5,7 @@ dist: trusty
 go_import_path: go.aporeto.io/trireme-lib
 
 go:
- - 1.11.4
+ - 1.12.x
 
 addons:
    apt:
@@ -27,7 +27,7 @@ before_install:
 
 install:
   - dep ensure
-  - dep status
+  - dep status || true
 
 script:
   - ./.test.sh
