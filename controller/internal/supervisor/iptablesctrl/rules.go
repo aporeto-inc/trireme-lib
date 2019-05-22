@@ -135,6 +135,8 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0  -p tcp --tcp-flags RST, RST -j LOG --log-prefix RST-APP
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0  -p tcp --tcp-flags FIN, FIN -j LOG --log-prefix FIN-APP
 {{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
 
 {{if needDnsRules}}
@@ -148,6 +150,8 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m state --state ESTABLISHED -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0  -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0  -p tcp --tcp-flags RST, RST -j LOG --log-prefix RST-NET
+{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0  -p tcp --tcp-flags FIN, FIN -j LOG --log-prefix FIN-NET
 {{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
 `
 

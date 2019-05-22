@@ -66,7 +66,17 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 	}
 
 	zap.L().Debug("Trireme configuration", zap.String("configuration", fmt.Sprintf("%+v", c)))
+	// Set this up --- TEMP Remove later
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		return fmt.Errorf("sysctl command not found")
+	}
 
+	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("remote container iptables tracing will not work %s", err)
+	}
+	// Set this up --- TEMP Remove later
 	return newTrireme(c)
 }
 
