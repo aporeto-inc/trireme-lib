@@ -180,53 +180,14 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		// we will create the PU already, but not start it
-		zap.L().Debug("PodPending", zap.String("puID", puID))
-
-		// now try to do the metadata extraction
-		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
-		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, false)
-		if err != nil {
-			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
-		}
-		if puRuntime == nil {
-			puRuntime = policy.NewPURuntimeWithDefaults()
-		}
-
-		// now create/update the PU
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventUpdate,
-			puRuntime,
-		); err != nil {
-			if policy.IsErrPUNotFound(err) {
-				// create the PU if it does not exist yet
-				if err := r.handler.Policy.HandlePUEvent(
-					handlePUCtx,
-					puID,
-					common.EventCreate,
-					puRuntime,
-				); err != nil {
-					zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{}, nil
-			}
-			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{}, nil
-
+		fallthrough
 	case corev1.PodRunning:
+		// we will create the PU already, but not start it
+		zap.L().Debug("PodPending/PodRunning", zap.String("puID", puID))
+
 		// try to find out if any of the containers have been started yet
-		//
-		// NOTE: the spec says for PodRunning that at least one container has been starting,
-		// The reality shows us though that we need to check the container states as well:
-		// the containers might still be starting up, and are not necessarily in the running state
-		// Only containers in the running state can guarantee to us that we are going to have access
-		// to the namespace with our remote enforcer.
+		// NOTE: This is important because InitContainers are started during the PodPending phase which is
+		//       what we need to rely on for activation as early as possible
 		var started bool
 		for _, status := range pod.Status.InitContainerStatuses {
 			if status.State.Running != nil {
@@ -242,18 +203,52 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				}
 			}
 		}
-		zap.L().Debug("PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
-		if started {
-			// now do the metadata extraction
-			extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
-			defer extractCancel()
-			puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, true)
-			if err != nil {
+		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
+
+		// now try to do the metadata extraction
+		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
+		defer extractCancel()
+		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
+		if err != nil {
+			// we need to fail hard if containers have been started already, otherwise it is a mere warning
+			if started {
 				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract metadata: %s", puID, err.Error())
 				return reconcile.Result{}, err
 			}
+			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+		}
+		if puRuntime == nil {
+			puRuntime = policy.NewPURuntimeWithDefaults()
+		}
 
+		// now create/update the PU
+		if !started {
+			if err := r.handler.Policy.HandlePUEvent(
+				handlePUCtx,
+				puID,
+				common.EventUpdate,
+				puRuntime,
+			); err != nil {
+				if policy.IsErrPUNotFound(err) {
+					// create the PU if it does not exist yet
+					if err := r.handler.Policy.HandlePUEvent(
+						handlePUCtx,
+						puID,
+						common.EventCreate,
+						puRuntime,
+					); err != nil {
+						zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+						return reconcile.Result{}, err
+					}
+					return reconcile.Result{}, nil
+				}
+				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+				return reconcile.Result{}, err
+			}
+		}
+
+		if started {
 			// if the metadata extractor is missing the PID or nspath, we need to try again
 			// we need it for starting the PU. However, only require this if we are not in host network mode.
 			// NOTE: this can happen for example if the containers are not in a running state on their own

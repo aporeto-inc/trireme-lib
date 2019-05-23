@@ -285,6 +285,7 @@ func TestController(t *testing.T) {
 		})
 
 		Convey("a pod which is in running state should silently return if no containers have been started yet", func() {
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/runningNotStarted", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "runningNotStarted", Namespace: "default"}})
 			So(err, ShouldBeNil)
 		})
