@@ -83,9 +83,9 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 			return nil, fmt.Errorf("Received error %s while setting socket Option IP_HDRINCL", err)
 		}
 
-		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DONT); err != nil {
+		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER, syscall.IPV6_PMTUDISC_DONT); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option IP_PMTUDISC_DONT", err)
+			return nil, fmt.Errorf("Received error %s while setting socket Option IP_PMTUDISC_DONT ipv6", err)
 		}
 
 		return &socketv6{
