@@ -125,14 +125,22 @@ func TestRunValIPv4(t *testing.T) {
 	testRunVal := func(val interface{}) interface{} {
 		if val != nil {
 			s := val.(string)
-			delete(m, s)
+			if s == mask32 {
+				delete(m, s)
+				return nil
+			}
 		}
 
 		return val
 	}
 
 	ipcache.RunFuncOnVals(testRunVal)
-	assert.Equal(t, len(m), 0, "map should be of length 0")
+	assert.Equal(t, len(m), 1, "map should be of length 0")
+	_, ok := ipcache.Get(ip, 32)
+	assert.Equal(t, ok, false, "Get should return nil")
+	_, ok = ipcache.Get(ip, 24)
+	assert.Equal(t, ok, true, "Get should return true")
+
 }
 
 func TestRunValIPv6(t *testing.T) {
@@ -150,12 +158,19 @@ func TestRunValIPv6(t *testing.T) {
 	testRunVal := func(val interface{}) interface{} {
 		if val != nil {
 			s := val.(string)
-			delete(m, s)
+			if s == mask128 {
+				delete(m, s)
+				return nil
+			}
 		}
 
 		return val
 	}
 
 	ipcache.RunFuncOnVals(testRunVal)
-	assert.Equal(t, len(m), 0, "map should be of length 0")
+	assert.Equal(t, len(m), 1, "map should be of length 0")
+	_, ok := ipcache.Get(ip, 128)
+	assert.Equal(t, ok, false, "Get should return nil")
+	_, ok = ipcache.Get(ip, 24)
+	assert.Equal(t, ok, true, "Get shoudl return true")
 }
