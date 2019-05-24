@@ -1,8 +1,6 @@
 package cgnetcls
 
 const (
-	// TriremeBasePath is the base path for the trireme local state in the file system
-	TriremeBasePath = "trireme"
 	// CgroupNameTag  identifies the cgroup name
 	CgroupNameTag = "@cgroup_name"
 	// CgroupMarkTag identifies the cgroup mark value
