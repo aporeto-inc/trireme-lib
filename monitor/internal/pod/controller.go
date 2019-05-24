@@ -54,6 +54,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 
 		// TODO: might move into configuration
 		handlePUEventTimeout:   5 * time.Second,
+		getterTimeout:          2 * time.Second,
 		metadataExtractTimeout: 3 * time.Second,
 		netclsProgramTimeout:   2 * time.Second,
 	}
@@ -108,6 +109,7 @@ type ReconcilePod struct {
 	nodeName          string
 	enableHostPods    bool
 
+	getterTimeout          time.Duration
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
 	netclsProgramTimeout   time.Duration
@@ -205,15 +207,28 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
 
+		getterCtx, getterCancel := context.WithTimeout(ctx, r.getterTimeout)
+		defer getterCancel()
+		existingPuRuntime, err := r.handler.Getter.GetRuntime(getterCtx, puID)
+		if err != nil {
+			if policy.IsErrPUNotFound(err) {
+				zap.L().Debug("PU does not exist yet", zap.String("puID", puID), zap.Error(err))
+			} else {
+				zap.L().Error("failed to get PU runtime", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUGetRuntime", "failed to get PU '%s': %s", puID, err.Error())
+				return reconcile.Result{}, err
+			}
+		}
+
 		// now try to do the metadata extraction
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
+		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, existingPuRuntime, started)
 		if err != nil {
 			// we need to fail hard if containers have been started already, otherwise it is a mere warning
 			if started {
 				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract metadata: %s", puID, err.Error())
+				r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
 				return reconcile.Result{}, err
 			}
 			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
@@ -223,28 +238,51 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 
 		// now create/update the PU
-		if !started {
+		if existingPuRuntime == nil {
+			// create the PU if it does not exist yet
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
-				common.EventUpdate,
+				common.EventCreate,
 				puRuntime,
 			); err != nil {
-				if policy.IsErrPUNotFound(err) {
-					// create the PU if it does not exist yet
-					if err := r.handler.Policy.HandlePUEvent(
-						handlePUCtx,
-						puID,
-						common.EventCreate,
-						puRuntime,
-					); err != nil {
-						zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-						return reconcile.Result{}, err
-					}
-					return reconcile.Result{}, nil
-				}
-				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUCreate", "failed to handle create event for PU '%s': %s", puID, err.Error())
 				return reconcile.Result{}, err
+			}
+			r.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' created successfully", puID)
+		} else {
+			// update is a heavy operation, only do this if our tags different
+			// this is "heavy" as well because our TagStore implementation is not efficient
+			// but it is better than updating for nothing
+			var needsUpdate bool
+			for _, newTag := range puRuntime.Tags().GetSlice() {
+				var foundTag bool
+				for _, oldTag := range existingPuRuntime.Tags().GetSlice() {
+					if newTag == oldTag {
+						foundTag = true
+						break
+					}
+				}
+				if !foundTag {
+					needsUpdate = true
+					break
+				}
+			}
+
+			if needsUpdate {
+				// update it - metadata might have changed
+				if err := r.handler.Policy.HandlePUEvent(
+					handlePUCtx,
+					puID,
+					common.EventUpdate,
+					puRuntime,
+				); err != nil {
+					zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+					r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+					return reconcile.Result{}, err
+				}
+				r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
 			}
 		}
 
@@ -271,7 +309,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				} else {
 					zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
 					r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
-					return reconcile.Result{Requeue: true, RequeueAfter: 100 * time.Millisecond}, ErrHandlePUStartEventFailed
+					return reconcile.Result{}, ErrHandlePUStartEventFailed
 				}
 			} else {
 				r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
