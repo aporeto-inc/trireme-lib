@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.uber.org/zap"
 )
 
 // IpsetProvider returns a fabric for Ipset.
 type IpsetProvider interface {
-	NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error)
+	NewIpset(name string, ipsetType string, p *ipset.Params) (Ipset, error)
 	GetIpset(name string) Ipset
 	DestroyAll(prefix string) error
 	ListIPSets() ([]string, error)
@@ -29,10 +30,37 @@ type Ipset interface {
 
 type goIpsetProvider struct{}
 
+func ipsetCreateBitmapPort(setname string) error {
+	//Bitmap type is not supported by the ipset library
+	path, _ := exec.LookPath("ipset")
+	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "set with the same name already exists") {
+			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
+			// Clean up the existing set
+			if _, cerr := exec.Command(path, "-F", setname).CombinedOutput(); cerr != nil {
+				return fmt.Errorf("Failed to clean up existing ipset: %s", err)
+			}
+			return nil
+		}
+		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
+	}
+	return err
+}
+
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
-func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
-	return ipset.New(name, hasht, p)
+func (i *goIpsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params) (Ipset, error) {
+	// Check if hashtype is a type of hash
+	if strings.HasPrefix(ipsetType, "hash:") {
+		return ipset.New(name, ipsetType, p)
+	}
+
+	if err := ipsetCreateBitmapPort(name); err != nil {
+		return nil, err
+	}
+
+	return &ipset.IPSet{Name: name}, nil
 }
 
 // GetIpset gets the ipset object from the name.

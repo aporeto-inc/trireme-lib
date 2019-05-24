@@ -19,6 +19,8 @@ type IptablesProvider interface {
 	BaseIPTables
 	// Commit will commit changes if it is a batch provider.
 	Commit() error
+	// RetrieveTable allows a caller to retrieve the final table.
+	RetrieveTable() map[string]map[string][]string
 }
 
 // BaseIPTables is the base interface of iptables functions.
@@ -50,15 +52,17 @@ type BatchProvider struct {
 	// Allowing for custom commit functions for testing
 	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
+	restoreCmd string
 }
 
 const (
-	restoreCmd = "iptables-restore"
+	restoreCmdV4 = "iptables-restore"
+	restoreCmdV6 = "ip6tables-restore"
 )
 
-// NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
+// NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	ipt, err := iptables.New()
 	if err != nil {
 		return nil, err
@@ -68,7 +72,7 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 	// We will only support the batch method if there is iptables-restore and iptables
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
-	if restoreHasWait() {
+	if restoreHasWait(restoreCmdV4) {
 		for _, t := range batchTables {
 			batchTablesMap[t] = true
 		}
@@ -78,6 +82,37 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
+		restoreCmd:  restoreCmdV4,
+	}
+
+	b.commitFunc = b.restore
+
+	return b, nil
+}
+
+// NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
+// external package.
+func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
+	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+	if err != nil {
+		return nil, err
+	}
+
+	batchTablesMap := map[string]bool{}
+	// We will only support the batch method if there is iptables-restore and iptables
+	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
+	// This will allow us to support older kernel versions.
+	if restoreHasWait(restoreCmdV6) {
+		for _, t := range batchTables {
+			batchTablesMap[t] = true
+		}
+	}
+
+	b := &BatchProvider{
+		ipt:         ipt,
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+		restoreCmd:  restoreCmdV6,
 	}
 
 	b.commitFunc = b.restore
@@ -123,9 +158,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	}
 
 	rule := strings.Join(rulespec, " ")
-
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
-
 	return nil
 }
 
@@ -181,7 +214,6 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 	}
 
 	rule := strings.Join(rulespec, " ")
-
 	for index, r := range b.rules[table][chain] {
 		if rule == r {
 			switch index {
@@ -227,8 +259,8 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 	if _, ok := b.rules[table][chain]; !ok {
 		return nil
 	}
-	b.rules[table][chain] = []string{}
 
+	b.rules[table][chain] = []string{}
 	return nil
 }
 
@@ -245,8 +277,8 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 	if _, ok := b.rules[table]; !ok {
 		return nil
 	}
-	delete(b.rules[table], chain)
 
+	delete(b.rules[table], chain)
 	return nil
 }
 
@@ -262,8 +294,8 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 	if _, ok := b.rules[table]; !ok {
 		b.rules[table] = map[string][]string{}
 	}
-	b.rules[table][chain] = []string{}
 
+	b.rules[table][chain] = []string{}
 	return nil
 }
 
@@ -325,7 +357,7 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 // restore will save the current DB to iptables.
 func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 
-	cmd := exec.Command(restoreCmd, "--wait")
+	cmd := exec.Command(b.restoreCmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -339,7 +371,7 @@ func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 	return nil
 }
 
-func restoreHasWait() bool {
+func restoreHasWait(restoreCmd string) bool {
 	cmd := exec.Command(restoreCmd, "--version")
 	cmd.Stdin = bytes.NewReader([]byte{})
 	bytes, err := cmd.CombinedOutput()
