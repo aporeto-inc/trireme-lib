@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/kardianos/osext"
+	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
 )
 
@@ -248,12 +249,13 @@ func mountCgroupController() error {
 }
 
 // CgroupMemberCount -- Returns the cound of the number of processes in a cgroup
+// TODO: looks like dead code
 func CgroupMemberCount(cgroupName string) int {
-	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupName))
+	_, err := os.Stat(filepath.Join(basePath, cgroupName))
 	if os.IsNotExist(err) {
 		return 0
 	}
-	data, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, "cgroup.procs"))
+	data, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, "cgroup.procs"))
 	if err != nil {
 		return 0
 	}
@@ -266,7 +268,7 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: "",
-		TriremePath:      "",
+		TriremePath:      common.TriremeDockerHostNetwork,
 	}
 
 	return controller

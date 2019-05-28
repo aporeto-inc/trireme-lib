@@ -358,7 +358,9 @@ var (
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -372,7 +374,9 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -471,7 +475,9 @@ var (
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -482,7 +488,9 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -712,7 +720,6 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					t := ipt.RetrieveTable()
-					printTable(t)
 					for chain, rules := range t["mangle"] {
 						So(expectedMangleAfterPUUpdate, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedMangleAfterPUUpdate[chain])
@@ -732,7 +739,6 @@ func Test_OperationWithLinuxServices(t *testing.T) {
 							So(rules, ShouldResemble, expectedGlobalMangleChains[chain])
 						}
 
-						printTable(t)
 						for chain, rules := range t["nat"] {
 							if len(rules) > 0 {
 								So(expectedGlobalNATChains, ShouldContainKey, chain)
@@ -847,7 +853,9 @@ var (
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -860,7 +868,9 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -p tcp --tcp-flags RST,FIN,ACK ACK -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -p tcp -j DROP",
+			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -1024,7 +1034,6 @@ func Test_OperationWithContainers(t *testing.T) {
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := ipt.RetrieveTable()
-				printTable(t)
 
 				for chain, rules := range t["mangle"] {
 					So(expectedContainerMangleAfterPUInsert, ShouldContainKey, chain)
@@ -1048,10 +1057,13 @@ func Test_OperationWithContainers(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					t := ipt.RetrieveTable()
+					if err != nil {
+						printTable(t)
+					}
 
 					So(t["mangle"], ShouldNotBeNil)
 					So(t["nat"], ShouldNotBeNil)
-					printTable(t)
+
 					for chain, rules := range t["mangle"] {
 						So(expectedContainerGlobalMangleChains, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalMangleChains[chain])
