@@ -356,9 +356,9 @@ var (
 			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -372,7 +372,7 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -469,9 +469,9 @@ var (
 			"-p TCP -m set --match-set TRI-ext-w5frVvhspu19gtV src -m state --state NEW -m set ! --match-set TRI-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -482,7 +482,7 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
@@ -843,9 +843,9 @@ var (
 			"-p UDP -m set --match-set TRI-ext-IuSLsD1Rpu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-s 0.0.0.0/0 -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
@@ -858,7 +858,7 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d 0.0.0.0/0 -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}
