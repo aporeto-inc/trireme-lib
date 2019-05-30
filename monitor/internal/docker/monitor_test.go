@@ -670,3 +670,10 @@ func Test_initTestDockerInfo(t *testing.T) {
 		})
 	}
 }
+
+func testSetupDockerDaemon(t *testing.T) {
+	d := New()
+	Convey("If docker daemon is not running", t, func() {
+
+	})
+}
