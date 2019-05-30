@@ -46,18 +46,12 @@ func GetCgroupList() []string {
 // ListCgroupProcesses lists the cgroups that trireme has created
 // TODO: only used in autoport detection, and a bad usage as well
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
-
-	cgroupBasePath, err := getCgroupBasePath()
-	if err != nil {
-		return nil, err
-	}
-	_, err = os.Stat(filepath.Join(cgroupBasePath, TriremeBasePath, cgroupname))
-
+	_, err := os.Stat(filepath.Join(basePath, cgroupname))
 	if os.IsNotExist(err) {
 		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(cgroupBasePath, TriremeBasePath, cgroupname, "cgroup.procs"))
+	data, err := ioutil.ReadFile(filepath.Join(basePath, cgroupname, "cgroup.procs"))
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot read procs file: %s", err)
 	}
@@ -71,17 +65,18 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	return procs, nil
+
 }
 
 // GetAssignedMarkVal -- returns the mark val assigned to the group
 // TODO: looks like dead code
 func GetAssignedMarkVal(cgroupName string) string {
-
-	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
+	mark, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, markFile))
 
 	if err != nil || len(mark) < 1 {
 		zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
 		return ""
 	}
 	return string(mark[:len(mark)-1])
+
 }
