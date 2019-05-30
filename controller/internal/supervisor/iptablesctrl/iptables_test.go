@@ -483,6 +483,7 @@ var (
 			"-p udp -m set --match-set TRI-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix pu1:default:default6",
+
 			"-d 0.0.0.0/0 -j DROP",
 		},
 	}

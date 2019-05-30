@@ -92,6 +92,7 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validateTypes(event); err != nil {
+		zap.L().Error("Error in validating types", zap.Error(err), zap.Reflect("Event", event))
 		http.Error(w, fmt.Sprintf("Invalid request fields: %s", err), http.StatusBadRequest)
 		return
 	}
@@ -187,8 +188,10 @@ func validateTypes(event *common.EventInfo) error {
 		return fmt.Errorf("invalid pu type %v", event.PUType)
 	}
 
-	if !regexStrings.Match([]byte(event.Name)) {
-		return fmt.Errorf("Name is not of the right format")
+	if event.PUType == common.UIDLoginPU {
+		if !regexStrings.Match([]byte(event.Name)) {
+			return fmt.Errorf("Name is not of the right format")
+		}
 	}
 
 	if len(event.Cgroup) > 0 && !regexCgroup.Match([]byte(event.Cgroup)) {

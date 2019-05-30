@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
 )
 
@@ -23,29 +24,35 @@ var (
 )
 
 // GetCgroupList geta list of all cgroup names
+// TODO: only used in autoport detection, and a bad usage as well
 func GetCgroupList() []string {
 	var cgroupList []string
-	cgroupBasePath, _ := getCgroupBasePath()
 
-	filelist, err := ioutil.ReadDir(filepath.Join(cgroupBasePath, TriremeBasePath))
-	if err != nil {
-		return cgroupList
-	}
-	for _, file := range filelist {
-		if file.IsDir() {
-			cgroupList = append(cgroupList, file.Name())
+	// iterate over our different base paths from the different cgroup base paths
+	for _, baseCgroupPath := range []string{common.TriremeCgroupPath, common.TriremeUIDCgroupPath, common.TriremeDockerHostNetwork} {
+		filelist, err := ioutil.ReadDir(filepath.Join(basePath, baseCgroupPath))
+		if err == nil {
+			for _, file := range filelist {
+				if file.IsDir() {
+					cgroupList = append(cgroupList, filepath.Join(baseCgroupPath, file.Name()))
+				}
+			}
+
 		}
 	}
 	return cgroupList
 }
 
 // ListCgroupProcesses lists the cgroups that trireme has created
+// TODO: only used in autoport detection, and a bad usage as well
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
+
 	cgroupBasePath, err := getCgroupBasePath()
 	if err != nil {
 		return nil, err
 	}
 	_, err = os.Stat(filepath.Join(cgroupBasePath, TriremeBasePath, cgroupname))
+
 	if os.IsNotExist(err) {
 		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
 	}
@@ -67,6 +74,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 }
 
 // GetAssignedMarkVal -- returns the mark val assigned to the group
+// TODO: looks like dead code
 func GetAssignedMarkVal(cgroupName string) string {
 
 	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))

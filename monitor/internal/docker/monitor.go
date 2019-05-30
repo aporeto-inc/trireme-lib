@@ -682,6 +682,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 		CgroupName:        strconv.Itoa(dockerInfo.State.Pid),
 		CgroupMark:        strconv.FormatUint(cgnetcls.MarkVal(), 10),
 		ConvertedDockerPU: true,
+		AutoPort:          true,
 	}
 
 	for p := range dockerInfo.Config.ExposedPorts {

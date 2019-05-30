@@ -32,6 +32,9 @@ const (
 	// TriremeUIDCgroupPath is the standard path for UID based activations
 	TriremeUIDCgroupPath = "/trireme_uid/"
 
+	// TriremeDockerHostNetwork is the path for Docker HostNetwork container based activations
+	TriremeDockerHostNetwork = "/trireme_docker_hostnet/"
+
 	// TriremeSocket is the standard API server Trireme socket path
 	TriremeSocket = "/var/run/aporetosock/trireme.sock"
 )
