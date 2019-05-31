@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	types "github.com/docker/docker/api/types"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
@@ -679,7 +680,7 @@ func TestWaitForDockerDaemon(t *testing.T) {
 	Convey("If docker daemon is not running and setup docker daemon returns an error", t, func() {
 
 		dmi, _ := setupDockerMonitor(ctrl)
-		dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().Ping(gomock.Any()).Return(errors.New("Ping Error"))
+		dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().Ping(gomock.Any()).Return(types.Ping{}, errors.New("Ping Error"))
 		// 30*time.Second is greater then dockerInitializationwait
 		waitforDockerInitializationTimeout := dockerInitializationWait + 5*time.Second
 		expiryTime := time.Now().Add(waitforDockerInitializationTimeout)
