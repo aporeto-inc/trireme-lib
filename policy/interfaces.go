@@ -56,11 +56,3 @@ type Resolver interface {
 	// is responsible to update all components by explicitly adding a new PU.
 	HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime RuntimeReader) error
 }
-
-// Getter can be implemented by a policy engine to return runtimes to monitors
-type Getter interface {
-	// GetRuntime is called by monitors to return an existing runtime. This runtime can be used
-	// subsequently in calls to HandlePUEvent(). If the runtime does not exist yet, the implementer
-	// is supposed to return PUNotFound as the error.
-	GetRuntime(ctx context.Context, puID string) (RuntimeReader, error)
-}

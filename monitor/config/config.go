@@ -46,7 +46,6 @@ func (c *MonitorConfig) String() string {
 type ProcessorConfig struct {
 	Collector collector.EventCollector
 	Policy    policy.Resolver
-	Getter    policy.Getter
 	MergeTags []string
 }
 

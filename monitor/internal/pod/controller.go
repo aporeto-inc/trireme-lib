@@ -207,83 +207,45 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
 
-		getterCtx, getterCancel := context.WithTimeout(ctx, r.getterTimeout)
-		defer getterCancel()
-		existingPuRuntime, err := r.handler.Getter.GetRuntime(getterCtx, puID)
-		if err != nil {
-			if policy.IsErrPUNotFound(err) {
-				zap.L().Debug("PU does not exist yet", zap.String("puID", puID), zap.Error(err))
-			} else {
-				zap.L().Error("failed to get PU runtime", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUGetRuntime", "failed to get PU '%s': %s", puID, err.Error())
-				return reconcile.Result{}, err
-			}
-		}
-
 		// now try to do the metadata extraction
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, existingPuRuntime, started)
+		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
 		if err != nil {
-			// we need to fail hard if containers have been started already, otherwise it is a mere warning
-			if started {
-				zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
-				return reconcile.Result{}, err
-			}
-			zap.L().Warn("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
-		}
-		if puRuntime == nil {
-			puRuntime = policy.NewPURuntimeWithDefaults()
+			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+			r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
+			return reconcile.Result{}, err
 		}
 
 		// now create/update the PU
-		if existingPuRuntime == nil {
-			// create the PU if it does not exist yet
-			if err := r.handler.Policy.HandlePUEvent(
-				handlePUCtx,
-				puID,
-				common.EventCreate,
-				puRuntime,
-			); err != nil {
-				zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
-				r.recorder.Eventf(pod, "Warning", "PUCreate", "failed to handle create event for PU '%s': %s", puID, err.Error())
-				return reconcile.Result{}, err
-			}
-			r.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' created successfully", puID)
-		} else {
-			// update is a heavy operation, only do this if our tags different
-			// this is "heavy" as well because our TagStore implementation is not efficient
-			// but it is better than updating for nothing
-			var needsUpdate bool
-			for _, newTag := range puRuntime.Tags().GetSlice() {
-				var foundTag bool
-				for _, oldTag := range existingPuRuntime.Tags().GetSlice() {
-					if newTag == oldTag {
-						foundTag = true
-						break
-					}
-				}
-				if !foundTag {
-					needsUpdate = true
-					break
-				}
-			}
-
-			if needsUpdate {
-				// update it - metadata might have changed
+		// try to update the PU first
+		if err := r.handler.Policy.HandlePUEvent(
+			handlePUCtx,
+			puID,
+			common.EventUpdate,
+			puRuntime,
+		); err != nil {
+			// if it does not exist, we create it
+			if policy.IsErrPUNotFound(err) {
+				// create it - metadata might have changed
 				if err := r.handler.Policy.HandlePUEvent(
 					handlePUCtx,
 					puID,
-					common.EventUpdate,
+					common.EventCreate,
 					puRuntime,
 				); err != nil {
-					zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
-					r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+					zap.L().Error("failed to handle create event", zap.String("puID", puID), zap.Error(err))
+					r.recorder.Eventf(pod, "Warning", "PUCreate", "failed to handle create event for PU '%s': %s", puID, err.Error())
 					return reconcile.Result{}, err
 				}
-				r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+				r.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' created successfully", puID)
+			} else {
+				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+				return reconcile.Result{}, err
 			}
+		} else {
+			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
 		}
 
 		if started {
@@ -296,7 +258,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				return reconcile.Result{}, ErrNetnsExtractionMissing
 			}
 
-			// now start (and maybe even still create) the PU
+			// now start the PU
 			if err := r.handler.Policy.HandlePUEvent(
 				handlePUCtx,
 				puID,
@@ -324,7 +286,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 						zap.L().Warn("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.Error(err))
 					} else if extractors.IsErrNoHostNetworkPod(err) {
 						zap.L().Error("net_cls cgroup programmer told us that this is no host network pod. Aborting.", zap.String("puID", puID), zap.Error(err))
-						return reconcile.Result{}, nil
 					} else {
 						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.Error(err))
 						r.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", puID, err.Error())
