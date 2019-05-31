@@ -672,7 +672,7 @@ func Test_initTestDockerInfo(t *testing.T) {
 	}
 }
 
-func testWaitForDockerDaemon(t *testing.T) {
+func TestWaitForDockerDaemon(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
