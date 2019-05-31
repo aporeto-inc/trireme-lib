@@ -673,7 +673,6 @@ func Test_initTestDockerInfo(t *testing.T) {
 }
 
 func testWaitForDockerDaemon(t *testing.T) {
-	d := New()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -687,7 +686,7 @@ func testWaitForDockerDaemon(t *testing.T) {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(waitforDockerInitializationTimeout))
 		err := dmi.waitForDockerDaemon(ctx)
 		So(err, ShouldBeNil)
-		So(time.Now(), ShouldHappenBefore, waitforDockerInitializationTimeout)
+		So(time.Now(), ShouldHappenBefore, expiryTime)
 		// this will kill the Goroutine
 		cancel()
 	})
