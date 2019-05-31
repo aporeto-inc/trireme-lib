@@ -680,7 +680,7 @@ func TestWaitForDockerDaemon(t *testing.T) {
 	Convey("If docker daemon is not running and setup docker daemon returns an error", t, func() {
 
 		dmi, _ := setupDockerMonitor(ctrl)
-		dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().Ping(gomock.Any()).Return(types.Ping{}, errors.New("Ping Error")).Times(3)
+		dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().Ping(gomock.Any()).Return(types.Ping{}, errors.New("Ping Error")).AnyTimes()
 		// 30*time.Second is greater then dockerInitializationwait
 		waitforDockerInitializationTimeout := dockerInitializationWait + 5*time.Second
 		expiryTime := time.Now().Add(waitforDockerInitializationTimeout)
