@@ -679,13 +679,13 @@ func testWaitForDockerDaemon(t *testing.T) {
 
 	Convey("If docker daemon is not running and setup docker daemon returns an error", t, func() {
 
-		d.dockerClient = mockdocker.NewMockCommonAPIClient(ctrl)
-		d.dockerClient.EXPECT().Ping(gomock.Any()).Return(nil, errors.New("Ping Error"))
+		dmi, _ := setupDockerMonitor(ctrl)
+		dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().Ping(gomock.Any()).Return(errors.New("Ping Error"))
 		// 30*time.Second is greater then dockerInitializationwait
 		waitforDockerInitializationTimeout := dockerInitializationWait + 5*time.Second
 		expiryTime := time.Now().Add(waitforDockerInitializationTimeout)
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(waitforDockerInitializationTimeout))
-		err := d.waitForDockerDaemon(ctx)
+		err := dmi.waitForDockerDaemon(ctx)
 		So(err, ShouldBeNil)
 		So(time.Now(), ShouldHappenBefore, waitforDockerInitializationTimeout)
 		// this will kill the Goroutine
