@@ -684,7 +684,7 @@ func testWaitForDockerDaemon(t *testing.T) {
 		// 30*time.Second is greater then dockerInitializationwait
 		waitforDockerInitializationTimeout := dockerInitializationWait + 5*time.Second
 		expiryTime := time.Now().Add(waitforDockerInitializationTimeout)
-		ctx, cancel := context.WithDeadline(context.Background(), waitforDockerInitializationTimeout)
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(waitforDockerInitializationTimeout))
 		err := d.waitForDockerDaemon(ctx)
 		So(err, ShouldBeNil)
 		So(time.Now(), ShouldHappenBefore, waitforDockerInitializationTimeout)
