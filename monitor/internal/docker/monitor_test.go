@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -671,9 +672,23 @@ func Test_initTestDockerInfo(t *testing.T) {
 	}
 }
 
-func testSetupDockerDaemon(t *testing.T) {
+func testWaitForDockerDaemon(t *testing.T) {
 	d := New()
-	Convey("If docker daemon is not running", t, func() {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	Convey("If docker daemon is not running and setup docker daemon returns an error", t, func() {
+
+		d.dockerClient = mockdocker.NewMockCommonAPIClient(ctrl)
+		d.dockerClient.EXPECT().Ping(gomock.Any()).Return(nil, errors.New("Ping Error"))
+		// 30*time.Second is greater then dockerInitializationwait
+		waitforDockerInitializationTimeout := dockerInitializationWait + 5*time.Second
+		expiryTime := time.Now().Add(waitforDockerInitializationTimeout)
+		ctx, cancel := context.WithDeadline(context.Background(), waitforDockerInitializationTimeout)
+		err := d.waitForDockerDaemon(ctx)
+		So(err, ShouldBeNil)
+		So(time.Now(), ShouldHappenBefore, waitforDockerInitializationTimeout)
+		// this will kill the Goroutine
+		cancel()
 	})
 }

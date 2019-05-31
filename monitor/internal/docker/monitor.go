@@ -668,8 +668,13 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 				break
 			}
 			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(errg))
-			<-time.After(dockerRetryTimer)
-			continue
+			select {
+			case <-gctx.Done():
+				return
+			case <-time.After(dockerRetryTimer):
+				continue
+			}
+
 		}
 		done <- true
 	}(ctx)
