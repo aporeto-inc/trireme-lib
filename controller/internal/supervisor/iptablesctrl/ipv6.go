@@ -23,7 +23,7 @@ type ipv6 struct {
 var ipsetV6Param *ipset.Params
 
 const (
-	ipv6Disabled = true
+	ipv6Disabled = false
 )
 
 func init() {
