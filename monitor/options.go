@@ -296,13 +296,6 @@ func OptionPolicyResolver(p policy.Resolver) Options {
 	}
 }
 
-// OptionPolicyGetter adds the policy engine getter as an option to the monitor
-func OptionPolicyGetter(p policy.Getter) Options {
-	return func(cfg *config.MonitorConfig) {
-		cfg.Common.Getter = p
-	}
-}
-
 // NewMonitor provides a configuration for monitors.
 func NewMonitor(opts ...Options) *config.MonitorConfig {
 
