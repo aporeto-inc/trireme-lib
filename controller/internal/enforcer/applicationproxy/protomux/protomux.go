@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
@@ -212,6 +211,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
 			return
 		}
+
 		listenerType = pctx.Type
 	}
 
@@ -231,9 +231,10 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 }
 
 func networkOfAddress(addr string) string {
-	parts := strings.Split(addr, ":")
-	if len(parts) == 2 {
-		return parts[0]
+	ip, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
 	}
-	return addr
+
+	return ip
 }

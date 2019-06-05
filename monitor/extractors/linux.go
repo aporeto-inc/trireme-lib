@@ -195,20 +195,18 @@ func findFQDN(expiration time.Duration) string {
 		}
 
 		for _, addr := range addrs {
-			if ipv4 := addr.To4(); ipv4 != nil {
-				ip, err := ipv4.MarshalText()
-				if err != nil {
-					globalHostname <- hostname
-					return
-				}
-				hosts, err := net.LookupAddr(string(ip))
-				if err != nil || len(hosts) == 0 {
-					globalHostname <- hostname
-					return
-				}
-				fqdn := hosts[0]
-				globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
+			ip, err := addr.MarshalText()
+			if err != nil {
+				globalHostname <- hostname
+				return
 			}
+			hosts, err := net.LookupAddr(string(ip))
+			if err != nil || len(hosts) == 0 {
+				globalHostname <- hostname
+				return
+			}
+			fqdn := hosts[0]
+			globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
 		}
 	}()
 

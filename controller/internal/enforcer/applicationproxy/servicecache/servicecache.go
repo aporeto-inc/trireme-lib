@@ -1,12 +1,12 @@
 package servicecache
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 	"sync"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/utils/ipprefix"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -27,9 +27,9 @@ func (e entryList) Delete(i int) entryList {
 
 // ServiceCache is a new service cache
 type ServiceCache struct {
-	// ipcaches is map[prefixlength][prefix] -> array of entries indexed by port
-	local  map[int]map[uint32]entryList
-	remote map[int]map[uint32]entryList
+	// ipprefixs is map[prefixlength][prefix] -> array of entries indexed by port
+	local  ipprefix.IPcache
+	remote ipprefix.IPcache
 	// hostcaches is map[host] -> array of entries indexed by port.
 	remoteHosts map[string]entryList
 	localHosts  map[string]entryList
@@ -41,9 +41,10 @@ type ServiceCache struct {
 
 // NewTable creates a new table
 func NewTable() *ServiceCache {
+
 	return &ServiceCache{
-		local:       map[int]map[uint32]entryList{},
-		remote:      map[int]map[uint32]entryList{},
+		local:       ipprefix.NewIPCache(),
+		remote:      ipprefix.NewIPCache(),
 		remoteHosts: map[string]entryList{},
 		localHosts:  map[string]entryList{},
 	}
@@ -105,10 +106,10 @@ func (s *ServiceCache) DeleteByID(id string, local bool) {
 	defer s.Unlock()
 
 	hosts := s.remoteHosts
-	prefixes := s.remote
+	cache := s.remote
 	if local {
 		hosts = s.localHosts
-		prefixes = s.local
+		cache = s.local
 	}
 
 	if local {
@@ -124,17 +125,21 @@ func (s *ServiceCache) DeleteByID(id string, local bool) {
 		}
 	}
 
-	for l, prefix := range prefixes {
-		for ip, ports := range prefix {
-			prefix[ip] = deleteMatchingPorts(ports, id)
-			if len(prefix[ip]) == 0 {
-				delete(prefix, ip)
-			}
+	deleteMatching := func(val interface{}) interface{} {
+		if val == nil {
+			return nil
 		}
-		if len(prefix) == 0 {
-			delete(prefixes, l)
+
+		entryL := val.(entryList)
+		r := deleteMatchingPorts(entryL, id)
+		if len(r) == 0 {
+			return nil
 		}
+
+		return r
 	}
+
+	cache.RunFuncOnVals(deleteMatching)
 }
 
 func deleteMatchingPorts(list entryList, id string) entryList {
@@ -148,9 +153,10 @@ func deleteMatchingPorts(list entryList, id string) entryList {
 }
 
 func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool) error {
-	prefixes := s.remote
+
+	cache := s.remote
 	if local {
-		prefixes = s.local
+		cache = s.local
 	}
 
 	addresses := e.Addresses
@@ -158,24 +164,31 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 	if len(e.Addresses) == 0 {
 		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
 		addresses = append(addresses, ip)
+		_, ip, _ = net.ParseCIDR("::/0")
+		addresses = append(addresses, ip)
 	}
 
 	for _, addr := range addresses {
-		binPrefix := binary.BigEndian.Uint32(addr.IP) & binary.BigEndian.Uint32(addr.Mask)
-		len, _ := addr.Mask.Size()
-		if _, ok := prefixes[len]; !ok {
-			prefixes[len] = map[uint32]entryList{}
-		}
-		if _, ok := prefixes[len][binPrefix]; !ok {
-			prefixes[len][binPrefix] = entryList{}
-		}
-		for _, spec := range prefixes[len][binPrefix] {
-			if spec.ports.Overlaps(e.Ports) {
-				return fmt.Errorf("service port overlap for a given IP not allowed: ip %s, port %s", addr.String(), e.Ports.String())
+		var records entryList
+
+		mask, _ := addr.Mask.Size()
+		v, err := cache.Get(addr.IP, mask)
+
+		if !err {
+			records = entryList{}
+		} else {
+			records = v.(entryList)
+			for _, spec := range records {
+				if spec.ports.Overlaps(e.Ports) {
+					return fmt.Errorf("service port overlap for a given IP not allowed: ip %s, port %s", addr.String(), e.Ports.String())
+				}
 			}
 		}
-		prefixes[len][binPrefix] = append(prefixes[len][binPrefix], record)
+
+		records = append(records, record)
+		cache.Put(addr.IP, mask, records)
 	}
+
 	return nil
 }
 
@@ -207,30 +220,32 @@ func (s *ServiceCache) addHostService(e *common.Service, record *entry, local bo
 // findIP searches for a matching service, given an IP and port
 func (s *ServiceCache) findIP(ip net.IP, port int, local bool) interface{} {
 
-	prefixes := s.remote
+	cache := s.remote
 	if local {
-		prefixes = s.local
+		cache = s.local
 	}
 
 	if ip == nil {
 		return nil
 	}
 
-	for len, prefix := range prefixes {
+	var data interface{}
 
-		binPrefix := binary.BigEndian.Uint32(ip.To4()) & binary.BigEndian.Uint32(net.CIDRMask(len, 32))
-		entries, ok := prefix[binPrefix]
-		if !ok {
-			continue
-		}
-
-		for _, e := range entries {
-			if e.ports.IsIncluded(port) {
-				return e.data
+	findMatch := func(val interface{}) bool {
+		if val != nil {
+			records := val.(entryList)
+			for _, e := range records {
+				if e.ports.IsIncluded(port) {
+					data = e.data
+					return true
+				}
 			}
 		}
+		return false
 	}
-	return nil
+
+	cache.RunFuncOnLpmIP(ip, findMatch)
+	return data
 }
 
 // findIP searches for a matching service, given an IP and port
