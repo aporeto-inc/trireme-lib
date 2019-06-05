@@ -114,7 +114,10 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 	err := d.waitForDockerDaemon(ctx)
 	if err != nil {
-		zap.L().Error("Docker daemon is not running - skipping container processing", zap.Error(err))
+		zap.L().Error("Docker daemon is not running at startup - skipping container processing. periodic retries will be attempted",
+			zap.Error(err),
+			zap.Duration("retry interval", dockerRetryTimer),
+		)
 		return nil
 	}
 
