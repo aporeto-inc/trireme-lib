@@ -657,17 +657,18 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 
 	done := make(chan bool)
+	zap.L().Info("Trying to initialize docker monitor")
 	go func(gctx context.Context) {
 
 		for {
 			errg := d.setupDockerDaemon()
 			if errg == nil {
 				if err := d.initMonitor(gctx); err != nil {
-					zap.L().Debug("Unable to init monitor")
+					zap.L().Error("Unable to init monitor", zap.Error(err))
 				}
 				break
 			}
-			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(errg))
+
 			select {
 			case <-gctx.Done():
 				return
@@ -685,6 +686,7 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 	case <-time.After(dockerInitializationWait):
 		return fmt.Errorf("Unable to connect to docker daemon")
 	case <-done:
+		zap.L().Info("Started Docker Monitor")
 	}
 
 	return nil
