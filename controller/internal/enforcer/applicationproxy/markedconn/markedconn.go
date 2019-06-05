@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -30,7 +29,7 @@ func DialMarkedWithContext(ctx context.Context, network string, addr string, mar
 					zap.L().Error("unable to set socket options", zap.Error(err))
 				}
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
-					zap.L().Error("Failed to assing mark to socket", zap.Error(err))
+					zap.L().Error("Failed to assign mark to socket", zap.Error(err))
 				}
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 30, 1); err != nil {
 					zap.L().Debug("Failed to set fast open socket option", zap.Error(err))
@@ -65,7 +64,8 @@ func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener
 		},
 	}
 
-	listener, err := listenerCfg.Listen(ctx, "tcp4", port)
+	listener, err := listenerCfg.Listen(ctx, "tcp", port)
+
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create listener: %s", err)
 	}
@@ -95,12 +95,10 @@ func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
 // address.
 func (p *ProxiedConnection) LocalAddr() net.Addr {
 
-	addr, err := net.ResolveTCPAddr("tcp", p.originalIP.String()+":"+strconv.Itoa(p.originalPort))
-	if err != nil {
-		return nil
+	return &net.TCPAddr{
+		IP:   p.originalIP,
+		Port: p.originalPort,
 	}
-
-	return addr
 }
 
 // RemoteAddr returns the remote address
@@ -180,46 +178,85 @@ func (l ProxiedListener) Close() error {
 	return l.netListener.Close()
 }
 
-type sockaddr struct {
+type sockaddr4 struct {
 	family uint16
 	data   [14]byte
 }
 
+type sockaddr6 struct {
+	family   uint16
+	port     [2]byte
+	flowInfo [4]byte
+	ip       [16]byte
+	scopeID  [4]byte
+}
+
 // GetOriginalDestination -- Func to get original destination a connection
 func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint interfacer
-
-	var addr sockaddr
-	size := uint32(unsafe.Sizeof(addr))
+	var getsockopt func(fd uintptr)
+	var netIP net.IP
+	var port int
 
 	rawconn, err := conn.SyscallConn()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if err := rawconn.Control(func(fd uintptr) {
-		if err := getsockopt(int(fd), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size); err != nil {
-			zap.L().Error("Failed to retrieve original destination", zap.Error(err))
+	getsockopt4 := func(fd uintptr) {
+		var addr sockaddr4
+		size := uint32(unsafe.Sizeof(addr))
+		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+		if e1 != 0 {
+			err = e1
+			return
 		}
-	}); err != nil {
+
+		if addr.family != syscall.AF_INET {
+			err = fmt.Errorf("invalid address family. Expected AF_INET")
+			return
+		}
+
+		netIP = addr.data[2:6]
+		port = int(addr.data[0])<<8 + int(addr.data[1])
+	}
+
+	getsockopt6 := func(fd uintptr) {
+		var addr sockaddr6
+		size := uint32(unsafe.Sizeof(addr))
+
+		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+		if e1 != 0 {
+			err = e1
+			return
+		}
+
+		if addr.family != syscall.AF_INET6 {
+			err = fmt.Errorf("invalid address family. Expected AF_INET6")
+			return
+		}
+
+		netIP = addr.ip[:]
+		port = int(addr.port[0])<<8 + int(addr.port[1])
+	}
+
+	localIPString, _, err := net.SplitHostPort(conn.LocalAddr().String())
+	if err != nil {
+		return nil, 0, err
+	}
+
+	localIP := net.ParseIP(localIPString)
+
+	if localIP.To4() != nil {
+		getsockopt = getsockopt4
+	} else {
+		getsockopt = getsockopt6
+	}
+
+	if err = rawconn.Control(getsockopt); err != nil {
 		return nil, 0, fmt.Errorf("Failed to get original destination: %s", err)
 	}
 
-	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("invalid address family")
-	}
-
-	ip := addr.data[2:6]
-	port := int(addr.data[0])<<8 + int(addr.data[1])
-
-	return ip, port, nil
-}
-
-func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), val, uintptr(unsafe.Pointer(vallen)), 0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
+	return netIP, port, nil
 }
 
 // GetInterfaces retrieves all the local interfaces.
@@ -233,9 +270,7 @@ func GetInterfaces() map[string]struct{} {
 
 	for _, iface := range ifaces {
 		for _, ip := range iface.IPs {
-			if ip.To4() != nil {
-				ipmap[ip.String()] = struct{}{}
-			}
+			ipmap[ip.String()] = struct{}{}
 		}
 	}
 
