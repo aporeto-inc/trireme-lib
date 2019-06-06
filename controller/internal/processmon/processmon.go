@@ -193,7 +193,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 
-	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
+	if err = p.pollStdOutAndErr(cmd); err != nil {
 		return false, err
 	}
 
@@ -344,7 +344,6 @@ func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 // pollStdOutAndErr polls std out and err
 func (p *RemoteMonitor) pollStdOutAndErr(
 	cmd *exec.Cmd,
-	contextID string,
 ) (err error) {
 
 	stdout, err := cmd.StdoutPipe()
@@ -358,8 +357,8 @@ func (p *RemoteMonitor) pollStdOutAndErr(
 	}
 
 	// Stdout/err processing
-	go processIOReader(stdout, contextID)
-	go processIOReader(stderr, contextID)
+	go processIOReader(stdout)
+	go processIOReader(stderr)
 
 	return nil
 }
@@ -431,13 +430,13 @@ func contextID2SocketPath(contextID string) string {
 }
 
 // processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string) {
+func processIOReader(fd io.Reader) {
 	reader := bufio.NewReader(fd)
 	for {
 		str, err := reader.ReadString('\n')
 		if err != nil {
 			return
 		}
-		fmt.Print("[" + contextID + "]:" + str)
+		fmt.Print(str)
 	}
 }
