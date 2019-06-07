@@ -19,12 +19,15 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
@@ -39,6 +42,58 @@ var (
 	debug     bool
 	iteration int
 )
+
+type dummyService struct{}
+
+// Initialize  initializes any ACLs that the processor requires
+func (d *dummyService) Initialize(fq *fqconfig.FilterQueue, p provider.IptablesProvider) {
+
+}
+
+// Stop stops the packet processor
+func (d *dummyService) Stop() error {
+	return nil
+}
+
+// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
+func (d *dummyService) PreProcessTCPAppPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) bool {
+	return false
+}
+
+// PostProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
+func (d *dummyService) PostProcessTCPAppPacket(p *packet.Packet, action interface{}, context *pucontext.PUContext, conn *connection.TCPConnection) bool {
+	return false
+}
+
+// PreProcessTCPNetPacket will be called for network packets and return value of false means drop packet
+func (d *dummyService) PreProcessTCPNetPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) bool {
+	return false
+}
+
+// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
+func (d *dummyService) PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.TCPConnection) bool {
+	return false
+}
+
+// PreProcessUDPAppPacket will be called for application packets and return value of false means drop packet
+func (d *dummyService) PreProcessUDPAppPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection, packetType uint8) bool {
+	return false
+}
+
+// PostProcessUDPAppPacket will be called for application packets and return value of false means drop packet.
+func (d *dummyService) PostProcessUDPAppPacket(p *packet.Packet, action interface{}, context *pucontext.PUContext, conn *connection.UDPConnection) bool {
+	return false
+}
+
+// PreProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+func (d *dummyService) PreProcessUDPNetPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) bool {
+	return false
+}
+
+// PostProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+func (d *dummyService) PostProcessUDPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.UDPConnection) bool {
+	return false
+}
 
 func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, modeType string, targetNetExternal bool) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
 	var mode constants.ModeType
@@ -4897,24 +4952,28 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 
 func TestCheckConnectionDeletion(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
-		Convey("Setup good flow ", func() {
-			_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
-			PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, testDstIP, 666, 80)
-			_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-			buf, err := PacketFlow.GetNthPacket(0).ToBytes()
-			So(err, ShouldBeNil)
-			tcpPacket, err := packet.New(0, buf, "0", true)
-			So(err, ShouldBeNil)
-			So(tcpPacket, ShouldNotBeNil)
-			if err == nil && tcpPacket != nil {
-				tcpPacket.UpdateIPChecksum()
-				tcpPacket.UpdateTCPChecksum()
-			}
-			_, err = enforcer.processApplicationTCPPackets(tcpPacket)
-			So(err, ShouldBeNil)
-		})
+		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		So(enforcer, ShoudNotBeNil)
+		enforcer.service = &newDummyService{}
+		PacketFlow := packetgen.NewTemplateFlow()
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0", true)
+		So(err, ShouldBeNil)
+		conn := &connection.TCPConnection{
+			ServiceConnection: true,
+			MarkForDeletion:   false,
+		}
+		hash := tcpPacket.L4FlowHash()
+		err := enforcer.appOrigConnectionTracker.Add(conn, hash)
+		So(err, ShouldBeNil)
+		conn, err := enforcer.appSynRetrieveState(tcpPacket)
+		So(err, ShouldBeNil)
+		So(conn.MarkForDeletion, ShoudlBeFalse)
 
 	})
 }
