@@ -72,7 +72,7 @@ func NewSupervisor(
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, cfg)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
@@ -177,7 +177,7 @@ func (s *Config) SetTargetNetworks(cfg *runtime.Configuration) error {
 
 // ACLProvider returns the ACL provider used by the supervisor that can be
 // shared with other entities.
-func (s *Config) ACLProvider() provider.IptablesProvider {
+func (s *Config) ACLProvider() []provider.IptablesProvider {
 	return s.impl.ACLProvider()
 }
 
@@ -202,6 +202,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
+		zap.L().Error("ConfigureRules Failed with error ", zap.Error(err))
 		s.Unlock()
 		s.Unsupervise(contextID) // nolint
 		return err
@@ -248,28 +249,30 @@ func (s *Config) EnableIPTablesPacketTracing(ctx context.Context, contextID stri
 
 	cfg := data.(*cacheData)
 	iptablesRules := debugRules(cfg, s.mode)
-	ipt := s.impl.ACLProvider()
+	ipts := s.impl.ACLProvider()
 
-	for _, rule := range iptablesRules {
-		if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
-			zap.L().Error("Unable to install rule", zap.Error(err))
+	for _, ipt := range ipts {
+		for _, rule := range iptablesRules {
+			if err := ipt.Insert(rule[0], rule[1], 1, rule[2:]...); err != nil {
+				zap.L().Error("Unable to install rule", zap.Error(err))
+			}
 		}
-	}
 
-	// anonymous go func to flush debug iptables after interval
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-			case <-time.After(interval):
-				for _, rule := range iptablesRules {
-					if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
-						zap.L().Debug("Unable to delete trace rules", zap.Error(err))
+		// anonymous go func to flush debug iptables after interval
+		go func(ipt provider.IptablesProvider) {
+			for {
+				select {
+				case <-ctx.Done():
+				case <-time.After(interval):
+					for _, rule := range iptablesRules {
+						if err := ipt.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+							zap.L().Debug("Unable to delete trace rules", zap.Error(err))
+						}
 					}
 				}
 			}
-		}
-	}()
+		}(ipt)
+	}
 	return nil
 }
 
