@@ -223,7 +223,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			ipsv4.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -231,7 +231,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			iptv4.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -239,7 +239,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			iptv4.MockCommit(t, func() error {
 				return fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 	})
@@ -654,7 +654,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 				})
 
-				err = i.ConfigureRules(0, "pu1", puInfo)
+				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				err = i.AddPortToPortSet("pu1", "8080")
 				So(err, ShouldBeNil)
@@ -1032,7 +1032,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
-				err := i.ConfigureRules(0, "pu1", puInfo)
+				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
 

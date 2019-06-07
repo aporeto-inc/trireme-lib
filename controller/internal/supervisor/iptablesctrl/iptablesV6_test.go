@@ -862,7 +862,6 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			}
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
-
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
 						Addresses: []string{"1120::/64"},

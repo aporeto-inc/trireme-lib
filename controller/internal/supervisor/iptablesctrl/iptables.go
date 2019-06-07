@@ -159,7 +159,6 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
 
 	ips := provider.NewGoIPsetProvider()
-
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
@@ -601,9 +600,7 @@ func delFromIPset(set provider.Ipset, data string) error {
 			return err
 		}
 
-		if err := delFromIPset(set, "128.0.0.0/1"); err != nil {
-			return err
-		}
+		return delFromIPset(set, "128.0.0.0/1")
 	}
 
 	if data == IPv6DefaultIP {
@@ -611,9 +608,7 @@ func delFromIPset(set provider.Ipset, data string) error {
 			return err
 		}
 
-		if err := delFromIPset(set, "8000::/1"); err != nil {
-			return err
-		}
+		return delFromIPset(set, "8000::/1")
 	}
 
 	return set.Del(data)
