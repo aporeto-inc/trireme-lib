@@ -4955,8 +4955,8 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
-		So(enforcer, ShoudNotBeNil)
-		enforcer.service = &newDummyService{}
+
+		enforcer.service = &dummyService{}
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
@@ -4969,11 +4969,11 @@ func TestCheckConnectionDeletion(t *testing.T) {
 			MarkForDeletion:   false,
 		}
 		hash := tcpPacket.L4FlowHash()
-		err := enforcer.appOrigConnectionTracker.Add(conn, hash)
+		err = enforcer.appOrigConnectionTracker.Add(conn, hash)
 		So(err, ShouldBeNil)
-		conn, err := enforcer.appSynRetrieveState(tcpPacket)
+		conn1, err := enforcer.appSynRetrieveState(tcpPacket)
 		So(err, ShouldBeNil)
-		So(conn.MarkForDeletion, ShoudlBeFalse)
+		So(conn1.MarkForDeletion, ShoudlBeFalse)
 
 	})
 }
