@@ -4966,7 +4966,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		So(err, ShouldBeNil)
 		conn := &connection.TCPConnection{
 			ServiceConnection: true,
-			MarkForDeletion:   false,
+			MarkForDeletion:   true,
 		}
 		hash := tcpPacket.L4FlowHash()
 		err = enforcer.appOrigConnectionTracker.Add(conn, hash)
@@ -4974,6 +4974,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		conn1, err := enforcer.appSynRetrieveState(tcpPacket)
 		So(err, ShouldBeNil)
 		So(conn1.MarkForDeletion, ShouldBeFalse)
+		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
 
 	})
 }
