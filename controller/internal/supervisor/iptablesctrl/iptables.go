@@ -429,11 +429,7 @@ func (i *Instance) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration
 		return err
 	}
 
-	if err := i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks); err != nil {
-		return err
-	}
-
-	return nil
+	return i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks)
 }
 
 // ACLProvider returns the current ACL provider that can be re-used by other entities.
@@ -576,11 +572,7 @@ func (i *Instance) addToIPset(set provider.Ipset, data string) error {
 			return err
 		}
 
-		if err := i.addToIPset(set, "128.0.0.0/1"); err != nil {
-			return err
-		}
-
-		return nil
+		return i.addToIPset(set, "128.0.0.0/1")
 	}
 
 	return set.Add(data, 0)
@@ -785,11 +777,7 @@ func (i *Instance) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 		return err
 	}
 
-	if err := i.addPacketTrap(cfg, isHostPU); err != nil {
-		return err
-	}
-
-	return nil
+	return i.addPacketTrap(cfg, isHostPU)
 }
 
 // puPortSetName returns the name of the pu portset.
