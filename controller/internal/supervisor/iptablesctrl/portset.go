@@ -97,20 +97,6 @@ func (i *Instance) DeletePortFromPortSet(contextID string, port string) error {
 	return nil
 }
 
-// DeletePortFromPortSet deletes ports from port sets
-func (i *Instance) DeletePortFromPortSet(contextID string, port string) error {
-
-	if err := i.iptv4.DeletePortFromPortSet(contextID, port); err != nil {
-		zap.L().Warn("Failed to delete port from ipv4 portset ", zap.String("contextID", contextID), zap.String("port", port), zap.Error(err))
-	}
-
-	if err := i.iptv6.DeletePortFromPortSet(contextID, port); err != nil {
-		zap.L().Warn("Failed to delete port from ipv6 portset ", zap.String("port", port), zap.Error(err))
-	}
-
-	return nil
-}
-
 // AddPortToPortSet adds ports to the portsets
 func (i *iptables) AddPortToPortSet(contextID string, port string) error {
 
@@ -121,20 +107,6 @@ func (i *iptables) AddPortToPortSet(contextID string, port string) error {
 	ips := i.ipset.GetIpset(portSetName)
 	if err := ips.Add(port, 0); err != nil {
 		return fmt.Errorf("unable to add port to portset: %s", err)
-	}
-
-	return nil
-}
-
-// AddPortToPortSet adds ports to the portsets
-func (i *Instance) AddPortToPortSet(contextID string, port string) error {
-
-	if err := i.iptv4.AddPortToPortSet(contextID, port); err != nil {
-		zap.L().Warn("Failed to add port to ipv4 portset", zap.String("contextID", contextID), zap.String("port", port), zap.Error(err))
-	}
-
-	if err := i.iptv6.AddPortToPortSet(contextID, port); err != nil {
-		zap.L().Warn("Failed to add port to ipv6 portset", zap.String("contextID", contextID), zap.String("port", port), zap.Error(err))
 	}
 
 	return nil
