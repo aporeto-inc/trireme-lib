@@ -4973,7 +4973,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		So(err, ShouldBeNil)
 		conn1, err := enforcer.appSynRetrieveState(tcpPacket)
 		So(err, ShouldBeNil)
-		So(conn1.MarkForDeletion, ShoudlBeFalse)
+		So(conn1.MarkForDeletion, ShouldBeFalse)
 
 	})
 }
