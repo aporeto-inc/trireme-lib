@@ -4986,6 +4986,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		err = enforcer.sourcePortConnectionCache.Add(tcpPacket.SourcePortHash(conn, packet.PacketTypeApplication))
 		So(err, ShouldBeNil)
 		conn, err := enforcer.netSynAckRetrieveState(tcpSynAckPacket)
+		fmt.Println(err)
 		So(err, ShouldNotBeNil)
 
 	})
