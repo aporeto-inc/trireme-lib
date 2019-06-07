@@ -4882,6 +4882,7 @@ func TestCollectTCPPacket(t *testing.T) {
 
 func TestEnableDatapathPacketTracing(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+
 		puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
@@ -4891,6 +4892,30 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestCheckConnectionDeletion(t *testing.T) {
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("Setup good flow ", func() {
+			_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, testDstIP, 666, 80)
+			_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+			buf, err := PacketFlow.GetNthPacket(0).ToBytes()
+			So(err, ShouldBeNil)
+			tcpPacket, err := packet.New(0, buf, "0", true)
+			So(err, ShouldBeNil)
+			So(tcpPacket, ShouldNotBeNil)
+			if err == nil && tcpPacket != nil {
+				tcpPacket.UpdateIPChecksum()
+				tcpPacket.UpdateTCPChecksum()
+			}
+			_, err = enforcer.processApplicationTCPPackets(tcpPacket)
+			So(err, ShouldBeNil)
+		})
+
 	})
 }
 
