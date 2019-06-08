@@ -4982,12 +4982,12 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
 
 		synAckPacket, err := PacketFlow.GetFirstSynAckPacket().ToBytes()
+		So(err, ShouldBeNil)
 		tcpSynAckPacket, err := packet.New(0, synAckPacket, "0", true)
 		So(err, ShouldBeNil)
 		err = enforcer.sourcePortConnectionCache.Add(conn, tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 		So(err, ShouldBeNil)
 		_, err = enforcer.netSynAckRetrieveState(tcpSynAckPacket)
-		fmt.Println(err)
 		So(err, ShouldNotBeNil)
 
 	})
