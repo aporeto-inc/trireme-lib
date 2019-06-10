@@ -4898,6 +4898,18 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 	})
 }
 
+// func TestPacketFlow(t *testing.T) {
+// 	Convey("Find reverse synack", t, func() {
+// 		PacketFlow := packetgen.NewTemplateFlow()
+// 		packetFlow, _ := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+// 		//synackPacket := packetFlow.GetSynAckPackets()
+// 		for i := 0; i < packetFlow.GetNumPackets(); i++ {
+// 			fmt.Printf("%s:%s:%d:%d:%d:%v:%v\n", packetFlow.GetNthPacket(i).GetIPPacket().SrcIP.String(), packetFlow.GetNthPacket(i).GetIPPacket().DstIP.String(), packetFlow.GetNthPacket(i).GetTCPPacket().SrcPort, packetFlow.GetNthPacket(i).GetTCPPacket().DstPort, packetFlow.GetNthPacket(i).GetTCPPacket().SrcPort, packetFlow.GetNthPacket(i).GetTCPPacket().SYN, packetFlow.GetNthPacket(i).GetTCPPacket().ACK)
+
+// 		}
+// 	})
+// }
+
 func TestCheckConnectionDeletion(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
 		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
@@ -4933,7 +4945,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		So(err, ShouldBeNil)
 		tcpSynAckPacket, err := packet.New(0, synAckPacket, "0", true)
 		So(err, ShouldBeNil)
-		err = enforcer.sourcePortConnectionCache.Add(conn, tcpPacket.SourcePortHash(packet.PacketTypeNetwork))
+		err = enforcer.sourcePortConnectionCache.Add(conn, tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 		So(err, ShouldBeNil)
 		_, err = enforcer.netSynAckRetrieveState(tcpSynAckPacket)
 		So(err, ShouldNotBeNil)
