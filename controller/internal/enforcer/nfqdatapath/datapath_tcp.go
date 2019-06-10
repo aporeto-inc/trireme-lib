@@ -1038,7 +1038,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
-	p.Print()
+	p.Print(0)
 	fmt.Println("SynAckHash", p.SourcePortHash(packet.PacketTypeNetwork))
 
 	if err != nil {
