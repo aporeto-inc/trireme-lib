@@ -1036,11 +1036,8 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
 // It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
+	fmt.Println("netSynACK", p.SourcePortHash(packet.PacketTypeNetwork))
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
-	p.Print(0)
-	fmt.Println("SynAckHash", p.SourcePortHash(packet.PacketTypeNetwork))
-
 	if err != nil {
 		return nil, errNonPUTraffic
 	}

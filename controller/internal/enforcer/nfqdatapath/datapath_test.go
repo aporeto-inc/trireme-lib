@@ -4946,10 +4946,12 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		tcpSynAckPacket, err := packet.New(0, synAckPacket, "0", true)
 		So(err, ShouldBeNil)
 		err = enforcer.sourcePortConnectionCache.Add(conn, tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-		fmt.Println("SourcePortHash", tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-		tcpPacket.Print(0)
+		fmt.Prinln("Added", tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 		So(err, ShouldBeNil)
 		_, err = enforcer.netSynAckRetrieveState(tcpSynAckPacket)
+		for _, key := range enforcer.sourcePortConnectionCache.KeyList() {
+			fmt.Println("Key", key.(string))
+		}
 		So(err, ShouldNotBeNil)
 		fmt.Println(err)
 
