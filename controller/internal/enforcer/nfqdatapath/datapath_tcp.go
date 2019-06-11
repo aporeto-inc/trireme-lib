@@ -600,8 +600,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
-	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestPort())))
-
+	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, "TCP/"+strconv.Itoa(int(tcpPacket.DestPort())))
 	report, pkt := context.SearchRcvRules(tags)
 
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
