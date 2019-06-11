@@ -215,7 +215,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv4.ConfigureRules(1, "ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
@@ -723,7 +723,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						CgroupMark: "10",
 					})
 
-					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()

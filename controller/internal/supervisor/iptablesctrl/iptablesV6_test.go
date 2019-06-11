@@ -252,7 +252,7 @@ var (
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s ::/0 -j DROP",
@@ -367,7 +367,7 @@ var (
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s ::/0 -j DROP",
@@ -617,7 +617,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						CgroupMark: "10",
 					})
 
-					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.iptv6.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv6.impl.RetrieveTable()
@@ -753,7 +753,7 @@ var (
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m state --state ESTABLISHED -j NFQUEUE --queue-balance 16:19",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix pu1:default:default6",
 			"-s ::/0 -j DROP",
