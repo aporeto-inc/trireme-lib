@@ -172,5 +172,5 @@ func TestRunValIPv6(t *testing.T) {
 	_, ok := ipcache.Get(ip, 128)
 	assert.Equal(t, ok, false, "Get should return nil")
 	_, ok = ipcache.Get(ip, 24)
-	assert.Equal(t, ok, true, "Get shoudl return true")
+	assert.Equal(t, ok, true, "Get should return true")
 }
