@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -444,7 +444,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
-			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, "TCP/"+strconv.Itoa(backendport))
+			tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(backendport)))
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)

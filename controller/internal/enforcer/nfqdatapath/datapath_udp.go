@@ -554,7 +554,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, "UDP/"+strconv.Itoa(int(udpPacket.DestPort())))
+	claims.T.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.DestPort()))))
 
 	report, pkt := context.SearchRcvRules(claims.T)
 	if pkt.Action.Rejected() {
