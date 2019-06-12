@@ -16,11 +16,6 @@ type ACLCache struct {
 	observe *acl
 }
 
-type prefixRules struct {
-	mask  uint32
-	rules map[uint32]portActionList
-}
-
 // NewACLCache creates a new ACL cache
 func NewACLCache() *ACLCache {
 	return &ACLCache{
@@ -53,9 +48,6 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 		}
 	}
 
-	c.reject.reverseSort()
-	c.accept.reverseSort()
-	c.observe.reverseSort()
 	return
 }
 

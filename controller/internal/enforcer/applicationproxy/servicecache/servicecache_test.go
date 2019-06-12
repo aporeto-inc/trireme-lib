@@ -128,20 +128,17 @@ func TestServiceCache(t *testing.T) {
 			cerr := c.Add(s1, "1", "first data", true)
 			So(cerr, ShouldBeNil)
 			So(c.local, ShouldNotBeNil)
-			So(len(c.local), ShouldEqual, 3)
 			So(c.localHosts, ShouldNotBeNil)
 			So(len(c.localHosts), ShouldEqual, 3)
 
 			cerr = c.Add(s2, "2", "second data", true)
 			So(cerr, ShouldBeNil)
 			So(c.local, ShouldNotBeNil)
-			So(len(c.local), ShouldEqual, 4)
 			So(c.localHosts, ShouldNotBeNil)
 			So(len(c.localHosts), ShouldEqual, 4)
 
 			cerr = c.Add(s3, "3", "third data", true)
 			So(cerr, ShouldBeNil)
-			So(len(c.local), ShouldEqual, 5)
 			So(len(c.localHosts), ShouldEqual, 4)
 
 		})
