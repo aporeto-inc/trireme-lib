@@ -123,10 +123,13 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		if targetNetExternal {
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
 		} else {
+
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		}
+
 		enforcer.packetLogs = true
 		err1 = enforcer.Enforce(puID1, puInfo1)
+
 		err2 = enforcer.Enforce(puID2, puInfo2)
 	}
 
@@ -4882,6 +4885,7 @@ func TestCollectTCPPacket(t *testing.T) {
 
 func TestEnableDatapathPacketTracing(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+
 		puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
@@ -4891,6 +4895,49 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestCheckConnectionDeletion(t *testing.T) {
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+
+		// //enforcer.service = &dummyService{}
+		PacketFlow := packetgen.NewTemplateFlow()
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0", true)
+		So(err, ShouldBeNil)
+		conn := &connection.TCPConnection{
+			ServiceConnection: true,
+			MarkForDeletion:   true,
+		}
+		hash := tcpPacket.L4FlowHash()
+		err = enforcer.appOrigConnectionTracker.Add(conn, hash)
+		So(err, ShouldBeNil)
+		conn1, err := enforcer.appSynRetrieveState(tcpPacket)
+		So(err, ShouldBeNil)
+		So(conn1.MarkForDeletion, ShouldBeFalse)
+		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
+		err = enforcer.netOrigConnectionTracker.Add(conn, hash)
+		So(err, ShouldBeNil)
+		conn1, err = enforcer.netSynRetrieveState(tcpPacket)
+		So(err, ShouldBeNil)
+		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
+
+		synAckPacket, err := PacketFlow.GetFirstSynAckPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpSynAckPacket, err := packet.New(0, synAckPacket, "0", true)
+		So(err, ShouldBeNil)
+		err = enforcer.sourcePortConnectionCache.Add(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+		So(err, ShouldBeNil)
+		_, err = enforcer.netSynAckRetrieveState(tcpSynAckPacket)
+		So(err, ShouldNotBeNil)
+
 	})
 }
 

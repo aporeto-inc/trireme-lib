@@ -223,8 +223,6 @@ func mountCgroupController() error {
 			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
-				// TODO: Do we need this flag ?
-				netCls = true // nolint
 				return nil
 			}
 		}
