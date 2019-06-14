@@ -309,7 +309,7 @@ func TestAllLockedSetGet(t *testing.T) {
 			So(p.Annotations(), ShouldResemble, annotations)
 		})
 
-		Convey("I should be able to retrive the IPAddresses", func() {
+		Convey("I should be able to retrieve the IPAddresses", func() {
 			So(p.IPAddresses(), ShouldResemble, ips)
 		})
 
