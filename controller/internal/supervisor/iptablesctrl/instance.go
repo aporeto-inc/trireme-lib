@@ -41,9 +41,9 @@ func (i *Instance) SetTargetNetworks(c *runtime.Configuration) error {
 		return err
 	}
 
-	if err := i.iptv6.SetTargetNetworks(c); err != nil {
-		return err
-	}
+	// if err := i.iptv6.SetTargetNetworks(c); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -55,9 +55,9 @@ func (i *Instance) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := i.iptv6.Run(ctx); err != nil {
-		return err
-	}
+	// if err := i.iptv6.Run(ctx); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -71,9 +71,9 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 		return err
 	}
 
-	if err := i.iptv6.ConfigureRules(version, contextID, pu); err != nil {
-		return err
-	}
+	// if err := i.iptv6.ConfigureRules(version, contextID, pu); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -88,9 +88,9 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Delete rules for iptables v4 returned error")
 	}
 
-	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
-		zap.L().Warn("Delete rules for iptables v6 returned error")
-	}
+	// if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
+	// 	zap.L().Warn("Delete rules for iptables v6 returned error")
+	// }
 
 	return nil
 }
@@ -107,9 +107,9 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.iptv6.UpdateRules(version, contextID, containerInfo, oldContainerInfo); err != nil {
-		return err
-	}
+	// if err := i.iptv6.UpdateRules(version, contextID, containerInfo, oldContainerInfo); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -122,9 +122,9 @@ func (i *Instance) CleanUp() error {
 		zap.L().Error("Failed to cleanup ipv4 rules")
 	}
 
-	if err := i.iptv6.CleanUp(); err != nil {
-		zap.L().Error("Failed to cleanup ipv6 rules")
-	}
+	// if err := i.iptv6.CleanUp(); err != nil {
+	// 	zap.L().Error("Failed to cleanup ipv6 rules")
+	// }
 
 	return nil
 }
