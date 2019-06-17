@@ -35,7 +35,7 @@ const (
 
 // IP Protocol numbers
 const (
-	// IPProtocolTCP defines the constant for UDP protocol number
+	// IPProtocolTCP defines the constant for TCP protocol number
 	IPProtocolTCP = 6
 
 	// IPProtocolUDP defines the constant for UDP protocol number
