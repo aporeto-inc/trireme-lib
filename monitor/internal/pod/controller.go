@@ -134,7 +134,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				policy.NewPURuntimeWithDefaults(),
 			); err != nil {
 				zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
-				return reconcile.Result{}, ErrHandlePUDestroyEventFailed
 			}
 			return reconcile.Result{}, nil
 		}

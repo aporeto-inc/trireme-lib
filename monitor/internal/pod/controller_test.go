@@ -68,6 +68,9 @@ func TestController(t *testing.T) {
 				Namespace:         "default",
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+			},
 		}
 		podUnknown := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -112,6 +115,24 @@ func TestController(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodPending,
+			},
+		}
+		podPendingAndStarted := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pendingAndStarted",
+				Namespace: "default",
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodPending,
+				InitContainerStatuses: []corev1.ContainerStatus{
+					{
+						State: corev1.ContainerState{
+							Running: &corev1.ContainerStateRunning{
+								StartedAt: metav1.Time{Time: time.Now()},
+							},
+						},
+					},
+				},
 			},
 		}
 		podRunningNotStarted := &corev1.Pod{
@@ -171,7 +192,7 @@ func TestController(t *testing.T) {
 				},
 			},
 		}
-		c := fakeclient.NewFakeClient(pod1, pod2, pod3, podUnknown, podUnrecognized, podSucceeded, podFailed, podPending, podRunningNotStarted, podRunning, podRunningHostNetwork)
+		c := fakeclient.NewFakeClient(pod1, pod2, pod3, podUnknown, podUnrecognized, podSucceeded, podFailed, podPending, podPendingAndStarted, podRunningNotStarted, podRunning, podRunningHostNetwork)
 
 		handler := mockpolicy.NewMockResolver(ctrl)
 
@@ -200,19 +221,16 @@ func TestController(t *testing.T) {
 			netclsProgramTimeout:   2 * time.Second,
 		}
 
-		Convey("a not existing pod should trigger a stop (even a failing one) and destroy event without any error", func() {
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventStop, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
+		Convey("a not existing pod should trigger a destroy event without any error", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "a", Namespace: "b"}})
 			So(err, ShouldBeNil)
 		})
 
-		Convey("a not existing pod should trigger a stop and destroy event, and fail if it cannot handle the destroy", func() {
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventStop, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
+		Convey("a not existing pod should trigger a destroy event, and *not* fail if it cannot handle the destroy", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "a", Namespace: "b"}})
-			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, ErrHandlePUDestroyEventFailed)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("an existing pod with HostNetwork=true, but host pod activation disabled, should silently return", func() {
@@ -237,11 +255,9 @@ func TestController(t *testing.T) {
 		})
 
 		Convey("a pod which is in podsucceeded or podfailed state should try to stop the PU", func() {
-			// we'll return an error in one case just to get more test coverage
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/failed", common.EventStop, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "failed", Namespace: "default"}})
-			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, ErrHandlePUStopEventFailed)
+			So(err, ShouldBeNil)
 
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventStop, gomock.Any()).Return(nil).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
@@ -250,6 +266,19 @@ func TestController(t *testing.T) {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventStop, gomock.Any()).Return(policy.ErrPUNotFound("default/succeeded", nil)).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
 			So(err, ShouldBeNil)
+
+			Convey("and retry if metadata extraction fails", func() {
+				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+					return nil, failure
+				}
+				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
+				So(err, ShouldNotBeNil)
+				So(err, ShouldEqual, failure)
+			})
+
+			Reset(func() {
+				r.metadataExtractor = metadataExtractor
+			})
 		})
 
 		Convey("a pod in pending state should update or create a PU if it does already exist", func() {
@@ -270,30 +299,36 @@ func TestController(t *testing.T) {
 			// update fails hard
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pending", common.EventUpdate, gomock.Any()).Return(failure).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pending", Namespace: "default"}})
-			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, failure)
+			So(err, ShouldBeNil)
 
 			// PU does not exist, but create fails hard
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pending", common.EventUpdate, gomock.Any()).Return(policy.ErrPUNotFound("default/pending", nil)).Times(1)
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pending", common.EventCreate, gomock.Any()).Return(failure).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pending", Namespace: "default"}})
-			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, failure)
+			So(err, ShouldBeNil)
 
 			// PU does not exist, but create succeeds
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pending", common.EventUpdate, gomock.Any()).Return(policy.ErrPUNotFound("default/pending", nil)).Times(1)
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pending", common.EventCreate, gomock.Any()).Return(nil).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pending", Namespace: "default"}})
 			So(err, ShouldBeNil)
 		})
 
-		Convey("a pod which is in running state should silently return if no containers have been started yet", func() {
+		Convey("a pod in pending state which has an init container started, should silently return if everything could be started", func() {
+			r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				return policy.NewPURuntime("default/pendingAndStarted", 42, "", nil, nil, common.ContainerPU, nil), nil
+			}
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventStart, gomock.Any()).Return(nil).Times(1)
+			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pendingAndStarted", Namespace: "default"}})
+			So(err, ShouldBeNil)
+		})
+
+		Convey("a pod in running state should silently return if no containers have been started yet", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/runningNotStarted", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "runningNotStarted", Namespace: "default"}})
 			So(err, ShouldBeNil)
 		})
 
-		Convey("a pod which is in running state", func() {
+		Convey("a pod in running state", func() {
 			Convey("should retry if metadata extraction fails", func() {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return nil, failure
@@ -311,15 +346,14 @@ func TestController(t *testing.T) {
 				So(err, ShouldNotBeNil)
 				So(err, ShouldEqual, ErrNetnsExtractionMissing)
 			})
-			Convey("should fail if metadata and PID/netnspath extraction succeeded, but the Start PU even fails", func() {
+			Convey("should *not* fail if metadata and PID/netnspath extraction succeeded, but the Start PU event fails", func() {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(failure).Times(1)
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "running", Namespace: "default"}})
-				So(err, ShouldNotBeNil)
-				So(err, ShouldEqual, ErrHandlePUStartEventFailed)
+				So(err, ShouldBeNil)
 			})
 			Convey("should return silently if metadata and PID/netnspath extraction succeeded, but the PU has already been activated", func() {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
