@@ -99,3 +99,8 @@ const (
 	StatsChannel = "/var/run/statschannel.sock"
 	DebugChannel = "/var/run/debugchannel.sock"
 )
+
+// PortNumberLabelString is the label to use for port numbers
+const (
+	PortNumberLabelString = "@sys:port"
+)
