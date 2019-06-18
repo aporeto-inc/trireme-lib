@@ -4,6 +4,8 @@ package processmon
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -33,6 +35,9 @@ const (
 	remoteEnforcerBuildName     = "remoteenforcerd"
 	remoteEnforcerTempBuildPath = "/var/run/aporeto/tmp/bin/"
 	secretLength                = 32
+
+	hashAlgMD5  = "md5"
+	hashAlgSHA1 = "sha1"
 )
 
 var (
@@ -66,6 +71,8 @@ type RemoteMonitor struct {
 	runtimeErrorChannel chan *policy.RuntimeError
 	// rpc is the rpc client to communicate with the remotes.
 	rpc rpcwrapper.RPCClient
+	// socketPathHashAlg is the hash algorithm used for a socket path from the context ID
+	socketPathHashAlg string
 
 	sync.Mutex
 }
@@ -102,6 +109,7 @@ func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeErr
 		compressedTags:              p.CompressedTags,
 		runtimeErrorChannel:         c,
 		rpc:                         r,
+		socketPathHashAlg:           hashAlgMD5,
 	}
 
 	go m.collectChildExitStatus(ctx)
@@ -225,7 +233,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	procInfo.process = cmd.Process
 
-	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(p.socketPathHashAlg, contextID), randomkeystring); err != nil {
 		return false, fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 
@@ -389,7 +397,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 
 	newEnvVars := []string{
 		constants.EnvMountPoint + "=" + procMountPoint,
-		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
+		constants.EnvContextSocket + "=" + contextID2SocketPath(p.socketPathHashAlg, contextID),
 		constants.EnvStatsChannel + "=" + constants.StatsChannel,
 		constants.EnvDebugChannel + "=" + constants.DebugChannel,
 		constants.EnvRPCClientSecret + "=" + randomkeystring,
@@ -420,13 +428,21 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 }
 
 // contextID2SocketPath returns the socket path to use for a givent context
-func contextID2SocketPath(contextID string) string {
+func contextID2SocketPath(hashAlg, contextID string) string {
 
+	//strings.Replace(contextID, "/", "_", -1)
 	if contextID == "" {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", strings.Replace(contextID, "/", "_", -1)+".sock")
+	switch hashAlg {
+	case hashAlgMD5:
+		return filepath.Join("/var/run/", fmt.Sprintf("%x", md5.Sum([]byte(contextID)))+".sock")
+	case hashAlgSHA1:
+		return filepath.Join("/var/run/", fmt.Sprintf("%x", sha1.Sum([]byte(contextID)))+".sock")
+	default:
+		return filepath.Join("/var/run/", strings.Replace(contextID, "/", "_", -1)+".sock")
+	}
 }
 
 // processIOReader will read from a reader and print it on the calling process
