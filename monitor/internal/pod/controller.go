@@ -172,18 +172,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	case corev1.PodPending:
 		fallthrough
 	case corev1.PodRunning:
-		// abort if this pod is terminating / shutting down
-		//
-		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
-		// however, it will have the deletion timestamp set which is an indicator for us that it is
-		// shutting down. It means for us, that we don't have to do anything yet. We can safely stop
-		// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
-		// that cannot be found any longer.
-		if pod.DeletionTimestamp != nil {
-			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
-			return reconcile.Result{}, nil
-		}
-
 		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
 
 		// now try to do the metadata extraction
@@ -211,6 +199,17 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			// return reconcile.Result{}, err
 		} else {
 			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		}
+
+		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
+		// however, it will have the deletion timestamp set which is an indicator for us that it is
+		// shutting down. It means for us, that we don't have to start anything anymore. We can safely stop
+		// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
+		// that cannot be found any longer. However, we sent an update event and included some new tags from
+		// the metadata extractor. So abort here now.
+		if pod.DeletionTimestamp != nil {
+			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
+			return reconcile.Result{}, nil
 		}
 
 		if started {

@@ -239,7 +239,8 @@ func TestController(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
-		Convey("a pod which is terminating, should silently return", func() {
+		Convey("a pod which is terminating, should update metadata and silently return", func() {
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pod3", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pod3", Namespace: "default"}})
 			So(err, ShouldBeNil)
 		})
