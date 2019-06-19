@@ -369,7 +369,9 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
-			impl.EXPECT().ACLProvider().Times(1).Return(provider.NewTestIptablesProvider())
+			iptProvider := provider.NewTestIptablesProvider()
+			iptProviders := []provider.IptablesProvider{iptProvider, iptProvider}
+			impl.EXPECT().ACLProvider().Times(1).Return(iptProviders)
 			err := s.EnableIPTablesPacketTracing(context.Background(), "contextID", 10*time.Second)
 			So(err, ShouldBeNil)
 		})

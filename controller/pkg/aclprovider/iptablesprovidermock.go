@@ -6,14 +6,15 @@ import (
 )
 
 type iptablesProviderMockedMethods struct {
-	appendMock      func(table, chain string, rulespec ...string) error
-	insertMock      func(table, chain string, pos int, rulespec ...string) error
-	deleteMock      func(table, chain string, rulespec ...string) error
-	listChainsMock  func(table string) ([]string, error)
-	clearChainMock  func(table, chain string) error
-	deleteChainMock func(table, chain string) error
-	newChainMock    func(table, chain string) error
-	commitMock      func() error
+	appendMock        func(table, chain string, rulespec ...string) error
+	insertMock        func(table, chain string, pos int, rulespec ...string) error
+	deleteMock        func(table, chain string, rulespec ...string) error
+	listChainsMock    func(table string) ([]string, error)
+	clearChainMock    func(table, chain string) error
+	deleteChainMock   func(table, chain string) error
+	newChainMock      func(table, chain string) error
+	commitMock        func() error
+	retrieveTableMock func() map[string]map[string][]string
 }
 
 // TestIptablesProvider is a test implementation for IptablesProvider
@@ -38,10 +39,7 @@ type testIptablesProvider struct {
 
 // NewTestIptablesProvider returns a new TestManipulator.
 func NewTestIptablesProvider() TestIptablesProvider {
-	return &testIptablesProvider{
-		lock:  &sync.Mutex{},
-		mocks: map[*testing.T]*iptablesProviderMockedMethods{},
-	}
+	return &testIptablesProvider{lock: &sync.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
 }
 
 func (m *testIptablesProvider) MockAppend(t *testing.T, impl func(table, chain string, rulespec ...string) error) {
@@ -150,6 +148,15 @@ func (m *testIptablesProvider) Commit() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.commitMock != nil {
 		return mock.commitMock()
+	}
+
+	return nil
+}
+
+func (m *testIptablesProvider) RetrieveTable() map[string]map[string][]string {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.retrieveTableMock != nil {
+		return mock.retrieveTableMock()
 	}
 
 	return nil
