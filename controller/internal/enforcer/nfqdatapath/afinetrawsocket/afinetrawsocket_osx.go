@@ -2,6 +2,8 @@
 
 package afinetrawsocket
 
+import "go.aporeto.io/trireme-lib/controller/pkg/packet"
+
 const (
 	// RawSocketMark is the mark asserted on all packet sent out of this socket
 	RawSocketMark = 0x63
@@ -15,7 +17,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte) error
+	WriteSocket(buf []byte, version packet.IPver) error
 	CloseSocket() error
 }
 
@@ -30,7 +32,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 }
 
 // WriteSocket writes data into raw socket.
-func (sock *rawsocket) WriteSocket(buf []byte) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver) error {
 	//This is an IP frame dest address at byte[16]
 
 	return nil
