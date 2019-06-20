@@ -186,9 +186,9 @@ type sockaddr4 struct {
 type sockaddr6 struct {
 	family   uint16
 	port     [2]byte
-	flowInfo [4]byte
+	flowInfo [4]byte //nolint
 	ip       [16]byte
-	scopeID  [4]byte
+	scopeID  [4]byte //nolint
 }
 
 // GetOriginalDestination -- Func to get original destination a connection
@@ -205,7 +205,7 @@ func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint 
 	getsockopt4 := func(fd uintptr) {
 		var addr sockaddr4
 		size := uint32(unsafe.Sizeof(addr))
-		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
 		if e1 != 0 {
 			err = e1
 			return
@@ -224,7 +224,7 @@ func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint 
 		var addr sockaddr6
 		size := uint32(unsafe.Sizeof(addr))
 
-		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
 		if e1 != 0 {
 			err = e1
 			return
