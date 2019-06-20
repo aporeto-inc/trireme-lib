@@ -29,7 +29,7 @@ func DialMarkedWithContext(ctx context.Context, network string, addr string, mar
 					zap.L().Error("unable to set socket options", zap.Error(err))
 				}
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
-					zap.L().Error("Failed to assign mark to socket", zap.Error(err))
+					zap.L().Error("Failed to assing mark to socket", zap.Error(err))
 				}
 				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 30, 1); err != nil {
 					zap.L().Debug("Failed to set fast open socket option", zap.Error(err))
