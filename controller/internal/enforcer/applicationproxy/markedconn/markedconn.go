@@ -155,7 +155,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, fmt.Errorf("Not a tcp connection - ignoring")
 	}
 
-	ip, port, err := GetOriginalDestination(tcpConn, syscall.Syscall6)
+	ip, port, err := GetOriginalDestination(tcpConn)
 	if err != nil {
 		zap.L().Error("Failed to discover original destination - aborting", zap.Error(err))
 		return nil, err
@@ -192,17 +192,15 @@ type sockaddr6 struct {
 }
 
 type origDest func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
+type passFD interface {
+	Control(func(uintptr)) error
+}
 
-// GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn *net.TCPConn, getOrigDest origDest) (net.IP, int, error) { // nolint interfacer
+func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest) (net.IP, int, error) { // nolint interfacer{
 	var getsockopt func(fd uintptr)
 	var netIP net.IP
 	var port int
-
-	rawconn, err := conn.SyscallConn()
-	if err != nil {
-		return nil, 0, err
-	}
+	var err error
 
 	getsockopt4 := func(fd uintptr) {
 		var addr sockaddr4
@@ -210,7 +208,7 @@ func GetOriginalDestination(conn *net.TCPConn, getOrigDest origDest) (net.IP, in
 		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
 
 		if e1 != 0 {
-			err = e1
+			err = fmt.Errorf("Failed to get original destination: %s", e1)
 			return
 		}
 
@@ -229,7 +227,7 @@ func GetOriginalDestination(conn *net.TCPConn, getOrigDest origDest) (net.IP, in
 
 		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
 		if e1 != 0 {
-			err = e1
+			err = fmt.Errorf("Failed to get original destination: %s", e1)
 			return
 		}
 
@@ -242,24 +240,38 @@ func GetOriginalDestination(conn *net.TCPConn, getOrigDest origDest) (net.IP, in
 		port = int(addr.port[0])<<8 + int(addr.port[1])
 	}
 
+	if v4Proto {
+		getsockopt = getsockopt4
+	} else {
+		getsockopt = getsockopt6
+	}
+
+	if err1 := rawConn.Control(getsockopt); err1 != nil {
+		return nil, 0, fmt.Errorf("Failed to get original destination: %s", err)
+	}
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return netIP, port, nil
+}
+
+// GetOriginalDestination -- Func to get original destination a connection
+func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint interfacer
+
+	rawconn, err := conn.SyscallConn()
+	if err != nil {
+		return nil, 0, err
+	}
+
 	localIPString, _, err := net.SplitHostPort(conn.LocalAddr().String())
 	if err != nil {
 		return nil, 0, err
 	}
 
 	localIP := net.ParseIP(localIPString)
-
-	if localIP.To4() != nil {
-		getsockopt = getsockopt4
-	} else {
-		getsockopt = getsockopt6
-	}
-
-	if err = rawconn.Control(getsockopt); err != nil {
-		return nil, 0, fmt.Errorf("Failed to get original destination: %s", err)
-	}
-
-	return netIP, port, nil
+	return getOriginalDestInternal(rawconn, localIP.To4() != nil, syscall.Syscall6)
 }
 
 // GetInterfaces retrieves all the local interfaces.

@@ -5,21 +5,23 @@ package markedconn
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"sync"
 	"syscall"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/magiconair/properties/assert"
 )
 
-func testGetOrigDestV4(t *testing.T) {
+type testPassFD struct {
+}
 
-	message := "Hi there!\n"
+func (*testPassFD) Control(f func(uintptr)) error {
+	f(0)
+	return nil
+}
+
+func TestGetOrigDestV4(t *testing.T) {
 
 	testGetOrigV4 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
 		sa := (*(*sockaddr4)(unsafe.Pointer(a4))) //nolint
@@ -30,60 +32,13 @@ func testGetOrigDestV4(t *testing.T) {
 		return 0, 0, 0
 	}
 
-	client := func() {
-		tcpAddr, _ := net.ResolveTCPAddr("tcp", "localhost:3000")
-
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
-		if err != nil {
-			return
-		}
-
-		defer conn.Close() //nolint
-
-		if _, err := fmt.Fprintf(conn, message); err != nil { //nolint
-			return
-		}
-
-	}
-
-	server := func() {
-		addr, err := net.ResolveTCPAddr("tcp", ":3000")
-		if err != nil {
-			return
-		}
-
-		l, err := net.ListenTCP("tcp", addr)
-		if err != nil {
-			return
-		}
-
-		defer l.Close() //nolint
-		conn, err := l.AcceptTCP()
-		if err != nil {
-			return
-		}
-		ip, port, _ := GetOriginalDestination(conn, testGetOrigV4)
-		assert.Equal(t, ip.String(), "127.0.0.1", "ip should be 127.0.0.1")
-		assert.Equal(t, port, 3000, "port should be 3000")
-		defer conn.Close() //nolint
-
-		_, err = ioutil.ReadAll(conn)
-		if err != nil {
-			return
-		}
-	}
-
-	go server()
-	time.Sleep(1 * time.Second)
-	go client()
-
-	time.Sleep(5 * time.Second)
+	test := &testPassFD{}
+	ip, port, _ := getOriginalDestInternal(test, true, testGetOrigV4)
+	assert.Equal(t, ip.String(), "127.0.0.1", "ip should be 127.0.0.1")
+	assert.Equal(t, port, 3000, "port should be 3000")
 }
 
-func testGetOrigDestV6(t *testing.T) {
-
-	message := "Hi there!\n"
-
+func TestGetOrigDestV6(t *testing.T) {
 	testGetOrigV6 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
 		sa := (*(*sockaddr6)(unsafe.Pointer(a4))) //nolint
 		sa.family = syscall.AF_INET6
@@ -95,66 +50,54 @@ func testGetOrigDestV6(t *testing.T) {
 		return 0, 0, 0
 	}
 
-	client := func() {
-		tcpAddr, _ := net.ResolveTCPAddr("tcp6", "[::1]:3000")
-
-		conn, err := net.DialTCP("tcp6", nil, tcpAddr)
-		if err != nil {
-			return
-		}
-
-		defer conn.Close() //nolint
-
-		if _, err := fmt.Fprintf(conn, message); err != nil { //nolint
-			return
-		}
-	}
-
-	server := func() {
-		addr, err := net.ResolveTCPAddr("tcp6", "[::1]:3000")
-		if err != nil {
-			return
-		}
-
-		l, err := net.ListenTCP("tcp6", addr)
-		if err != nil {
-			return
-		}
-
-		defer l.Close() //nolint
-		conn, err := l.AcceptTCP()
-		if err != nil {
-			return
-		}
-
-		ip, port, _ := GetOriginalDestination(conn, testGetOrigV6) //nolint
-		assert.Equal(t, ip.String(), "::1", "ip should be ::1")
-		assert.Equal(t, port, 3000, "port should be 3000")
-		defer conn.Close() //nolint
-
-		_, err = ioutil.ReadAll(conn)
-		if err != nil {
-			return
-		}
-	}
-
-	go server()
-	time.Sleep(1 * time.Second)
-	go client()
-
-	time.Sleep(5 * time.Second)
+	test := &testPassFD{}
+	ip, port, _ := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	assert.Equal(t, ip.String(), "::1", "ip should be ::1")
+	assert.Equal(t, port, 3000, "port should be 3000")
 }
 
-var m sync.Mutex
+func TestGetOrigDestV4Err1(t *testing.T) {
 
-func TestOrigDest(t *testing.T) {
-	m.Lock()
-	testGetOrigDestV4(t)
-	m.Unlock()
+	testGetOrigV4 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+		return 0, 0, 0
+	}
 
-	m.Lock()
-	testGetOrigDestV6(t)
-	m.Unlock()
+	test := &testPassFD{}
+	_, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
+
+	assert.Equal(t, err != nil, true, "error should not be nil")
+}
+
+func TestGetOrigDestV6Err1(t *testing.T) {
+	testGetOrigV6 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+		return 0, 0, 0
+	}
+
+	test := &testPassFD{}
+	_, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	assert.Equal(t, err != nil, true, "error should not be nil")
+}
+
+func TestGetOrigDestV4Err2(t *testing.T) {
+
+	testGetOrigV4 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+		return 0, 0, 1
+	}
+
+	test := &testPassFD{}
+	_, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
+	assert.Equal(t, err != nil, true, "error should not be nil")
+}
+
+func TestGetOrigDestV6Err2(t *testing.T) {
+	testGetOrigV6 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+		return 0, 0, 1
+	}
+
+	test := &testPassFD{}
+
+	_, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	assert.Equal(t, err != nil, true, "error should not be nil")
 }
 
 func TestLocalAddr(t *testing.T) {
