@@ -155,7 +155,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, fmt.Errorf("Not a tcp connection - ignoring")
 	}
 
-	ip, port, err := GetOriginalDestination(tcpConn)
+	ip, port, err := GetOriginalDestination(tcpConn, syscall.Syscall6)
 	if err != nil {
 		zap.L().Error("Failed to discover original destination - aborting", zap.Error(err))
 		return nil, err
@@ -191,8 +191,10 @@ type sockaddr6 struct {
 	scopeID  [4]byte //nolint
 }
 
+type origDest func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
+
 // GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint interfacer
+func GetOriginalDestination(conn *net.TCPConn, getOrigDest origDest) (net.IP, int, error) { // nolint interfacer
 	var getsockopt func(fd uintptr)
 	var netIP net.IP
 	var port int
@@ -205,7 +207,8 @@ func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint 
 	getsockopt4 := func(fd uintptr) {
 		var addr sockaddr4
 		size := uint32(unsafe.Sizeof(addr))
-		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+
 		if e1 != 0 {
 			err = e1
 			return
@@ -224,7 +227,7 @@ func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint 
 		var addr sockaddr6
 		size := uint32(unsafe.Sizeof(addr))
 
-		_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
 		if e1 != 0 {
 			err = e1
 			return
