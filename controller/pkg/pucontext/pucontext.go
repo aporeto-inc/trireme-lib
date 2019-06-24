@@ -57,6 +57,7 @@ type PUContext struct {
 	scopes            []string
 	Extension         interface{}
 	CancelFunc        context.CancelFunc
+	errorCounters     []uint64
 	sync.RWMutex
 }
 
@@ -79,6 +80,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		mark:            puInfo.Runtime.Options().CgroupMark,
 		scopes:          puInfo.Policy.Scopes(),
 		CancelFunc:      cancelFunc,
+		errorCounters:   make([]uint64, len(puerrors)),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())

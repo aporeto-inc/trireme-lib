@@ -35,10 +35,13 @@ const (
 	ErrSynAckInvalidFormat
 	ErrSynAckClaimsMisMatch
 	ErrSynAckRejected
+	ErrSynAckDroppedExternalService
 	ErrAckRejected
 	ErrAckTCPNoTCPAuthOption
 	ErrAckSigValidationFailed
 	ErrAckInvalidFormat
+	ErrAckInUnknownState
+	ErrSynUnexpectedPacket
 )
 
 var puerrors = []PuErrors{
@@ -135,12 +138,23 @@ var puerrors = []PuErrors{
 	ErrAckInvalidFormat: PuErrors{
 		err: errors.New("Ack packet dropped because of invalid format"),
 	},
+	ErrAckInUnknownState: PuErrors{
+		err: errors.New("sending finack Ack Received in uknown connection state"),
+	},
+	ErrSynUnexpectedPacket: PuErrors{
+		err: errors.New("Received syn packet from unknown PU"),
+	},
 }
 
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error {
+
 	return puerrors[err].err
 }
 
 func PuContextError(err ErrorType, logMsg string) error {
+	return puerrors[err].err
+}
+
+func GetError(err ErrorType) error {
 	return puerrors[err].err
 }

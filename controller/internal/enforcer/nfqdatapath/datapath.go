@@ -567,7 +567,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, pucontext.ErrContextIDNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, "")
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
