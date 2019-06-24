@@ -3,7 +3,6 @@ package nfqdatapath
 // Go libraries
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"time"
@@ -32,11 +31,6 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
-
-var errMarkNotFound = errors.New("PU mark not found")
-var errPortNotFound = errors.New("Port not found")
-var errContextIDNotFound = errors.New("unable to find contextID")
-var errInvalidProtocol = errors.New("Invalid Protocol")
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
@@ -558,7 +552,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 				zap.Int("protocol", int(protocol)),
 				zap.Int("port", int(port)),
 			)
-			return nil, errMarkNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrMarkNotFound, "Mark Not Found")
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -568,12 +562,12 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for TCP server port ", zap.Uint16("port", port))
-			return nil, errPortNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf(" TCP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, errContextIDNotFound
+			return nil, pucontext.ErrContextIDNotFound
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -582,19 +576,19 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
-			return nil, errPortNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf("UDP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, errContextIDNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, fmt.Sprintf("contextID %s not Found", contextID))
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
 
 	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
 
-	return nil, errInvalidProtocol
+	return nil, pucontext.PuContextError(pucontext.ErrInvalidProtocol, fmt.Sprintf("Invalid Protocol %d", int(protocol)))
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
