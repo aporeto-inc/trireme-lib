@@ -61,6 +61,7 @@ func createPUInfo() *policy.PUInfo {
 	runtime.SetIPAddresses(ips)
 	plc := policy.NewPUPolicy(
 		"context",
+		"/ns1",
 		policy.Police,
 		rules,
 		rules,

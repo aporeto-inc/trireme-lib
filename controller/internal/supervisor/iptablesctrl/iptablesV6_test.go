@@ -70,7 +70,9 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		i.SetTargetNetworks(cfg) //nolint
 
 		ipl := policy.ExtendedMap{}
-		policyrules := policy.NewPUPolicy("Context",
+		policyrules := policy.NewPUPolicy(
+			"Context",
+			"/ns1",
 			policy.Police,
 			nil,
 			nil,
@@ -85,7 +87,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			nil,
 			[]string{},
 		)
-		containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
+		containerinfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 		containerinfo.Policy = policyrules
 		containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 		containerinfo.Runtime.SetOptions(policy.OptionsType{
@@ -511,7 +513,9 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					},
 				}
 				ipl := policy.ExtendedMap{}
-				policyrules := policy.NewPUPolicy("Context",
+				policyrules := policy.NewPUPolicy(
+					"Context",
+					"/ns1",
 					policy.Police,
 					appACLs,
 					netACLs,
@@ -526,7 +530,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					nil,
 					[]string{},
 				)
-				puInfo := policy.NewPUInfo("Context", common.LinuxProcessPU)
+				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
@@ -596,7 +600,9 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						},
 					}
 					ipl := policy.ExtendedMap{}
-					policyrules := policy.NewPUPolicy("Context",
+					policyrules := policy.NewPUPolicy(
+						"Context",
+						"/ns1",
 						policy.Police,
 						appACLs,
 						netACLs,
@@ -611,7 +617,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						nil,
 						[]string{},
 					)
-					puInfoUpdated := policy.NewPUInfo("Context", common.LinuxProcessPU)
+					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 					puInfoUpdated.Policy = policyrules
 					puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
 						CgroupMark: "10",
@@ -907,7 +913,9 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					},
 				}
 				ipl := policy.ExtendedMap{}
-				policyrules := policy.NewPUPolicy("Context",
+				policyrules := policy.NewPUPolicy(
+					"Context",
+					"/ns1",
 					policy.Police,
 					appACLs,
 					netACLs,
@@ -922,7 +930,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					nil,
 					[]string{},
 				)
-				puInfo := policy.NewPUInfo("Context", common.ContainerPU)
+				puInfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 				puInfo.Policy = policyrules
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
