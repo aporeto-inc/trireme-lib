@@ -7,8 +7,8 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.uber.org/zap"
 
-	ext_authz_v2 "github.com/envoyproxy/data-plane-api/envoy/service/auth/v2"
-	envoy_type "github.com/envoyproxy/data-plane-api/envoy/type"
+	ext_authz_v2 "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/service/auth/v2"
+	envoy_type "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/type"
 
 	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
