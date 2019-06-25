@@ -1,11 +1,10 @@
 package pucontext
 
-import "errors"
-
-type PuErrors struct {
-	err error
-}
 type ErrorType int
+type PuErrors struct {
+	index ErrorType
+	err   string
+}
 
 const (
 	ErrInvalidNetState ErrorType = iota
@@ -42,119 +41,167 @@ const (
 	ErrAckInvalidFormat
 	ErrAckInUnknownState
 	ErrSynUnexpectedPacket
+	ErrUnknownError
 )
 
 var puerrors = []PuErrors{
 	ErrInvalidNetState: PuErrors{
-		err: errors.New("Invalid net state"),
+		index: ErrInvalidNetState,
+		err:   "Invalid net state",
 	},
 	ErrNonPUTraffic: PuErrors{
-		err: errors.New("Traffic belongs to a PU we are not monitoring"),
+		index: ErrNonPUTraffic,
+		err:   "Traffic belongs to a PU we are not monitoring",
 	},
 	ErrNetSynNotSeen: PuErrors{
-		err: errors.New("Network Syn packet was not seen"),
+		index: ErrNetSynNotSeen,
+		err:   "Network Syn packet was not seen",
 	},
 	ErrNoConnFound: PuErrors{
-		err: errors.New("no context or connection found"),
+		index: ErrNoConnFound,
+		err:   "no context or connection found",
 	},
 	ErrRejectPacket: PuErrors{
-		err: errors.New("Reject the packet as per policy"),
+		index: ErrRejectPacket,
+		err:   "Reject the packet as per policy",
 	},
 	ErrTCPAuthNotFound: PuErrors{
-		err: errors.New("TCP authentication option not found"),
+		index: ErrTCPAuthNotFound,
+		err:   "TCP authentication option not found",
 	},
 	ErrInvalidConnState: PuErrors{
-		err: errors.New("Invalid connection state"),
+		index: ErrInvalidConnState,
+		err:   "Invalid connection state",
 	},
 	ErrMarkNotFound: PuErrors{
-		err: errors.New("PU mark not found"),
+		index: ErrMarkNotFound,
+		err:   "PU mark not found",
 	},
 	ErrPortNotFound: PuErrors{
-		err: errors.New("Port not found"),
+		index: ErrPortNotFound,
+		err:   "Port not found",
 	},
 	ErrContextIDNotFound: PuErrors{
-		err: errors.New("unable to find contextID"),
+		index: ErrContextIDNotFound,
+		err:   "unable to find contextID",
 	},
 	ErrInvalidProtocol: PuErrors{
-		err: errors.New("Invalid Protocol"),
+		index: ErrInvalidProtocol,
+		err:   "Invalid Protocol",
 	},
 	ErrServicePreprocessorFailed: PuErrors{
-		err: errors.New("pre service processing failed for network packet"),
+		index: ErrServicePreprocessorFailed,
+		err:   "pre service processing failed for network packet",
 	},
 	ErrServicePostprocessorFailed: PuErrors{
-		err: errors.New("post service processing failed for network packet"),
+		index: ErrServicePostprocessorFailed,
+		err:   "post service processing failed for network packet",
 	},
 	ErrDroppedExternalService: PuErrors{
-		err: errors.New("No acls found for external services. Dropping application syn packet"),
+		index: ErrDroppedExternalService,
+		err:   "No acls found for external services. Dropping application syn packet",
 	},
 	ErrSynDroppedNoClaims: PuErrors{
-		err: errors.New("Syn packet dropped because of no claims"),
+		index: ErrSynDroppedNoClaims,
+		err:   "Syn packet dropped because of no claims",
 	},
 	ErrSynDroppedInvalidToken: PuErrors{
-		err: errors.New("Syn packet dropped because of invalid token"),
+		index: ErrSynDroppedInvalidToken,
+		err:   "Syn packet dropped because of invalid token",
 	},
 	ErrSynDroppedTCPOption: PuErrors{
-		err: errors.New("TCP authentication option not found"),
+		index: ErrSynDroppedTCPOption,
+		err:   "TCP authentication option not found",
 	},
 	ErrSynDroppedInvalidFormat: PuErrors{
-		err: errors.New("Syn packet dropped because of invalid format"),
+		index: ErrSynDroppedInvalidFormat,
+		err:   "Syn packet dropped because of invalid format",
 	},
 	ErrOutOfOrderSynAck: PuErrors{
-		err: errors.New("synack for flow with processed finack"),
+		index: ErrOutOfOrderSynAck,
+		err:   "synack for flow with processed finack",
 	},
 	ErrInvalidSynAck: PuErrors{
-		err: errors.New("PU is already dead - drop SynAck packet"),
+		index: ErrInvalidSynAck,
+		err:   "PU is already dead - drop SynAck packet",
 	},
 	ErrSynAckMissingToken: PuErrors{
-		err: errors.New("SynAck packet dropped because of missing token"),
+		index: ErrSynAckMissingToken,
+		err:   "SynAck packet dropped because of missing token",
 	},
 	ErrSynAckBadClaims: PuErrors{
-		err: errors.New("SynAck packet dropped because of bad claims"),
+		index: ErrSynAckBadClaims,
+		err:   "SynAck packet dropped because of bad claims",
 	},
 	ErrSynAckMissingClaims: PuErrors{
-		err: errors.New("SynAck packet dropped because of no claims"),
+		index: ErrSynAckMissingClaims,
+		err:   "SynAck packet dropped because of no claims",
 	},
 	ErrSynAckNoTCPAuthOption: PuErrors{
-		err: errors.New("TCP authentication option not found"),
+		index: ErrSynAckNoTCPAuthOption,
+		err:   "TCP authentication option not found",
 	},
 	ErrSynAckInvalidFormat: PuErrors{
-		err: errors.New("SynAck packet dropped because of invalid format"),
+		index: ErrSynAckInvalidFormat,
+		err:   "SynAck packet dropped because of invalid format",
 	},
 	ErrSynAckClaimsMisMatch: PuErrors{
-		err: errors.New("syn/ack packet dropped because of encryption mismatch"),
+		index: ErrSynAckClaimsMisMatch,
+		err:   "syn/ack packet dropped because of encryption mismatch",
 	},
 	ErrSynAckRejected: PuErrors{
-		err: errors.New("dropping because of reject rule on transmitter"),
+		index: ErrSynAckRejected,
+		err:   "dropping because of reject rule on transmitter",
 	},
 	ErrAckRejected: PuErrors{
-		err: errors.New("Reject Ack packet as per policy"),
+		index: ErrAckRejected,
+		err:   "Reject Ack packet as per policy",
 	},
 	ErrAckTCPNoTCPAuthOption: PuErrors{
-		err: errors.New("TCP authentication option not found"),
+		index: ErrAckTCPNoTCPAuthOption,
+		err:   "TCP authentication option not found",
 	},
 	ErrAckSigValidationFailed: PuErrors{
-		err: errors.New("Ack packet dropped because signature validation failed"),
+		index: ErrAckSigValidationFailed,
+		err:   "Ack packet dropped because signature validation failed",
 	},
 	ErrAckInvalidFormat: PuErrors{
-		err: errors.New("Ack packet dropped because of invalid format"),
+		index: ErrAckInvalidFormat,
+		err:   "Ack packet dropped because of invalid format",
 	},
 	ErrAckInUnknownState: PuErrors{
-		err: errors.New("sending finack Ack Received in uknown connection state"),
+		index: ErrAckInUnknownState,
+		err:   "sending finack Ack Received in uknown connection state",
 	},
 	ErrSynUnexpectedPacket: PuErrors{
-		err: errors.New("Received syn packet from unknown PU"),
+		index: ErrSynUnexpectedPacket,
+		err:   "Received syn packet from unknown PU",
+	},
+	ErrUnknownError: PuErrors{
+		index: ErrUnknownError,
+		err:   "Unknown Error",
 	},
 }
 
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error {
-
-	return puerrors[err].err
+	return puerrors[err]
 }
 
 func PuContextError(err ErrorType, logMsg string) error {
-	return puerrors[err].err
+	return puerrors[err]
 }
 
-func GetError(err ErrorType) error {
-	return puerrors[err].err
+func GetError(err error) ErrorType {
+	errType, ok := err.(PuErrors)
+	if !ok {
+		return ErrUnknownError
+	}
+	return errType.index
+}
+
+func ToError(errType ErrorType) error {
+	return puerrors[errType]
+}
+func (e PuErrors) Error() string {
+	return e.err
 }

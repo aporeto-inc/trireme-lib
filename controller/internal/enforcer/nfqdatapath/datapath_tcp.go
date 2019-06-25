@@ -45,7 +45,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		if err != nil {
 			switch err {
 			// Non PU Traffic let it through
-			case pucontext.GetError(pucontext.ErrNonPUTraffic):
+			case pucontext.ToError(pucontext.ErrNonPUTraffic):
 				return conn, nil
 			default:
 
@@ -63,12 +63,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	case packet.TCPSynAckMask:
 		conn, err = d.netSynAckRetrieveState(p)
 		switch err {
-		case pucontext.GetError(pucontext.ErrOutOfOrderSynAck):
+		case pucontext.ToError(pucontext.ErrOutOfOrderSynAck):
 			// Drop this synack it is for a flow we know which is marked for deletion.
 			// We saw a FINACK and this synack has come without we seeing an appsyn for this flow again
 			//return conn, fmt.Errorf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort()))
 			return conn, conn.Context.PuContextError(pucontext.ErrOutOfOrderSynAck, fmt.Sprintf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort())))
-		case pucontext.GetError(pucontext.ErrNonPUTraffic):
+		case pucontext.ToError(pucontext.ErrNonPUTraffic):
 			d.releaseUnmonitoredFlow(p)
 			return conn, nil
 		}
