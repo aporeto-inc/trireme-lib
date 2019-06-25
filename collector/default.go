@@ -58,7 +58,7 @@ func StatsUserHash(r *UserRecord) error {
 			continue
 		}
 		if _, err := hash.Write([]byte(r.Claims[i])); err != nil {
-			return fmt.Errorf("Cannot create hash")
+			return fmt.Errorf("unable to create hash: %v", err)
 		}
 	}
 	r.ID = fmt.Sprintf("%d", hash.Sum64())

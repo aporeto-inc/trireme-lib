@@ -12,4 +12,4 @@ type NFLogger interface {
 }
 
 // GetPUInfoFunc provides PU information given the id
-type GetPUInfoFunc func(id string) (string, *policy.TagStore)
+type GetPUInfoFunc func(id string) (string, string, *policy.TagStore)
