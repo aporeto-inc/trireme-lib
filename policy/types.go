@@ -352,7 +352,20 @@ type OptionsType struct {
 	// ConvertedDockerPU is set when a docker PU is converted to LinuxProcess
 	// in order to implement host network containers.
 	ConvertedDockerPU bool
+
+	// EnforcerType is set if a PU wants to specifically request a certain enforcer type
+	EnforcerType EnforcerType
 }
+
+// EnforcerType defines which enforcer type should be selected
+type EnforcerType int
+
+const (
+	// EnforcerMapping lets the default enforcer configuration deal with it
+	EnforcerMapping EnforcerType = iota
+	// EnvoyEnforcer specifically asks for running an envoy enforcer
+	EnvoyEnforcer
+)
 
 // RuntimeError is an error detected by the TriremeController that has to be
 // returned at a later time to the policy engine to take action.

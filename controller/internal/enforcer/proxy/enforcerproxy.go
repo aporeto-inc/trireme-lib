@@ -280,6 +280,7 @@ func NewProxyEnforcer(
 	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
+	envoyEnforcer bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -297,7 +298,7 @@ func NewProxyEnforcer(
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient),
+		prochdl:                processmon.New(context.Background(), remoteParameters, envoyEnforcer, runtimeError, rpcClient),
 		rpchdl:                 rpcClient,
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,

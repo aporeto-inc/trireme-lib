@@ -19,6 +19,8 @@ import (
 	"sync"
 	"syscall"
 
+	supervisorproxy "go.aporeto.io/trireme-lib/controller/internal/supervisor/proxy"
+
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
@@ -79,6 +81,11 @@ func newRemoteEnforcer(
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
+	var envoyEnforcer bool
+	if envoyEnforcerStr, ok := os.LookupEnv(constants.EnvEnvoyEnforcer); ok {
+		envoyEnforcer, _ = strconv.ParseBool(envoyEnforcerStr)
+	}
+
 	return &RemoteEnforcer{
 		collector:      collector,
 		service:        service,
@@ -90,6 +97,7 @@ func newRemoteEnforcer(
 		ctx:            ctx,
 		cancel:         cancel,
 		exit:           make(chan bool),
+		envoyEnforcer:  envoyEnforcer,
 	}, nil
 }
 
@@ -392,21 +400,33 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		return err
 	}
 
-	if s.enforcer, err = createEnforcer(
-		payload.MutualAuth,
-		payload.FqConfig,
-		s.collector,
-		s.service,
-		s.secrets,
-		payload.ServerID,
-		payload.Validity,
-		constants.RemoteContainer,
-		s.procMountPoint,
-		payload.ExternalIPCacheTimeout,
-		payload.PacketLogs,
-		payload.Configuration,
-	); err != nil || s.enforcer == nil {
-		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
+	// start an envoy remote instead of our normal nfqdatapath+AppProxy enforcer
+	if s.envoyEnforcer {
+		if s.enforcer, err = enforcer.NewEnvoyEnforcer(
+			s.collector,
+			s.secrets,
+			payload.ServerID,
+			payload.Validity,
+		); err != nil || s.enforcer == nil {
+			return fmt.Errorf("Error while initializing remote Envoy enforcer, %s", err)
+		}
+	} else {
+		if s.enforcer, err = createEnforcer(
+			payload.MutualAuth,
+			payload.FqConfig,
+			s.collector,
+			s.service,
+			s.secrets,
+			payload.ServerID,
+			payload.Validity,
+			constants.RemoteContainer,
+			s.procMountPoint,
+			payload.ExternalIPCacheTimeout,
+			payload.PacketLogs,
+			payload.Configuration,
+		); err != nil || s.enforcer == nil {
+			return fmt.Errorf("Error while initializing remote enforcer, %s", err)
+		}
 	}
 
 	return nil
@@ -414,17 +434,22 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
-	h, err := createSupervisor(
-		s.collector,
-		s.enforcer,
-		constants.RemoteContainer,
-		payload.Configuration,
-		s.service,
-	)
-	if err != nil {
-		return fmt.Errorf("unable to setup supervisor: %s", err)
+	if s.envoyEnforcer {
+		// TODO: wow, what a hack ... need something proper here before this gets merged
+		s.supervisor = supervisorproxy.NewProxySupervisor()
+	} else {
+		h, err := createSupervisor(
+			s.collector,
+			s.enforcer,
+			constants.RemoteContainer,
+			payload.Configuration,
+			s.service,
+		)
+		if err != nil {
+			return fmt.Errorf("unable to setup supervisor: %s", err)
+		}
+		s.supervisor = h
 	}
-	s.supervisor = h
 
 	return nil
 }

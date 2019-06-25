@@ -23,6 +23,9 @@ const (
 	// EnvMountPoint is an environment variable which will contain the mount point
 	EnvMountPoint = "TRIREME_ENV_PROC_MOUNTPOINT"
 
+	// EnvEnvoyEnforcer is an environment variable which will indicate if we want to run the envoyproxy enforcer
+	EnvEnvoyEnforcer = "TRIREME_ENV_ENVOY_ENFORCER"
+
 	// EnvContextSocket stores the path to the context specific socket
 	EnvContextSocket = "TRIREME_ENV_SOCKET_PATH"
 
@@ -79,6 +82,10 @@ const (
 	LocalServer
 	// Sidecar indicates the controller to be in sidecar mode
 	Sidecar
+	// LocalEnvoy indicates to use a local envoyproxy as enforcer
+	LocalEnvoy
+	// RemoteContainerEnvoy indicates to use the envoyproxy enforcer for containers
+	RemoteContainerEnvoy
 )
 
 // API service related constants

@@ -107,7 +107,7 @@ func TestLaunchProcess(t *testing.T) {
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "pu1"
 
-		pm := New(ctx, &env.RemoteParameters{}, errChannel, rpchdl)
+		pm := New(ctx, &env.RemoteParameters{}, false, errChannel, rpchdl)
 		p, ok := pm.(*RemoteMonitor)
 		So(ok, ShouldBeTrue)
 
@@ -185,7 +185,7 @@ func Test_KillRemoteEnforcer(t *testing.T) {
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "abcd"
 
-		pm := New(ctx, &env.RemoteParameters{}, errChannel, rpchdl)
+		pm := New(ctx, &env.RemoteParameters{}, false, errChannel, rpchdl)
 		p, ok := pm.(*RemoteMonitor)
 		So(ok, ShouldBeTrue)
 
@@ -291,7 +291,7 @@ func Test_CollectExitStatus(t *testing.T) {
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "12345"
 
-		pm := New(ctx, &env.RemoteParameters{}, errChannel, rpchdl)
+		pm := New(ctx, &env.RemoteParameters{}, false, errChannel, rpchdl)
 		p, ok := pm.(*RemoteMonitor)
 		So(ok, ShouldBeTrue)
 

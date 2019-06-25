@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyproxy"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
@@ -249,6 +251,23 @@ func New(
 		transport: transport,
 		secrets:   secretsproxy.NewSecretsProxy(),
 	}, nil
+}
+
+// NewEnvoyEnforcer creates an enforcer that *only* implements the enforcer using the envoyproxy integration
+func NewEnvoyEnforcer(
+	collector collector.EventCollector,
+	secrets secrets.Secrets,
+	serverID string,
+	validity time.Duration,
+) (Enforcer, error) {
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+	if err != nil {
+		zap.L().Fatal("Cannot create a token engine")
+	}
+
+	puFromContextID := cache.NewCache("puFromContextID")
+
+	return envoyproxy.NewEnvoyProxy(tokenAccessor, collector, puFromContextID, secrets)
 }
 
 // NewWithDefaults create a new data path with most things used by default

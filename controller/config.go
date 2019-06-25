@@ -43,6 +43,10 @@ type config struct {
 	runtimeCfg             *runtime.Configuration
 	runtimeErrorChannel    chan *policy.RuntimeError
 	remoteParameters       *env.RemoteParameters
+	// usually we determine if envoy is requested through the extractors
+	// however, this allows us to run a local envoy enforcer or to force envoy on all remotes
+	localEnvoyEnforcer       bool
+	forceRemoteEnvoyEnforcer bool
 }
 
 // Option is provided using functional arguments.
@@ -119,6 +123,20 @@ func OptionPacketLogs() Option {
 	}
 }
 
+// OptionLocalEnvoyEnforcer is an option to start the enforcer in local envoy mode only
+func OptionLocalEnvoyEnforcer() Option {
+	return func(cfg *config) {
+		cfg.localEnvoyEnforcer = true
+	}
+}
+
+// OptionForceRemoteEnvoyEnforcer is an option to force to start every remote in envoy mode
+func OptionForceRemoteEnvoyEnforcer() Option {
+	return func(cfg *config) {
+		cfg.forceRemoteEnvoyEnforcer = true
+	}
+}
+
 // OptionRemoteParameters is an option to set the parameters for the remote
 func OptionRemoteParameters(p *env.RemoteParameters) Option {
 	return func(cfg *config) {
@@ -145,13 +163,54 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 		)
 		if err != nil {
-			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
+			return fmt.Errorf("Failed to initialize the LocalServer enforcer: %s ", err)
+		}
+
+		// we also start a local envoy for PUs that might be requesting it in their extensions
+		t.enforcers[constants.LocalEnvoy], err = enforcer.NewEnvoyEnforcer(
+			t.config.collector,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize the LocalEnvoy enforcer: %s", err)
+		}
+	}
+
+	if t.config.localEnvoyEnforcer {
+		t.enforcers[constants.LocalEnvoy], err = enforcer.NewEnvoyEnforcer(
+			t.config.collector,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize the LocalEnvoy enforcer: %s", err)
 		}
 	}
 
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.RemoteContainer {
-		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
+		if !t.config.forceRemoteEnvoyEnforcer {
+			t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
+				t.config.mutualAuth,
+				t.config.fq,
+				t.config.collector,
+				t.config.secret,
+				t.config.serverID,
+				t.config.validity,
+				"enforce",
+				t.config.procMountPoint,
+				t.config.externalIPcacheTimeout,
+				t.config.packetLogs,
+				t.config.runtimeCfg,
+				t.config.runtimeErrorChannel,
+				t.config.remoteParameters,
+				false,
+			)
+		}
+		t.enforcers[constants.RemoteContainerEnvoy] = enforcerproxy.NewProxyEnforcer(
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
@@ -165,10 +224,10 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.runtimeErrorChannel,
 			t.config.remoteParameters,
+			true,
 		)
 	}
 
-	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.Sidecar {
 		t.enforcers[constants.Sidecar], err = enforcer.New(
 			t.config.mutualAuth,
@@ -206,10 +265,18 @@ func (t *trireme) newSupervisors() error {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
 		}
 		t.supervisors[constants.LocalServer] = sup
+		t.supervisors[constants.LocalEnvoy] = supervisorproxy.NewProxySupervisor()
+	}
+
+	if t.config.localEnvoyEnforcer {
+		t.supervisors[constants.LocalEnvoy] = supervisorproxy.NewProxySupervisor()
 	}
 
 	if t.config.mode == constants.RemoteContainer {
-		t.supervisors[constants.RemoteContainer] = supervisorproxy.NewProxySupervisor()
+		if !t.config.forceRemoteEnvoyEnforcer {
+			t.supervisors[constants.RemoteContainer] = supervisorproxy.NewProxySupervisor()
+		}
+		t.supervisors[constants.RemoteContainerEnvoy] = supervisorproxy.NewProxySupervisor()
 	}
 
 	if t.config.mode == constants.Sidecar {
@@ -243,6 +310,11 @@ func newTrireme(c *config) TriremeController {
 		enablingTrace:        make(chan *traceTrigger, 10),
 	}
 
+	if c.linuxProcess && c.localEnvoyEnforcer {
+		zap.L().Error("You cannot use local envoy enforcer when you also want to activate normal linux processes")
+		return nil
+	}
+
 	zap.L().Debug("Creating Enforcers")
 	if err = t.newEnforcers(); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
@@ -263,9 +335,22 @@ func newTrireme(c *config) TriremeController {
 		t.puTypeToEnforcerType[common.SSHSessionPU] = constants.LocalServer
 	}
 
+	if c.localEnvoyEnforcer {
+		t.puTypeToEnforcerType[common.LinuxProcessPU] = constants.LocalEnvoy
+		t.puTypeToEnforcerType[common.UIDLoginPU] = constants.LocalEnvoy
+		t.puTypeToEnforcerType[common.HostPU] = constants.LocalEnvoy
+		t.puTypeToEnforcerType[common.HostNetworkPU] = constants.LocalEnvoy
+		t.puTypeToEnforcerType[common.SSHSessionPU] = constants.LocalEnvoy
+	}
+
 	if t.config.mode == constants.RemoteContainer {
-		t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainer
-		t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainer
+		if t.config.forceRemoteEnvoyEnforcer {
+			t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainerEnvoy
+			t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainerEnvoy
+		} else {
+			t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainer
+			t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainer
+		}
 	}
 
 	if t.config.mode == constants.Sidecar {

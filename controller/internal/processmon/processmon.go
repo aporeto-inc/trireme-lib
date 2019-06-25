@@ -62,6 +62,8 @@ type RemoteMonitor struct {
 	logFormat string
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags claimsheader.CompressionType
+	// envoyEnforcer will launch the remote envoy enforcer
+	envoyEnforcer bool
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
 	runtimeErrorChannel chan *policy.RuntimeError
 	// rpc is the rpc client to communicate with the remotes.
@@ -87,7 +89,7 @@ type exitStatus struct {
 }
 
 // New is a method to create a new remote process monitor.
-func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
+func New(ctx context.Context, p *env.RemoteParameters, envoyEnforcer bool, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
 
 	m := &RemoteMonitor{
 		remoteEnforcerTempBuildPath: remoteEnforcerTempBuildPath,
@@ -100,6 +102,7 @@ func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeErr
 		logLevel:                    p.LogLevel,
 		logFormat:                   p.LogFormat,
 		compressedTags:              p.CompressedTags,
+		envoyEnforcer:               envoyEnforcer,
 		runtimeErrorChannel:         c,
 		rpc:                         r,
 	}
@@ -397,6 +400,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
+		constants.EnvEnvoyEnforcer + "=" + strconv.FormatBool(p.envoyEnforcer),
 	}
 
 	if p.compressedTags != claimsheader.CompressionTypeNone {

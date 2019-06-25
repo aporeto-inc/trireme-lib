@@ -192,13 +192,15 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromRuntime(containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -215,8 +217,10 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 // doHandleDelete is the detailed implementation of the delete event.
 func (t *trireme) doHandleDelete(contextID string, runtime *policy.PURuntime) error {
 
-	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
-	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
+	modeType := t.modeTypeFromRuntime(runtime)
+
+	errS := t.supervisors[modeType].Unsupervise(contextID)
+	errE := t.enforcers[modeType].Unenforce(contextID)
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
@@ -243,9 +247,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromRuntime(containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-		if werr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); werr != nil {
+		if werr := t.supervisors[modeType].Unsupervise(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -254,8 +260,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		return fmt.Errorf("unable to update policy for pu %s: %s", contextID, err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -331,4 +337,32 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 		}
 	}
 
+}
+
+func (t *trireme) modeTypeFromRuntime(runtime *policy.PURuntime) constants.ModeType {
+	switch runtime.Options().EnforcerType {
+	case policy.EnforcerMapping:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	case policy.EnvoyEnforcer:
+		switch runtime.PUType() {
+		case common.KubernetesPU:
+			fallthrough
+		case common.ContainerPU:
+			return constants.RemoteContainerEnvoy
+		case common.UIDLoginPU:
+			fallthrough
+		case common.HostPU:
+			fallthrough
+		case common.HostNetworkPU:
+			fallthrough
+		case common.SSHSessionPU:
+			fallthrough
+		case common.LinuxProcessPU:
+			return constants.LocalEnvoy
+		default:
+			return t.puTypeToEnforcerType[runtime.PUType()]
+		}
+	default:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
 }

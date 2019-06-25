@@ -33,4 +33,5 @@ type RemoteEnforcer struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	exit           chan bool
+	envoyEnforcer  bool
 }
