@@ -367,6 +367,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 
 	return &PUPolicyPublic{
 		ManagementID:          p.managementID,
+		ManagementNamespace:   p.managementNamespace,
 		TriremeAction:         p.triremeAction,
 		ApplicationACLs:       p.applicationACLs.Copy(),
 		NetworkACLs:           p.networkACLs.Copy(),
@@ -390,6 +391,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 // unit in an object that can be marshalled and transmitted over the RPC interface.
 type PUPolicyPublic struct {
 	ManagementID          string                  `json:"managementID,omitempty"`
+	ManagementNamespace   string                  `json:"managementNamespace,omitempty"`
 	TriremeAction         PUAction                `json:"triremeAction,omitempty"`
 	ApplicationACLs       IPRuleList              `json:"applicationACLs,omitempty"`
 	NetworkACLs           IPRuleList              `json:"networkACLs,omitempty"`
@@ -425,6 +427,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 
 	return &PUPolicy{
 		managementID:          p.ManagementID,
+		managementNamespace:   p.ManagementNamespace,
 		triremeAction:         p.TriremeAction,
 		applicationACLs:       p.ApplicationACLs,
 		networkACLs:           p.NetworkACLs.Copy(),
