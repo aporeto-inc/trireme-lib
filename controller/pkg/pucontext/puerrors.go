@@ -1,13 +1,25 @@
 package pucontext
 
+import (
+	"sync/atomic"
+
+	"go.aporeto.io/trireme-lib/collector"
+)
+
 type ErrorType int
 type PuErrors struct {
 	index ErrorType
 	err   string
 }
 
+// type errorCounterReport struct {
+// 	name  string
+// 	value uint64
+// }
+
 const (
-	ErrInvalidNetState ErrorType = iota
+	ErrUnknownError ErrorType = iota
+	ErrInvalidNetState
 	ErrNonPUTraffic
 	ErrNetSynNotSeen
 	ErrNoConnFound
@@ -25,6 +37,7 @@ const (
 	ErrSynDroppedInvalidToken
 	ErrSynDroppedTCPOption
 	ErrSynDroppedInvalidFormat
+	ErrSynRejectPacket
 	ErrOutOfOrderSynAck
 	ErrInvalidSynAck
 	ErrSynAckMissingToken
@@ -41,17 +54,66 @@ const (
 	ErrAckInvalidFormat
 	ErrAckInUnknownState
 	ErrSynUnexpectedPacket
-	ErrUnknownError
+	ErrConnectionsProcessed
+	ErrEncrConnectionsProcessed
 )
 
-var puerrors = []PuErrors{
+var counterNames = []string{
+	ErrUnknownError:                 "UNKNOWNERROR",
+	ErrInvalidNetState:              "INVALIDNEDSTATE",
+	ErrNonPUTraffic:                 "NONPUTRAFFIC",
+	ErrNetSynNotSeen:                "SYNNOTSEEN",
+	ErrNoConnFound:                  "CONNECTIONNOTFOUND",
+	ErrRejectPacket:                 "REJECTEDPACKET",
+	ErrTCPAuthNotFound:              "TCPAUTHENTICATIONOPTIONNOTFOUND",
+	ErrInvalidConnState:             "INVALIDCONNECTIONSTATE",
+	ErrMarkNotFound:                 "MARKNOTFOUND",
+	ErrPortNotFound:                 "PORTNOTFOUND",
+	ErrContextIDNotFound:            "CONTEXTNOTFOUND",
+	ErrInvalidProtocol:              "INVALIDPROTOCOL",
+	ErrServicePreprocessorFailed:    "PREPROCESSINGFAILED",
+	ErrServicePostprocessorFailed:   "POSTPROCESSINGFAILED",
+	ErrDroppedExternalService:       "ACLSYNDROPPED",
+	ErrSynDroppedNoClaims:           "SYNDROPPEDNOCLAIMS",
+	ErrSynDroppedInvalidToken:       "SYNDROPPEDINVALIDTOKEN",
+	ErrSynDroppedTCPOption:          "SYNDROPPEDAUTHOPTIONNOTFOUND",
+	ErrSynDroppedInvalidFormat:      "SYNDROPPEDINVALIDFORMAT",
+	ErrSynRejectPacket:              "SYNDROPPEDPOLICY",
+	ErrOutOfOrderSynAck:             "UNEXPECTEDSYNACK",
+	ErrInvalidSynAck:                "DEADPUSYNACK",
+	ErrSynAckMissingToken:           "SYNACKDROPPEDINVALIDTOKEN",
+	ErrSynAckBadClaims:              "SYNACKDROPPEDBADCLAIMS",
+	ErrSynAckMissingClaims:          "SYNACKDROPPEDNOCLAIMS",
+	ErrSynAckNoTCPAuthOption:        "SYNACKAUTHOPTIONNOTFOUND",
+	ErrSynAckInvalidFormat:          "SYNACKDROPPEDINVALIDFORMAT",
+	ErrSynAckClaimsMisMatch:         "SYNACKDROPPEDCLAIMSMISMATCH",
+	ErrSynAckRejected:               "SYNACKDROPPEDPOLICY",
+	ErrSynAckDroppedExternalService: "ERRSYNACKDROPPEDEXTERNALSERVICE",
+	ErrAckRejected:                  "ACKDROPPEDPOLICY",
+	ErrAckTCPNoTCPAuthOption:        "ACKDROPPEDAUTHOPTIONNOTFOUND",
+	ErrAckSigValidationFailed:       "ACKDROPPEDSIGVALIDATIONFAILED",
+	ErrAckInvalidFormat:             "ACKDROPPEDINVALIDFORMAT",
+	ErrAckInUnknownState:            "ACKDROPPEDUNKNOWNCONNSTATE",
+	ErrSynUnexpectedPacket:          "SYNUNEXPECTEDPACKET",
+	ErrConnectionsProcessed:         "CONNECTIONSPROCESSED",
+	ErrEncrConnectionsProcessed:     "ENCRCONNECTIONSPROCESSED",
+}
+
+var countedEvents = []PuErrors{
+	// sentinel value insert new ones below this
+	ErrUnknownError: PuErrors{
+		index: ErrUnknownError,
+		err:   "Unknown Error",
+	},
 	ErrInvalidNetState: PuErrors{
 		index: ErrInvalidNetState,
-		err:   "Invalid net state",
+
+		err: "Invalid net state",
 	},
 	ErrNonPUTraffic: PuErrors{
 		index: ErrNonPUTraffic,
-		err:   "Traffic belongs to a PU we are not monitoring",
+
+		err: "Traffic belongs to a PU we are not monitoring",
 	},
 	ErrNetSynNotSeen: PuErrors{
 		index: ErrNetSynNotSeen,
@@ -117,6 +179,10 @@ var puerrors = []PuErrors{
 		index: ErrSynDroppedInvalidFormat,
 		err:   "Syn packet dropped because of invalid format",
 	},
+	ErrSynRejectPacket: PuErrors{
+		index: ErrSynRejectPacket,
+		err:   "Syn Dropped due to policy",
+	},
 	ErrOutOfOrderSynAck: PuErrors{
 		index: ErrOutOfOrderSynAck,
 		err:   "synack for flow with processed finack",
@@ -153,6 +219,10 @@ var puerrors = []PuErrors{
 		index: ErrSynAckRejected,
 		err:   "dropping because of reject rule on transmitter",
 	},
+	ErrSynAckDroppedExternalService: PuErrors{
+		index: ErrSynAckDroppedExternalService,
+		err:   "SynAck from external service dropped",
+	},
 	ErrAckRejected: PuErrors{
 		index: ErrAckRejected,
 		err:   "Reject Ack packet as per policy",
@@ -177,20 +247,35 @@ var puerrors = []PuErrors{
 		index: ErrSynUnexpectedPacket,
 		err:   "Received syn packet from unknown PU",
 	},
-	ErrUnknownError: PuErrors{
-		index: ErrUnknownError,
-		err:   "Unknown Error",
+	ErrConnectionsProcessed: PuErrors{
+		index: ErrConnectionsProcessed,
+		err:   "",
 	},
 }
 
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error {
-	return puerrors[err]
+	atomic.AddUint64(&p.counters[int(err)], 1)
+	return countedEvents[err]
 }
 
 func PuContextError(err ErrorType, logMsg string) error {
-	return puerrors[err]
+	atomic.AddUint64(&unknownPU.counters[int(err)], 1)
+	return countedEvents[err]
 }
 
+func (p *PUContext) GetErrorCounters() []collector.Counters {
+	report := make([]collector.Counters, len(countedEvents))
+	p.Lock()
+	defer p.Unlock()
+	for index, val := range p.counters {
+		report[index] = collector.Counters{
+			Name:  counterNames[index],
+			Value: atomic.SwapUint64(&val, 0),
+		}
+
+	}
+	return report
+}
 func GetError(err error) ErrorType {
 	errType, ok := err.(PuErrors)
 	if !ok {
@@ -200,7 +285,7 @@ func GetError(err error) ErrorType {
 }
 
 func ToError(errType ErrorType) error {
-	return puerrors[errType]
+	return countedEvents[errType]
 }
 func (e PuErrors) Error() string {
 	return e.err

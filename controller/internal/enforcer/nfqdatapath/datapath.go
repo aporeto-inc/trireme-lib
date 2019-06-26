@@ -34,6 +34,7 @@ import (
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
+const collectCounterInterval = 30 * time.Second
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
@@ -116,7 +117,8 @@ type Datapath struct {
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
 
-	puToPortsMap map[string]map[string]bool
+	puToPortsMap      map[string]map[string]bool
+	puCountersChannel chan *pucontext.PUContext
 }
 
 type tracingCacheEntry struct {
@@ -240,6 +242,7 @@ func New(
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
+		puCountersChannel:      make(chan *pucontext.PUContext, 50),
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -312,6 +315,50 @@ func NewWithDefaults(
 	e.conntrack = conntrackClient
 
 	return e
+}
+func (d *Datapath) counterCollector(ctx context.Context, counterCollector collector.EventCollector) {
+
+	activePUs := map[string]*pucontext.PUContext{}
+	for {
+		//drain the channel everytime we come here
+		select {
+		case pu := <-d.puCountersChannel:
+			if prevPU, ok := activePUs[pu.ID()]; ok {
+				//Collect all stats and push it out
+				counters := prevPU.GetErrorCounters()
+
+				counterCollector.CollectCounterEvent(&collector.CounterReport{
+					ContextID: prevPU.ID(),
+					Counters:  counters,
+					//Populate naemspace when it becomes available in pucontext
+				})
+			}
+			activePUs[pu.ID()] = pu
+		case <-ctx.Done():
+			for key, val := range activePUs {
+				counters := val.GetErrorCounters()
+				counterCollector.CollectCounterEvent(
+					&collector.CounterReport{
+						ContextID: key,
+						Counters:  counters,
+						//Populate naemspace when it becomes available in pucontext
+					})
+			}
+			return
+		case <-time.After(collectCounterInterval):
+			for key, val := range activePUs {
+				counters := val.GetErrorCounters()
+				counterCollector.CollectCounterEvent(
+					&collector.CounterReport{
+						ContextID: key,
+						Counters:  counters,
+						//Populate naemspace when it becomes available in pucontext
+					})
+			}
+
+		}
+
+	}
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
@@ -479,7 +526,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 	d.startNetworkInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
-
+	go d.counterCollector(ctx, d.collector)
 	return nil
 }
 

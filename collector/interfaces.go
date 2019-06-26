@@ -91,6 +91,9 @@ type EventCollector interface {
 
 	// CollectPacketEvent collects packet event from nfqdatapath
 	CollectPacketEvent(report *PacketReport)
+
+	// CollectCounterEvent collects the counters from
+	CollectCounterEvent(counterReport *CounterReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -194,4 +197,17 @@ type PacketReport struct {
 	SourceIP        string
 	SourcePort      int
 	TriremePacket   bool
+}
+
+// Counters represent a single entry with name and current val
+type Counters struct {
+	Name  string
+	Value uint64
+}
+
+// CounterReport is called from the PU which reports Counters from the datapath
+type CounterReport struct {
+	Namespace string
+	ContextID string
+	Counters  []Counters
 }
