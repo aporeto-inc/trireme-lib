@@ -121,7 +121,8 @@ type Datapath struct {
 
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
-	puToPortsMap    map[string]map[string]bool
+
+	puToPortsMap map[string]map[string]bool
 }
 
 type tracingCacheEntry struct {
@@ -203,6 +204,7 @@ func New(
 	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
 
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+
 	if err != nil {
 		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
@@ -452,7 +454,7 @@ func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
 	networks := cfg.TCPTargetNetworks
 
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
 	}
 
 	d.targetNetworks = acls.NewACLCache()

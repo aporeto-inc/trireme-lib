@@ -47,8 +47,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		)
 	}
 
-	//var conn *connection.TCPConnection
-
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
 	switch p.GetTCPFlags() & packet.TCPSynAckMask {
@@ -303,10 +301,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
+	dstAddr := tcpPacket.DestinationAddress()
+	dstPort := tcpPacket.DestPort()
 
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, dstPort)
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, dstPort)
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
@@ -603,8 +603,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
-	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestPort())))
-
+	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(int(tcpPacket.DestPort()))))
 	report, pkt := context.SearchRcvRules(tags)
 
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
@@ -687,7 +686,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// our ack packet was lost. We need to revert conntrack in this case and get
 	// back into the picture.
 	if conn.GetState() != connection.TCPSynSend {
-
 		// Revert the connmarks - dealing with retransmissions
 		if cerr := d.conntrack.UpdateNetworkFlowMark(
 			tcpPacket.SourceAddress(),

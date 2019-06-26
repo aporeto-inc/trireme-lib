@@ -11,7 +11,7 @@ import (
 
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
 // consider source ports to identify packets from the process.
-func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
+func (i *iptables) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
 	appSection, netSection string, puType common.PUType) [][]string {
 
 	iptableCgroupSection := appSection
@@ -21,7 +21,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 	if tcpPorts != "0" {
 		rules = append(rules, [][]string{
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-p", tcpProto,
 				"-m", "multiport",
@@ -30,7 +30,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", "MARK", "--set-mark", mark,
 			},
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-p", tcpProto,
 				"-m", "multiport",
@@ -39,7 +39,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", appChain,
 			},
 			{
-				i.netPacketIPTableContext,
+				netPacketIPTableContext,
 				iptableNetSection,
 				"-p", tcpProto,
 				"-m", "multiport",
@@ -52,7 +52,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 	if udpPorts != "0" {
 		rules = append(rules, [][]string{
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-p", udpProto,
 				"-m", "multiport",
@@ -61,7 +61,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", "MARK", "--set-mark", mark,
 			},
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-p", udpProto, "-m", "mark", "--mark", mark,
 				"-m", "addrtype", "--src-type", "LOCAL",
@@ -71,7 +71,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"--nflog-prefix", policy.DefaultAcceptLogPrefix(contextID),
 			},
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-m", "comment", "--comment", "traffic-same-pu",
 				"-p", udpProto, "-m", "mark", "--mark", mark,
@@ -80,7 +80,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", "ACCEPT",
 			},
 			{
-				i.appPacketIPTableContext,
+				appPacketIPTableContext,
 				iptableCgroupSection,
 				"-p", udpProto,
 				"-m", "multiport",
@@ -89,7 +89,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", appChain,
 			},
 			{
-				i.netPacketIPTableContext,
+				netPacketIPTableContext,
 				iptableNetSection,
 				"-m", "comment", "--comment", "traffic-same-pu",
 				"-p", udpProto, "-m", "mark", "--mark", mark,
@@ -98,7 +98,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 				"-j", "ACCEPT",
 			},
 			{
-				i.netPacketIPTableContext,
+				netPacketIPTableContext,
 				iptableNetSection,
 				"-p", udpProto,
 				"-m", "multiport",
@@ -113,7 +113,7 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 		// of the box.
 
 		rules = append(rules, []string{
-			i.appPacketIPTableContext,
+			appPacketIPTableContext,
 			iptableCgroupSection,
 			"-m", "comment", "--comment", "capture all outgoing traffic",
 			"-j", appChain,
@@ -123,12 +123,12 @@ func (i *Instance) legacyPuChainRules(contextID, appChain string, netChain strin
 	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
-func (i *Instance) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
+func (i *iptables) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 
 	aclInfo := ACLInfo{
-		MangleTable:         i.appPacketIPTableContext,
-		NatTable:            i.appProxyIPTableContext,
+		MangleTable:         appPacketIPTableContext,
+		NatTable:            appProxyIPTableContext,
 		MangleProxyAppChain: proxyOutputChain,
 		MangleProxyNetChain: proxyInputChain,
 		NatProxyNetChain:    natProxyInputChain,

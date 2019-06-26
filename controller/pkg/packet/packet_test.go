@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"math/rand"
 	"testing"
+
+	"github.com/magiconair/properties/assert"
 )
 
 type SamplePacketName int
@@ -17,6 +19,8 @@ const (
 	synBadIPChecksum
 	loopbackAddress = "127.0.0.1"
 )
+
+var ipv6UDPPacket = "60000000009f113f20010470e5bf10960002009900c1001020010470e5bf10011cc773ff65f5a2f700a1b4d1009fd3c93081940201033011020429cdb180020300ffcf0401030201030441303f041480004f4db1aadcadbc89affa118dbd53824c6b050201030203010a1d040774616368796f6e040c9069a445532f20d9a57844f704088c8c110c5bbf5ed80439aafc5aa6c6c8364b13f14c807562e50793abc31e99170affd717a969b032112f5df9f2a5a9e661243cfa4d37614e0aca880c74881325222831"
 
 var testPackets = [][]byte{
 	// SYN packet captured from 'telnet localhost 99'.
@@ -70,7 +74,7 @@ func TestGoodPacket(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
 	t.Log(pkt.PacketToStringTCP())
 
-	if !pkt.VerifyIPChecksum() {
+	if !pkt.VerifyIPv4Checksum() {
 		t.Error("Test packet IP checksum failed")
 	}
 
@@ -91,7 +95,7 @@ func TestBadTCPChecknum(t *testing.T) {
 
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
-	if !pkt.VerifyIPChecksum() {
+	if !pkt.VerifyIPv4Checksum() {
 		t.Error("Test packet IP checksum failed")
 	}
 
@@ -204,7 +208,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !pkt2.VerifyIPChecksum() {
+	if !pkt2.VerifyIPv4Checksum() {
 		t.Error("Test packet2 IP checksum failed")
 	}
 }
@@ -244,13 +248,13 @@ func TestSetChecksum(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadIPChecksum)
 	t.Log(pkt.PacketToStringTCP())
-	if pkt.VerifyIPChecksum() {
+	if pkt.VerifyIPv4Checksum() {
 		t.Error("Expected bad IP checksum given it is wrong")
 	}
 
-	pkt.UpdateIPChecksum()
+	pkt.UpdateIPv4Checksum()
 	t.Log(pkt.PacketToStringTCP())
-	if !pkt.VerifyIPChecksum() {
+	if !pkt.VerifyIPv4Checksum() {
 		t.Error("IP checksum is wrong after update")
 	}
 }
@@ -277,7 +281,7 @@ func TestAddTag(t *testing.T) {
 		t.Parallel()
 		labels := []string{"TAG1"}
 		pkt := getTestPacket(t, synBadTCPChecksum)
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Test packet IP checksum failed")
 		}
 
@@ -285,7 +289,7 @@ func TestAddTag(t *testing.T) {
 		t.Log(s)
 
 		pkt.AttachPayloadTags(labels)
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Tagged packet IP checksum failed")
 		}
 
@@ -310,7 +314,7 @@ func TestExtractTags(t *testing.T) {
 		pkt.AttachPayloadTags(labels)
 		t.Log("With tags", pkt)
 
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Tagged packet checksum failed")
 		}
 
@@ -331,7 +335,7 @@ func TestExtractTags(t *testing.T) {
 			}
 		}
 
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Packet IP checksum failed after extracting tags")
 		}
 
@@ -351,14 +355,14 @@ func TestAddTags(t *testing.T) {
 		t.Parallel()
 		labels := []string{"TAG1", "TAG2", "TAG3"}
 		pkt := getTestPacket(t, synBadTCPChecksum)
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Test packet IP checksum failed")
 		}
 
 		t.Log(pkt.String())
 
 		pkt.AttachPayloadTags(labels)
-		if !pkt.VerifyIPChecksum() {
+		if !pkt.VerifyIPv4Checksum() {
 			t.Error("Tagged packet checksum failed")
 		}
 
@@ -464,6 +468,7 @@ func TestAuthOptions(t *testing.T) {
 	}
 
 }
+
 func TestNewPacketFunctions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
 	PacketLogLevel = true
@@ -531,4 +536,38 @@ func getTestPacketWithError(id SamplePacketName) error {
 
 	_, err := New(0, tmp, "0", true)
 	return err
+}
+
+func TestIPV6PacketParsing(t *testing.T) {
+	bytes, _ := hex.DecodeString(ipv6UDPPacket)
+	pkt, _ := New(0, bytes, "0", true)
+
+	assert.Equal(t, pkt.SourceAddress().String(), "2001:470:e5bf:1096:2:99:c1:10", "src addr did not match")
+	assert.Equal(t, pkt.DestinationAddress().String(), "2001:470:e5bf:1001:1cc7:73ff:65f5:a2f7", "dst addr did not match")
+}
+
+func TestReverseFlowPacket(t *testing.T) {
+	bytes, _ := hex.DecodeString(ipv6UDPPacket)
+	pkt, _ := New(0, bytes, "0", true)
+
+	pkt.CreateReverseFlowPacket()
+
+	assert.Equal(t, pkt.SourceAddress().String(), "2001:470:e5bf:1001:1cc7:73ff:65f5:a2f7", "src addr did not match")
+	assert.Equal(t, pkt.DestinationAddress().String(), "2001:470:e5bf:1096:2:99:c1:10", "dst addr did not match")
+}
+
+func TestUDPTokenAttach(t *testing.T) {
+	bytes, _ := hex.DecodeString(ipv6UDPPacket)
+	pkt, _ := New(0, bytes, "0", true)
+
+	// Create UDP Option
+	udpOptions := CreateUDPAuthMarker(UDPSynAckMask)
+
+	pkt.CreateReverseFlowPacket()
+
+	// Attach the UDP data and token
+	pkt.UDPTokenAttach(udpOptions, []byte("helloworld"))
+
+	assert.Equal(t, string(pkt.ReadUDPToken()), "helloworld", "token should match helloworld")
+
 }
