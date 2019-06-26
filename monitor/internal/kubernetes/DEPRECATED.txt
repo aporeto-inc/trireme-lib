@@ -1,0 +1,1 @@
+This monitor has been deprecated in favour of the 'pod' monitor.
