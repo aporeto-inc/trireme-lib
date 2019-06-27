@@ -177,6 +177,10 @@ func DefaultLogPrefix(contextID string) string {
 	return contextID + ":default:default" + "6"
 }
 
+func DefaultDroppedPacketLogPrefix(contextID string) string {
+	return contextID + "default:default" + "10"
+}
+
 // EncodedActionString is used to encode observed action as well as action
 func (f *FlowPolicy) EncodedActionString() string {
 

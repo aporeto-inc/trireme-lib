@@ -12,11 +12,6 @@ type PuErrors struct {
 	err   string
 }
 
-// type errorCounterReport struct {
-// 	name  string
-// 	value uint64
-// }
-
 const (
 	ErrUnknownError ErrorType = iota
 	ErrInvalidNetState
@@ -60,7 +55,7 @@ const (
 
 var counterNames = []string{
 	ErrUnknownError:                 "UNKNOWNERROR",
-	ErrInvalidNetState:              "INVALIDNEDSTATE",
+	ErrInvalidNetState:              "INVALIDNETSTATE",
 	ErrNonPUTraffic:                 "NONPUTRAFFIC",
 	ErrNetSynNotSeen:                "SYNNOTSEEN",
 	ErrNoConnFound:                  "CONNECTIONNOTFOUND",
@@ -254,12 +249,12 @@ var countedEvents = []PuErrors{
 }
 
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error {
-	atomic.AddUint64(&p.counters[int(err)], 1)
+	atomic.AddUint32(&p.counters[int(err)], 1)
 	return countedEvents[err]
 }
 
 func PuContextError(err ErrorType, logMsg string) error {
-	atomic.AddUint64(&unknownPU.counters[int(err)], 1)
+	atomic.AddUint32(&unknownPU.counters[int(err)], 1)
 	return countedEvents[err]
 }
 
@@ -270,7 +265,7 @@ func (p *PUContext) GetErrorCounters() []collector.Counters {
 	for index, val := range p.counters {
 		report[index] = collector.Counters{
 			Name:  counterNames[index],
-			Value: atomic.SwapUint64(&val, 0),
+			Value: atomic.SwapUint32(&val, 0),
 		}
 
 	}

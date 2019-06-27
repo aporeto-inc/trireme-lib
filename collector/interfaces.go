@@ -43,6 +43,8 @@ const (
 	EncryptionMismatch = "encryptionmismatch"
 	// DatapathVersionMismatch indicates that the datapath version is dissimilar
 	DatapathVersionMismatch = "datapathversionmismatch"
+	// PacketDrop indicate a single packet drop
+	PacketDrop = "packetdrop"
 )
 
 // Container event description
@@ -202,7 +204,7 @@ type PacketReport struct {
 // Counters represent a single entry with name and current val
 type Counters struct {
 	Name  string
-	Value uint64
+	Value uint32
 }
 
 // CounterReport is called from the PU which reports Counters from the datapath

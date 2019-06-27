@@ -447,6 +447,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					zap.Error(err),
 				)
 			}
+			context.PuContextError(pucontext.ErrConnectionsProcessed, "") // nolint
 		}
 
 		return nil
@@ -894,6 +895,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	}
 
 	if conn.ServiceConnection {
+		conn.Context.PuContextError(pucontext.ErrEncrConnectionsProcessed, "")
 		return nil, nil, nil
 	}
 
