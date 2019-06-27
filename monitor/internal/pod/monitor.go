@@ -108,7 +108,8 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods)
+	deleteCh := make(chan DeleteEvent)
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods, deleteCh)
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
