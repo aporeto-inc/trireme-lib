@@ -51,12 +51,14 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod1",
 				Namespace: "default",
+				UID:       types.UID("default/pod1"),
 			},
 		}
 		pod2 := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod2",
 				Namespace: "default",
+				UID:       types.UID("default/pod2"),
 			},
 			Spec: corev1.PodSpec{
 				HostNetwork: true,
@@ -66,6 +68,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "pod3",
 				Namespace:         "default",
+				UID:               types.UID("default/pod3"),
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 			},
 			Status: corev1.PodStatus{
@@ -76,6 +79,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "unknown",
 				Namespace: "default",
+				UID:       types.UID("default/unknown"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodUnknown,
@@ -85,6 +89,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "unrecognized",
 				Namespace: "default",
+				UID:       types.UID("default/unrecognized"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodPhase("not-really-a-pod-phase"),
@@ -94,6 +99,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "failed",
 				Namespace: "default",
+				UID:       types.UID("default/failed"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -103,6 +109,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "succeeded",
 				Namespace: "default",
+				UID:       types.UID("default/succeeded"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
@@ -112,6 +119,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pending",
 				Namespace: "default",
+				UID:       types.UID("default/pending"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodPending,
@@ -121,6 +129,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pendingAndStarted",
 				Namespace: "default",
+				UID:       types.UID("default/pendingAndStarted"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodPending,
@@ -139,6 +148,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "runningNotStarted",
 				Namespace: "default",
+				UID:       types.UID("default/runningNotStarted"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -148,6 +158,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "running",
 				Namespace: "default",
+				UID:       types.UID("default/running"),
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -175,6 +186,7 @@ func TestController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "runningHostNetwork",
 				Namespace: "default",
+				UID:       types.UID("default/runningHostNetwork"),
 			},
 			Spec: corev1.PodSpec{
 				HostNetwork: true,
@@ -203,17 +215,25 @@ func TestController(t *testing.T) {
 			return nil
 		}
 
+		// we will only send all delete events in this test, we are not going to handle them
+		deleteCh := make(chan DeleteEvent, 1000)
+		deleteReconcileCh := make(chan struct{}, 1000)
+
+		pc := &config.ProcessorConfig{
+			Policy: handler,
+		}
+
 		r := &ReconcilePod{
-			client:   c,
-			scheme:   scheme.Scheme,
-			recorder: &fakeRecorder{},
-			handler: &config.ProcessorConfig{
-				Policy: handler,
-			},
+			client:            c,
+			scheme:            scheme.Scheme,
+			recorder:          &fakeRecorder{},
+			handler:           pc,
 			metadataExtractor: metadataExtractor,
 			netclsProgrammer:  netclsProgrammer,
 			nodeName:          "testing-node",
 			enableHostPods:    true,
+			deleteCh:          deleteCh,
+			deleteReconcileCh: deleteReconcileCh,
 
 			// taken from original file
 			handlePUEventTimeout:   5 * time.Second,
@@ -222,13 +242,13 @@ func TestController(t *testing.T) {
 		}
 
 		Convey("a not existing pod should trigger a destroy event without any error", func() {
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(nil).Times(1)
+			//handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "a", Namespace: "b"}})
 			So(err, ShouldBeNil)
 		})
 
 		Convey("a not existing pod should trigger a destroy event, and *not* fail if it cannot handle the destroy", func() {
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
+			//handler.EXPECT().HandlePUEvent(gomock.Any(), "b/a", common.EventDestroy, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "a", Namespace: "b"}})
 			So(err, ShouldBeNil)
 		})
