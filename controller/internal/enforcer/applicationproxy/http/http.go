@@ -18,7 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -169,7 +168,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, fmt.Errorf("invalid destination address")
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -188,7 +187,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -203,7 +202,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(context.Background())
 			return nil, err
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -222,7 +221,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -353,7 +352,7 @@ func (p *Config) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregist
 
 func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *urisearch.APICache, error) {
 
-	sctx, serviceData, err := p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP.To4(), address.Port, "")
+	sctx, serviceData, err := p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Unable to discover service data: %s", err)
 	}
@@ -365,17 +364,16 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
-
 	sctx, apiCache, err := p.retrieveApplicationContext(originalDestination)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Unknown service"), http.StatusBadGateway)
 		zap.L().Error("Cannot identify application context", zap.Error(err))
 		return
 	}
 
 	state := newAppConnectionState(p.puContext, apiCache.ID, sctx.PUContext, r, originalDestination)
 
-	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP, uint16(originalDestination.Port))
 	state.stats.PolicyID = netaction.PolicyID
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
@@ -391,7 +389,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 		if !found {
 			p.collector.CollectFlowEvent(state.stats)
-			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
+			zap.L().Error("Unknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
 			return
 		}
@@ -406,7 +404,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			// TODO: Add user scopes
 			if !apiCache.MatchClaims(rule.ClaimMatchingRules, append(sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes()...)) {
 				p.collector.CollectFlowEvent(state.stats)
-				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+				zap.L().Error("Unknown  or unauthorized service", zap.Error(err))
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 				return
 			}
@@ -461,7 +459,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	pctx, err := p.retrieveNetworkContext(originalDestination)
 	if err != nil {
 		zap.L().Error("Internal server error - cannot determine destination policy", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Unknown service"), http.StatusInternalServerError)
 		return
 	}
 
@@ -477,7 +475,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
+	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(sourceAddress.IP, uint16(originalDestination.Port))
 	state.stats.PolicyID = aclPolicy.PolicyID
 	state.stats.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
@@ -496,7 +494,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// care if there are no user credentials. It might be a request from a PU,
 	// or it might be a request to a public interface. Only if the service mandates
 	// user credentials, we get the redirect directive.
-	userAttributes, redirect := userCredentials(pctx.Service.ID, r, pctx.Authorizer, p.collector, state)
+	userAttributes, redirect := userCredentials(pctx, r, p.collector, state)
 
 	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
 	// is mepty the DecodeAporetoClaims method will return no error.
@@ -571,7 +569,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Create the target URI. Websocket Gorilla proxy takes it from the URL. For normal
 	// connections we don't want that.
 	if forward.IsWebsocketRequest(r) {
-		fmt.Println("Target URL", originalDestination.String())
 		r.URL, err = url.ParseRequestURI(httpPrefix + originalDestination.String())
 	} else {
 		r.URL, err = url.ParseRequestURI(httpPrefix + r.Host)
@@ -594,7 +591,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// host. Check of network rules that allow this transfer and report the corresponding
 	// flows.
 	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
-		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP, uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
 			http.Error(w, fmt.Sprintf("Access denied by network policy to downstream IP: %s", originalDestination.IP.String()), http.StatusNetworkAuthenticationRequired)
@@ -637,7 +634,7 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *
 		}
 
 	default:
-		http.Error(w, fmt.Sprintf("Uknown"), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Unknown"), http.StatusBadRequest)
 	}
 
 	return true
@@ -649,7 +646,7 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *
 // It will return the userAttributes and a boolean instructing whether a redirect
 // must be performed. If no user credentials are found, it will allow processing
 // to proceed. It might be a
-func userCredentials(serviceID string, r *http.Request, authorizer *auth.Processor, c collector.EventCollector, state *connectionState) ([]string, bool) {
+func userCredentials(pctx *serviceregistry.PortContext, r *http.Request, c collector.EventCollector, state *connectionState) ([]string, bool) {
 	if r.TLS == nil {
 		return []string{}, false
 	}
@@ -666,9 +663,11 @@ func userCredentials(serviceID string, r *http.Request, authorizer *auth.Process
 		userToken = strings.TrimPrefix(authToken, "Bearer ")
 	}
 
-	userAttributes, redirect, refreshedToken, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	userAttributes, redirect, refreshedToken, err := pctx.Authorizer.DecodeUserClaims(pctx.Service.ID, userToken, userCerts, r)
 	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
+		userRecord := &collector.UserRecord{
+			Namespace: pctx.PUContext.ManagementNamespace(),
+			Claims:    userAttributes}
 		c.CollectUserEvent(userRecord)
 		state.stats.Source.UserID = userRecord.ID
 		state.stats.Source.Type = collector.EndpointTypeClaims

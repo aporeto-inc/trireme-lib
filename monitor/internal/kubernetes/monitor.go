@@ -95,7 +95,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 	m.podControllerStop = make(chan struct{})
 
-	zap.L().Debug("Pod Controller created")
+	zap.L().Warn("Using deprecated Kubernetes Monitor")
 
 	return nil
 }

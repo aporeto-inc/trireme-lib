@@ -138,6 +138,7 @@ type EndPoint struct {
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
 	ContextID        string
+	Namespace        string
 	Source           *EndPoint
 	Destination      *EndPoint
 	Tags             *policy.TagStore
@@ -153,8 +154,9 @@ type FlowRecord struct {
 }
 
 func (f *FlowRecord) String() string {
-	return fmt.Sprintf("<flowrecord contextID:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
+	return fmt.Sprintf("<flowrecord contextID:%s namespace:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
 		f.ContextID,
+		f.Namespace,
 		f.Count,
 		f.Source.ID,
 		f.Destination.ID,
@@ -177,8 +179,9 @@ type ContainerRecord struct {
 // UserRecord reports a new user access. These will be reported
 // periodically.
 type UserRecord struct {
-	ID     string
-	Claims []string
+	ID        string
+	Namespace string
+	Claims    []string
 }
 
 // PacketReport is the struct which is used to report packets captured in datapath

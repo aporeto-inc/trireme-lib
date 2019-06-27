@@ -543,7 +543,7 @@ func (d *Datapath) CleanUp() error {
 	return nil
 }
 
-func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
+func (d *Datapath) puInfoDelegate(contextID string) (ID string, namespace string, tags *policy.TagStore) {
 
 	item, err := d.puFromContextID.Get(contextID)
 	if err != nil {
@@ -553,6 +553,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	ctx := item.(*pucontext.PUContext)
 
 	ID = ctx.ManagementID()
+	namespace = ctx.ManagementNamespace()
 	tags = ctx.Annotations().Copy()
 
 	return
@@ -569,6 +570,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 		DropReason:  mode,
 		PolicyID:    actual.PolicyID,
 		L4Protocol:  p.IPProto(),
+		Namespace:   context.ManagementNamespace(),
 		Count:       1,
 	}
 

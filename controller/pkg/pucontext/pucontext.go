@@ -33,31 +33,33 @@ var LookupHost = net.LookupHost
 
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
-	id                string
-	username          string
-	autoport          bool
-	managementID      string
-	identity          *policy.TagStore
-	annotations       *policy.TagStore
-	txt               *policies
-	rcv               *policies
-	ApplicationACLs   *acls.ACLCache
-	networkACLs       *acls.ACLCache
-	externalIPCache   cache.DataStore
-	DNSACLs           cache.DataStore
-	mark              string
-	tcpPorts          []string
-	udpPorts          []string
-	puType            common.PUType
-	synToken          []byte
-	synServiceContext []byte
-	synExpiration     time.Time
-	jwt               string
-	jwtExpiration     time.Time
-	scopes            []string
-	Extension         interface{}
-	CancelFunc        context.CancelFunc
-	counters          []uint32
+	id                  string
+	username            string
+	autoport            bool
+	managementID        string
+	managementNamespace string
+	identity            *policy.TagStore
+	annotations         *policy.TagStore
+	txt                 *policies
+	rcv                 *policies
+	ApplicationACLs     *acls.ACLCache
+	networkACLs         *acls.ACLCache
+	externalIPCache     cache.DataStore
+	DNSACLs             cache.DataStore
+	mark                string
+	tcpPorts            []string
+	udpPorts            []string
+	puType              common.PUType
+	synToken            []byte
+	synServiceContext   []byte
+	synExpiration       time.Time
+	jwt                 string
+	jwtExpiration       time.Time
+	scopes              []string
+	Extension           interface{}
+	CancelFunc          context.CancelFunc
+	counters            []uint32
+
 	sync.RWMutex
 }
 
@@ -72,20 +74,21 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
-		id:              contextID,
-		username:        puInfo.Runtime.Options().UserID,
-		autoport:        puInfo.Runtime.Options().AutoPort,
-		managementID:    puInfo.Policy.ManagementID(),
-		puType:          puInfo.Runtime.PUType(),
-		identity:        puInfo.Policy.Identity(),
-		annotations:     puInfo.Policy.Annotations(),
-		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
-		ApplicationACLs: acls.NewACLCache(),
-		networkACLs:     acls.NewACLCache(),
-		mark:            puInfo.Runtime.Options().CgroupMark,
-		scopes:          puInfo.Policy.Scopes(),
-		CancelFunc:      cancelFunc,
-		counters:        make([]uint32, len(countedEvents)),
+		id:                  contextID,
+		username:            puInfo.Runtime.Options().UserID,
+		autoport:            puInfo.Runtime.Options().AutoPort,
+		managementID:        puInfo.Policy.ManagementID(),
+		managementNamespace: puInfo.Policy.ManagementNamespace(),
+		puType:              puInfo.Runtime.PUType(),
+		identity:            puInfo.Policy.Identity(),
+		annotations:         puInfo.Policy.Annotations(),
+		externalIPCache:     cache.NewCacheWithExpiration("External IP Cache", timeout),
+		ApplicationACLs:     acls.NewACLCache(),
+		networkACLs:         acls.NewACLCache(),
+		mark:                puInfo.Runtime.Options().CgroupMark,
+		scopes:              puInfo.Policy.Scopes(),
+		CancelFunc:          cancelFunc,
+		counters:            make([]uint32, len(countedEvents)),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -218,6 +221,11 @@ func (p *PUContext) Autoport() bool {
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
+}
+
+// ManagementNamespace returns the management namespace
+func (p *PUContext) ManagementNamespace() string {
+	return p.managementNamespace
 }
 
 // Type return the pu type

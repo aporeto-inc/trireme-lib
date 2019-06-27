@@ -139,12 +139,15 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	contextID, policyID, extSrvID := parts[0], parts[1], parts[2]
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
+
 	if encodedAction == "10" {
 		//record dropped Packet
 		packetReport, err := a.recordDroppedPacket(buf, puIsSource)
 		return nil, packetReport, err
 	}
-	puID, tags := a.getPUInfo(contextID)
+
+	puID, puNamespace, tags := a.getPUInfo(contextID)
+
 	if puID == "" {
 		return nil, nil, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
 	}
@@ -183,6 +186,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		Tags:        tags,
 		Action:      action,
 		L4Protocol:  buf.Protocol,
+		Namespace:   puNamespace,
 		Count:       1,
 	}
 

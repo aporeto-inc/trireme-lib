@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -130,6 +129,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	downConn, err := p.downConnection(ctx, ip, port)
 	if err != nil {
+
 		flowproperties := &proxyFlowProperties{
 			DestIP:     ip.String(),
 			DestPort:   uint16(port),
@@ -278,7 +278,7 @@ func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Co
 		Port: port,
 	}
 
-	return markedconn.DialMarkedWithContext(ctx, "tcp4", raddr.String(), proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), proxyMarkInt)
 
 }
 
@@ -320,7 +320,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
+	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP, uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized by Application ACLs")
@@ -394,7 +394,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
 
-	pctx, err := p.registry.RetrieveExposedServiceContext(ip.To4(), backendport, "")
+	pctx, err := p.registry.RetrieveExposedServiceContext(ip, backendport, "")
 	if err != nil {
 		return false, fmt.Errorf("Service not found")
 	}
@@ -415,7 +415,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
+	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		flowProperties.SourceType = collector.EndPointTypeExternalIP
 		p.reportRejectedFlow(flowProperties, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
@@ -517,6 +517,7 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
+		Namespace:   context.ManagementNamespace(),
 	}
 
 	if report.ObserveAction.Observed() {
@@ -547,12 +548,12 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID
 }
 
 func (p *Proxy) isLocal(conn net.Conn) bool {
-	addrPair := strings.SplitN(conn.RemoteAddr().String(), ":", 2)
-	if len(addrPair) != 2 {
+	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
 		return false
 	}
 
-	if _, ok := p.localIPs[addrPair[0]]; ok {
+	if _, ok := p.localIPs[host]; ok {
 		return true
 	}
 	return false
@@ -573,7 +574,6 @@ func readMsg(reader io.Reader) ([]byte, error) {
 	if _, err := dread.Read(data); err != nil {
 		return nil, fmt.Errorf("Not enough data to read: %s", err)
 	}
-
 	return data, nil
 }
 

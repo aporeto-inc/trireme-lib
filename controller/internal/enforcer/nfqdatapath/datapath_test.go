@@ -70,7 +70,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	serverID := testServerID
 
 	// Create ProcessingUnit 1
-	puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+	puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 	ip1 := policy.ExtendedMap{}
 	ip1["bridge"] = puIP1
@@ -81,7 +81,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
-	puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+	puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 
 	ip2 := policy.ExtendedMap{"bridge": puIP2}
 	puInfo2.Runtime.SetIPAddresses(ip2)
@@ -178,7 +178,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			}}
 
 			contextID := "123456"
-			puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+			puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 			context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
 			So(err, ShouldBeNil)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
@@ -249,7 +249,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", "/ns2", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -355,7 +355,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", "/ns2", common.LinuxProcessPU)
 
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -1260,7 +1260,7 @@ func TestCacheState(t *testing.T) {
 		enforcer.packetLogs = true
 		contextID := "123"
 
-		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.ContainerPU)
 
 		// Should fail: Not in cache
 		err = enforcer.Unenforce(contextID)
@@ -1319,7 +1319,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "124"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 
 		spec, _ := portspec.NewPortSpecFromString("80", nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
@@ -1365,7 +1365,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "125"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 
 		Convey("When I create a new PU without ports or mark", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1398,7 +1398,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "126"
-		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.ContainerPU)
 
 		Convey("When I create a new PU without an IP", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1430,7 +1430,7 @@ func TestContextFromIP(t *testing.T) {
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.packetLogs = true
 
-		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
+		puInfo := policy.NewPUInfo("SomePU", "/ns", common.ContainerPU)
 
 		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
 		contextID := "AporetoContext"
@@ -3486,7 +3486,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								contextID := "123456"
-								puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+								puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 								context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
 								So(err, ShouldBeNil)
 								enforcer.puFromContextID.AddOrUpdate(contextID, context)
@@ -4312,7 +4312,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			serverID := testServerID
 
 			// Create ProcessingUnit 1
-			puInfo1 := policy.NewPUInfo(puID1, common.ContainerPU)
+			puInfo1 := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 			ip1 := policy.ExtendedMap{}
 			ip1["bridge"] = puIP1
@@ -4323,7 +4323,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo1.Policy.AddReceiverRules(tagSelector)
 
 			// Create processing unit 2
-			puInfo2 := policy.NewPUInfo(puID2, common.ContainerPU)
+			puInfo2 := policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 			ip2 := policy.ExtendedMap{"bridge": puIP2}
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4444,7 +4444,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := testServerID
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4455,7 +4455,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4506,7 +4506,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := testServerID
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4517,7 +4517,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4650,7 +4650,7 @@ func TestDNS(t *testing.T) {
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
 		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
+		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
@@ -4731,7 +4731,7 @@ func TestDNSWithError(t *testing.T) {
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
 		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
+		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
@@ -4789,7 +4789,7 @@ func TestPUPortCreation(t *testing.T) {
 
 		enforcer.mode = constants.LocalServer
 		contextID := "1001"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 		})
