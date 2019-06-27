@@ -134,21 +134,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, request.NamespacedName, pod); err != nil {
 		if errors.IsNotFound(err) {
-			/*
-				zap.L().Debug("Pod IsNotFound", zap.String("puID", puID))
-				handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
-				defer handlePUCancel()
-
-				// call destroy - the policy engine is going to call stop first for us if necessary
-				if err := r.handler.Policy.HandlePUEvent(
-					handlePUCtx,
-					puID,
-					common.EventDestroy,
-					policy.NewPURuntimeWithDefaults(),
-				); err != nil {
-					zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
-				}
-			*/
 			r.deleteReconcileCh <- struct{}{}
 			return reconcile.Result{}, nil
 		}
