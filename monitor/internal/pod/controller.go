@@ -41,7 +41,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -52,6 +52,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
 		deleteCh:          deleteCh,
+		deleteReconcileCh: deleteReconcileCh,
 
 		// TODO: should move into configuration
 		handlePUEventTimeout:   60 * time.Second,
@@ -117,6 +118,7 @@ type ReconcilePod struct {
 	nodeName          string
 	enableHostPods    bool
 	deleteCh          chan<- DeleteEvent
+	deleteReconcileCh chan<- struct{}
 
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
@@ -147,6 +149,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 					zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
 				}
 			*/
+			r.deleteReconcileCh <- struct{}{}
 			return reconcile.Result{}, nil
 		}
 		// Otherwise, we retry.
