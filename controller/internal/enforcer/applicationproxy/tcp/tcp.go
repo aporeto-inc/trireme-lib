@@ -517,6 +517,7 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
+		Namespace:   context.ManagementNamespace(),
 	}
 
 	if report.ObserveAction.Observed() {
