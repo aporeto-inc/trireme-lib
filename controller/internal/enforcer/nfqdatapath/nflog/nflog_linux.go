@@ -5,6 +5,7 @@ package nflog
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -90,7 +91,9 @@ func (a *nfLog) nflogErrorHandler(err error) {
 }
 
 func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, puIsSource bool) (*collector.PacketReport, error) {
-	report := &collector.PacketReport{}
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
 	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
 
 	if len(parts) != 3 {
@@ -98,35 +101,34 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, puIsSource bool) (*coll
 	}
 
 	contextID, _, _ := parts[0], parts[1], parts[2]
-	puID, _ := a.getPUInfo(contextID)
+	puID, namespace, _ := a.getPUInfo(contextID)
 	if puID == "" {
 		return nil, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
 	}
 
-	report.PUID = contextID
+	report.PUID = puID
+	report.Namespace = namespace
+	ipPacket, err := packet.New(packet.PacketTypeNetwork, buf.Payload, "", false)
+	if err == nil {
+		report.Length = int(ipPacket.GetIPLength())
+		report.PacketID, _ = strconv.Atoi(ipPacket.ID())
 
-	if buf.Protocol == packet.IPProtocolTCP {
-		//	report.TCPFlags
+	} else {
+		zap.L().Debug("Payload Not Valid", zap.Error(err))
+	}
+
+	if buf.Protocol == packet.IPProtocolTCP || buf.Protocol == packet.IPProtocolUDP {
 		report.SourcePort = int(buf.Ports.SrcPort)
 		report.DestinationPort = int(buf.Ports.DstPort)
 	}
-
-	// report.Claims
-	// report.DestinationIP
-	// report.DestinationPort
-	// report.DropReason
-	// report.Encrypt
-	// report.Event
-	// report.Length
-	// report.Mark
-	// report.Namespace
-	// report.PacketID
-	// report.Protocol
-	// report.PUID
-	// report.SourceIP
-	// report.SourcePort
-	// report.TriremePacket
-	//	report.
+	if buf.Protocol == packet.IPProtocolTCP {
+		report.TCPFlags = int(ipPacket.GetTCPFlags())
+	}
+	report.DestinationIP = buf.DstIP.String()
+	report.SourceIP = buf.SrcIP.String()
+	report.TriremePacket = false
+	report.DropReason = collector.PacketDrop
+	copy(report.Payload, buf.Payload[0:64])
 	return report, nil
 }
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
@@ -141,7 +143,6 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	if encodedAction == "10" {
-		//record dropped Packet
 		packetReport, err := a.recordDroppedPacket(buf, puIsSource)
 		return nil, packetReport, err
 	}

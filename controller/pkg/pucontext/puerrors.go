@@ -6,12 +6,16 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 )
 
+// ErrorType custom counter error type
 type ErrorType int
+
+// PuError holds the string,integer for each error
 type PuErrors struct {
 	index ErrorType
 	err   string
 }
 
+// Error Constants
 const (
 	ErrUnknownError ErrorType = iota
 	ErrInvalidNetState
@@ -51,6 +55,26 @@ const (
 	ErrSynUnexpectedPacket
 	ErrConnectionsProcessed
 	ErrEncrConnectionsProcessed
+	ErrUDPInvalidNetState
+	ErrUDPDropSynAck
+	ErrUDPDropFin
+	ErrUDPDropPacket
+	ErrUDPPreProcessingFailed
+	ErrUDPRejected
+	ErrUDPPostProcessingFailed
+	ErrUDPNoConnection
+	ErrUDPSynInvalidToken
+	ErrUDPSynMissingClaims
+	ErrUDPSynDroppedPolicy
+	ErrUDPSynAckBadClaims
+	ErrUDPSynAckMissingClaims
+	ErrUDPSynAckPolicy
+	ErrUdpAckInvalidSignature
+	ErrUDPConnectionsProcessed
+	ErrUDPContextIDNotFound
+	ErrUDPDropQueueFull
+	ErrUDPDropInNfQueue
+	ErrUDPSynDropped
 )
 
 var counterNames = []string{
@@ -92,6 +116,26 @@ var counterNames = []string{
 	ErrSynUnexpectedPacket:          "SYNUNEXPECTEDPACKET",
 	ErrConnectionsProcessed:         "CONNECTIONSPROCESSED",
 	ErrEncrConnectionsProcessed:     "ENCRCONNECTIONSPROCESSED",
+	ErrUDPInvalidNetState:           "UDPINVALIDNETSTATE",
+	ErrUDPDropSynAck:                "UDPDROPSYNACK",
+	ErrUDPDropFin:                   "UDPDROPFIN",
+	ErrUDPDropPacket:                "UDPDROPPACKET",
+	ErrUDPPreProcessingFailed:       "UDPPREPROCESSINGFAILED",
+	ErrUDPRejected:                  "UDPREJECTED",
+	ErrUDPPostProcessingFailed:      "UDPPOSTPROCESSINGFAILED",
+	ErrUDPNoConnection:              "UDPDROPNOCONNECTION",
+	ErrUDPSynInvalidToken:           "UDPSYNINVALIDTOKEN",
+	ErrUDPSynMissingClaims:          "UDPSYNMISSINGCLAIMS",
+	ErrUDPSynDroppedPolicy:          "UDPSYNDROPPEDPOLICY",
+	ErrUDPSynAckBadClaims:           "UDPSYNACKBADCLAIMS",
+	ErrUDPSynAckMissingClaims:       "UDPSYNACKMISSINGCLAIMS",
+	ErrUDPSynAckPolicy:              "UDPSYNACKPOLICY",
+	ErrUdpAckInvalidSignature:       "UDPACKINVALIDSIGNATURE",
+	ErrUDPConnectionsProcessed:      "UDPCONNECTIONSPROCESSED",
+	ErrUDPContextIDNotFound:         "UDPCONTEXTIDNOTFOUND",
+	ErrUDPDropQueueFull:             "UDPDROPQUEUEFULL",
+	ErrUDPDropInNfQueue:             "UDPDROPINNFQUEUE",
+	ErrUDPSynDropped:                "UDPSYNDROPPED",
 }
 
 var countedEvents = []PuErrors{
@@ -246,18 +290,98 @@ var countedEvents = []PuErrors{
 		index: ErrConnectionsProcessed,
 		err:   "",
 	},
+	ErrUDPInvalidNetState: PuErrors{
+		index: ErrUDPInvalidNetState,
+		err:   "Packet received in invalid udp network state",
+	},
+	ErrUDPDropSynAck: PuErrors{
+		index: ErrUDPDropSynAck,
+		err:   "No connection.Drop the syn ack packet",
+	},
+	ErrUDPDropFin: PuErrors{
+		index: ErrUDPDropFin,
+		err:   "Dropped FIN packet",
+	},
+	ErrUDPDropPacket: PuErrors{
+		index: ErrUDPDropPacket,
+		err:   "Dropped network udp data packet",
+	},
+	ErrUDPPreProcessingFailed: PuErrors{
+		index: ErrUDPPreProcessingFailed,
+		err:   "Pre processing failed",
+	},
+	ErrUDPRejected: PuErrors{
+		index: ErrUDPRejected,
+		err:   "UDP packet rejected due to policy",
+	},
+	ErrUDPPostProcessingFailed: PuErrors{
+		index: ErrUDPPostProcessingFailed,
+		err:   "UDP packet failed postprocessing",
+	},
+	ErrUDPSynInvalidToken: PuErrors{
+		index: ErrUDPSynInvalidToken,
+		err:   "UDP syn packet dropped invalid token",
+	},
+	ErrUDPSynMissingClaims: PuErrors{
+		index: ErrUDPSynMissingClaims,
+		err:   "UDP syn packet dropped missing claims",
+	},
+
+	ErrUDPSynDroppedPolicy: PuErrors{
+		index: ErrUDPSynDroppedPolicy,
+		err:   "UDP syn packet dropped policy",
+	},
+	ErrUDPSynAckBadClaims: PuErrors{
+		index: ErrUDPSynAckBadClaims,
+		err:   "UDP synack packet dropped bad claims",
+	},
+	ErrUDPSynAckMissingClaims: PuErrors{
+		index: ErrUDPSynAckMissingClaims,
+		err:   "UDP synack packet dropped missing claims",
+	},
+	ErrUDPSynAckPolicy: PuErrors{
+		index: ErrUDPSynAckPolicy,
+		err:   "UDP syn ack packet dropped policy",
+	},
+	ErrUdpAckInvalidSignature: PuErrors{
+		index: ErrUdpAckInvalidSignature,
+		err:   "UDP ack packet dropped invalid signature",
+	},
+	ErrUDPConnectionsProcessed: PuErrors{
+		index: ErrUDPConnectionsProcessed,
+		err:   "UDP connections processed",
+	},
+	ErrUDPContextIDNotFound: PuErrors{
+		index: ErrUDPContextIDNotFound,
+		err:   "UDP packet ContextID not found ",
+	},
+	ErrUDPDropQueueFull: PuErrors{
+		index: ErrUDPDropQueueFull,
+		err:   "UDP packet dropped queue full",
+	},
+	ErrUDPDropInNfQueue: PuErrors{
+		index: ErrUDPDropInNfQueue,
+		err:   "UDP packet dropped in NfQueue",
+	},
+	ErrUDPSynDropped: PuErrors{
+		index: ErrUDPSynDropped,
+		err:   "UDP syn packet dropped missing claims",
+	},
 }
 
+// PuContextError increments the error counter and returns an error
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error {
 	atomic.AddUint32(&p.counters[int(err)], 1)
 	return countedEvents[err]
 }
 
+// PuContextError increments a global unknown PU counter and returns an error
 func PuContextError(err ErrorType, logMsg string) error {
 	atomic.AddUint32(&unknownPU.counters[int(err)], 1)
 	return countedEvents[err]
 }
 
+// GetErrorCounters returns the error counters and resets the counters to zero
 func (p *PUContext) GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, len(countedEvents))
 	p.Lock()
@@ -271,6 +395,23 @@ func (p *PUContext) GetErrorCounters() []collector.Counters {
 	}
 	return report
 }
+
+// GetErrorCounters returns the counters for packets whose PU is not known
+func GetErrorCounters() []collector.Counters {
+	report := make([]collector.Counters, len(countedEvents))
+	unknownPU.Lock()
+	defer unknownPU.Unlock()
+	for index, val := range unknownPU.counters {
+		report[index] = collector.Counters{
+			Name:  counterNames[index],
+			Value: atomic.SwapUint32(&val, 0),
+		}
+
+	}
+	return report
+}
+
+// GetErrorr gives the errortype for an error
 func GetError(err error) ErrorType {
 	errType, ok := err.(PuErrors)
 	if !ok {
@@ -279,9 +420,12 @@ func GetError(err error) ErrorType {
 	return errType.index
 }
 
+// ToError returns converts error from ErrorType
 func ToError(errType ErrorType) error {
 	return countedEvents[errType]
 }
+
+// Error implemented to satisfy the error interface
 func (e PuErrors) Error() string {
 	return e.err
 }

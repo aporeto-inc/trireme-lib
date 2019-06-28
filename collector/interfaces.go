@@ -202,6 +202,7 @@ type PacketReport struct {
 	SourceIP        string
 	SourcePort      int
 	TriremePacket   bool
+	Payload         []byte
 }
 
 // Counters represent a single entry with name and current val
