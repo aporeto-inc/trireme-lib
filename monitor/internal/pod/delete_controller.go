@@ -41,8 +41,8 @@ func NewDeleteController(c client.Client, pc *config.ProcessorConfig) *DeleteCon
 		deleteCh:           make(chan DeleteEvent, 1000),
 		reconcileCh:        make(chan struct{}),
 		reconcileFunc:      deleteControllerReconcile,
-		tickerPeriod:       time.Duration(5 * time.Second),
-		itemProcessTimeout: time.Duration(30 * time.Second),
+		tickerPeriod:       5 * time.Second,
+		itemProcessTimeout: 30 * time.Second,
 	}
 }
 
@@ -109,7 +109,6 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			// we don't really care, we just warn
 			zap.L().Warn("failed to get pod from Kubernetes API", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
-		return
 	}
 
 	// the edge case: a pod with the same namespaced name came up and we have missed a delete event
@@ -129,5 +128,4 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		// it is up to the policy engine to make sense of that
 		delete(*m, nativeID)
 	}
-	return
 }

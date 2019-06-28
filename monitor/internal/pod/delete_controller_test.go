@@ -124,8 +124,8 @@ func TestDeleteController(t *testing.T) {
 			handler:            nil,
 			deleteCh:           make(chan DeleteEvent),
 			reconcileCh:        make(chan struct{}),
-			tickerPeriod:       time.Duration(1 * time.Second),
-			itemProcessTimeout: time.Duration(1 * time.Second),
+			tickerPeriod:       10 * time.Millisecond,
+			itemProcessTimeout: 1 * time.Second,
 			reconcileFunc:      reconcileFunc,
 		}
 
@@ -179,8 +179,8 @@ func TestDeleteController(t *testing.T) {
 				handler:            nil,
 				deleteCh:           make(chan DeleteEvent),
 				reconcileCh:        make(chan struct{}),
-				tickerPeriod:       time.Duration(10 * time.Millisecond),
-				itemProcessTimeout: time.Duration(1 * time.Second),
+				tickerPeriod:       10 * time.Millisecond,
+				itemProcessTimeout: 1 * time.Second,
 				reconcileFunc:      reconcileFunc,
 			}
 		})
