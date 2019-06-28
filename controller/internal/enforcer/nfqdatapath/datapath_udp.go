@@ -291,7 +291,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		// PreProcessServiceInterface
 		if !d.service.PreProcessUDPAppPacket(p, conn.Context, conn, packet.UDPSynMask) {
 			p.Print(packet.PacketFailureService)
-			return nil, conn.Context(pucontext.ErrUDPPreProcessingFailed, "pre service processing failed for UDP application packet")
+			return nil, conn.Context.PuContextError(pucontext.ErrUDPPreProcessingFailed, "pre service processing failed for UDP application packet")
 		}
 	}
 
@@ -327,7 +327,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(p, nil, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return conn, conn.Context(pucontext.ErrUDPPostProcessingFailed, "post service processing failed for UDP application packet")
+			return conn, conn.Context.PuContextError(pucontext.ErrUDPPostProcessingFailed, "post service processing failed for UDP application packet")
 		}
 	}
 
