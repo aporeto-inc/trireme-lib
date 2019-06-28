@@ -90,7 +90,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, puIsSource bool) (*collector.PacketReport, error) {
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket) (*collector.PacketReport, error) {
 	report := &collector.PacketReport{
 		Payload: make([]byte, 64),
 	}
@@ -143,7 +143,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	if encodedAction == "10" {
-		packetReport, err := a.recordDroppedPacket(buf, puIsSource)
+		packetReport, err := a.recordDroppedPacket(buf)
 		return nil, packetReport, err
 	}
 

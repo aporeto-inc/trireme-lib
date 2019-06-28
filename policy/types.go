@@ -177,6 +177,7 @@ func DefaultLogPrefix(contextID string) string {
 	return contextID + ":default:default" + "6"
 }
 
+// DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
 func DefaultDroppedPacketLogPrefix(contextID string) string {
 	return contextID + "default:default" + "10"
 }

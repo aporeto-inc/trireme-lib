@@ -9,7 +9,7 @@ import (
 // ErrorType custom counter error type
 type ErrorType int
 
-// PuError holds the string,integer for each error
+// PuErrors holds the string,integer for each error
 type PuErrors struct {
 	index ErrorType
 	err   string
@@ -69,7 +69,7 @@ const (
 	ErrUDPSynAckBadClaims
 	ErrUDPSynAckMissingClaims
 	ErrUDPSynAckPolicy
-	ErrUdpAckInvalidSignature
+	ErrUDPInvalidSignature
 	ErrUDPConnectionsProcessed
 	ErrUDPContextIDNotFound
 	ErrUDPDropQueueFull
@@ -130,7 +130,7 @@ var counterNames = []string{
 	ErrUDPSynAckBadClaims:           "UDPSYNACKBADCLAIMS",
 	ErrUDPSynAckMissingClaims:       "UDPSYNACKMISSINGCLAIMS",
 	ErrUDPSynAckPolicy:              "UDPSYNACKPOLICY",
-	ErrUdpAckInvalidSignature:       "UDPACKINVALIDSIGNATURE",
+	ErrUDPInvalidSignature:          "UDPACKINVALIDSIGNATURE",
 	ErrUDPConnectionsProcessed:      "UDPCONNECTIONSPROCESSED",
 	ErrUDPContextIDNotFound:         "UDPCONTEXTIDNOTFOUND",
 	ErrUDPDropQueueFull:             "UDPDROPQUEUEFULL",
@@ -140,230 +140,230 @@ var counterNames = []string{
 
 var countedEvents = []PuErrors{
 	// sentinel value insert new ones below this
-	ErrUnknownError: PuErrors{
+	ErrUnknownError: {
 		index: ErrUnknownError,
 		err:   "Unknown Error",
 	},
-	ErrInvalidNetState: PuErrors{
+	ErrInvalidNetState: {
 		index: ErrInvalidNetState,
 
 		err: "Invalid net state",
 	},
-	ErrNonPUTraffic: PuErrors{
+	ErrNonPUTraffic: {
 		index: ErrNonPUTraffic,
 
 		err: "Traffic belongs to a PU we are not monitoring",
 	},
-	ErrNetSynNotSeen: PuErrors{
+	ErrNetSynNotSeen: {
 		index: ErrNetSynNotSeen,
 		err:   "Network Syn packet was not seen",
 	},
-	ErrNoConnFound: PuErrors{
+	ErrNoConnFound: {
 		index: ErrNoConnFound,
 		err:   "no context or connection found",
 	},
-	ErrRejectPacket: PuErrors{
+	ErrRejectPacket: {
 		index: ErrRejectPacket,
 		err:   "Reject the packet as per policy",
 	},
-	ErrTCPAuthNotFound: PuErrors{
+	ErrTCPAuthNotFound: {
 		index: ErrTCPAuthNotFound,
 		err:   "TCP authentication option not found",
 	},
-	ErrInvalidConnState: PuErrors{
+	ErrInvalidConnState: {
 		index: ErrInvalidConnState,
 		err:   "Invalid connection state",
 	},
-	ErrMarkNotFound: PuErrors{
+	ErrMarkNotFound: {
 		index: ErrMarkNotFound,
 		err:   "PU mark not found",
 	},
-	ErrPortNotFound: PuErrors{
+	ErrPortNotFound: {
 		index: ErrPortNotFound,
 		err:   "Port not found",
 	},
-	ErrContextIDNotFound: PuErrors{
+	ErrContextIDNotFound: {
 		index: ErrContextIDNotFound,
 		err:   "unable to find contextID",
 	},
-	ErrInvalidProtocol: PuErrors{
+	ErrInvalidProtocol: {
 		index: ErrInvalidProtocol,
 		err:   "Invalid Protocol",
 	},
-	ErrServicePreprocessorFailed: PuErrors{
+	ErrServicePreprocessorFailed: {
 		index: ErrServicePreprocessorFailed,
 		err:   "pre service processing failed for network packet",
 	},
-	ErrServicePostprocessorFailed: PuErrors{
+	ErrServicePostprocessorFailed: {
 		index: ErrServicePostprocessorFailed,
 		err:   "post service processing failed for network packet",
 	},
-	ErrDroppedExternalService: PuErrors{
+	ErrDroppedExternalService: {
 		index: ErrDroppedExternalService,
 		err:   "No acls found for external services. Dropping application syn packet",
 	},
-	ErrSynDroppedNoClaims: PuErrors{
+	ErrSynDroppedNoClaims: {
 		index: ErrSynDroppedNoClaims,
 		err:   "Syn packet dropped because of no claims",
 	},
-	ErrSynDroppedInvalidToken: PuErrors{
+	ErrSynDroppedInvalidToken: {
 		index: ErrSynDroppedInvalidToken,
 		err:   "Syn packet dropped because of invalid token",
 	},
-	ErrSynDroppedTCPOption: PuErrors{
+	ErrSynDroppedTCPOption: {
 		index: ErrSynDroppedTCPOption,
 		err:   "TCP authentication option not found",
 	},
-	ErrSynDroppedInvalidFormat: PuErrors{
+	ErrSynDroppedInvalidFormat: {
 		index: ErrSynDroppedInvalidFormat,
 		err:   "Syn packet dropped because of invalid format",
 	},
-	ErrSynRejectPacket: PuErrors{
+	ErrSynRejectPacket: {
 		index: ErrSynRejectPacket,
 		err:   "Syn Dropped due to policy",
 	},
-	ErrOutOfOrderSynAck: PuErrors{
+	ErrOutOfOrderSynAck: {
 		index: ErrOutOfOrderSynAck,
 		err:   "synack for flow with processed finack",
 	},
-	ErrInvalidSynAck: PuErrors{
+	ErrInvalidSynAck: {
 		index: ErrInvalidSynAck,
 		err:   "PU is already dead - drop SynAck packet",
 	},
-	ErrSynAckMissingToken: PuErrors{
+	ErrSynAckMissingToken: {
 		index: ErrSynAckMissingToken,
 		err:   "SynAck packet dropped because of missing token",
 	},
-	ErrSynAckBadClaims: PuErrors{
+	ErrSynAckBadClaims: {
 		index: ErrSynAckBadClaims,
 		err:   "SynAck packet dropped because of bad claims",
 	},
-	ErrSynAckMissingClaims: PuErrors{
+	ErrSynAckMissingClaims: {
 		index: ErrSynAckMissingClaims,
 		err:   "SynAck packet dropped because of no claims",
 	},
-	ErrSynAckNoTCPAuthOption: PuErrors{
+	ErrSynAckNoTCPAuthOption: {
 		index: ErrSynAckNoTCPAuthOption,
 		err:   "TCP authentication option not found",
 	},
-	ErrSynAckInvalidFormat: PuErrors{
+	ErrSynAckInvalidFormat: {
 		index: ErrSynAckInvalidFormat,
 		err:   "SynAck packet dropped because of invalid format",
 	},
-	ErrSynAckClaimsMisMatch: PuErrors{
+	ErrSynAckClaimsMisMatch: {
 		index: ErrSynAckClaimsMisMatch,
 		err:   "syn/ack packet dropped because of encryption mismatch",
 	},
-	ErrSynAckRejected: PuErrors{
+	ErrSynAckRejected: {
 		index: ErrSynAckRejected,
 		err:   "dropping because of reject rule on transmitter",
 	},
-	ErrSynAckDroppedExternalService: PuErrors{
+	ErrSynAckDroppedExternalService: {
 		index: ErrSynAckDroppedExternalService,
 		err:   "SynAck from external service dropped",
 	},
-	ErrAckRejected: PuErrors{
+	ErrAckRejected: {
 		index: ErrAckRejected,
 		err:   "Reject Ack packet as per policy",
 	},
-	ErrAckTCPNoTCPAuthOption: PuErrors{
+	ErrAckTCPNoTCPAuthOption: {
 		index: ErrAckTCPNoTCPAuthOption,
 		err:   "TCP authentication option not found",
 	},
-	ErrAckSigValidationFailed: PuErrors{
+	ErrAckSigValidationFailed: {
 		index: ErrAckSigValidationFailed,
 		err:   "Ack packet dropped because signature validation failed",
 	},
-	ErrAckInvalidFormat: PuErrors{
+	ErrAckInvalidFormat: {
 		index: ErrAckInvalidFormat,
 		err:   "Ack packet dropped because of invalid format",
 	},
-	ErrAckInUnknownState: PuErrors{
+	ErrAckInUnknownState: {
 		index: ErrAckInUnknownState,
 		err:   "sending finack Ack Received in uknown connection state",
 	},
-	ErrSynUnexpectedPacket: PuErrors{
+	ErrSynUnexpectedPacket: {
 		index: ErrSynUnexpectedPacket,
 		err:   "Received syn packet from unknown PU",
 	},
-	ErrConnectionsProcessed: PuErrors{
+	ErrConnectionsProcessed: {
 		index: ErrConnectionsProcessed,
 		err:   "",
 	},
-	ErrUDPInvalidNetState: PuErrors{
+	ErrUDPInvalidNetState: {
 		index: ErrUDPInvalidNetState,
 		err:   "Packet received in invalid udp network state",
 	},
-	ErrUDPDropSynAck: PuErrors{
+	ErrUDPDropSynAck: {
 		index: ErrUDPDropSynAck,
 		err:   "No connection.Drop the syn ack packet",
 	},
-	ErrUDPDropFin: PuErrors{
+	ErrUDPDropFin: {
 		index: ErrUDPDropFin,
 		err:   "Dropped FIN packet",
 	},
-	ErrUDPDropPacket: PuErrors{
+	ErrUDPDropPacket: {
 		index: ErrUDPDropPacket,
 		err:   "Dropped network udp data packet",
 	},
-	ErrUDPPreProcessingFailed: PuErrors{
+	ErrUDPPreProcessingFailed: {
 		index: ErrUDPPreProcessingFailed,
 		err:   "Pre processing failed",
 	},
-	ErrUDPRejected: PuErrors{
+	ErrUDPRejected: {
 		index: ErrUDPRejected,
 		err:   "UDP packet rejected due to policy",
 	},
-	ErrUDPPostProcessingFailed: PuErrors{
+	ErrUDPPostProcessingFailed: {
 		index: ErrUDPPostProcessingFailed,
 		err:   "UDP packet failed postprocessing",
 	},
-	ErrUDPSynInvalidToken: PuErrors{
+	ErrUDPSynInvalidToken: {
 		index: ErrUDPSynInvalidToken,
 		err:   "UDP syn packet dropped invalid token",
 	},
-	ErrUDPSynMissingClaims: PuErrors{
+	ErrUDPSynMissingClaims: {
 		index: ErrUDPSynMissingClaims,
 		err:   "UDP syn packet dropped missing claims",
 	},
 
-	ErrUDPSynDroppedPolicy: PuErrors{
+	ErrUDPSynDroppedPolicy: {
 		index: ErrUDPSynDroppedPolicy,
 		err:   "UDP syn packet dropped policy",
 	},
-	ErrUDPSynAckBadClaims: PuErrors{
+	ErrUDPSynAckBadClaims: {
 		index: ErrUDPSynAckBadClaims,
 		err:   "UDP synack packet dropped bad claims",
 	},
-	ErrUDPSynAckMissingClaims: PuErrors{
+	ErrUDPSynAckMissingClaims: {
 		index: ErrUDPSynAckMissingClaims,
 		err:   "UDP synack packet dropped missing claims",
 	},
-	ErrUDPSynAckPolicy: PuErrors{
+	ErrUDPSynAckPolicy: {
 		index: ErrUDPSynAckPolicy,
 		err:   "UDP syn ack packet dropped policy",
 	},
-	ErrUdpAckInvalidSignature: PuErrors{
-		index: ErrUdpAckInvalidSignature,
+	ErrUDPInvalidSignature: {
+		index: ErrUDPInvalidSignature,
 		err:   "UDP ack packet dropped invalid signature",
 	},
-	ErrUDPConnectionsProcessed: PuErrors{
+	ErrUDPConnectionsProcessed: {
 		index: ErrUDPConnectionsProcessed,
 		err:   "UDP connections processed",
 	},
-	ErrUDPContextIDNotFound: PuErrors{
+	ErrUDPContextIDNotFound: {
 		index: ErrUDPContextIDNotFound,
 		err:   "UDP packet ContextID not found ",
 	},
-	ErrUDPDropQueueFull: PuErrors{
+	ErrUDPDropQueueFull: {
 		index: ErrUDPDropQueueFull,
 		err:   "UDP packet dropped queue full",
 	},
-	ErrUDPDropInNfQueue: PuErrors{
+	ErrUDPDropInNfQueue: {
 		index: ErrUDPDropInNfQueue,
 		err:   "UDP packet dropped in NfQueue",
 	},
-	ErrUDPSynDropped: PuErrors{
+	ErrUDPSynDropped: {
 		index: ErrUDPSynDropped,
 		err:   "UDP syn packet dropped missing claims",
 	},
@@ -411,7 +411,7 @@ func GetErrorCounters() []collector.Counters {
 	return report
 }
 
-// GetErrorr gives the errortype for an error
+// GetError gives the errortype for an error
 func GetError(err error) ErrorType {
 	errType, ok := err.(PuErrors)
 	if !ok {

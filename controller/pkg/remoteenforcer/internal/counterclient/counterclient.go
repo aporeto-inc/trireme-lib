@@ -29,7 +29,7 @@ type counterClient struct {
 }
 
 // NewCounterClient returns an interface CounterClient
-func NewCounterClient(cr statscollector.Collector) (CounterClinet, error) {
+func NewCounterClient(cr statscollector.Collector) (CounterClient, error) {
 	c := &counterClient{
 		collector:       cr,
 		rpchdl:          rpcwrapper.NewRPCWrapper(),
@@ -53,7 +53,7 @@ func (c *counterClient) sendData(records []*collector.CounterReport) error {
 			CounterReports: records,
 		},
 	}
-	return d.rpchdl.RemoteCall(
+	return c.rpchdl.RemoteCall(
 		counterContextID,
 		counterRPCCommand,
 		&request,
@@ -84,7 +84,7 @@ func (c *counterClient) sendCounterReports(ctx context.Context) {
 }
 
 // Run stats the counterClient
-func (c *counterClinet) Run(ctx context.Context) error {
+func (c *counterClient) Run(ctx context.Context) error {
 	if err := c.rpchdl.NewRPCClient(counterContextID, c.counterChannel, c.secret); err != nil {
 		zap.L().Error("CounterClient RPC client cannot connect", zap.Error(err))
 		return err
