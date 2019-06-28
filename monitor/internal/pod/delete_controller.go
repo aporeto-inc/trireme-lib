@@ -109,6 +109,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			// we don't really care, we just warn
 			zap.L().Warn("failed to get pod from Kubernetes API", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
+		return
 	}
 
 	// the edge case: a pod with the same namespaced name came up and we have missed a delete event

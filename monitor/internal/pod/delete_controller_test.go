@@ -40,7 +40,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		itemProcessTimeout := time.Duration(5 * time.Second)
+		itemProcessTimeout := 5 * time.Second
 
 		failure := fmt.Errorf("failure")
 
@@ -113,6 +113,7 @@ func TestDeleteController(t *testing.T) {
 		z := make(chan struct{})
 
 		testMap := make(map[string]client.ObjectKey)
+		//nolint:unparam
 		reconcileFunc := func(ctx context.Context, c client.Client, pc *config.ProcessorConfig, t time.Duration, m *map[string]client.ObjectKey) {
 			for k, v := range *m {
 				testMap[k] = v
@@ -124,7 +125,7 @@ func TestDeleteController(t *testing.T) {
 			handler:            nil,
 			deleteCh:           make(chan DeleteEvent),
 			reconcileCh:        make(chan struct{}),
-			tickerPeriod:       10 * time.Millisecond,
+			tickerPeriod:       1 * time.Second,
 			itemProcessTimeout: 1 * time.Second,
 			reconcileFunc:      reconcileFunc,
 		}
@@ -179,7 +180,7 @@ func TestDeleteController(t *testing.T) {
 				handler:            nil,
 				deleteCh:           make(chan DeleteEvent),
 				reconcileCh:        make(chan struct{}),
-				tickerPeriod:       10 * time.Millisecond,
+				tickerPeriod:       1 * time.Second,
 				itemProcessTimeout: 1 * time.Second,
 				reconcileFunc:      reconcileFunc,
 			}
