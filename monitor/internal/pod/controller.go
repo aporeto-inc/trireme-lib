@@ -150,6 +150,16 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
+	// if this pod is going to be deleted, notify our DeleteController about that
+	// it will take care to send destroy events to trireme when the pod is completely gone
+	if pod.DeletionTimestamp != nil {
+		zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("namespacedName", nn), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
+		r.deleteCh <- DeleteEvent{
+			NativeID: puID,
+			Key:      request.NamespacedName,
+		}
+	}
+
 	// try to find out if any of the containers have been started yet
 	// this is static information on the pod, we don't need to care of the phase for determining that
 	// NOTE: This is important because InitContainers are started during the PodPending phase which is
@@ -207,14 +217,8 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// however, it will have the deletion timestamp set which is an indicator for us that it is
 		// shutting down. It means for us, that we don't have to start anything anymore. We can safely stop
 		// the PU when the phase is PodSucceeded/PodFailed. However, we sent an update event above and included
-		// some new tags from the metadata extractor. So now we will send our other controller that this pod is
-		// terminating, and then we abort here now.
+		// some new tags from the metadata extractor.
 		if pod.DeletionTimestamp != nil {
-			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("namespacedName", nn), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
-			r.deleteCh <- DeleteEvent{
-				NativeID: puID,
-				Key:      request.NamespacedName,
-			}
 			return reconcile.Result{}, nil
 		}
 
