@@ -597,7 +597,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
-		return conn.Context.PuContextError(pucontext.ErrUDPAckInvalidSignature, fmt.Sprintf("ack packet dropped because signature validation failed: %s", err))
+		return conn.Context.PuContextError(pucontext.ErrUDPInvalidSignature, fmt.Sprintf("ack packet dropped because signature validation failed: %s", err))
 
 	}
 
