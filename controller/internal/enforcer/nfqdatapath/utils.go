@@ -105,6 +105,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Tags:        context.Annotations(),
 		PolicyID:    actual.PolicyID,
 		L4Protocol:  p.IPProto(),
+		Namespace:   context.ManagementNamespace(),
 		Count:       1,
 	}
 

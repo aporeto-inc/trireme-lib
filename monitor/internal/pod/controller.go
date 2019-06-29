@@ -41,7 +41,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -51,6 +51,8 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 		netclsProgrammer:  netclsProgrammer,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
+		deleteCh:          deleteCh,
+		deleteReconcileCh: deleteReconcileCh,
 
 		// TODO: should move into configuration
 		handlePUEventTimeout:   60 * time.Second,
@@ -95,6 +97,14 @@ func addController(mgr manager.Manager, r *ReconcilePod, eventsCh <-chan event.G
 
 var _ reconcile.Reconciler = &ReconcilePod{}
 
+// DeleteEvent is used to send delete events to our event loop which will watch
+// them for real deletion in the Kubernetes API. Once an object is gone, we will
+// send down destroy events to trireme.
+type DeleteEvent struct {
+	NativeID string
+	Key      client.ObjectKey
+}
+
 // ReconcilePod reconciles a Pod object
 type ReconcilePod struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -107,6 +117,8 @@ type ReconcilePod struct {
 	netclsProgrammer  extractors.PodNetclsProgrammer
 	nodeName          string
 	enableHostPods    bool
+	deleteCh          chan<- DeleteEvent
+	deleteReconcileCh chan<- struct{}
 
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
@@ -116,36 +128,36 @@ type ReconcilePod struct {
 // Reconcile reads that state of the cluster for a pod object
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
-	puID := request.NamespacedName.String()
+	nn := request.NamespacedName.String()
 
 	// Fetch the corresponding pod object.
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, request.NamespacedName, pod); err != nil {
 		if errors.IsNotFound(err) {
-			zap.L().Debug("Pod IsNotFound", zap.String("puID", puID))
-			handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
-			defer handlePUCancel()
-
-			// call destroy - the policy engine is going to call stop first for us if necessary
-			if err := r.handler.Policy.HandlePUEvent(
-				handlePUCtx,
-				puID,
-				common.EventDestroy,
-				policy.NewPURuntimeWithDefaults(),
-			); err != nil {
-				zap.L().Error("failed to handle destroy event", zap.String("puID", puID), zap.Error(err))
-			}
+			r.deleteReconcileCh <- struct{}{}
 			return reconcile.Result{}, nil
 		}
 		// Otherwise, we retry.
 		return reconcile.Result{}, err
 	}
 
+	puID := string(pod.GetUID())
+
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
 	if pod.Spec.HostNetwork && !r.enableHostPods {
-		zap.L().Debug("Pod is a HostNetwork pod, but enableHostPods is false", zap.String("puID", puID))
+		zap.L().Debug("Pod is a HostNetwork pod, but enableHostPods is false", zap.String("puID", puID), zap.String("namespacedName", nn))
 		return reconcile.Result{}, nil
+	}
+
+	// if this pod is going to be deleted, notify our DeleteController about that
+	// it will take care to send destroy events to trireme when the pod is completely gone
+	if pod.DeletionTimestamp != nil {
+		zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("namespacedName", nn), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
+		r.deleteCh <- DeleteEvent{
+			NativeID: puID,
+			Key:      request.NamespacedName,
+		}
 	}
 
 	// try to find out if any of the containers have been started yet
@@ -172,14 +184,14 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	case corev1.PodPending:
 		fallthrough
 	case corev1.PodRunning:
-		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.Bool("anyContainerStarted", started))
+		zap.L().Debug("PodPending / PodRunning", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Bool("anyContainerStarted", started))
 
 		// now try to do the metadata extraction
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
 		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
 		if err != nil {
-			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
 			return reconcile.Result{}, err
 		}
@@ -194,7 +206,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			common.EventUpdate,
 			puRuntime,
 		); err != nil {
-			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.Error(err))
+			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
 			// return reconcile.Result{}, err
 		} else {
@@ -204,11 +216,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
 		// however, it will have the deletion timestamp set which is an indicator for us that it is
 		// shutting down. It means for us, that we don't have to start anything anymore. We can safely stop
-		// the PU when the phase is PodSucceeded/PodFailed, or delete it once we reconcile on a pod
-		// that cannot be found any longer. However, we sent an update event and included some new tags from
-		// the metadata extractor. So abort here now.
+		// the PU when the phase is PodSucceeded/PodFailed. However, we sent an update event above and included
+		// some new tags from the metadata extractor.
 		if pod.DeletionTimestamp != nil {
-			zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
 			return reconcile.Result{}, nil
 		}
 
@@ -217,7 +227,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			// we need it for starting the PU. However, only require this if we are not in host network mode.
 			// NOTE: this can happen for example if the containers are not in a running state on their own
 			if !pod.Spec.HostNetwork && len(puRuntime.NSPath()) == 0 && puRuntime.Pid() == 0 {
-				zap.L().Error("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID))
+				zap.L().Error("Kubernetes thinks a container is running, however, we failed to extract a PID or NSPath with the metadata extractor. Requeueing...", zap.String("puID", puID), zap.String("namespacedName", nn))
 				r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to extract netns", puID)
 				return reconcile.Result{}, ErrNetnsExtractionMissing
 			}
@@ -234,9 +244,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			); err != nil {
 				if policy.IsErrPUAlreadyActivated(err) {
 					// abort early if this PU has already been activated before
-					zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.Error(err))
+					zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 				} else {
-					zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.Error(err))
+					zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 					r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
 				}
 			} else {
@@ -249,16 +259,16 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				defer netclsProgramCancel()
 				if err := r.netclsProgrammer(netclsProgramCtx, pod, puRuntime); err != nil {
 					if extractors.IsErrNetclsAlreadyProgrammed(err) {
-						zap.L().Debug("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.Error(err))
+						zap.L().Debug("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 					} else if extractors.IsErrNoHostNetworkPod(err) {
-						zap.L().Error("net_cls cgroup programmer told us that this is no host network pod.", zap.String("puID", puID), zap.Error(err))
+						zap.L().Error("net_cls cgroup programmer told us that this is no host network pod.", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 					} else {
-						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.Error(err))
+						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 						r.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", puID, err.Error())
 						return reconcile.Result{}, err
 					}
 				} else {
-					zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID))
+					zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID), zap.String("namespacedName", nn))
 					r.recorder.Eventf(pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", puID)
 				}
 			}
@@ -268,7 +278,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	case corev1.PodSucceeded:
 		fallthrough
 	case corev1.PodFailed:
-		zap.L().Debug("PodSucceeded / PodFailed", zap.String("puID", puID))
+		zap.L().Debug("PodSucceeded / PodFailed", zap.String("puID", puID), zap.String("namespacedName", nn))
 		// do metadata extraction regardless of them being stopped
 		//
 		// there is the edge case that the enforcer is starting up and we encounter the pod for the first time
@@ -277,7 +287,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		defer extractCancel()
 		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
 		if err != nil {
-			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.Error(err))
+			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
 			return reconcile.Result{}, err
 		}
@@ -291,7 +301,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			common.EventStop,
 			puRuntime,
 		); err != nil {
-			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.Error(err))
+			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", puID, err.Error())
 		} else {
 			r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
@@ -302,12 +312,12 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 
 	case corev1.PodUnknown:
-		zap.L().Error("pod is in unknown state", zap.String("puID", puID))
+		zap.L().Error("pod is in unknown state", zap.String("puID", puID), zap.String("namespacedName", nn))
 
 		// we don't need to retry, there is nothing *we* can do about it to fix this
 		return reconcile.Result{}, nil
 	default:
-		zap.L().Error("unknown pod phase", zap.String("puID", puID), zap.String("podPhase", string(pod.Status.Phase)))
+		zap.L().Error("unknown pod phase", zap.String("puID", puID), zap.String("namespacedName", nn), zap.String("podPhase", string(pod.Status.Phase)))
 
 		// we don't need to retry, there is nothing *we* can do about it to fix this
 		return reconcile.Result{}, nil

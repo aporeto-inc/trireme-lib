@@ -18,7 +18,6 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -495,7 +494,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// care if there are no user credentials. It might be a request from a PU,
 	// or it might be a request to a public interface. Only if the service mandates
 	// user credentials, we get the redirect directive.
-	userAttributes, redirect := userCredentials(pctx.Service.ID, r, pctx.Authorizer, p.collector, state)
+	userAttributes, redirect := userCredentials(pctx, r, p.collector, state)
 
 	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
 	// is mepty the DecodeAporetoClaims method will return no error.
@@ -647,7 +646,7 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *
 // It will return the userAttributes and a boolean instructing whether a redirect
 // must be performed. If no user credentials are found, it will allow processing
 // to proceed. It might be a
-func userCredentials(serviceID string, r *http.Request, authorizer *auth.Processor, c collector.EventCollector, state *connectionState) ([]string, bool) {
+func userCredentials(pctx *serviceregistry.PortContext, r *http.Request, c collector.EventCollector, state *connectionState) ([]string, bool) {
 	if r.TLS == nil {
 		return []string{}, false
 	}
@@ -664,9 +663,11 @@ func userCredentials(serviceID string, r *http.Request, authorizer *auth.Process
 		userToken = strings.TrimPrefix(authToken, "Bearer ")
 	}
 
-	userAttributes, redirect, refreshedToken, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	userAttributes, redirect, refreshedToken, err := pctx.Authorizer.DecodeUserClaims(pctx.Service.ID, userToken, userCerts, r)
 	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
+		userRecord := &collector.UserRecord{
+			Namespace: pctx.PUContext.ManagementNamespace(),
+			Claims:    userAttributes}
 		c.CollectUserEvent(userRecord)
 		state.stats.Source.UserID = userRecord.ID
 		state.stats.Source.Type = collector.EndpointTypeClaims

@@ -48,7 +48,7 @@ func StatsFlowHash(r *FlowRecord) string {
 	return fmt.Sprintf("%d", hash.Sum64())
 }
 
-// StatsUserHash is a hash function to hash user records
+// StatsUserHash is a hash function to hash user records.
 func StatsUserHash(r *UserRecord) error {
 	// Order matters for the hash function loop
 	sort.Strings(r.Claims)
@@ -58,10 +58,27 @@ func StatsUserHash(r *UserRecord) error {
 			continue
 		}
 		if _, err := hash.Write([]byte(r.Claims[i])); err != nil {
-			return fmt.Errorf("Cannot create hash")
+			return fmt.Errorf("unable to create hash: %v", err)
 		}
 	}
-	r.ID = fmt.Sprintf("%d", hash.Sum64())
+
+	hashWithNS, err := HashHashWithNamespace(fmt.Sprintf("%d", hash.Sum64()), r.Namespace)
+	if err != nil {
+		return err
+	}
+
+	r.ID = hashWithNS
 
 	return nil
+}
+
+// HashHashWithNamespace hash the given claim hash with the given namespace.
+func HashHashWithNamespace(claimsHash string, namespace string) (string, error) {
+
+	hash := xxhash.New()
+	if _, err := hash.Write(append([]byte(claimsHash), []byte(namespace)...)); err != nil {
+		return "", fmt.Errorf("unable to create namespace hash: %v", err)
+	}
+
+	return fmt.Sprintf("%d", hash.Sum64()), nil
 }
