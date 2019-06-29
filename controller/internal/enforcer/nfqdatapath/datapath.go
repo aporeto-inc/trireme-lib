@@ -341,7 +341,7 @@ func (d *Datapath) counterCollector(ctx context.Context, counterCollector collec
 					&collector.CounterReport{
 						ContextID: key,
 						Counters:  counters,
-						//Populate naemspace when it becomes available in pucontext
+						Namespace: val.ManagementNamespace(),
 					})
 			}
 			return
@@ -352,9 +352,14 @@ func (d *Datapath) counterCollector(ctx context.Context, counterCollector collec
 					&collector.CounterReport{
 						ContextID: key,
 						Counters:  counters,
-						//Populate naemspace when it becomes available in pucontext
+						Namespace: val.ManagementNamespace(),
 					})
 			}
+			counters := pucontext.GetErrorCounters()
+			counterCollector.CollectCounterEvent(
+				&collector.CounterReport{
+					Counters: counters,
+				})
 
 		}
 
