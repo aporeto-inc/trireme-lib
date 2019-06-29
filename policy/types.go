@@ -179,7 +179,7 @@ func DefaultLogPrefix(contextID string) string {
 
 // DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
 func DefaultDroppedPacketLogPrefix(contextID string) string {
-	return contextID + "default:default" + "10"
+	return contextID + ":default:default" + "10"
 }
 
 // EncodedActionString is used to encode observed action as well as action
