@@ -293,7 +293,13 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
-	copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
+
 	d.collector.CollectPacketEvent(report)
 }
 
@@ -353,7 +359,12 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
-	copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
 	d.collector.CollectPacketEvent(report)
 
 }

@@ -330,7 +330,7 @@ func (d *Datapath) counterCollector(ctx context.Context, counterCollector collec
 				counterCollector.CollectCounterEvent(&collector.CounterReport{
 					ContextID: prevPU.ID(),
 					Counters:  counters,
-					//Populate naemspace when it becomes available in pucontext
+					Namespace: pu.ManagementNamespace(),
 				})
 			}
 			activePUs[pu.ID()] = pu
