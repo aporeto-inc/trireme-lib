@@ -809,7 +809,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		}
 
 		if plcy.Action.Rejected() {
-			return nil, nil, conn.Context.PuContextError(pucontext.ErrAckRejected, fmt.Sprintf("contextID %s Claims %s", context.ManagementID(), claims.T.String()))
+			return nil, nil, conn.Context.PuContextError(pucontext.ErrAckRejected, fmt.Sprintf("Claims %s", claims.T.String()))
 
 		}
 
