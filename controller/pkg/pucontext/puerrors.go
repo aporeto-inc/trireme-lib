@@ -290,6 +290,10 @@ var countedEvents = []PuErrors{
 		index: ErrConnectionsProcessed,
 		err:   "",
 	},
+	ErrEncrConnectionsProcessed: {
+		index: ErrEncrConnectionsProcessed,
+		err:   "encrypted connections processed",
+	},
 	ErrUDPInvalidNetState: {
 		index: ErrUDPInvalidNetState,
 		err:   "Packet received in invalid udp network state",
@@ -386,13 +390,14 @@ func (p *PUContext) GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, len(countedEvents))
 	p.Lock()
 	defer p.Unlock()
-	for index, val := range p.counters {
+	for index, _ := range p.counters {
 		report[index] = collector.Counters{
 			Name:  counterNames[index],
-			Value: atomic.SwapUint32(&val, 0),
+			Value: atomic.SwapUint32(&p.counters[index], 0),
 		}
 
 	}
+
 	return report
 }
 
@@ -401,13 +406,14 @@ func GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, len(countedEvents))
 	unknownPU.Lock()
 	defer unknownPU.Unlock()
-	for index, val := range unknownPU.counters {
+	for index, _ := range unknownPU.counters {
 		report[index] = collector.Counters{
 			Name:  counterNames[index],
-			Value: atomic.SwapUint32(&val, 0),
+			Value: atomic.SwapUint32(&unknownPU.counters[index], 0),
 		}
 
 	}
+
 	return report
 }
 
