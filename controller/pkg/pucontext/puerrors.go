@@ -390,7 +390,7 @@ func (p *PUContext) GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, len(countedEvents))
 	p.Lock()
 	defer p.Unlock()
-	for index, _ := range p.counters {
+	for index := range p.counters {
 		report[index] = collector.Counters{
 			Name:  counterNames[index],
 			Value: atomic.SwapUint32(&p.counters[index], 0),
@@ -406,7 +406,7 @@ func GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, len(countedEvents))
 	unknownPU.Lock()
 	defer unknownPU.Unlock()
-	for index, _ := range unknownPU.counters {
+	for index := range unknownPU.counters {
 		report[index] = collector.Counters{
 			Name:  counterNames[index],
 			Value: atomic.SwapUint32(&unknownPU.counters[index], 0),

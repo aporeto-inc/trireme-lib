@@ -4924,7 +4924,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			counterRecord := &collector.CounterReport{
 				ContextID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: collector.Counters{
+					pucontext.ErrNetSynNotSeen: {
 						Name:  "SYNNOTSEEN",
 						Value: 1,
 					},
