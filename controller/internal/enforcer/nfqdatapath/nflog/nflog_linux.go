@@ -143,6 +143,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	if encodedAction == "10" {
+		zap.L().Error("Debug RecordDropped packet")
 		packetReport, err := a.recordDroppedPacket(buf)
 		return nil, packetReport, err
 	}

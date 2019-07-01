@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	defaultCounterIntervalMilliseconds = 10000
-	counterContextID                   = "UNUSED"
-	counterRPCCommand                  = "StatsServer.PostCounterEvent"
+	counterContextID       = "UNUSED"
+	counterRPCCommand      = "StatsServer.PostCounterEvent"
+	defaultCounterInterval = 10000 * time.Millisecond
 )
 
 type counterClient struct {
 	collector       statscollector.Collector
-	rpchdl          *rpcwrapper.RPCWrapper
+	rpchdl          rpcwrapper.RPCClient
 	secret          string
 	counterChannel  string
 	counterInterval time.Duration
@@ -35,7 +35,7 @@ func NewCounterClient(cr statscollector.Collector) (CounterClient, error) {
 		rpchdl:          rpcwrapper.NewRPCWrapper(),
 		secret:          os.Getenv(constants.EnvStatsSecret),
 		counterChannel:  os.Getenv(constants.EnvStatsChannel),
-		counterInterval: defaultCounterIntervalMilliseconds * time.Millisecond,
+		counterInterval: defaultCounterInterval,
 		stop:            make(chan bool),
 	}
 	if c.counterChannel == "" {
@@ -54,6 +54,7 @@ func (c *counterClient) sendData(records []*collector.CounterReport) error {
 			CounterReports: records,
 		},
 	}
+
 	return c.rpchdl.RemoteCall(
 		counterContextID,
 		counterRPCCommand,
