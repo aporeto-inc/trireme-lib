@@ -4916,7 +4916,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(puContext, ShouldNotBeNil)
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
-			go enforcer.counterCollector(ctx, enforcer.collector)
+			go enforcer.counterCollector(ctx)
 
 			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
 

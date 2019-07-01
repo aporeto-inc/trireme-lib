@@ -318,14 +318,14 @@ func NewWithDefaults(
 	return e
 }
 
-func (d *Datapath) counterCollector(ctx context.Context, counterCollector collector.EventCollector) {
+func (d *Datapath) counterCollector(ctx context.Context) {
 
 	for {
 		//drain the channel everytime we come here
 		select {
 		case pu := <-d.puCountersChannel:
 			counters := pu.GetErrorCounters()
-			counterCollector.CollectCounterEvent(&collector.CounterReport{
+			d.collector.CollectCounterEvent(&collector.CounterReport{
 				ContextID: pu.ID(),
 				Counters:  counters,
 				Namespace: pu.ManagementNamespace(),
@@ -339,7 +339,7 @@ func (d *Datapath) counterCollector(ctx context.Context, counterCollector collec
 					continue
 				}
 				counters := val.(*pucontext.PUContext).GetErrorCounters()
-				counterCollector.CollectCounterEvent(
+				d.collector.CollectCounterEvent(
 					&collector.CounterReport{
 						ContextID: keys.(string),
 						Counters:  counters,
@@ -356,7 +356,7 @@ func (d *Datapath) counterCollector(ctx context.Context, counterCollector collec
 					continue
 				}
 				counters := val.(*pucontext.PUContext).GetErrorCounters()
-				counterCollector.CollectCounterEvent(
+				d.collector.CollectCounterEvent(
 					&collector.CounterReport{
 						ContextID: keys.(string),
 						Counters:  counters,
@@ -535,7 +535,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 	d.startNetworkInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
-	go d.counterCollector(ctx, d.collector)
+	go d.counterCollector(ctx)
 	return nil
 }
 
