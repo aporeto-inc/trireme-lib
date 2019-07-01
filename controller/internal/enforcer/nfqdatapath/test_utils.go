@@ -59,7 +59,12 @@ type myCounterMatcher struct {
 func (m *myCounterMatcher) Matches(x interface{}) bool {
 	f1 := m.x.(*collector.CounterReport)
 	f2 := x.(*collector.CounterReport)
-	return (f1.ContextID == f2.ContextID && f1.Counters[pucontext.ErrInvalidNetState].Value == 0)
+	if f2.Namespace != "/ns1" {
+		return true
+	}
+
+	return f1.ContextID == f2.ContextID && f1.Counters[pucontext.ErrNonPUTraffic].Value == 0
+
 }
 
 func (m *myCounterMatcher) String() string {

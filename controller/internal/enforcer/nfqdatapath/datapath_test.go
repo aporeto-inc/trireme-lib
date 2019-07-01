@@ -4916,7 +4916,6 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(puContext, ShouldNotBeNil)
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
-
 			go enforcer.counterCollector(ctx, enforcer.collector)
 
 			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
@@ -4934,7 +4933,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			}
 			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
 			cancel()
-			<-time.Wait(2 * time.Second)
+			<-time.After(2 * time.Second)
 
 		})
 
