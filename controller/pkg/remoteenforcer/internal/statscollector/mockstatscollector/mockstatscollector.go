@@ -106,6 +106,20 @@ func (mr *MockCollectorReaderMockRecorder) GetAllDataPathPacketRecords() *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllDataPathPacketRecords", reflect.TypeOf((*MockCollectorReader)(nil).GetAllDataPathPacketRecords))
 }
 
+// GetAllCounterReports mocks base method
+// nolint
+func (m *MockCollectorReader) GetAllCounterReports() []*collector.CounterReport {
+	ret := m.ctrl.Call(m, "GetAllCounterReports")
+	ret0, _ := ret[0].([]*collector.CounterReport)
+	return ret0
+}
+
+// GetAllCounterReports indicates an expected call of GetAllCounterReports
+// nolint
+func (mr *MockCollectorReaderMockRecorder) GetAllCounterReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllCounterReports", reflect.TypeOf((*MockCollectorReader)(nil).GetAllCounterReports))
+}
+
 // MockCollector is a mock of Collector interface
 // nolint
 type MockCollector struct {
@@ -201,6 +215,20 @@ func (mr *MockCollectorMockRecorder) GetAllDataPathPacketRecords() *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllDataPathPacketRecords", reflect.TypeOf((*MockCollector)(nil).GetAllDataPathPacketRecords))
 }
 
+// GetAllCounterReports mocks base method
+// nolint
+func (m *MockCollector) GetAllCounterReports() []*collector.CounterReport {
+	ret := m.ctrl.Call(m, "GetAllCounterReports")
+	ret0, _ := ret[0].([]*collector.CounterReport)
+	return ret0
+}
+
+// GetAllCounterReports indicates an expected call of GetAllCounterReports
+// nolint
+func (mr *MockCollectorMockRecorder) GetAllCounterReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllCounterReports", reflect.TypeOf((*MockCollector)(nil).GetAllCounterReports))
+}
+
 // CollectFlowEvent mocks base method
 // nolint
 func (m *MockCollector) CollectFlowEvent(record *collector.FlowRecord) {
@@ -259,4 +287,16 @@ func (m *MockCollector) CollectPacketEvent(report *collector.PacketReport) {
 // nolint
 func (mr *MockCollectorMockRecorder) CollectPacketEvent(report interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPacketEvent", reflect.TypeOf((*MockCollector)(nil).CollectPacketEvent), report)
+}
+
+// CollectCounterEvent mocks base method
+// nolint
+func (m *MockCollector) CollectCounterEvent(counterReport *collector.CounterReport) {
+	m.ctrl.Call(m, "CollectCounterEvent", counterReport)
+}
+
+// CollectCounterEvent indicates an expected call of CollectCounterEvent
+// nolint
+func (mr *MockCollectorMockRecorder) CollectCounterEvent(counterReport interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectCounterEvent", reflect.TypeOf((*MockCollector)(nil).CollectCounterEvent), counterReport)
 }

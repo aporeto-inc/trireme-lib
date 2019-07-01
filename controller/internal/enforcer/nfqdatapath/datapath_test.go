@@ -1,6 +1,7 @@
 package nfqdatapath
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -4898,6 +4899,46 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 	})
 }
 
+func TestCheckCounterCollection(t *testing.T) {
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		Convey("So When an error is reported", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+			collectCounterInterval = 1 * time.Second
+			contextID := puInfo1.ContextID
+			puContext, err := enforcer.puFromContextID.Get(contextID)
+			So(puContext, ShouldNotBeNil)
+			So(err, ShouldBeNil)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			go enforcer.counterCollector(ctx, enforcer.collector)
+
+			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+
+			So(puErr, ShouldNotBeNil)
+			counterRecord := &collector.CounterReport{
+				ContextID: puContext.(*pucontext.PUContext).ID(),
+				Counters: []collector.Counters{
+					pucontext.ErrNetSynNotSeen: collector.Counters{
+						Name:  "SYNNOTSEEN",
+						Value: 1,
+					},
+				},
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			cancel()
+
+		})
+
+	})
+}
 func TestCheckConnectionDeletion(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
 		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)

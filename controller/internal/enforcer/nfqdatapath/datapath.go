@@ -34,7 +34,8 @@ import (
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
-const collectCounterInterval = 30 * time.Second
+
+var collectCounterInterval = 30 * time.Second
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
@@ -316,51 +317,52 @@ func NewWithDefaults(
 
 	return e
 }
+
 func (d *Datapath) counterCollector(ctx context.Context, counterCollector collector.EventCollector) {
 
-	activePUs := map[string]*pucontext.PUContext{}
 	for {
 		//drain the channel everytime we come here
 		select {
 		case pu := <-d.puCountersChannel:
-			if prevPU, ok := activePUs[pu.ID()]; ok {
-				//Collect all stats and push it out
-				counters := prevPU.GetErrorCounters()
+			counters := pu.GetErrorCounters()
+			counterCollector.CollectCounterEvent(&collector.CounterReport{
+				ContextID: pu.ID(),
+				Counters:  counters,
+				Namespace: pu.ManagementNamespace(),
+			})
 
-				counterCollector.CollectCounterEvent(&collector.CounterReport{
-					ContextID: prevPU.ID(),
-					Counters:  counters,
-					Namespace: pu.ManagementNamespace(),
-				})
-			}
-			activePUs[pu.ID()] = pu
 		case <-ctx.Done():
-			for key, val := range activePUs {
-				counters := val.GetErrorCounters()
+			keysList := d.puFromContextID.KeyList()
+			for _, keys := range keysList {
+				val, err := d.puFromContextID.Get(keys)
+				if err != nil {
+					continue
+				}
+				counters := val.(*pucontext.PUContext).GetErrorCounters()
 				counterCollector.CollectCounterEvent(
 					&collector.CounterReport{
-						ContextID: key,
+						ContextID: keys.(string),
 						Counters:  counters,
-						Namespace: val.ManagementNamespace(),
+						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 					})
 			}
+
 			return
 		case <-time.After(collectCounterInterval):
-			for key, val := range activePUs {
-				counters := val.GetErrorCounters()
+			keysList := d.puFromContextID.KeyList()
+			for _, keys := range keysList {
+				val, err := d.puFromContextID.Get(keys)
+				if err != nil {
+					continue
+				}
+				counters := val.(*pucontext.PUContext).GetErrorCounters()
 				counterCollector.CollectCounterEvent(
 					&collector.CounterReport{
-						ContextID: key,
+						ContextID: keys.(string),
 						Counters:  counters,
-						Namespace: val.ManagementNamespace(),
+						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 					})
 			}
-			counters := pucontext.GetErrorCounters()
-			counterCollector.CollectCounterEvent(
-				&collector.CounterReport{
-					Counters: counters,
-				})
-
 		}
 
 	}
@@ -374,7 +376,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
-
+	// this context pointer is about to get lost. reclaims its counters
+	d.puCountersChannel <- pu
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
@@ -442,7 +445,8 @@ func (d *Datapath) Unenforce(contextID string) error {
 	if err != nil {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
-
+	// Pu is being unenforcer. Collect its counters
+	d.puCountersChannel <- puContext.(*pucontext.PUContext)
 	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
 
