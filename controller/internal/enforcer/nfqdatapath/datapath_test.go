@@ -4902,25 +4902,19 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 func TestCheckCounterCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	collectCounterInterval = 1 * time.Second
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
-
-		Convey("So When an error is reported and the enforcer exits", func() {
+		Convey("So When enforcer exits", func() {
 			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
 			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 			So(enforcer, ShouldNotBeNil)
-			collectCounterInterval = 1 * time.Second
+			//collectCounterInterval = 1 * time.Second
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			So(puContext, ShouldNotBeNil)
-			So(err, ShouldBeNil)
-			ctx, cancel := context.WithCancel(context.Background())
-			go enforcer.counterCollector(ctx)
-
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
-
-			So(puErr, ShouldNotBeNil)
 			counterRecord := &collector.CounterReport{
 				ContextID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
@@ -4932,44 +4926,83 @@ func TestCheckCounterCollection(t *testing.T) {
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
 			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			So(err, ShouldBeNil)
+			ctx, cancel := context.WithCancel(context.Background())
+			go enforcer.counterCollector(ctx)
+
+			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+
+			So(puErr, ShouldNotBeNil)
 			cancel()
 
 		})
-		// Convey("So When an error is reported and the enforcer waits for collection interval", func() {
-		// 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
-		// 	puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
-		// 	So(err1, ShouldBeNil)
-		// 	So(err2, ShouldBeNil)
-		// 	So(enforcer, ShouldNotBeNil)
-		// 	collectCounterInterval = 1 * time.Second
-		// 	contextID := puInfo1.ContextID
-		// 	puContext, err := enforcer.puFromContextID.Get(contextID)
-		// 	So(puContext, ShouldNotBeNil)
-		// 	So(err, ShouldBeNil)
-		// 	ctx, cancel := context.WithCancel(context.Background())
-		// 	go enforcer.counterCollector(ctx)
+		Convey("So When enforer exits and waits for stuff to exit", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
-		// 	puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+			//collectCounterInterval = 1 * time.Second
+			contextID := puInfo1.ContextID
+			puContext, err := enforcer.puFromContextID.Get(contextID)
+			So(puContext, ShouldNotBeNil)
+			counterRecord := &collector.CounterReport{
+				ContextID: puContext.(*pucontext.PUContext).ID(),
+				Counters: []collector.Counters{
+					pucontext.ErrNetSynNotSeen: {
+						Name:  "SYNNOTSEEN",
+						Value: 1,
+					},
+				},
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			So(err, ShouldBeNil)
+			ctx, cancel := context.WithCancel(context.Background())
+			go enforcer.counterCollector(ctx)
 
-		// 	So(puErr, ShouldNotBeNil)
-		// 	counterRecord := &collector.CounterReport{
-		// 		ContextID: puContext.(*pucontext.PUContext).ID(),
-		// 		Counters: []collector.Counters{
-		// 			pucontext.ErrNetSynNotSeen: {
-		// 				Name:  "SYNNOTSEEN",
-		// 				Value: 1,
-		// 			},
-		// 		},
-		// 		Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
-		// 	}
-		// 	mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
-		// 	<-time.After(1 * collectCounterInterval)
-		// 	cancel()
+			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
 
-		// })
+			So(puErr, ShouldNotBeNil)
+			cancel()
+			<-time.After(5 * time.Second)
+
+		})
+		Convey("So When an error is reported and the enforcer waits for collection interval", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puContext, err := enforcer.puFromContextID.Get(contextID)
+			counterRecord := &collector.CounterReport{
+				ContextID: puContext.(*pucontext.PUContext).ID(),
+				Counters: []collector.Counters{
+					pucontext.ErrNetSynNotSeen: {
+						Name:  "SYNNOTSEEN",
+						Value: 1,
+					},
+				},
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			So(puContext, ShouldNotBeNil)
+			So(err, ShouldBeNil)
+			ctx, cancel := context.WithCancel(context.Background())
+			go enforcer.counterCollector(ctx)
+			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			So(puErr, ShouldNotBeNil)
+			<-time.After(5 * collectCounterInterval)
+			cancel()
+
+		})
 
 	})
 }
+
 func TestCheckConnectionDeletion(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
 		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)

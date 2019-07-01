@@ -44,6 +44,7 @@ func NewCounterClient(cr statscollector.Collector) (CounterClient, error) {
 	if c.secret == "" {
 		return nil, errors.New("no secret provided for  channel")
 	}
+
 	return c, nil
 }
 
