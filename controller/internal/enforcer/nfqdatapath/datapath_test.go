@@ -4900,9 +4900,9 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 }
 
 func TestCheckCounterCollection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
 		Convey("So When an error is reported", func() {
 			mockCollector := mockcollector.NewMockEventCollector(ctrl)
