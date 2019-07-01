@@ -120,3 +120,17 @@ func TestGetAllDataPathPacketRecords(t *testing.T) {
 	})
 
 }
+
+func TestAllCounterReports(t *testing.T) {
+	Convey("Given i collect a new collector", t, func() {
+		c := NewCollector()
+		Convey("I trace a single packet", func() {
+			c.CollectCounterEvent(&collector.CounterReport{})
+			records := c.GetAllCounterReports()
+			So(len(records), ShouldEqual, 1)
+			c.CollectCounterEvent(&collector.CounterReport{})
+			records = c.GetAllCounterReports()
+			So(len(records), ShouldEqual, 1)
+		})
+	})
+}
