@@ -70,7 +70,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 			return nil, err
 		}
 		// drop control packets
-		return conn, conn.Context.PuContextError(pucontext.ErrUDPDropFin, "")
+		return conn, pucontext.PuContextError(pucontext.ErrUDPDropFin, "")
 
 	default:
 		// Process packets that don't have the control header. These are data packets.
