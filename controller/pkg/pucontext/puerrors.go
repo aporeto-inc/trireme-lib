@@ -77,7 +77,8 @@ const (
 	ErrUDPSynDropped
 )
 
-var counterNames = []string{
+// CounterNames is the name for each error reported to the collector
+var CounterNames = []string{
 	ErrUnknownError:                 "UNKNOWNERROR",
 	ErrInvalidNetState:              "INVALIDNETSTATE",
 	ErrNonPUTraffic:                 "NONPUTRAFFIC",
@@ -392,7 +393,7 @@ func (p *PUContext) GetErrorCounters() []collector.Counters {
 	defer p.Unlock()
 	for index := range p.counters {
 		report[index] = collector.Counters{
-			Name:  counterNames[index],
+			Name:  CounterNames[index],
 			Value: atomic.SwapUint32(&p.counters[index], 0),
 		}
 
@@ -408,7 +409,7 @@ func GetErrorCounters() []collector.Counters {
 	defer unknownPU.Unlock()
 	for index := range unknownPU.counters {
 		report[index] = collector.Counters{
-			Name:  counterNames[index],
+			Name:  CounterNames[index],
 			Value: atomic.SwapUint32(&unknownPU.counters[index], 0),
 		}
 
