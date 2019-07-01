@@ -346,7 +346,13 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 					})
 			}
-
+			counters := pucontext.GetErrorCounters()
+			d.collector.CollectCounterEvent(
+				&collector.CounterReport{
+					ContextID: "",
+					Counters:  counters,
+					Namespace: "",
+				})
 			return
 		case <-time.After(collectCounterInterval):
 			keysList := d.puFromContextID.KeyList()
@@ -363,6 +369,13 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 					})
 			}
+			counters := pucontext.GetErrorCounters()
+			d.collector.CollectCounterEvent(
+				&collector.CounterReport{
+					ContextID: "",
+					Counters:  counters,
+					Namespace: "",
+				})
 		}
 
 	}
