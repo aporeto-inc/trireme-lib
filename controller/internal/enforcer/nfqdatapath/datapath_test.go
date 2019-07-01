@@ -4934,6 +4934,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			}
 			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
 			cancel()
+			<-time.Wait(2 * time.Second)
 
 		})
 
