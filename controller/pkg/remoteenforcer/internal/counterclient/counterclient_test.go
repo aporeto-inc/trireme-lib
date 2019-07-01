@@ -77,11 +77,11 @@ func TestSendCounterReports(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(client, ShouldNotBeNil)
 			mockCollector.EXPECT().GetAllCounterReports().Return([]*collector.CounterReport{
-				&collector.CounterReport{
+				{
 					Namespace: "/ns1",
 					ContextID: "contextID1",
 					Counters: []collector.Counters{
-						collector.Counters{
+						{
 							Name:  "SYNNOTSEEN",
 							Value: 1,
 						},
