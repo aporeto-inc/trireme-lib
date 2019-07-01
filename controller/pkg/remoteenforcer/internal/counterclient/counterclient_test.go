@@ -24,14 +24,14 @@ func TestNewCounterClient(t *testing.T) {
 			So(client, ShouldBeNil)
 		})
 		Convey("The channel path is set in the environment and secret is not ", func() {
-			os.Setenv(constants.EnvStatsChannel, "/tmp/a")
+			os.Setenv(constants.EnvStatsChannel, "/tmp/a") // nolint
 			client, err := NewCounterClient(statscollector.NewCollector())
 			So(err, ShouldNotBeNil)
 			So(client, ShouldBeNil)
 		})
 		Convey("The required environment variables are available ", func() {
-			os.Setenv(constants.EnvStatsChannel, "/tmp/a")
-			os.Setenv(constants.EnvStatsSecret, "adrehgfh")
+			os.Setenv(constants.EnvStatsChannel, "/tmp/a")  // nolint
+			os.Setenv(constants.EnvStatsSecret, "adrehgfh") // nolint
 			client, err := NewCounterClient(statscollector.NewCollector())
 			So(err, ShouldBeNil)
 			So(client, ShouldNotBeNil)
@@ -43,8 +43,8 @@ func TestSendData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	Convey("Given i call sendData", t, func() {
-		os.Setenv(constants.EnvStatsChannel, "/tmp/a")
-		os.Setenv(constants.EnvStatsSecret, "adrehgfh")
+		os.Setenv(constants.EnvStatsChannel, "/tmp/a")  // nolint
+		os.Setenv(constants.EnvStatsSecret, "adrehgfh") // nolint
 		client, err := NewCounterClient(statscollector.NewCollector())
 		So(err, ShouldBeNil)
 		mockrpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
@@ -56,7 +56,8 @@ func TestSendData(t *testing.T) {
 			},
 		}
 		mockrpchdl.EXPECT().RemoteCall(counterContextID, counterRPCCommand, &request, gomock.Any()).Return(nil).Times(1)
-		client.(*counterClient).sendData(records)
+		err = client.(*counterClient).sendData(records)
+		So(err, ShouldBeNil)
 	})
 }
 
@@ -66,8 +67,8 @@ func TestSendCounterReports(t *testing.T) {
 	Convey("Given i call sendCounterReport", t, func() {
 		Convey("Given i call with a single record", func() {
 
-			os.Setenv(constants.EnvStatsChannel, "/tmp/a")
-			os.Setenv(constants.EnvStatsSecret, "adrehgfh")
+			os.Setenv(constants.EnvStatsChannel, "/tmp/a")  // nolint
+			os.Setenv(constants.EnvStatsSecret, "adrehgfh") // nolint
 			mockCollector := mockstatscollector.NewMockCollector(ctrl)
 			client, err := NewCounterClient(mockCollector)
 			mockrpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
