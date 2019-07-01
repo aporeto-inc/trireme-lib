@@ -473,7 +473,7 @@ func TestPostCounterEvent(t *testing.T) {
 		Namespace: "/ns1",
 		ContextID: "contextid1",
 		Counters: []collector.Counters{
-			collector.Counters{
+			{
 				Name:  "SYNNOTSEEN",
 				Value: 1,
 			},
