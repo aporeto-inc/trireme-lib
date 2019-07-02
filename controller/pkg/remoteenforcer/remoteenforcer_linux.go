@@ -78,7 +78,7 @@ func newRemoteEnforcer(
 	}
 
 	if counterClient == nil {
-		counterClient, err := counterclient.NewCounterClient(collector)
+		counterClient, err = counterclient.NewCounterClient(collector)
 		if err != nil {
 			return nil, err
 		}

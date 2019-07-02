@@ -70,7 +70,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 			return nil, err
 		}
 		// drop control packets
-		return conn, pucontext.PuContextError(pucontext.ErrUDPDropFin, "fin dropped")
+		return conn, fmt.Errorf("dropping udp fin ack control packet")
 
 	default:
 		// Process packets that don't have the control header. These are data packets.
@@ -82,7 +82,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.Error(err),
 				)
 			}
-			return nil, pucontext.PuContextError(pucontext.ErrUDPDropPacket, "Dropping net data packet")
+			return nil, err
 		}
 	}
 
@@ -95,7 +95,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	if d.service != nil {
 		if !d.service.PreProcessUDPNetPacket(p, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return conn, conn.Context.PuContextError(pucontext.ErrUDPPreProcessingFailed, "Pre processing for udp packet failed")
+			return conn, conn.Context.PuContextError(pucontext.ErrUDPPreProcessingFailed, "pre  processing failed for network packet")
 		}
 	}
 
@@ -106,7 +106,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 			zap.String("flow", p.L4FlowHash()),
 			zap.Error(err),
 		)
-		return conn, conn.Context.PuContextError(pucontext.ErrUDPRejected, fmt.Sprintf("packet processing failed for network packet: %s", err))
+		return conn, fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
 
 	// Process the packet by any external services.
@@ -135,7 +135,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
 		}
-		return conn, nil
+		return conn, fmt.Errorf("Drop the packet")
 	}
 
 	if conn.GetState() != connection.UDPData {
@@ -151,7 +151,7 @@ func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConn
 	// Retrieve the context from the packet information.
 	context, err := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolUDP)
 	if err != nil {
-		return nil, pucontext.PuContextError(pucontext.ErrUDPInvalidNetState, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, "traffic for unknown context")
 	}
 
 	// Check if a connection already exists for this flow. This can happen
@@ -168,7 +168,7 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 
 	conn, err := d.udpSourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
-		return nil, pucontext.PuContextError(pucontext.ErrUDPDropSynAck, "")
+		return nil, pucontext.PuContextError(pucontext.ErrUDPNoConnection, "No connection.Drop the syn ack packet")
 	}
 
 	return conn.(*connection.UDPConnection), nil
@@ -184,9 +184,9 @@ func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConn
 			// This might be an existing udp connection.
 			// Send FinAck to reauthorize the connection.
 			if err := d.sendUDPFinPacket(p); err != nil {
-				return nil, pucontext.PuContextError(pucontext.ErrUDPInvalidNetState, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+				return nil, fmt.Errorf("net state not found, unable to send fin ack packets: %s", err)
 			}
-			return nil, pucontext.PuContextError(pucontext.ErrUDPInvalidNetState, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+			return nil, fmt.Errorf("net state not found: %s", err)
 		}
 	}
 	return conn.(*connection.UDPConnection), nil
@@ -198,7 +198,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 
 	// Extra check, just in case the caller didn't provide a connection.
 	if conn == nil {
-		return nil, nil, pucontext.PuContextError(pucontext.ErrUDPNoConnection, "no connection provided")
+		return nil, nil, fmt.Errorf("no connection provided")
 	}
 
 	udpPacketType := udpPacket.GetUDPType()
@@ -279,7 +279,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	conn, err = d.appUDPRetrieveState(p)
 	if err != nil {
 		zap.L().Debug("Connection not found", zap.Error(err))
-		return nil, err
+		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, fmt.Sprintf("Received packet from unenforced process: %s", err))
 	}
 
 	// We are processing only one packet from a given connection at a time.
@@ -303,7 +303,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 			// unable to queue packets, perhaps queue is full. if start
 			// machine is still in start state, we can start authorisation
 			// again. A drop counter is incremented.
-			conn.Context.PuContextError(pucontext.ErrUDPDropQueueFull, "udp queue full for connection") // nolint
 			zap.L().Debug("udp queue full for connection", zap.String("flow", p.L4FlowHash()))
 		}
 
@@ -318,7 +317,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	default:
 		zap.L().Debug("Packet is added to the queue", zap.String("flow", p.L4FlowHash()))
 		if err = conn.QueuePackets(p); err != nil {
-			return conn, conn.Context.PuContextError(pucontext.ErrUDPDropQueueFull, "udp queue full for connection")
+			return conn, conn.Context.PuContextError(pucontext.ErrUDPDropQueueFull, fmt.Sprintf("Unable to queue packets:%s", err))
 		}
 		return conn, conn.Context.PuContextError(pucontext.ErrUDPDropInNfQueue, "Drop in nfq - buffered")
 	}
@@ -327,7 +326,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(p, nil, conn.Context, conn) {
 			p.Print(packet.PacketFailureService)
-			return conn, conn.Context.PuContextError(pucontext.ErrUDPPostProcessingFailed, "post service processing failed for UDP application packet")
+			return conn, conn.Context.PuContextError(pucontext.ErrUDPPostProcessingFailed, "Encryption failed for application packet")
 		}
 	}
 
@@ -356,7 +355,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 
 	context, err := d.contextFromIP(true, p.Mark, p.SourcePort(), packet.IPProtocolUDP)
 	if err != nil {
-		return nil, pucontext.PuContextError(pucontext.ErrUDPContextIDNotFound, "No context in app processing")
+		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, "No context in app processing")
 	}
 
 	return connection.NewUDPConnection(context, d.udpSocketWriter), nil
@@ -383,7 +382,7 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 	err = d.writeWithRetransmit(newPacket, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
-		return conn.Context.PuContextError(pucontext.ErrUDPSynDropped, "unable to transmit syn packet")
+		return fmt.Errorf("unable to transmit syn packet")
 	}
 
 	// Populate the caches to track the connection
@@ -525,7 +524,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
-		return nil, nil, conn.Context.PuContextError(pucontext.ErrUDPSynInvalidToken, fmt.Sprintf("UDP Syn packet dropped because of invalid token: %s", err))
+		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynDroppedInvalidToken, fmt.Sprintf("UDP Syn packet dropped because of invalid token: %s", err))
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
@@ -570,12 +569,12 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
-		return nil, nil, conn.Context.PuContextError(pucontext.ErrUDPSynAckBadClaims, fmt.Sprintf("SynAck packet dropped because of bad claims: %s", err))
+		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, "SynAck packet dropped because of bad claims")
 	}
 
 	if claims == nil {
 		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
-		return nil, nil, conn.Context.PuContextError(pucontext.ErrUDPSynAckMissingClaims, "SynAck packet dropped because of no claims")
+		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("SynAck packet dropped because of no claims"))
 	}
 
 	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
@@ -637,7 +636,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
-		return err
+		return pucontext.PuContextError(pucontext.ErrUDPDropFin, "Unable to send fin packet on raw socket"+err.Error())
 	}
 
 	return nil

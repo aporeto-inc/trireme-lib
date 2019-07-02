@@ -243,7 +243,7 @@ func New(
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
-		puCountersChannel:      make(chan *pucontext.PUContext, 50),
+		puCountersChannel:      make(chan *pucontext.PUContext, 220),
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -318,6 +318,30 @@ func NewWithDefaults(
 	return e
 }
 
+func (d *Datapath) collectCounters() {
+	keysList := d.puFromContextID.KeyList()
+	zap.L().Debug("Collecting Counters for", zap.Int("Num PU", len(keysList)))
+	for _, keys := range keysList {
+		val, err := d.puFromContextID.Get(keys)
+		if err != nil {
+			continue
+		}
+		counters := val.(*pucontext.PUContext).GetErrorCounters()
+		d.collector.CollectCounterEvent(
+			&collector.CounterReport{
+				ContextID: keys.(string),
+				Counters:  counters,
+				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
+			})
+	}
+	counters := pucontext.GetErrorCounters()
+	d.collector.CollectCounterEvent(
+		&collector.CounterReport{
+			ContextID: "",
+			Counters:  counters,
+			Namespace: "",
+		})
+}
 func (d *Datapath) counterCollector(ctx context.Context) {
 
 	for {
@@ -332,52 +356,11 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 			})
 
 		case <-ctx.Done():
-			keysList := d.puFromContextID.KeyList()
-			for _, keys := range keysList {
-				val, err := d.puFromContextID.Get(keys)
-				if err != nil {
-					continue
-				}
-				counters := val.(*pucontext.PUContext).GetErrorCounters()
-				d.collector.CollectCounterEvent(
-					&collector.CounterReport{
-						ContextID: keys.(string),
-						Counters:  counters,
-						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
-					})
-			}
-			counters := pucontext.GetErrorCounters()
-			d.collector.CollectCounterEvent(
-				&collector.CounterReport{
-					ContextID: "",
-					Counters:  counters,
-					Namespace: "",
-				})
+			d.collectCounters()
 			return
 		case <-time.After(collectCounterInterval):
+			d.collectCounters()
 
-			keysList := d.puFromContextID.KeyList()
-			zap.L().Debug("Collecting Counter", zap.Int("Num", len(keysList)))
-			for _, keys := range keysList {
-				val, err := d.puFromContextID.Get(keys)
-				if err != nil {
-					continue
-				}
-				counters := val.(*pucontext.PUContext).GetErrorCounters()
-				d.collector.CollectCounterEvent(
-					&collector.CounterReport{
-						ContextID: keys.(string),
-						Counters:  counters,
-						Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
-					})
-			}
-			counters := pucontext.GetErrorCounters()
-			d.collector.CollectCounterEvent(
-				&collector.CounterReport{
-					ContextID: "",
-					Counters:  counters,
-					Namespace: "",
-				})
 		}
 
 	}
@@ -392,7 +375,18 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
 	// this context pointer is about to get lost. reclaims its counters
-	d.puCountersChannel <- pu
+	select {
+	case d.puCountersChannel <- pu:
+	default:
+		zap.L().Debug("Failed to enqueue pu to counters channel")
+		counters := pu.GetErrorCounters()
+		d.collector.CollectCounterEvent(&collector.CounterReport{
+			ContextID: pu.ID(),
+			Counters:  counters,
+			Namespace: pu.ManagementNamespace(),
+		})
+
+	}
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
@@ -461,10 +455,23 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
 	// Pu is being unenforcer. Collect its counters
+
 	d.puCountersChannel <- puContext.(*pucontext.PUContext)
 	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
+	// this context pointer is about to get lost. reclaims its counters
+	select {
+	case d.puCountersChannel <- pu:
+	default:
+		zap.L().Debug("Failed to enqueue pu to counters channel")
+		counters := pu.GetErrorCounters()
+		d.collector.CollectCounterEvent(&collector.CounterReport{
+			ContextID: pu.ID(),
+			Counters:  counters,
+			Namespace: pu.ManagementNamespace(),
+		})
 
+	}
 	// Cleanup the mark information
 	if err = d.puFromMark.Remove(pu.Mark()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",

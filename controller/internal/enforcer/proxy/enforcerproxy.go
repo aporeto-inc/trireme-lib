@@ -359,6 +359,7 @@ func (r *StatsServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapper.
 
 	payload := req.Payload.(rpcwrapper.CounterReportPayload)
 	for _, record := range payload.CounterReports {
+		zap.L().Debug("Posting Remote counters")
 		r.collector.CollectCounterEvent(record)
 	}
 	return nil

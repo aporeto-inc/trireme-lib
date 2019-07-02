@@ -26,7 +26,7 @@ type RemoteEnforcer struct {
 	collector      statscollector.Collector
 	statsClient    statsclient.StatsClient
 	debugClient    debugclient.DebugClient
-	counterclient  counterclient.CounterClient
+	counterClient  counterclient.CounterClient
 	procMountPoint string
 	enforcer       enforcer.Enforcer
 	supervisor     supervisor.Supervisor
