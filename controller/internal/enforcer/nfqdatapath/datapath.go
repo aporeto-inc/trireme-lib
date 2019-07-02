@@ -355,7 +355,9 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 				})
 			return
 		case <-time.After(collectCounterInterval):
+
 			keysList := d.puFromContextID.KeyList()
+			zap.L().Debug("Collecting Counter", zap.Int("Num", len(keysList)))
 			for _, keys := range keysList {
 				val, err := d.puFromContextID.Get(keys)
 				if err != nil {
