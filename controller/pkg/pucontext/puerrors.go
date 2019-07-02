@@ -378,7 +378,7 @@ var countedEvents = []PuErrors{
 // PuContextError increments the error counter and returns an error
 func (p *PUContext) PuContextError(err ErrorType, logMsg string) error { // nolint
 	atomic.AddUint32(&p.counters[int(err)], 1)
-	zap.L().Debug("LOGMSG", zap.String("log", logMsg),
+	zap.L().Debug(" ", zap.String("log", logMsg),
 		zap.String("contextID", p.ID()))
 	return countedEvents[err]
 }
@@ -386,7 +386,7 @@ func (p *PUContext) PuContextError(err ErrorType, logMsg string) error { // noli
 // PuContextError increments a global unknown PU counter and returns an error
 func PuContextError(err ErrorType, logMsg string) error { // nolint
 	atomic.AddUint32(&unknownPU.counters[int(err)], 1)
-	zap.L().Debug(" UNKNOWN PU LOGMSG", zap.String("log", logMsg))
+
 	return countedEvents[err]
 }
 
