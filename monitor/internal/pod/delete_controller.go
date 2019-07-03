@@ -81,6 +81,7 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
 func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m *map[string]client.ObjectKey) {
 	for nativeID, req := range *m {
+		zap.L().Debug("waiting for PU to get deleted", zap.String("puID", nativeID), zap.String("namespacedName", req.String()))
 		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req)
 	}
 }

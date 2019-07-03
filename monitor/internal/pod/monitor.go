@@ -103,7 +103,10 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	mgr, err := manager.New(m.kubeCfg, manager.Options{})
+	syncPeriod := 30 * time.Second
+	mgr, err := manager.New(m.kubeCfg, manager.Options{
+		SyncPeriod: &syncPeriod,
+	})
 	if err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
