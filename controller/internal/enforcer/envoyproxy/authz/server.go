@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	socketPath = "@aporeto_envoy_authz"
+	// SocketPath is the unix socket path where the authz server will be listening on
+	//SocketPath = "@aporeto_envoy_authz"
+	SocketPath = "/tmp/aporeto_envoy_authz"
 )
 
 // Server struct
@@ -35,12 +37,15 @@ func NewExtAuthzServer(puID string, puInfo *policy.PUInfo, secrets secrets.Secre
 		puID:       puID,
 		puInfo:     puInfo,
 		secrets:    secrets,
-		socketPath: socketPath,
+		socketPath: SocketPath,
 		server:     grpc.NewServer(),
 	}
 
 	// register with gRPC
 	ext_authz_v2.RegisterAuthorizationServer(s.server, s)
+	for serviceName, info := range s.server.GetServiceInfo() {
+		zap.L().Debug("ext_authz_server: service info", zap.String("service", serviceName), zap.Any("info", info))
+	}
 
 	// Create a custom listener
 	addr, err := net.ResolveUnixAddr("unix", s.socketPath)
