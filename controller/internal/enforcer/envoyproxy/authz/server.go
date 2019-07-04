@@ -48,11 +48,16 @@ func NewExtAuthzServer(puID string, puInfo *policy.PUInfo, secrets secrets.Secre
 	}
 
 	// Create a custom listener
-	addr, err := net.ResolveUnixAddr("unix", s.socketPath)
+	//addr, err := net.ResolveUnixAddr("unix", s.socketPath)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//nl, err := net.ListenUnix("unix", addr)
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:1999")
 	if err != nil {
 		return nil, err
 	}
-	nl, err := net.ListenUnix("unix", addr)
+	nl, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
