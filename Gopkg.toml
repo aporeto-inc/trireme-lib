@@ -21,7 +21,7 @@ required = ["github.com/docker/distribution"]
   version = "kubernetes-1.13.1"
 
 [[constraint]]
-  branch = "release-3.11.0"
+  branch = "sirupsen"
   name = "github.com/aporeto-inc/oxy"
 
 [[constraint]]
