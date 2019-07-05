@@ -6,6 +6,8 @@ import (
 	"net"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.uber.org/zap"
@@ -230,7 +232,7 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 	}
 
 	// now we can see if we can decode our claims
-	id, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
+	srcid, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
 	if err != nil {
 		zap.L().Debug("ext_authz.ingressCheck(): failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
 		return &ext_authz_v2.CheckResponse{
@@ -247,19 +249,40 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 			},
 		}, nil
 	}
-	zap.L().Debug("ext_authz.ingressCheck(): parsed Aporeto token", zap.String("puID", s.puID), zap.String("id", id), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
+	zap.L().Debug("ext_authz.ingressCheck(): parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
+
+	// hack for quick policy checks
+	pctx, err := pucontext.NewPU(s.puID, s.puInfo, defaultValidity)
+	if err != nil {
+		zap.L().Error("ext_authz.ingressCheck(): failed to create PU context", zap.String("puID", s.puID), zap.Error(err))
+		return nil, err
+	}
+	_, netPolicyAction := pctx.SearchRcvRules(policy.NewTagStoreFromSlice(profile))
+	if netPolicyAction.Action.Rejected() {
+		zap.L().Debug("ext_authz.ingressCheck(): Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		return &ext_authz_v2.CheckResponse{
+			Status: &rpc.Status{
+				Code: int32(rpc.PERMISSION_DENIED),
+			},
+			HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
+				DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
+					Status: &envoy_type.HttpStatus{
+						Code: envoy_type.StatusCode_Forbidden,
+					},
+					Body: "Access not authorized by network policy",
+				},
+			},
+		}, nil
+	}
 
 	// otherwise we are just going to allow it for now
-	// TODO: obviously :)
+	zap.L().Debug("ext_authz.ingressCheck(): Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.OK),
 		},
 		HttpResponse: &ext_authz_v2.CheckResponse_OkResponse{
-			OkResponse: &ext_authz_v2.OkHttpResponse{
-				// TODO: this is where we need to inject our identity for outgoing traffic
-				//Headers:,
-			},
+			OkResponse: &ext_authz_v2.OkHttpResponse{},
 		},
 	}, nil
 }
