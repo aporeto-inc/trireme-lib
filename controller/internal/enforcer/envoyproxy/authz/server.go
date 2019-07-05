@@ -28,7 +28,14 @@ const (
 	// EgressSocketPath is the unix socket path where the authz server will be listening on for the egress authz server
 	EgressSocketPath = "127.0.0.1:1998"
 
+	// defaultValidity of the issued JWT token
 	defaultValidity = 60 * time.Second
+
+	// aporetoKeyHeader is the HTTP header name for the key header
+	aporetoKeyHeader = "x-aporeto-key"
+
+	// aporetoAuthHeader is the HTTP header name for the auth header
+	aporetoAuthHeader = "x-aporeto-auth"
 )
 
 // Direction is used to indicate if the authorization server is ingress or egress.
@@ -58,7 +65,7 @@ func (d Direction) String() string {
 	case UnknownDirection:
 		return "UnknownDirection"
 	case IngressDirection:
-		return "UnknownDirection"
+		return "IngressDirection"
 	case EgressDirection:
 		return "EgressDirection"
 	default:
@@ -74,6 +81,7 @@ type Server struct {
 	socketPath string
 	server     *grpc.Server
 	direction  Direction
+	verifier   *servicetokens.Verifier
 }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
@@ -100,6 +108,7 @@ func NewExtAuthzServer(puID string, puInfo *policy.PUInfo, secrets secrets.Secre
 		socketPath: socketPath,
 		server:     grpc.NewServer(),
 		direction:  direction,
+		verifier:   servicetokens.NewVerifier(secrets, nil),
 	}
 
 	// register with gRPC
@@ -188,8 +197,8 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 				httpReqHeaders := httpReq.GetHeaders()
 				if httpReqHeaders != nil {
 					zap.L().Debug("ext_authz.ingressCheck(): HTTP Request Headers", zap.String("puID", s.puID), zap.Any("httpReqHeaders", httpReqHeaders))
-					aporetoKey, _ = httpReqHeaders["X-APORETO-KEY"]
-					aporetoAuth, _ = httpReqHeaders["X-APORETO-AUTH"]
+					aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]
+					aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader]
 				} else {
 					zap.L().Debug("ext_authz.ingressCheck(): missing HTTP request headers", zap.String("puID", s.puID))
 				}
@@ -219,6 +228,26 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 			},
 		}, nil
 	}
+
+	// now we can see if we can decode our claims
+	id, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
+	if err != nil {
+		zap.L().Debug("ext_authz.ingressCheck(): failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
+		return &ext_authz_v2.CheckResponse{
+			Status: &rpc.Status{
+				Code: int32(rpc.PERMISSION_DENIED),
+			},
+			HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
+				DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
+					Status: &envoy_type.HttpStatus{
+						Code: envoy_type.StatusCode_Forbidden,
+					},
+					Body: "failed to parse Aporeto token",
+				},
+			},
+		}, nil
+	}
+	zap.L().Debug("ext_authz.ingressCheck(): parsed Aporeto token", zap.String("puID", s.puID), zap.String("id", id), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
 
 	// otherwise we are just going to allow it for now
 	// TODO: obviously :)
@@ -271,7 +300,7 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		return nil, fmt.Errorf("ext_authz egress: cannot create token: %v", err)
 	}
 
-	zap.L().Debug("ext_authz egress: injecting header", zap.String("X-APORETO-KEY", string(s.secrets.TransmittedKey())), zap.String("X-APORETO-AUTH", token))
+	zap.L().Debug("ext_authz egress: injecting header", zap.String(aporetoKeyHeader, string(s.secrets.TransmittedKey())), zap.String(aporetoAuthHeader, token))
 	// now create the response and inject our identity
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
@@ -282,13 +311,13 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 				Headers: []*envoy_core.HeaderValueOption{
 					&envoy_core.HeaderValueOption{
 						Header: &envoy_core.HeaderValue{
-							Key:   "X-APORETO-KEY",
+							Key:   aporetoKeyHeader,
 							Value: string(s.secrets.TransmittedKey()),
 						},
 					},
 					&envoy_core.HeaderValueOption{
 						Header: &envoy_core.HeaderValue{
-							Key:   "X-APORETO-AUTH",
+							Key:   aporetoAuthHeader,
 							Value: token,
 						},
 					},
