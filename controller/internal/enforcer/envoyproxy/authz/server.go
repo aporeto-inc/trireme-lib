@@ -309,12 +309,18 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		return nil, fmt.Errorf("ext_authz egress: missing socket address in source from attributes")
 	}
 
+	pctx, err := pucontext.NewPU(s.puID, s.puInfo, defaultValidity)
+	if err != nil {
+		zap.L().Error("ext_authz egress: failed to create PU context", zap.String("puID", s.puID), zap.Error(err))
+		return nil, err
+	}
+
 	// build our identity token
 	token, err := servicetokens.CreateAndSign(
 		sockAddr.GetAddress(),
-		s.puInfo.Runtime.Tags().Tags,
-		[]string{},
-		s.puID,
+		pctx.Identity().Tags,
+		pctx.Scopes(),
+		pctx.ManagementID(),
 		defaultValidity,
 		s.secrets.EncodingKey(),
 	)
