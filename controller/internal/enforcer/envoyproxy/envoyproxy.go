@@ -9,8 +9,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.uber.org/zap"
 
-	"google.golang.org/grpc"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -33,8 +31,9 @@ type EnvoyProxy struct {
 	sync.RWMutex
 }
 
-type envoyAuthzServer struct {
-	server *grpc.Server
+type envoyAuthzServers struct {
+	ingress *authz.Server
+	egress  *authz.Server
 }
 
 // NewEnvoyProxy returns a new EnvoyProxy
@@ -70,15 +69,22 @@ func (p *EnvoyProxy) enforceWithContext(ctx context.Context, puID string, puInfo
 
 	// create a new server if it doesn't exist yet
 	if _, err := p.clients.Get(puID); err != nil {
-		zap.L().Debug("creating new ext_authz server", zap.String("puID", puID))
-		server, err := authz.NewExtAuthzServer(puID, puInfo, p.secrets)
+		zap.L().Debug("creating new ext_authz servers", zap.String("puID", puID))
+		ingressServer, err := authz.NewExtAuthzServer(puID, puInfo, p.secrets, authz.IngressDirection)
 		if err != nil {
 			return err
 		}
 
+		egressServer, err := authz.NewExtAuthzServer(puID, puInfo, p.secrets, authz.EgressDirection)
+		if err != nil {
+			ingressServer.Stop()
+			return err
+		}
+
 		// try to add this to our cache
-		if err := p.clients.Add(puID, server); err != nil {
-			server.Stop()
+		if err := p.clients.Add(puID, &envoyAuthzServers{ingress: ingressServer, egress: egressServer}); err != nil {
+			ingressServer.Stop()
+			egressServer.Stop()
 			return err
 		}
 	} else {
@@ -99,26 +105,46 @@ func (p *EnvoyProxy) unenforceWithContext(ctx context.Context, puID string) erro
 	p.Lock()
 	defer p.Unlock()
 
-	rawServer, err := p.clients.Get(puID)
+	rawAuthzServers, err := p.clients.Get(puID)
 	if err != nil {
 		return err
 	}
 
-	server := rawServer.(*authz.Server)
+	server := rawAuthzServers.(*envoyAuthzServers)
 	shutdownCtx, shutdownCtxCancel := context.WithTimeout(ctx, time.Second*10)
 	defer shutdownCtxCancel()
 
-	shutdownDoneCh := make(chan struct{})
+	var wg sync.WaitGroup
+	shutdownCh := make(chan struct{})
+	wg.Add(2)
 	go func() {
-		server.GracefulStop()
-		shutdownDoneCh <- struct{}{}
+		server.ingress.GracefulStop()
+		wg.Done()
+	}()
+	go func() {
+		server.egress.GracefulStop()
+		wg.Done()
+	}()
+	go func() {
+		wg.Wait()
+		shutdownCh <- struct{}{}
 	}()
 
 	select {
 	case <-shutdownCtx.Done():
 		zap.L().Warn("Graceful shutdown of ext_authz server did not finish in time. Shutting down hard now...", zap.String("puID", puID), zap.Error(shutdownCtx.Err()))
-		server.Stop()
-	case <-shutdownDoneCh:
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			server.ingress.Stop()
+			wg.Done()
+		}()
+		go func() {
+			server.egress.Stop()
+			wg.Done()
+		}()
+		wg.Wait()
+	case <-shutdownCh:
 	}
 
 	return nil

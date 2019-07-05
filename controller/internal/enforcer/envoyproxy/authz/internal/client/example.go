@@ -5,8 +5,6 @@ import (
 	"log"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyproxy/authz"
-
 	"google.golang.org/grpc"
 
 	"github.com/gogo/protobuf/types"
@@ -15,7 +13,7 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial(authz.SocketPath, grpc.WithInsecure())
+	conn, err := grpc.Dial("127.0.0.1:1999", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
