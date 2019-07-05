@@ -271,6 +271,7 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		return nil, fmt.Errorf("ext_authz egress: cannot create token: %v", err)
 	}
 
+	zap.L().Debug("ext_authz egress: injecting header", zap.String("X-APORETO-KEY", string(s.secrets.TransmittedKey())), zap.String("X-APORETO-AUTH", token))
 	// now create the response and inject our identity
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
