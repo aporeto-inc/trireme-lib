@@ -108,7 +108,14 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods)
+	// Create the delete event controller first
+	dc := NewDeleteController(mgr.GetClient(), m.handlers)
+	if err := mgr.Add(dc); err != nil {
+		return fmt.Errorf("pod: %s", err.Error())
+	}
+
+	// Create the main controller for the monitor
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
