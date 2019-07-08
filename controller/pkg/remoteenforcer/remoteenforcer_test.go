@@ -490,7 +490,30 @@ func TestInitEnforcer(t *testing.T) {
 					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
 				})
 			})
+			Convey("When i try to instantiate the enforcer and counter Client fails to run it should cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+				mockCounterClient.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("failed to run counterclient"))
+				})
+
+			})
 			Convey("When I try to instantiate the enforcer and it succeeds it should not error", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
@@ -510,6 +533,7 @@ func TestInitEnforcer(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
+
 		})
 	})
 }
