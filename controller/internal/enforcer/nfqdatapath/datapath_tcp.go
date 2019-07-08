@@ -625,7 +625,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	zap.L().Error("FlowPolicy",
 		zap.String("ObserveActionType", report.ObserveAction.String()),
 		zap.String("ActionType", report.Action.String()),
-		report.String("POlicyID", report.PolicyID),
+		zap.String("POlicyID", report.PolicyID),
 	)
 	conn.PacketFlowPolicy = pkt
 
