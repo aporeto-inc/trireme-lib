@@ -50,7 +50,8 @@ func TestContextError(t *testing.T) {
 
 func TestGetErrorCounters(t *testing.T) {
 	Convey("When i report an error on unknown PU and call getErrorCounter", t, func() {
-		PuContextError(ErrNetSynNotSeen, "net Syn not seen")
+		err := PuContextError(ErrNetSynNotSeen, "net Syn not seen")
+		So(err, ShouldNotBeNil)
 		Convey("I call get Error counters", func() {
 			report := GetErrorCounters()
 			So(report[ErrNetSynNotSeen].Value, ShouldEqual, 1)
