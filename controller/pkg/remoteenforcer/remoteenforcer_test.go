@@ -510,7 +510,7 @@ func TestInitEnforcer(t *testing.T) {
 
 				Convey("Then I should get error", func() {
 					So(err, ShouldNotBeNil)
-					So(err, ShouldResemble, errors.New("failed to run counterclient"))
+					So(err, ShouldResemble, errors.New("CounterClientfailed to run counterclient"))
 				})
 
 			})
