@@ -324,6 +324,10 @@ var countedEvents = []PuErrors{
 		index: ErrUDPPostProcessingFailed,
 		err:   "UDP packet failed postprocessing",
 	},
+	ErrUDPNoConnection: {
+		index: ErrUDPNoConnection,
+		err:   "UDP packet dropped no connection",
+	},
 	ErrUDPSynInvalidToken: {
 		index: ErrUDPSynInvalidToken,
 		err:   "UDP syn packet dropped invalid token",

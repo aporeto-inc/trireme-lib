@@ -1,6 +1,7 @@
 package pucontext
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -44,5 +45,27 @@ func TestContextError(t *testing.T) {
 				So(getError, ShouldEqual, err.index)
 			}
 		})
+	})
+}
+
+func TestGetErrorCounters(t *testing.T) {
+	Convey("When i report an error on unknown PU and call getErrorCounter", t, func() {
+		PuContextError(ErrNetSynNotSeen, "net Syn not seen")
+		Convey("I call get Error counters", func() {
+			report := GetErrorCounters()
+			So(report[ErrNetSynNotSeen].Value, ShouldEqual, 1)
+			report = GetErrorCounters()
+			So(report[ErrNetSynNotSeen].Value, ShouldEqual, 0)
+		})
+	})
+}
+
+func TestGetError(t *testing.T) {
+	Convey("When i pass an error of we return the right errtype", t, func() {
+		for index, event := range countedEvents {
+			errType := GetError(event)
+			fmt.Println(event.err)
+			So(int(errType), ShouldEqual, index)
+		}
 	})
 }
