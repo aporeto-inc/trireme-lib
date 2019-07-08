@@ -144,7 +144,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	if encodedAction == "10" {
-		packetReport, err = a.recordDroppedPacket(buf)
+		packetReport, _ = a.recordDroppedPacket(buf)
 	}
 
 	puID, puNamespace, tags := a.getPUInfo(contextID)

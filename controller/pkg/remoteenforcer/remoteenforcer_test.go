@@ -503,7 +503,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
-
+				mockCounterClient.EXPECT().Run(server.ctx).Return(nil)
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should not get error", func() {
