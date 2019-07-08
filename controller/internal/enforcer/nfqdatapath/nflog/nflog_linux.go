@@ -132,7 +132,8 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket) (*collector.PacketRepor
 	return report, nil
 }
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
-
+	var packetReport *collector.PacketReport
+	var err error
 	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
 
 	if len(parts) != 3 {
@@ -143,20 +144,18 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	if encodedAction == "10" {
-		zap.L().Error("Debug RecordDropped packet")
-		packetReport, err := a.recordDroppedPacket(buf)
-		return nil, packetReport, err
+		packetReport, err = a.recordDroppedPacket(buf)
 	}
 
 	puID, puNamespace, tags := a.getPUInfo(contextID)
 
 	if puID == "" {
-		return nil, nil, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
+		return nil, packetReport, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
 	}
 
 	action, _, err := policy.EncodedStringToAction(encodedAction)
 	if err != nil {
-		return nil, nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
+		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
 	}
 
 	dropReason := ""
@@ -209,5 +208,5 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		record.Destination.ID = puID
 	}
 
-	return record, nil, nil
+	return record, packetReport, nil
 }
