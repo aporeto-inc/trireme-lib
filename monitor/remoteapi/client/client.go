@@ -36,6 +36,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				return net.DialUnix("unix", nil, c.addr)
 			},
+			DisableKeepAlives: true,
 		},
 	}
 
@@ -48,6 +49,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close() // nolint
 
 	if resp.StatusCode == http.StatusAccepted {
 		return nil
