@@ -407,6 +407,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 			s.secrets,
 			payload.ServerID,
 			payload.Validity,
+			payload.ExternalIPCacheTimeout,
 		); err != nil || s.enforcer == nil {
 			return fmt.Errorf("Error while initializing remote Envoy enforcer, %s", err)
 		}
