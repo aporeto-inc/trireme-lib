@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 
 	envoy_core "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2/core"
@@ -78,16 +78,16 @@ func (d Direction) String() string {
 // Server struct
 type Server struct {
 	puID       string
-	puInfo     *policy.PUInfo
-	secrets    secrets.Secrets
+	puContexts cache.DataStore
+	secrets    secrets.LockedSecrets
 	socketPath string
 	server     *grpc.Server
 	direction  Direction
-	verifier   *servicetokens.Verifier
+	//verifier   *servicetokens.Verifier
 }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
-func NewExtAuthzServer(puID string, puInfo *policy.PUInfo, secrets secrets.Secrets, direction Direction) (*Server, error) {
+func NewExtAuthzServer(puID string, puContexts cache.DataStore, secrets secrets.LockedSecrets, direction Direction) (*Server, error) {
 	var socketPath string
 	switch direction {
 	case UnknownDirection:
@@ -105,12 +105,12 @@ func NewExtAuthzServer(puID string, puInfo *policy.PUInfo, secrets secrets.Secre
 
 	s := &Server{
 		puID:       puID,
-		puInfo:     puInfo,
+		puContexts: puContexts,
 		secrets:    secrets,
 		socketPath: socketPath,
 		server:     grpc.NewServer(),
 		direction:  direction,
-		verifier:   servicetokens.NewVerifier(secrets, nil),
+		//verifier:   servicetokens.NewVerifier(secrets, nil),
 	}
 
 	// register with gRPC
@@ -173,110 +173,71 @@ func (s *Server) Check(ctx context.Context, checkRequest *ext_authz_v2.CheckRequ
 
 // ingressCheck implements the AuthorizationServer for ingress connections
 func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.CheckRequest) (*ext_authz_v2.CheckResponse, error) {
-	zap.L().Debug("ext_authz.ingressCheck(): checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
-
-	attrs := checkRequest.GetAttributes()
+	// TODO: needs to be removed before we merge: this exposes secret data, and must never be in real logs - even in the debug case
+	zap.L().Debug("ext_authz ingress: checkRequest", zap.String("puID", s.puID))
 
 	// extract our headers
-	var aporetoKey, aporetoAuth string
+	var aporetoKey, aporetoAuth, sourceAdress string
+	attrs := checkRequest.GetAttributes()
 	if attrs != nil {
 		request := attrs.GetRequest()
-		src := attrs.GetSource()
-		dest := attrs.GetDestination()
-		exts := attrs.GetContextExtensions()
 
-		zap.L().Debug("ext_authz.ingressCheck(): attributes",
-			zap.String("puID", s.puID),
-			zap.Any("attrs", attrs),
-			zap.Any("src", src),
-			zap.Any("dest", dest),
-			zap.Any("exts", exts),
-		)
+		if src := attrs.GetSource(); src != nil {
+			if addr := src.GetAddress(); addr != nil {
+				if sockAddr := addr.GetSocketAddress(); sockAddr != nil {
+					sourceAdress = sockAddr.GetAddress()
+				}
+			}
+		}
 
 		if request != nil {
 			httpReq := request.GetHttp()
 			if httpReq != nil {
 				httpReqHeaders := httpReq.GetHeaders()
 				if httpReqHeaders != nil {
-					zap.L().Debug("ext_authz.ingressCheck(): HTTP Request Headers", zap.String("puID", s.puID), zap.Any("httpReqHeaders", httpReqHeaders))
 					aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]
 					aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader]
-				} else {
-					zap.L().Debug("ext_authz.ingressCheck(): missing HTTP request headers", zap.String("puID", s.puID))
 				}
-			} else {
-				zap.L().Debug("ext_authz.ingressCheck(): missing HTTP request", zap.String("puID", s.puID))
 			}
-		} else {
-			zap.L().Debug("ext_authz.ingressCheck(): missing request", zap.String("puID", s.puID))
 		}
-	} else {
-		zap.L().Debug("ext_authz.ingressCheck(): missing attributes", zap.String("puID", s.puID))
 	}
 
 	// if the request is lacking our stuff, we send a 400 back
 	if aporetoAuth == "" || aporetoKey == "" {
-		return &ext_authz_v2.CheckResponse{
-			Status: &rpc.Status{
-				Code: int32(rpc.INVALID_ARGUMENT),
-			},
-			HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
-				DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
-					Status: &envoy_type.HttpStatus{
-						Code: envoy_type.StatusCode_BadRequest,
-					},
-					Body: "missing headers X-APORETO-KEY or X-APORETO-AUTH",
-				},
-			},
-		}, nil
+		zap.L().Warn("ext_authz ingress: request missing Aporeto HTTP headers: x-aporeto-key and/or x-aporeto-auth", zap.String("puID", s.puID), zap.String("sourceAddress", sourceAdress))
+		return createDeniedCheckResponse(rpc.INVALID_ARGUMENT, envoy_type.StatusCode_BadRequest, "missing headers X-APORETO-KEY or X-APORETO-AUTH"), nil
 	}
 
 	// now we can see if we can decode our claims
-	srcid, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
+	secrets, secretsUnlock := s.secrets.Secrets()
+	srcid, scopes, profile, err := servicetokens.NewVerifier(secrets, nil).ParseToken(aporetoAuth, aporetoKey)
+	secretsUnlock()
 	if err != nil {
-		zap.L().Debug("ext_authz.ingressCheck(): failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
-		return &ext_authz_v2.CheckResponse{
-			Status: &rpc.Status{
-				Code: int32(rpc.PERMISSION_DENIED),
-			},
-			HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
-				DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
-					Status: &envoy_type.HttpStatus{
-						Code: envoy_type.StatusCode_Forbidden,
-					},
-					Body: "failed to parse Aporeto token",
-				},
-			},
-		}, nil
+		zap.L().Debug("ext_authz ingress: failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
+		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "failed to parse Aporeto token"), nil
 	}
-	zap.L().Debug("ext_authz.ingressCheck(): parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
+	zap.L().Debug("ext_authz ingress: parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
 
-	// hack for quick policy checks
-	pctx, err := pucontext.NewPU(s.puID, s.puInfo, defaultValidity)
+	// get the PU context
+	pctxRaw, err := s.puContexts.Get(s.puID)
 	if err != nil {
-		zap.L().Error("ext_authz.ingressCheck(): failed to create PU context", zap.String("puID", s.puID), zap.Error(err))
-		return nil, err
+		zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
+		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
 	}
+	pctx, ok := pctxRaw.(*pucontext.PUContext)
+	if !ok {
+		zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
+		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
+	}
+
 	_, netPolicyAction := pctx.SearchRcvRules(policy.NewTagStoreFromSlice(profile))
 	if netPolicyAction.Action.Rejected() {
-		zap.L().Debug("ext_authz.ingressCheck(): Access *NOT* authorized by network policy", zap.String("puID", s.puID))
-		return &ext_authz_v2.CheckResponse{
-			Status: &rpc.Status{
-				Code: int32(rpc.PERMISSION_DENIED),
-			},
-			HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
-				DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
-					Status: &envoy_type.HttpStatus{
-						Code: envoy_type.StatusCode_Forbidden,
-					},
-					Body: "Access not authorized by network policy",
-				},
-			},
-		}, nil
+		zap.L().Debug("ext_authz ingress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
 
 	// otherwise we are just going to allow it for now
-	zap.L().Debug("ext_authz.ingressCheck(): Access authorized by network policy", zap.String("puID", s.puID))
+	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.OK),
@@ -309,27 +270,36 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		return nil, fmt.Errorf("ext_authz egress: missing socket address in source from attributes")
 	}
 
-	pctx, err := pucontext.NewPU(s.puID, s.puInfo, defaultValidity)
+	// get the PU context
+	pctxRaw, err := s.puContexts.Get(s.puID)
 	if err != nil {
-		zap.L().Error("ext_authz egress: failed to create PU context", zap.String("puID", s.puID), zap.Error(err))
-		return nil, err
+		zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
+		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
+	}
+	pctx, ok := pctxRaw.(*pucontext.PUContext)
+	if !ok {
+		zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
+		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
 	}
 
 	// build our identity token
+	secrets, unlockSecrets := s.secrets.Secrets()
+	transmittedKey := secrets.TransmittedKey()
 	token, err := servicetokens.CreateAndSign(
 		sockAddr.GetAddress(),
 		pctx.Identity().Tags,
 		pctx.Scopes(),
 		pctx.ManagementID(),
 		defaultValidity,
-		s.secrets.EncodingKey(),
+		secrets.EncodingKey(),
 	)
+	unlockSecrets()
 	if err != nil {
 		zap.L().Error("ext_authz egress: cannot create token", zap.Error(err))
 		return nil, fmt.Errorf("ext_authz egress: cannot create token: %v", err)
 	}
 
-	zap.L().Debug("ext_authz egress: injecting header", zap.String(aporetoKeyHeader, string(s.secrets.TransmittedKey())), zap.String(aporetoAuthHeader, token))
+	zap.L().Debug("ext_authz egress: injecting header", zap.String("puID", s.puID))
 	// now create the response and inject our identity
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
@@ -341,7 +311,7 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 					&envoy_core.HeaderValueOption{
 						Header: &envoy_core.HeaderValue{
 							Key:   aporetoKeyHeader,
-							Value: string(s.secrets.TransmittedKey()),
+							Value: string(transmittedKey),
 						},
 					},
 					&envoy_core.HeaderValueOption{
@@ -354,4 +324,20 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 			},
 		},
 	}, nil
+}
+
+func createDeniedCheckResponse(rpcCode rpc.Code, httpCode envoy_type.StatusCode, body string) *ext_authz_v2.CheckResponse {
+	return &ext_authz_v2.CheckResponse{
+		Status: &rpc.Status{
+			Code: int32(rpcCode),
+		},
+		HttpResponse: &ext_authz_v2.CheckResponse_DeniedResponse{
+			DeniedResponse: &ext_authz_v2.DeniedHttpResponse{
+				Status: &envoy_type.HttpStatus{
+					Code: httpCode,
+				},
+				Body: body,
+			},
+		},
+	}
 }

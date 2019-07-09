@@ -1,6 +1,14 @@
 package secrets
 
-import "fmt"
+import (
+	"fmt"
+)
+
+// LockedSecrets provides a way to use secrets where shared read access is required. The user becomes responsible for unlocking when done using them.
+// The implementation should lock the access to secrets for reading, and pass down the function for unlocking.
+type LockedSecrets interface {
+	Secrets() (Secrets, func())
+}
 
 // Secrets is an interface implementing secrets
 type Secrets interface {

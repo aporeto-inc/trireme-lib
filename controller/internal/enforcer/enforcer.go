@@ -265,9 +265,7 @@ func NewEnvoyEnforcer(
 		zap.L().Fatal("Cannot create a token engine")
 	}
 
-	puFromContextID := cache.NewCache("puFromContextID")
-
-	return envoyproxy.NewEnvoyProxy(tokenAccessor, collector, puFromContextID, secrets)
+	return envoyproxy.NewEnvoyProxy(tokenAccessor, collector, secrets)
 }
 
 // NewWithDefaults create a new data path with most things used by default
