@@ -172,6 +172,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.secret,
 			t.config.serverID,
 			t.config.validity,
+			t.config.externalIPcacheTimeout,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize the LocalEnvoy enforcer: %s", err)
@@ -184,6 +185,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.secret,
 			t.config.serverID,
 			t.config.validity,
+			t.config.externalIPcacheTimeout,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize the LocalEnvoy enforcer: %s", err)

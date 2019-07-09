@@ -259,13 +259,14 @@ func NewEnvoyEnforcer(
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
+	externalIPCacheTimeout time.Duration,
 ) (Enforcer, error) {
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
 
-	return envoyproxy.NewEnvoyProxy(tokenAccessor, collector, secrets)
+	return envoyproxy.NewEnvoyProxy(tokenAccessor, collector, externalIPCacheTimeout, secrets)
 }
 
 // NewWithDefaults create a new data path with most things used by default
