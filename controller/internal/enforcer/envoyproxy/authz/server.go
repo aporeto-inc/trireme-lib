@@ -83,11 +83,11 @@ type Server struct {
 	socketPath string
 	server     *grpc.Server
 	direction  Direction
-	//verifier   *servicetokens.Verifier
+	verifier   *servicetokens.Verifier
 }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
-func NewExtAuthzServer(puID string, puContexts cache.DataStore, secrets secrets.LockedSecrets, direction Direction) (*Server, error) {
+func NewExtAuthzServer(puID string, puContexts cache.DataStore, verifier *servicetokens.Verifier, secrets secrets.LockedSecrets, direction Direction) (*Server, error) {
 	var socketPath string
 	switch direction {
 	case UnknownDirection:
@@ -110,7 +110,7 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, secrets secrets.
 		socketPath: socketPath,
 		server:     grpc.NewServer(),
 		direction:  direction,
-		//verifier:   servicetokens.NewVerifier(secrets, nil),
+		verifier:   verifier,
 	}
 
 	// register with gRPC
@@ -209,9 +209,7 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 	}
 
 	// now we can see if we can decode our claims
-	secrets, secretsUnlock := s.secrets.Secrets()
-	srcid, scopes, profile, err := servicetokens.NewVerifier(secrets, nil).ParseToken(aporetoAuth, aporetoKey)
-	secretsUnlock()
+	srcid, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
 	if err != nil {
 		zap.L().Debug("ext_authz ingress: failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
 		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "failed to parse Aporeto token"), nil
@@ -284,6 +282,7 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 
 	// build our identity token
 	secrets, unlockSecrets := s.secrets.Secrets()
+	defer unlockSecrets()
 	transmittedKey := secrets.TransmittedKey()
 	token, err := servicetokens.CreateAndSign(
 		sockAddr.GetAddress(),
@@ -293,7 +292,7 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		defaultValidity,
 		secrets.EncodingKey(),
 	)
-	unlockSecrets()
+
 	if err != nil {
 		zap.L().Error("ext_authz egress: cannot create token", zap.Error(err))
 		return nil, fmt.Errorf("ext_authz egress: cannot create token: %v", err)

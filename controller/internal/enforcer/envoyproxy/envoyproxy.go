@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyproxy/authz"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.uber.org/zap"
@@ -33,6 +35,7 @@ type EnvoyProxy struct {
 
 	puContexts cache.DataStore
 	clients    cache.DataStore
+	verifier   *servicetokens.Verifier
 
 	sync.RWMutex
 }
@@ -61,6 +64,7 @@ func NewEnvoyProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, e
 		secrets:                s,
 		puContexts:             cache.NewCache("puContexts"),
 		clients:                cache.NewCache("clients"),
+		verifier:               servicetokens.NewVerifier(s, nil),
 	}, nil
 }
 
@@ -108,12 +112,12 @@ func (p *EnvoyProxy) enforceWithContext(ctx context.Context, puID string, puInfo
 	// create a new server if it doesn't exist yet
 	if _, err := p.clients.Get(puID); err != nil {
 		zap.L().Debug("creating new ext_authz servers", zap.String("puID", puID))
-		ingressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p, authz.IngressDirection)
+		ingressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.verifier, p, authz.IngressDirection)
 		if err != nil {
 			return err
 		}
 
-		egressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p, authz.EgressDirection)
+		egressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.verifier, p, authz.EgressDirection)
 		if err != nil {
 			ingressServer.Stop()
 			return err
@@ -212,6 +216,7 @@ func (p *EnvoyProxy) UpdateSecrets(secret secrets.Secrets) error {
 	p.Lock()
 	defer p.Unlock()
 	p.secrets = secret
+	p.verifier.UpdateSecrets(secret, nil)
 	return nil
 }
 
