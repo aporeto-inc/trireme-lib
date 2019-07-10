@@ -222,7 +222,10 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 	}
 
 	flow := newIngressFlowRecord(s.puID, pctx, source, dest, httpReq)
-	defer s.collector.CollectFlowEvent(flow)
+	defer func() {
+		zap.L().Debug("ext_authz ingress: collecting flow event", zap.String("puID", s.puID), zap.Any("flow", flow))
+		s.collector.CollectFlowEvent(flow)
+	}()
 
 	// if the request is lacking our stuff, we send a 400 back
 	if aporetoAuth == "" || aporetoKey == "" {
@@ -266,38 +269,19 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.CheckRequest) (*ext_authz_v2.CheckResponse, error) {
-	zap.L().Debug("ext_authz.egressCheck(): checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
+	zap.L().Debug("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
 	// get the PU context
 	pctxRaw, err := s.puContexts.Get(s.puID)
 	if err != nil {
-		zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
+		zap.L().Error("ext_authz egress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
 		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
 	}
 	pctx, ok := pctxRaw.(*pucontext.PUContext)
 	if !ok {
-		zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
+		zap.L().Error("ext_authz egress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
 		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
 	}
-
-	/*
-		attrs := checkRequest.GetAttributes()
-		if attrs == nil {
-			return nil, fmt.Errorf("ext_authz egress: missing attributes")
-		}
-		src := attrs.GetSource()
-		if src == nil {
-			return nil, fmt.Errorf("ext_authz egress: missing source in attributes")
-		}
-
-		addr := src.GetAddress()
-		if addr == nil {
-			return nil, fmt.Errorf("ext_authz egress: missing address in source from attributes")
-		}
-		sockAddr := addr.GetSocketAddress()
-		if sockAddr == nil {
-			return nil, fmt.Errorf("ext_authz egress: missing socket address in source from attributes")
-		}*/
 
 	var sourceAdress string
 	var source, dest *ext_authz_v2.AttributeContext_Peer
@@ -321,7 +305,18 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 	}
 
 	flow := newEgressFlowRecord(s.puID, pctx, source, dest, httpReq)
-	defer s.collector.CollectFlowEvent(flow)
+	defer func() {
+		zap.L().Debug("ext_authz egress: collecting flow event", zap.String("puID", s.puID), zap.Any("flow", flow))
+		s.collector.CollectFlowEvent(flow)
+	}()
+
+	observedPolicy, netPolicy := pctx.SearchTxtRules(policy.NewTagStoreFromSlice(pctx.Identity().Tags), false)
+	flow.Action = netPolicy.Action
+	flow.PolicyID = netPolicy.PolicyID
+	flow.ObservedAction = observedPolicy.Action
+	flow.ObservedPolicyID = observedPolicy.PolicyID
+
+	// TODO: we can actually already deny the outgoing request here based on policy
 
 	// build our identity token
 	secrets, unlockSecrets := s.secrets.Secrets()
@@ -418,17 +413,19 @@ func newIngressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_a
 		ContextID: puID,
 		Destination: &collector.EndPoint{
 			ID:         pu.ManagementID(),
-			URI:        uri,    //r.Method + " " + r.RequestURI,
-			HTTPMethod: method, //r.Method,
 			Type:       collector.EnpointTypePU,
 			IP:         destIP,
 			Port:       uint16(destPort),
+			HTTPMethod: method,
+			URI:        uri,
 		},
 		Source: &collector.EndPoint{
-			Type: collector.EndPointTypeExternalIP,
-			IP:   srcIP,
-			ID:   collector.DefaultEndPoint,
-			Port: uint16(srcPort),
+			ID:         collector.DefaultEndPoint,
+			Type:       collector.EnpointTypePU,
+			IP:         srcIP,
+			Port:       uint16(srcPort),
+			HTTPMethod: method,
+			URI:        uri,
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
@@ -475,16 +472,16 @@ func newEgressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_au
 	return &collector.FlowRecord{
 		ContextID: puID,
 		Destination: &collector.EndPoint{
-			URI:        uri,
-			HTTPMethod: method,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       uint16(destPort),
-			IP:         destIP,
 			ID:         collector.DefaultEndPoint,
+			Type:       collector.EnpointTypePU,
+			IP:         destIP,
+			Port:       uint16(destPort),
+			HTTPMethod: method,
+			URI:        uri,
 		},
 		Source: &collector.EndPoint{
-			Type:       collector.EnpointTypePU,
 			ID:         pu.ManagementID(),
+			Type:       collector.EnpointTypePU,
 			IP:         srcIP,
 			Port:       uint16(srcPort),
 			HTTPMethod: method,
