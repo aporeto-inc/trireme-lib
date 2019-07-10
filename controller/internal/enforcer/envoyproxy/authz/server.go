@@ -6,6 +6,8 @@ import (
 	"net"
 	"time"
 
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
@@ -84,10 +86,11 @@ type Server struct {
 	server     *grpc.Server
 	direction  Direction
 	verifier   *servicetokens.Verifier
+	collector  collector.EventCollector
 }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
-func NewExtAuthzServer(puID string, puContexts cache.DataStore, verifier *servicetokens.Verifier, secrets secrets.LockedSecrets, direction Direction) (*Server, error) {
+func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collector.EventCollector, verifier *servicetokens.Verifier, secrets secrets.LockedSecrets, direction Direction) (*Server, error) {
 	var socketPath string
 	switch direction {
 	case UnknownDirection:
@@ -111,6 +114,7 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, verifier *servic
 		server:     grpc.NewServer(),
 		direction:  direction,
 		verifier:   verifier,
+		collector:  collector,
 	}
 
 	// register with gRPC
@@ -176,46 +180,6 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 	// TODO: needs to be removed before we merge: this exposes secret data, and must never be in real logs - even in the debug case
 	zap.L().Debug("ext_authz ingress: checkRequest", zap.String("puID", s.puID))
 
-	// extract our headers
-	var aporetoKey, aporetoAuth, sourceAdress string
-	attrs := checkRequest.GetAttributes()
-	if attrs != nil {
-		request := attrs.GetRequest()
-
-		if src := attrs.GetSource(); src != nil {
-			if addr := src.GetAddress(); addr != nil {
-				if sockAddr := addr.GetSocketAddress(); sockAddr != nil {
-					sourceAdress = sockAddr.GetAddress()
-				}
-			}
-		}
-
-		if request != nil {
-			httpReq := request.GetHttp()
-			if httpReq != nil {
-				httpReqHeaders := httpReq.GetHeaders()
-				if httpReqHeaders != nil {
-					aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]
-					aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader]
-				}
-			}
-		}
-	}
-
-	// if the request is lacking our stuff, we send a 400 back
-	if aporetoAuth == "" || aporetoKey == "" {
-		zap.L().Warn("ext_authz ingress: request missing Aporeto HTTP headers: x-aporeto-key and/or x-aporeto-auth", zap.String("puID", s.puID), zap.String("sourceAddress", sourceAdress))
-		return createDeniedCheckResponse(rpc.INVALID_ARGUMENT, envoy_type.StatusCode_BadRequest, "missing headers X-APORETO-KEY or X-APORETO-AUTH"), nil
-	}
-
-	// now we can see if we can decode our claims
-	srcid, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
-	if err != nil {
-		zap.L().Debug("ext_authz ingress: failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
-		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "failed to parse Aporeto token"), nil
-	}
-	zap.L().Debug("ext_authz ingress: parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
-
 	// get the PU context
 	pctxRaw, err := s.puContexts.Get(s.puID)
 	if err != nil {
@@ -228,9 +192,63 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
 	}
 
-	_, netPolicyAction := pctx.SearchRcvRules(policy.NewTagStoreFromSlice(profile))
-	if netPolicyAction.Action.Rejected() {
+	// extract our headers
+	var aporetoKey, aporetoAuth, sourceAdress string
+	var source, dest *ext_authz_v2.AttributeContext_Peer
+	var httpReq *ext_authz_v2.AttributeContext_HttpRequest
+	attrs := checkRequest.GetAttributes()
+	if attrs != nil {
+		source = attrs.GetSource()
+		dest = attrs.GetDestination()
+
+		if source != nil {
+			if addr := source.GetAddress(); addr != nil {
+				if sockAddr := addr.GetSocketAddress(); sockAddr != nil {
+					sourceAdress = sockAddr.GetAddress()
+				}
+			}
+		}
+
+		if request := attrs.GetRequest(); request != nil {
+			httpReq = request.GetHttp()
+			if httpReq != nil {
+				httpReqHeaders := httpReq.GetHeaders()
+				if httpReqHeaders != nil {
+					aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]
+					aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader]
+				}
+			}
+		}
+	}
+
+	flow := newIngressFlowRecord(s.puID, pctx, source, dest, httpReq)
+	defer s.collector.CollectFlowEvent(flow)
+
+	// if the request is lacking our stuff, we send a 400 back
+	if aporetoAuth == "" || aporetoKey == "" {
+		zap.L().Warn("ext_authz ingress: request missing Aporeto HTTP headers: x-aporeto-key and/or x-aporeto-auth", zap.String("puID", s.puID), zap.String("sourceAddress", sourceAdress))
+		flow.DropReason = "missing Aporeto HTTP headers"
+		return createDeniedCheckResponse(rpc.INVALID_ARGUMENT, envoy_type.StatusCode_BadRequest, "missing headers X-APORETO-KEY or X-APORETO-AUTH"), nil
+	}
+
+	// now we can see if we can decode our claims
+	srcid, scopes, profile, err := s.verifier.ParseToken(aporetoAuth, aporetoKey)
+	if err != nil {
+		zap.L().Debug("ext_authz ingress: failed to parse Aporeto token", zap.String("puID", s.puID), zap.Error(err))
+		flow.DropReason = "failed to parse Aporeto token"
+		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "failed to parse Aporeto token"), nil
+	}
+	zap.L().Debug("ext_authz ingress: parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
+
+	observedPolicy, netPolicy := pctx.SearchRcvRules(policy.NewTagStoreFromSlice(profile))
+	flow.Action = netPolicy.Action
+	flow.PolicyID = netPolicy.PolicyID
+	flow.ObservedAction = observedPolicy.Action
+	flow.ObservedPolicyID = observedPolicy.PolicyID
+
+	if netPolicy.Action.Rejected() {
 		zap.L().Debug("ext_authz ingress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
 
@@ -250,24 +268,6 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.CheckRequest) (*ext_authz_v2.CheckResponse, error) {
 	zap.L().Debug("ext_authz.egressCheck(): checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
-	attrs := checkRequest.GetAttributes()
-	if attrs == nil {
-		return nil, fmt.Errorf("ext_authz egress: missing attributes")
-	}
-	src := attrs.GetSource()
-	if src == nil {
-		return nil, fmt.Errorf("ext_authz egress: missing source in attributes")
-	}
-
-	addr := src.GetAddress()
-	if addr == nil {
-		return nil, fmt.Errorf("ext_authz egress: missing address in source from attributes")
-	}
-	sockAddr := addr.GetSocketAddress()
-	if sockAddr == nil {
-		return nil, fmt.Errorf("ext_authz egress: missing socket address in source from attributes")
-	}
-
 	// get the PU context
 	pctxRaw, err := s.puContexts.Get(s.puID)
 	if err != nil {
@@ -280,26 +280,70 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
 	}
 
+	/*
+		attrs := checkRequest.GetAttributes()
+		if attrs == nil {
+			return nil, fmt.Errorf("ext_authz egress: missing attributes")
+		}
+		src := attrs.GetSource()
+		if src == nil {
+			return nil, fmt.Errorf("ext_authz egress: missing source in attributes")
+		}
+
+		addr := src.GetAddress()
+		if addr == nil {
+			return nil, fmt.Errorf("ext_authz egress: missing address in source from attributes")
+		}
+		sockAddr := addr.GetSocketAddress()
+		if sockAddr == nil {
+			return nil, fmt.Errorf("ext_authz egress: missing socket address in source from attributes")
+		}*/
+
+	var sourceAdress string
+	var source, dest *ext_authz_v2.AttributeContext_Peer
+	var httpReq *ext_authz_v2.AttributeContext_HttpRequest
+	attrs := checkRequest.GetAttributes()
+	if attrs != nil {
+		source = attrs.GetSource()
+		dest = attrs.GetDestination()
+
+		if source != nil {
+			if addr := source.GetAddress(); addr != nil {
+				if sockAddr := addr.GetSocketAddress(); sockAddr != nil {
+					sourceAdress = sockAddr.GetAddress()
+				}
+			}
+		}
+
+		if request := attrs.GetRequest(); request != nil {
+			httpReq = request.GetHttp()
+		}
+	}
+
+	flow := newEgressFlowRecord(s.puID, pctx, source, dest, httpReq)
+	defer s.collector.CollectFlowEvent(flow)
+
 	// build our identity token
 	secrets, unlockSecrets := s.secrets.Secrets()
 	defer unlockSecrets()
 	transmittedKey := secrets.TransmittedKey()
 	token, err := servicetokens.CreateAndSign(
-		sockAddr.GetAddress(),
+		sourceAdress,
 		pctx.Identity().Tags,
 		pctx.Scopes(),
 		pctx.ManagementID(),
 		defaultValidity,
 		secrets.EncodingKey(),
 	)
-
 	if err != nil {
 		zap.L().Error("ext_authz egress: cannot create token", zap.Error(err))
-		return nil, fmt.Errorf("ext_authz egress: cannot create token: %v", err)
+		flow.DropReason = "cannot create Aporeto token"
+		return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "cannot create Aporeto token"), nil
 	}
 
-	zap.L().Debug("ext_authz egress: injecting header", zap.String("puID", s.puID))
 	// now create the response and inject our identity
+	zap.L().Debug("ext_authz egress: injecting header", zap.String("puID", s.puID))
+	flow.Action = policy.Accept
 	return &ext_authz_v2.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.OK),
@@ -338,5 +382,121 @@ func createDeniedCheckResponse(rpcCode rpc.Code, httpCode envoy_type.StatusCode,
 				Body: body,
 			},
 		},
+	}
+}
+
+// newIngressFlowRecord will create the initial flow record for ingress connections
+func newIngressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_authz_v2.AttributeContext_Peer, req *ext_authz_v2.AttributeContext_HttpRequest) *collector.FlowRecord {
+	var uri, method, destIP, srcIP, serviceID string
+	var destPort, srcPort int
+
+	if src != nil {
+		if srcAddr := src.GetAddress(); srcAddr != nil {
+			if srcSockAddr := srcAddr.GetSocketAddress(); srcSockAddr != nil {
+				srcIP = srcSockAddr.GetAddress()
+				srcPort = int(srcSockAddr.GetPortValue())
+			}
+		}
+	}
+
+	if dest != nil {
+		serviceID = dest.GetService()
+		if destAddr := dest.GetAddress(); destAddr != nil {
+			if destSockAddr := destAddr.GetSocketAddress(); destSockAddr != nil {
+				destIP = destSockAddr.GetAddress()
+				destPort = int(destSockAddr.GetPortValue())
+			}
+		}
+	}
+
+	if req != nil {
+		method = req.GetMethod()
+		uri = method + " " + req.GetPath()
+	}
+
+	return &collector.FlowRecord{
+		ContextID: puID,
+		Destination: &collector.EndPoint{
+			ID:         pu.ManagementID(),
+			URI:        uri,    //r.Method + " " + r.RequestURI,
+			HTTPMethod: method, //r.Method,
+			Type:       collector.EnpointTypePU,
+			IP:         destIP,
+			Port:       uint16(destPort),
+		},
+		Source: &collector.EndPoint{
+			Type: collector.EndPointTypeExternalIP,
+			IP:   srcIP,
+			ID:   collector.DefaultEndPoint,
+			Port: uint16(srcPort),
+		},
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
+		PolicyID:    "default",
+		ServiceID:   serviceID,
+		Tags:        pu.Annotations(),
+		Namespace:   pu.ManagementNamespace(),
+		Count:       1,
+	}
+}
+
+// newEgressFlowRecord will create the initial flow record for egress connections
+func newEgressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_authz_v2.AttributeContext_Peer, req *ext_authz_v2.AttributeContext_HttpRequest) *collector.FlowRecord {
+	var serviceID, destIP, srcIP, method, uri string
+	var destPort, srcPort int
+
+	srcIP = "0.0.0.0/0"
+
+	if src != nil {
+		serviceID = src.GetService()
+		if srcAddr := src.GetAddress(); srcAddr != nil {
+			if srcSockAddr := srcAddr.GetSocketAddress(); srcSockAddr != nil {
+				srcIP = srcSockAddr.GetAddress()
+				srcPort = int(srcSockAddr.GetPortValue())
+			}
+		}
+	}
+
+	if dest != nil {
+		if destAddr := dest.GetAddress(); destAddr != nil {
+			if destSockAddr := destAddr.GetSocketAddress(); destSockAddr != nil {
+				destIP = destSockAddr.GetAddress()
+				destPort = int(destSockAddr.GetPortValue())
+			}
+		}
+	}
+
+	if req != nil {
+		method = req.GetMethod()
+		uri = method + " " + req.GetPath()
+	}
+
+	return &collector.FlowRecord{
+		ContextID: puID,
+		Destination: &collector.EndPoint{
+			URI:        uri,
+			HTTPMethod: method,
+			Type:       collector.EndPointTypeExternalIP,
+			Port:       uint16(destPort),
+			IP:         destIP,
+			ID:         collector.DefaultEndPoint,
+		},
+		Source: &collector.EndPoint{
+			Type:       collector.EnpointTypePU,
+			ID:         pu.ManagementID(),
+			IP:         srcIP,
+			Port:       uint16(srcPort),
+			HTTPMethod: method,
+			URI:        uri,
+		},
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
+		ServiceID:   serviceID,
+		Tags:        pu.Annotations(),
+		Namespace:   pu.ManagementNamespace(),
+		PolicyID:    "default",
+		Count:       1,
 	}
 }
