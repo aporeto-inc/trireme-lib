@@ -143,7 +143,7 @@ func (d *Datapath) findPorts() {
 		// check if a PU exists with that contextID and is marked with auto port
 		pu, err := d.puFromContextID.Get(cgroup)
 		if err != nil {
-			zap.L().Debug("autoPortDiscovery: failed to get PU from cgroup", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.Error(err))
+			//zap.L().Debug("autoPortDiscovery: failed to get PU from cgroup", zap.String("cgroupPath", cgroupPath), zap.String("cgroup", cgroup), zap.Error(err))
 			continue
 		}
 		p := pu.(*pucontext.PUContext)

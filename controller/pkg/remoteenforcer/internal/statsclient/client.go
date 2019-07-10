@@ -97,7 +97,7 @@ func (s *statsClient) sendRequest(flows map[string]*collector.FlowRecord, users 
 		&request,
 		&rpcwrapper.Response{},
 	); err != nil {
-		zap.L().Error("RPC failure in sending statistics: Unable to send flows")
+		zap.L().Error("RPC failure in sending statistics: Unable to send flows", zap.Error(err))
 	}
 }
 
