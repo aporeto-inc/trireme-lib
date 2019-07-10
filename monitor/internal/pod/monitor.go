@@ -109,7 +109,19 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	mgr, err := manager.New(m.kubeCfg, manager.Options{})
+	// ensure to run the reset net_cls
+	// NOTE: we also call this during resync, however, that is not called at startup
+	if m.resetNetcls == nil {
+		return errors.New("pod: missing net_cls reset implementation")
+	}
+	if err := m.resetNetcls(ctx); err != nil {
+		return fmt.Errorf("pod: failed to reset net_cls cgroups: %s", err.Error())
+	}
+
+	syncPeriod := time.Second * 30
+	mgr, err := manager.New(m.kubeCfg, manager.Options{
+		SyncPeriod: &syncPeriod,
+	})
 	if err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
