@@ -622,11 +622,6 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Cache the action
 	conn.ReportFlowPolicy = report
-	zap.L().Error("FlowPolicy",
-		zap.String("ObserveActionType", report.ObserveAction.String()),
-		zap.String("ActionType", report.Action.String()),
-		zap.String("POlicyID", report.PolicyID),
-	)
 	conn.PacketFlowPolicy = pkt
 
 	if txLabel == context.ManagementID() {
