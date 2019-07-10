@@ -30,6 +30,7 @@ import (
 type ProxyInfo struct {
 	mutualAuth             bool
 	packetLogs             bool
+	envoyEnforcer          bool
 	Secrets                secrets.Secrets
 	serverID               string
 	validity               time.Duration
@@ -240,7 +241,11 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	}
 
 	// Start the server for statistics collection.
-	go statsServer.StartServer(ctx, "unix", constants.StatsChannel, rpcServer) // nolint
+	if s.envoyEnforcer {
+		go statsServer.StartServer(ctx, "unix", "/var/run/statschannel-envoy.sock", rpcServer) // nolint
+	} else {
+		go statsServer.StartServer(ctx, "unix", constants.StatsChannel, rpcServer) // nolint
+	}
 	return nil
 }
 
@@ -298,6 +303,7 @@ func NewProxyEnforcer(
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
+		envoyEnforcer:          envoyEnforcer,
 		prochdl:                processmon.New(context.Background(), remoteParameters, envoyEnforcer, runtimeError, rpcClient),
 		rpchdl:                 rpcClient,
 		filterQueue:            filterQueue,

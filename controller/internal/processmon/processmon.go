@@ -390,10 +390,14 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 	refNSPath string,
 ) []string {
 
+	statsChannel := constants.StatsChannel
+	if p.envoyEnforcer {
+		statsChannel = "/var/run/statschannel-envoy.sock"
+	}
 	newEnvVars := []string{
 		constants.EnvMountPoint + "=" + procMountPoint,
 		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
-		constants.EnvStatsChannel + "=" + constants.StatsChannel,
+		constants.EnvStatsChannel + "=" + statsChannel,
 		constants.EnvDebugChannel + "=" + constants.DebugChannel,
 		constants.EnvRPCClientSecret + "=" + randomkeystring,
 		constants.EnvStatsSecret + "=" + statsServerSecret,
