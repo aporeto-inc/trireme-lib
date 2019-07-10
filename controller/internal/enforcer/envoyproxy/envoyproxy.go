@@ -112,12 +112,12 @@ func (p *EnvoyProxy) enforceWithContext(ctx context.Context, puID string, puInfo
 	// create a new server if it doesn't exist yet
 	if _, err := p.clients.Get(puID); err != nil {
 		zap.L().Debug("creating new ext_authz servers", zap.String("puID", puID))
-		ingressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.verifier, p, authz.IngressDirection)
+		ingressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.collector, p.verifier, p, authz.IngressDirection)
 		if err != nil {
 			return err
 		}
 
-		egressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.verifier, p, authz.EgressDirection)
+		egressServer, err := authz.NewExtAuthzServer(puID, p.puContexts, p.collector, p.verifier, p, authz.EgressDirection)
 		if err != nil {
 			ingressServer.Stop()
 			return err
