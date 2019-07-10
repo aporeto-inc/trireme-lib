@@ -241,11 +241,17 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	}
 
 	// Start the server for statistics collection.
+	statsChannel := constants.StatsChannel
 	if s.envoyEnforcer {
-		go statsServer.StartServer(ctx, "unix", "/var/run/statschannel-envoy.sock", rpcServer) // nolint
-	} else {
-		go statsServer.StartServer(ctx, "unix", constants.StatsChannel, rpcServer) // nolint
+		statsChannel = "/var/run/statschannel-envoy.sock"
 	}
+	go func() {
+		if err := statsServer.StartServer(ctx, "unix", statsChannel, rpcServer); err != nil {
+			zap.L().Error("failed to start stats server for the enforcer proxy", zap.String("channel", statsChannel), zap.Error(err))
+		} else {
+			zap.L().Debug("successfully started the stats server for the enforcer proxy", zap.String("channel", statsChannel))
+		}
+	}()
 	return nil
 }
 
