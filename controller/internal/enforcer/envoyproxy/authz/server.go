@@ -242,6 +242,7 @@ func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.Ch
 		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "failed to parse Aporeto token"), nil
 	}
 	zap.L().Debug("ext_authz ingress: parsed Aporeto token", zap.String("puID", s.puID), zap.String("srcid", srcid), zap.Strings("scopes", scopes), zap.Strings("profile", profile))
+	flow.Source.ID = srcid
 
 	observedPolicy, netPolicy := pctx.SearchRcvRules(policy.NewTagStoreFromSlice(profile))
 	flow.Action = netPolicy.Action
@@ -305,10 +306,11 @@ func (s *Server) egressCheck(ctx context.Context, checkRequest *ext_authz_v2.Che
 	}
 
 	flow := newEgressFlowRecord(s.puID, pctx, source, dest, httpReq)
-	defer func() {
-		zap.L().Debug("ext_authz egress: collecting flow event", zap.String("puID", s.puID), zap.Any("flow", flow))
-		s.collector.CollectFlowEvent(flow)
-	}()
+	// TODO: only collect the flow when this is an external event
+	//defer func() {
+	//	zap.L().Debug("ext_authz egress: collecting flow event", zap.String("puID", s.puID), zap.Any("flow", flow))
+	//	s.collector.CollectFlowEvent(flow)
+	//}()
 
 	observedPolicy, netPolicy := pctx.SearchTxtRules(policy.NewTagStoreFromSlice(pctx.Identity().Tags), false)
 	flow.Action = netPolicy.Action
@@ -421,7 +423,7 @@ func newIngressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_a
 		},
 		Source: &collector.EndPoint{
 			ID:         collector.DefaultEndPoint,
-			Type:       collector.EnpointTypePU,
+			Type:       collector.EnpointTypePU, // TODO: should actually be collector.EndPointTypeExternalIP
 			IP:         srcIP,
 			Port:       uint16(srcPort),
 			HTTPMethod: method,
@@ -473,7 +475,7 @@ func newEgressFlowRecord(puID string, pu *pucontext.PUContext, src, dest *ext_au
 		ContextID: puID,
 		Destination: &collector.EndPoint{
 			ID:         collector.DefaultEndPoint,
-			Type:       collector.EnpointTypePU,
+			Type:       collector.EndPointTypeExternalIP,
 			IP:         destIP,
 			Port:       uint16(destPort),
 			HTTPMethod: method,
