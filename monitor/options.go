@@ -274,6 +274,13 @@ func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsPr
 	}
 }
 
+// SubOptionMonitorPodResetNetcls provides a way to reset all net_cls cgroups on resync
+func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.ResetNetcls = resetnetcls
+	}
+}
+
 // OptionMergeTags provides a way to add merge tags to be used with New().
 func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
