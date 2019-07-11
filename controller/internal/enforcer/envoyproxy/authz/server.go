@@ -178,7 +178,7 @@ func (s *Server) Check(ctx context.Context, checkRequest *ext_authz_v2.CheckRequ
 // ingressCheck implements the AuthorizationServer for ingress connections
 func (s *Server) ingressCheck(ctx context.Context, checkRequest *ext_authz_v2.CheckRequest) (*ext_authz_v2.CheckResponse, error) {
 	// TODO: needs to be removed before we merge: this exposes secret data, and must never be in real logs - even in the debug case
-	zap.L().Debug("ext_authz ingress: checkRequest", zap.String("puID", s.puID))
+	zap.L().Debug("ext_authz ingress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
 	// get the PU context
 	pctxRaw, err := s.puContexts.Get(s.puID)
