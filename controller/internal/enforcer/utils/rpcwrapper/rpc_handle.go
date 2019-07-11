@@ -142,7 +142,7 @@ func NewRPCServer() RPCServer {
 }
 
 // StartServer Starts a server and waits for new connections this function never returns
-func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path string, handler interface{}) error {
+func (r *RPCWrapper) StartServer(ctx context.Context, protocol, path string, handler interface{}) error {
 
 	if len(path) == 0 {
 		zap.L().Fatal("Sock param not passed in environment")
@@ -152,10 +152,12 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	RegisterTypes()
 
 	// Register handlers
-	if err := rpc.Register(handler); err != nil {
+	s := rpc.NewServer()
+	if err := s.Register(handler); err != nil {
 		return err
 	}
-	rpc.HandleHTTP()
+	m := http.NewServeMux()
+	m.Handle(rpc.DefaultRPCPath, s)
 
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
@@ -173,7 +175,11 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 		return err
 	}
 
-	go http.Serve(listen, nil) // nolint
+	go func() {
+		if err := http.Serve(listen, m); err != nil {
+			zap.L().Error("failed to start RPC server", zap.String("path", path), zap.Error(err))
+		}
+	}()
 
 	<-ctx.Done()
 

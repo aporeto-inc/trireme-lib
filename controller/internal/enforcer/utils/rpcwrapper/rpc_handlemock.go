@@ -18,7 +18,7 @@ type mockedMethods struct {
 	GetRPCClientMock     func(contextID string) (*RPCHdl, error)
 	RemoteCallMock       func(contextID string, methodName string, req *Request, resp *Response) error
 	DestroyRPCClientMock func(contextID string)
-	StartServerMock      func(ctx context.Context, protocol string, path string, handler interface{}) error
+	StartServerMock      func(ctx context.Context, protocol, path string, handler interface{}) error
 	ProcessMessageMock   func(req *Request, secret string) bool
 	ContextListMock      func() []string
 	CheckValidityMock    func(req *Request, secret string) bool
@@ -38,7 +38,7 @@ type TestRPCClient interface {
 // TestRPCServer is a RPC Server used for test
 type TestRPCServer interface {
 	RPCServer
-	MockStartServer(t *testing.T, impl func(ctx context.Context, protocol string, path string, handler interface{}) error)
+	MockStartServer(t *testing.T, impl func(ctx context.Context, protocol, path string, handler interface{}) error)
 	MockProcessMessage(t *testing.T, impl func(req *Request, secret string) bool)
 	MockCheckValidity(t *testing.T, impl func(req *Request, secret string) bool)
 }
@@ -86,7 +86,7 @@ func (m *testRPC) MockDestroyRPCClient(t *testing.T, impl func(contextID string)
 }
 
 // MockStartServer mocks the StartServer function
-func (m *testRPC) MockStartServer(t *testing.T, impl func(ctx context.Context, protocol string, path string, handler interface{}) error) {
+func (m *testRPC) MockStartServer(t *testing.T, impl func(ctx context.Context, protocol, path string, handler interface{}) error) {
 	m.currentMocks(t).StartServerMock = impl
 
 }
@@ -147,7 +147,7 @@ func (m *testRPC) CheckValidity(req *Request, secret string) bool {
 }
 
 // StartServer implements the interface with a mock
-func (m *testRPC) StartServer(ctx context.Context, protocol string, path string, handler interface{}) error {
+func (m *testRPC) StartServer(ctx context.Context, protocol, path string, handler interface{}) error {
 	if mock := m.currentMocks(nil); mock != nil && mock.StartServerMock != nil {
 		return mock.StartServerMock(ctx, protocol, path, handler)
 	}

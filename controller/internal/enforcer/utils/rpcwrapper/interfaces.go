@@ -14,7 +14,7 @@ type RPCClient interface {
 
 // RPCServer is the server interface
 type RPCServer interface {
-	StartServer(ctx context.Context, protocol string, path string, handler interface{}) error
+	StartServer(ctx context.Context, protocol, path string, handler interface{}) error
 	ProcessMessage(req *Request, secret string) bool
 	CheckValidity(req *Request, secret string) bool
 }
