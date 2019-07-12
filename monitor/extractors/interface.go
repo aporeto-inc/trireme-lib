@@ -24,3 +24,7 @@ type PodMetadataExtractor func(context.Context, client.Client, *runtime.Scheme, 
 // PodNetclsProgrammer is a function used to program the net_cls cgroup of a pod for Trireme.
 // This has to be used when Trireme is used in conjunction with pods that are in HostNetwork=true mode.
 type PodNetclsProgrammer func(context.Context, *corev1.Pod, policy.RuntimeReader) error
+
+// ResetNetclsKubepods is a function which must implement to reset all netcls cgroup programming of Trireme.
+// It is called during Resync events in monitors and guarantees a fresh slate for the monitors for Kubernetes.
+type ResetNetclsKubepods func(context.Context) error
