@@ -15,8 +15,8 @@
 void nsexec(void) {
 
   int fd = 0;
-  char path[STRBUF_SIZE];
-  char msg[STRBUF_SIZE];
+  char path[STRBUF_SIZE*2]={0};
+  char msg[STRBUF_SIZE*4];
   char mountpoint[STRBUF_SIZE] = {0};
   char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
   char *netns_path_env = getenv("TRIREME_ENV_NS_PATH");
@@ -29,9 +29,9 @@ void nsexec(void) {
   if(netns_path_env == NULL){
     // This means the PID Needs to be used to determine the NetNsPath.
     if(proc_mountpoint == NULL){
-      strncpy(mountpoint, "/proc", strlen("/proc"));
+      strncpy(mountpoint, "/proc", strlen("/proc")+1);
     }else{
-      strncpy(mountpoint, proc_mountpoint, STRBUF_SIZE);
+      strncpy(mountpoint, proc_mountpoint, STRBUF_SIZE-1);
     }
     // Setup proc symlink
     snprintf(path, sizeof(path), "%s/%s/ns/net", mountpoint, container_pid_env);
