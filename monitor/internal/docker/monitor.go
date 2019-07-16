@@ -643,9 +643,13 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 
 	if d.dockerClient == nil {
 		// Initialize client
-		if d.dockerClient, err = initDockerClient(d.socketType, d.socketAddress); err != nil {
+		dockerClient, err := initDockerClient(d.socketType, d.socketAddress)
+		if err != nil {
+			// Reset this here since the interface = nil check will fail later this is partly initialized.
+			// cheaper than doing reflect and check later
 			return err
 		}
+		d.dockerClient = dockerClient
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), dockerPingTimeout)
