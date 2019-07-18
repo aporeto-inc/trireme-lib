@@ -227,8 +227,6 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 		Filters: f,
 	}
 
-	messages, errs := d.dockerClient.Events(context.Background(), options)
-
 	// Once the buffered event channel was returned by Docker we return the ready status.
 	listenerReady <- struct{}{}
 
