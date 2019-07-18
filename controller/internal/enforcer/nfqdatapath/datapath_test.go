@@ -70,7 +70,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	serverID := testServerID
 
 	// Create ProcessingUnit 1
-	puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+	puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 	ip1 := policy.ExtendedMap{}
 	ip1["bridge"] = puIP1
@@ -81,7 +81,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
-	puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+	puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 
 	ip2 := policy.ExtendedMap{"bridge": puIP2}
 	puInfo2.Runtime.SetIPAddresses(ip2)
@@ -123,10 +123,13 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		if targetNetExternal {
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
 		} else {
+
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		}
+
 		enforcer.packetLogs = true
 		err1 = enforcer.Enforce(puID1, puInfo1)
+
 		err2 = enforcer.Enforce(puID2, puInfo2)
 	}
 
@@ -152,7 +155,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 
 				tcpPacket, err := packet.New(0, synPacket, "0", true)
 				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateIPv4Checksum()
 					tcpPacket.UpdateTCPChecksum()
 				}
 				_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
@@ -175,7 +178,7 @@ func TestEnforcerExternalNetworks(t *testing.T) {
 			}}
 
 			contextID := "123456"
-			puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+			puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 			context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
 			So(err, ShouldBeNil)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
@@ -246,7 +249,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", "/ns2", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
@@ -322,7 +325,7 @@ func TestEnforcerConnUnknownState(t *testing.T) {
 				tcpPacketCopy := *tcpPacket
 
 				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateIPv4Checksum()
 					tcpPacket.UpdateTCPChecksum()
 				}
 
@@ -352,7 +355,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
 		So(err, ShouldBeNil)
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", "/ns2", common.LinuxProcessPU)
 
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -434,7 +437,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 						So(err, ShouldBeNil)
 						oldPacket, err := packet.New(0, oldPacketFromFlow, "0", true)
 						if err == nil && oldPacket != nil {
-							oldPacket.UpdateIPChecksum()
+							oldPacket.UpdateIPv4Checksum()
 							oldPacket.UpdateTCPChecksum()
 						}
 
@@ -442,7 +445,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 						So(err, ShouldBeNil)
 						tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 
@@ -541,14 +544,14 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, oldPacketFromFlow, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 							if debug {
@@ -627,14 +630,14 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, oldPacketFromFlow, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 							if debug {
@@ -729,14 +732,14 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 					So(err, ShouldBeNil)
 					oldPacket, err := packet.New(0, oldPacketFromFlow, "0", true)
 					if err == nil && oldPacket != nil {
-						oldPacket.UpdateIPChecksum()
+						oldPacket.UpdateIPv4Checksum()
 						oldPacket.UpdateTCPChecksum()
 					}
 					tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
 					So(err, ShouldBeNil)
 					tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0", true)
 					if err == nil && tcpPacket != nil {
-						tcpPacket.UpdateIPChecksum()
+						tcpPacket.UpdateIPv4Checksum()
 						tcpPacket.UpdateTCPChecksum()
 					}
 
@@ -810,7 +813,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 
@@ -836,7 +839,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -857,7 +860,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -882,7 +885,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						So(err, ShouldBeNil)
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -902,7 +905,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -921,7 +924,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -957,7 +960,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 
@@ -983,7 +986,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -1004,7 +1007,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -1030,7 +1033,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -1050,7 +1053,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -1069,7 +1072,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						tcpPacket, err = packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 						_, err = enforcer.processApplicationTCPPackets(tcpPacket)
@@ -1163,12 +1166,12 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 					oldPacket, err := packet.New(0, start, "0", true)
 					if err == nil && oldPacket != nil {
-						oldPacket.UpdateIPChecksum()
+						oldPacket.UpdateIPv4Checksum()
 						oldPacket.UpdateTCPChecksum()
 					}
 					tcpPacket, err := packet.New(0, input, "0", true)
 					if err == nil && tcpPacket != nil {
-						tcpPacket.UpdateIPChecksum()
+						tcpPacket.UpdateIPv4Checksum()
 						tcpPacket.UpdateTCPChecksum()
 					}
 					if debug {
@@ -1257,7 +1260,7 @@ func TestCacheState(t *testing.T) {
 		enforcer.packetLogs = true
 		contextID := "123"
 
-		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.ContainerPU)
 
 		// Should fail: Not in cache
 		err = enforcer.Unenforce(contextID)
@@ -1316,7 +1319,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "124"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 
 		spec, _ := portspec.NewPortSpecFromString("80", nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
@@ -1362,7 +1365,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "125"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 
 		Convey("When I create a new PU without ports or mark", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1395,7 +1398,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "126"
-		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.ContainerPU)
 
 		Convey("When I create a new PU without an IP", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1427,7 +1430,7 @@ func TestContextFromIP(t *testing.T) {
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.packetLogs = true
 
-		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
+		puInfo := policy.NewPUInfo("SomePU", "/ns", common.ContainerPU)
 
 		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
 		contextID := "AporetoContext"
@@ -1605,14 +1608,14 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -1755,14 +1758,14 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -1887,14 +1890,14 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -2035,14 +2038,14 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -2187,7 +2190,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
@@ -2195,7 +2198,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -2340,14 +2343,14 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -2500,14 +2503,14 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 
 							}
@@ -2708,14 +2711,14 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, input, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							start, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, start, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 
 							}
@@ -2841,14 +2844,14 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 
 							}
@@ -2995,7 +2998,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
@@ -3003,7 +3006,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -3115,14 +3118,14 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -3267,14 +3270,14 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -3447,14 +3450,14 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -3483,7 +3486,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								contextID := "123456"
-								puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+								puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 								context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
 								So(err, ShouldBeNil)
 								enforcer.puFromContextID.AddOrUpdate(contextID, context)
@@ -3622,7 +3625,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
@@ -3630,7 +3633,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -3779,14 +3782,14 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 
 							}
@@ -3940,14 +3943,14 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 
 							}
@@ -4102,7 +4105,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							oldPacket, err := packet.New(0, start, "0", true)
 							oldPacket.Print(123456)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
@@ -4110,7 +4113,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -4215,14 +4218,14 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
 							if err == nil && oldPacket != nil {
-								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							tcpPacket, err := packet.New(0, input, "0", true)
 							if err == nil && tcpPacket != nil {
-								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateIPv4Checksum()
 								tcpPacket.UpdateTCPChecksum()
 							}
 
@@ -4309,7 +4312,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			serverID := testServerID
 
 			// Create ProcessingUnit 1
-			puInfo1 := policy.NewPUInfo(puID1, common.ContainerPU)
+			puInfo1 := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 			ip1 := policy.ExtendedMap{}
 			ip1["bridge"] = puIP1
@@ -4320,7 +4323,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo1.Policy.AddReceiverRules(tagSelector)
 
 			// Create processing unit 2
-			puInfo2 := policy.NewPUInfo(puID2, common.ContainerPU)
+			puInfo2 := policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 			ip2 := policy.ExtendedMap{"bridge": puIP2}
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4350,7 +4353,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 				So(err, ShouldBeNil)
 				oldPacket, err := packet.New(0, start, "0", true)
 				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
+					oldPacket.UpdateIPv4Checksum()
 					oldPacket.UpdateTCPChecksum()
 				}
 
@@ -4358,7 +4361,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 				So(err, ShouldBeNil)
 				tcpPacket, err := packet.New(0, input, "0", true)
 				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateIPv4Checksum()
 					tcpPacket.UpdateTCPChecksum()
 				}
 
@@ -4441,7 +4444,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := testServerID
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4452,7 +4455,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4503,7 +4506,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := testServerID
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4514,7 +4517,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, "/ns2", common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4551,14 +4554,14 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						So(err, ShouldBeNil)
 						oldPacket, err := packet.New(0, start, "0", true)
 						if err == nil && oldPacket != nil {
-							oldPacket.UpdateIPChecksum()
+							oldPacket.UpdateIPv4Checksum()
 							oldPacket.UpdateTCPChecksum()
 						}
 						input, err := PacketFlow.GetNthPacket(i).ToBytes()
 						So(err, ShouldBeNil)
 						tcpPacket, err := packet.New(0, input, "0", true)
 						if err == nil && tcpPacket != nil {
-							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateIPv4Checksum()
 							tcpPacket.UpdateTCPChecksum()
 						}
 
@@ -4647,7 +4650,7 @@ func TestDNS(t *testing.T) {
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
 		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
+		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
@@ -4671,7 +4674,7 @@ func TestDNS(t *testing.T) {
 
 		tcpPacket, err := packet.New(0, synPacket, "0", true)
 		if err == nil && tcpPacket != nil {
-			tcpPacket.UpdateIPChecksum()
+			tcpPacket.UpdateIPv4Checksum()
 			tcpPacket.UpdateTCPChecksum()
 		}
 		_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
@@ -4728,7 +4731,7 @@ func TestDNSWithError(t *testing.T) {
 		puID1 := "SomePU"
 		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
 		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
+		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
 		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
 			Name:     externalFQDN,
 			Port:     "80",
@@ -4753,7 +4756,7 @@ func TestDNSWithError(t *testing.T) {
 
 		tcpPacket, err := packet.New(0, synPacket, "0", true)
 		if err == nil && tcpPacket != nil {
-			tcpPacket.UpdateIPChecksum()
+			tcpPacket.UpdateIPv4Checksum()
 			tcpPacket.UpdateTCPChecksum()
 		}
 		_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
@@ -4786,7 +4789,7 @@ func TestPUPortCreation(t *testing.T) {
 
 		enforcer.mode = constants.LocalServer
 		contextID := "1001"
-		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 		})
@@ -4882,6 +4885,7 @@ func TestCollectTCPPacket(t *testing.T) {
 
 func TestEnableDatapathPacketTracing(t *testing.T) {
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+
 		puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
@@ -4891,6 +4895,49 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestCheckConnectionDeletion(t *testing.T) {
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		_, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, "container", true)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+
+		// //enforcer.service = &dummyService{}
+		PacketFlow := packetgen.NewTemplateFlow()
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0", true)
+		So(err, ShouldBeNil)
+		conn := &connection.TCPConnection{
+			ServiceConnection: true,
+			MarkForDeletion:   true,
+		}
+		hash := tcpPacket.L4FlowHash()
+		err = enforcer.appOrigConnectionTracker.Add(conn, hash)
+		So(err, ShouldBeNil)
+		conn1, err := enforcer.appSynRetrieveState(tcpPacket)
+		So(err, ShouldBeNil)
+		So(conn1.MarkForDeletion, ShouldBeFalse)
+		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
+		err = enforcer.netOrigConnectionTracker.Add(conn, hash)
+		So(err, ShouldBeNil)
+		conn1, err = enforcer.netSynRetrieveState(tcpPacket)
+		So(err, ShouldBeNil)
+		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
+
+		synAckPacket, err := PacketFlow.GetFirstSynAckPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpSynAckPacket, err := packet.New(0, synAckPacket, "0", true)
+		So(err, ShouldBeNil)
+		err = enforcer.sourcePortConnectionCache.Add(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+		So(err, ShouldBeNil)
+		_, err = enforcer.netSynAckRetrieveState(tcpSynAckPacket)
+		So(err, ShouldNotBeNil)
+
 	})
 }
 

@@ -82,6 +82,10 @@ type ACLInfo struct {
 	TargetUDPNetSet       string
 	ExclusionsSet         string
 
+	// IPv4 IPv6
+	DefaultIP     string
+	needICMPRules bool
+
 	// UDP rules
 	Numpackets   string
 	InitialCount string
@@ -128,10 +132,12 @@ func chainName(contextID string, version int) (app, net string, err error) {
 	return app, net, nil
 }
 
-func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
+func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
 
 	var appChain, netChain string
 	var err error
+
+	ipsetPrefix := i.impl.GetIPSetPrefix()
 
 	if contextID != "" {
 		appChain, netChain, err = chainName(contextID, version)
@@ -150,7 +156,8 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		uid = p.Runtime.Options().UserID
 	}
 
-	proxySetName := puPortSetName(contextID, proxyPortSetPrefix)
+	proxyPrefix := ipsetPrefix + proxyPortSetPrefix
+	proxySetName := puPortSetName(contextID, proxyPrefix)
 	destSetName, srvSetName := i.getSetNames(proxySetName)
 
 	appSection := ""
@@ -209,9 +216,13 @@ func (i *Instance) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		QueueBalanceNetAck:    i.fqc.GetNetworkQueueAckStr(),
 		InitialMarkVal:        strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
-		TargetTCPNetSet:       targetTCPNetworkSet,
-		TargetUDPNetSet:       targetUDPNetworkSet,
-		ExclusionsSet:         excludedNetworkSet,
+		TargetTCPNetSet:       ipsetPrefix + targetTCPNetworkSet,
+		TargetUDPNetSet:       ipsetPrefix + targetUDPNetworkSet,
+		ExclusionsSet:         ipsetPrefix + excludedNetworkSet,
+
+		// IPv4 vs IPv6
+		DefaultIP:     i.impl.GetDefaultIP(),
+		needICMPRules: i.impl.NeedICMP(),
 
 		// UDP rules
 		Numpackets:   numPackets,

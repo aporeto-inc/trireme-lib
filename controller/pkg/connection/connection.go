@@ -148,6 +148,10 @@ type TCPConnection struct {
 
 	// PacketFlowPolicy holds the last matched actual policy
 	PacketFlowPolicy *policy.FlowPolicy
+
+	// MarkForDeletion -- this is is used only in conjunction with serviceconnection. Its a hint for us if we have a fin for an earlier connection
+	// and this is reused port flow.
+	MarkForDeletion bool
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

@@ -27,6 +27,7 @@ type PodMonitor struct {
 	handlers          *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
 	netclsProgrammer  extractors.PodNetclsProgrammer
+	resetNetcls       extractors.ResetNetclsKubepods
 	enableHostPods    bool
 	kubeCfg           *rest.Config
 	kubeClient        client.Client
@@ -83,12 +84,17 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		return fmt.Errorf("missing net_cls programmer")
 	}
 
+	if kubernetesconfig.ResetNetcls == nil {
+		return fmt.Errorf("missing reset net_cls implementation")
+	}
+
 	// Setting up Kubernetes
 	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.metadataExtractor = kubernetesconfig.MetadataExtractor
 	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
+	m.resetNetcls = kubernetesconfig.ResetNetcls
 
 	return nil
 }
@@ -103,12 +109,31 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	mgr, err := manager.New(m.kubeCfg, manager.Options{})
+	// ensure to run the reset net_cls
+	// NOTE: we also call this during resync, however, that is not called at startup
+	if m.resetNetcls == nil {
+		return errors.New("pod: missing net_cls reset implementation")
+	}
+	if err := m.resetNetcls(ctx); err != nil {
+		return fmt.Errorf("pod: failed to reset net_cls cgroups: %s", err.Error())
+	}
+
+	syncPeriod := time.Second * 30
+	mgr, err := manager.New(m.kubeCfg, manager.Options{
+		SyncPeriod: &syncPeriod,
+	})
 	if err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods)
+	// Create the delete event controller first
+	dc := NewDeleteController(mgr.GetClient(), m.handlers)
+	if err := mgr.Add(dc); err != nil {
+		return fmt.Errorf("pod: %s", err.Error())
+	}
+
+	// Create the main controller for the monitor
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
 	if err := addController(mgr, r, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
@@ -158,6 +183,12 @@ func (m *PodMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *PodMonitor) Resync(ctx context.Context) error {
+	if m.resetNetcls != nil {
+		if err := m.resetNetcls(ctx); err != nil {
+			return err
+		}
+	}
+
 	if m.kubeClient == nil {
 		return errors.New("pod: client has not been initialized yet")
 	}

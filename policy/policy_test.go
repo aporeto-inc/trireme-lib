@@ -11,7 +11,7 @@ func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.applicationACLs, ShouldNotBeNil)
@@ -74,7 +74,8 @@ func TestNewPolicy(t *testing.T) {
 			ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
 
 			p := NewPUPolicy(
-				"id1",
+				"id",
+				"/abc",
 				AllowAll,
 				IPRuleList{appACL},
 				IPRuleList{netACL},
@@ -172,7 +173,8 @@ func TestFuncClone(t *testing.T) {
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
 
 		d := NewPUPolicy(
-			"id1",
+			"id",
+			"/abc",
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
@@ -256,6 +258,7 @@ func TestAllLockedSetGet(t *testing.T) {
 
 		p := NewPUPolicy(
 			"id1",
+			"/abc",
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
@@ -274,6 +277,11 @@ func TestAllLockedSetGet(t *testing.T) {
 		Convey("I should be able to retrieve the management ID ", func() {
 			id := p.ManagementID()
 			So(id, ShouldResemble, "id1")
+		})
+
+		Convey("I should be able to retrieve the management namespace ", func() {
+			ns := p.ManagementNamespace()
+			So(ns, ShouldResemble, "/abc")
 		})
 
 		Convey("I should be able to retrieve the Action", func() {
@@ -309,7 +317,7 @@ func TestAllLockedSetGet(t *testing.T) {
 			So(p.Annotations(), ShouldResemble, annotations)
 		})
 
-		Convey("I should be able to retrive the IPAddresses", func() {
+		Convey("I should be able to retrieve the IPAddresses", func() {
 			So(p.IPAddresses(), ShouldResemble, ips)
 		})
 
@@ -358,8 +366,8 @@ func TestAllLockedSetGet(t *testing.T) {
 
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
-		puInfor := NewPUInfo("123", common.ContainerPU)
-		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+		puInfor := NewPUInfo("123", "/abc", common.ContainerPU)
+		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
 		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")

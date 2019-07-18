@@ -52,6 +52,7 @@ func newAppConnectionState(nativeID, serviceID string, p *pucontext.PUContext, r
 			ServiceType: policy.ServiceHTTP,
 			ServiceID:   serviceID,
 			Tags:        p.Annotations(),
+			Namespace:   p.ManagementNamespace(),
 			PolicyID:    "default",
 			Count:       1,
 		},
@@ -83,6 +84,7 @@ func newNetworkConnectionState(nativeID string, pctx *serviceregistry.PortContex
 			PolicyID:    "default",
 			ServiceID:   pctx.Service.ID,
 			Tags:        pctx.PUContext.Annotations(),
+			Namespace:   pctx.PUContext.ManagementNamespace(),
 			Count:       1,
 		},
 	}
