@@ -221,12 +221,6 @@ func (d *DockerMonitor) eventProcessors(ctx context.Context) {
 // that we will miss events because the processor is delayed
 func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan struct{}) {
 
-	f := filters.NewArgs()
-	f.Add("type", "container")
-	options := types.EventsOptions{
-		Filters: f,
-	}
-
 	// Once the buffered event channel was returned by Docker we return the ready status.
 	listenerReady <- struct{}{}
 
