@@ -693,3 +693,19 @@ func TestWaitForDockerDaemon(t *testing.T) {
 		cancel()
 	})
 }
+
+func TestSetupDockerDaemon(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("If setupDockerdaemon returns an error dockerClient is nil", t, func() {
+
+		dmi, _ := setupDockerMonitor(ctrl)
+		dmi.dockerClient = nil
+		dmi.socketType = "invalid"
+		err := dmi.setupDockerDaemon()
+		So(err, ShouldNotBeNil)
+		So(dmi.dockerClient, ShouldBeNil)
+
+	})
+}
