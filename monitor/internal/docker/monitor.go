@@ -233,6 +233,29 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 	listenerReady <- struct{}{}
 
 	for {
+		if d.dockerClient == nil {
+			zap.L().Debug("Trying to setup docker daemon")
+			if err := d.setupDockerDaemon(); err != nil {
+				d.dockerClient = nil
+				continue
+			}
+			// We are here means the docker daemon restarted. we need to resync
+			d.Resync(ctx)
+		}
+		d.listener(ctx)
+
+	}
+}
+
+func (d *DockerMonitor) listener(ctx context.Context) {
+	f := filters.NewArgs()
+	f.Add("type", "container")
+	options := types.EventsOptions{
+		Filters: f,
+	}
+
+	messages, errs := d.dockerClient.Events(context.Background(), options)
+	for {
 		select {
 		case message := <-messages:
 			zap.L().Debug("Got message from docker client",
@@ -247,10 +270,14 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 					zap.Error(err),
 				)
 			}
+			d.dockerClient = nil
+			return
+
 		case <-ctx.Done():
 			return
 		}
 	}
+
 }
 
 // Resync resyncs all the existing containers on the Host, using the
