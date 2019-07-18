@@ -12,6 +12,7 @@ type Config struct { // nolint
 
 	MetadataExtractor extractors.PodMetadataExtractor
 	NetclsProgrammer  extractors.PodNetclsProgrammer
+	ResetNetcls       extractors.ResetNetclsKubepods
 }
 
 // DefaultConfig provides a default configuration
@@ -19,6 +20,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		MetadataExtractor: nil,
 		NetclsProgrammer:  nil,
+		ResetNetcls:       nil,
 		EnableHostPods:    false,
 		Kubeconfig:        "",
 		Nodename:          "",
