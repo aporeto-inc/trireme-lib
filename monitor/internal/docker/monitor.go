@@ -232,7 +232,9 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 				continue
 			}
 			// We are here means the docker daemon restarted. we need to resync
-			d.Resync(ctx)
+			if err := d.Resync(ctx);err != nil{
+				zap.L().Error("Unable to resync containers after reconnecting to docker daemon",zap.Error(err))
+			}
 		}
 		d.listener(ctx)
 
