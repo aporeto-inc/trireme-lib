@@ -350,7 +350,7 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 		case pu := <-d.puCountersChannel:
 			counters := pu.GetErrorCounters()
 			d.collector.CollectCounterEvent(&collector.CounterReport{
-				ContextID: pu.ID(),
+				ContextID: pu.ManagementID(),
 				Counters:  counters,
 				Namespace: pu.ManagementNamespace(),
 			})
