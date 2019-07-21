@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/dchest/siphash"
@@ -43,7 +44,7 @@ type DockerMonitor struct {
 	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
 	syncAtStart                bool
-	dockerClientLock sync.Lock
+	dockerClientLock           sync.Mutex
 }
 
 // New returns a new docker monitor.
@@ -106,7 +107,7 @@ func (d *DockerMonitor) setDockerClient(client dockerClient.CommonAPIClient) {
 	d.dockerClientLock.Lock()
 	d.dockerClient = client
 	d.dockerClientLock.Unlock()
-	
+
 }
 
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
