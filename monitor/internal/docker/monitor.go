@@ -31,7 +31,7 @@ import (
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.
 type DockerMonitor struct {
-	dockerClient               dockerClient.CommonAPIClient
+	client                     dockerClient.CommonAPIClient
 	socketType                 string
 	socketAddress              string
 	metadataExtractor          extractors.DockerMetadataExtractor
@@ -100,12 +100,12 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 func (d *DockerMonitor) dockerClient() dockerClient.CommonAPIClient {
 	d.dockerClientLock.Lock()
 	defer d.dockerClientLock.Unlock()
-	return d.dockerClient
+	return d.client
 }
 
 func (d *DockerMonitor) setDockerClient(client dockerClient.CommonAPIClient) {
 	d.dockerClientLock.Lock()
-	d.dockerClient = client
+	d.client = client
 	d.dockerClientLock.Unlock()
 
 }
