@@ -43,6 +43,7 @@ type DockerMonitor struct {
 	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
 	syncAtStart                bool
+	dockerClientLock sync.Lock
 }
 
 // New returns a new docker monitor.
@@ -95,6 +96,19 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	return nil
 }
 
+func (d *DockerMonitor) dockerClient() dockerClient.CommonAPIClient {
+	d.dockerClientLock.Lock()
+	defer d.dockerClientLock.Unlock()
+	return d.dockerClient
+}
+
+func (d *DockerMonitor) setDockerClient(client dockerClient.CommonAPIClient) {
+	d.dockerClientLock.Lock()
+	d.dockerClient = client
+	d.dockerClientLock.Unlock()
+	
+}
+
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
@@ -128,7 +142,7 @@ func (d *DockerMonitor) initMonitor(ctx context.Context) error {
 	if d.syncAtStart && d.config.Policy != nil {
 
 		options := types.ContainerListOptions{All: true}
-		containers, err := d.dockerClient.ContainerList(ctx, options)
+		containers, err := d.dockerClient().ContainerList(ctx, options)
 		if err != nil {
 			return fmt.Errorf("unable to get container list: %s", err)
 		}
@@ -225,10 +239,10 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 	listenerReady <- struct{}{}
 
 	for {
-		if d.dockerClient == nil {
+		if d.dockerClient() == nil {
 			zap.L().Debug("Trying to setup docker daemon")
 			if err := d.setupDockerDaemon(); err != nil {
-				d.dockerClient = nil
+				d.setDockerClient(nil)
 				continue
 			}
 			// We are here means the docker daemon restarted. we need to resync
@@ -248,7 +262,7 @@ func (d *DockerMonitor) listener(ctx context.Context) {
 		Filters: f,
 	}
 
-	messages, errs := d.dockerClient.Events(context.Background(), options)
+	messages, errs := d.dockerClient().Events(context.Background(), options)
 	for {
 		select {
 		case message := <-messages:
@@ -264,7 +278,7 @@ func (d *DockerMonitor) listener(ctx context.Context) {
 					zap.Error(err),
 				)
 			}
-			d.dockerClient = nil
+			d.setDockerClient(nil)
 			return
 
 		case <-ctx.Done():
@@ -286,7 +300,7 @@ func (d *DockerMonitor) Resync(ctx context.Context) error {
 	zap.L().Debug("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
-	containers, err := d.dockerClient.ContainerList(ctx, options)
+	containers, err := d.dockerClient().ContainerList(ctx, options)
 	if err != nil {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
@@ -312,7 +326,7 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 //container.HostConfig.NetworkMode == constants.DockerHostMode
 func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers []types.Container, syncHost bool) error {
 	for _, c := range containers {
-		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
+		container, err := d.dockerClient().ContainerInspect(ctx, c.ID)
 		if err != nil {
 			continue
 		}
@@ -412,12 +426,12 @@ func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo policy.RuntimeRea
 
 func (d *DockerMonitor) retrieveDockerInfo(ctx context.Context, event *events.Message) (*types.ContainerJSON, error) {
 
-	info, err := d.dockerClient.ContainerInspect(ctx, event.ID)
+	info, err := d.dockerClient().ContainerInspect(ctx, event.ID)
 	if err != nil {
 		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
 		if d.killContainerOnPolicyError {
 			timeout := 0 * time.Second
-			if err1 := d.dockerClient.ContainerStop(ctx, event.ID, &timeout); err1 != nil {
+			if err1 := d.dockerClient().ContainerStop(ctx, event.ID, &timeout); err1 != nil {
 				zap.L().Warn("Unable to stop illegal container",
 					zap.String("dockerID", event.ID),
 					zap.Error(err1),
@@ -523,7 +537,7 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
 			timeout := 0 * time.Second
-			if err1 := d.dockerClient.ContainerStop(ctx, event.ID, &timeout); err1 != nil {
+			if err1 := d.dockerClient().ContainerStop(ctx, event.ID, &timeout); err1 != nil {
 				zap.L().Warn("Unable to stop illegal container",
 					zap.String("dockerID", event.ID),
 					zap.Error(err1),
@@ -662,7 +676,7 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 
 func (d *DockerMonitor) setupDockerDaemon() (err error) {
 
-	if d.dockerClient == nil {
+	if d.dockerClient() == nil {
 		// Initialize client
 		dockerClient, err := initDockerClient(d.socketType, d.socketAddress)
 		if err != nil {
@@ -670,13 +684,13 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 			// cheaper than doing reflect and check later
 			return err
 		}
-		d.dockerClient = dockerClient
+		d.setDockerClient(dockerClient)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), dockerPingTimeout)
 	defer cancel()
 
-	_, err = d.dockerClient.Ping(ctx)
+	_, err = d.dockerClient().Ping(ctx)
 	return err
 }
 
