@@ -93,6 +93,11 @@ type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
 }
 
+// CounterReportPayload is the counter report from remote enforcer
+type CounterReportPayload struct {
+	CounterReports []*collector.CounterReport
+}
+
 //SetTargetNetworksPayload carries the payload for target networks
 type SetTargetNetworksPayload struct {
 	Configuration *runtime.Configuration `json:",omitempty"`
