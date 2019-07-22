@@ -134,6 +134,9 @@ var acls = `
 
 // packetCaptureTemplate are the rules that trap traffic towards the user space.
 var packetCaptureTemplate = `
+{{if needICMP}}
+{{.MangleTable}} {{.AppChain}} -p icmpv6 -j ACCEPT
+{{end}}
 {{if needDnsRules}}
 {{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
 {{end}}
@@ -145,9 +148,12 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
-{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
-{{.MangleTable}} {{.AppChain}} -d 0.0.0.0/0 -j DROP
+{{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -m state --state NEW -j NFLOG  --nflog-group 10 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -j DROP
 
+{{if needICMP}}
+{{.MangleTable}} {{.NetChain}} -p icmpv6 -j ACCEPT
+{{end}}
 {{if needDnsRules}}
 {{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
 {{end}}
@@ -156,10 +162,10 @@ var packetCaptureTemplate = `
 {{if isUIDProcess}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}}
 {{end}}
-{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m state --state ESTABLISHED -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
+{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src --match limit --limit 1000/s -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
-{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
-{{.MangleTable}} {{.NetChain}} -s 0.0.0.0/0 -j DROP
+{{.MangleTable}} {{.NetChain}} -s {{.DefaultIP}} -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix {{.NFLOGPrefix}}
+{{.MangleTable}} {{.NetChain}} -s {{.DefaultIP}} -j DROP
 `
 
 var proxyChainTemplate = `

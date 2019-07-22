@@ -49,7 +49,7 @@ type RuntimeReader interface {
 	PortMap() map[nat.Port][]string
 }
 
-// A Resolver must be implemnted by a policy engine that receives monitor events.
+// A Resolver must be implemented by a policy engine that receives monitor events.
 type Resolver interface {
 
 	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer

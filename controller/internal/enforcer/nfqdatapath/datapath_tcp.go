@@ -30,6 +30,7 @@ var errTCPAuthNotFound = errors.New("TCP authentication option not found")
 var errSigValidFailed = errors.New("Ack packet dropped because signature validation failed")
 var errInvalidFormat = errors.New("Ack packet dropped because of invalid format")
 var errInvalidConnState = errors.New("Invalid connection state")
+var errOutOfOrderSynAck = errors.New("synack for flow with processed finack")
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
@@ -45,8 +46,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			zap.Error(err),
 		)
 	}
-
-	//var conn *connection.TCPConnection
 
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
@@ -73,10 +72,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 
 	case packet.TCPSynAckMask:
 		conn, err = d.netSynAckRetrieveState(p)
-		if err != nil {
-			// This packet belongs to the client process that is not being enforcerd.
-			// At this point, we can release this flow to kernel as we are not interested in
-			// enforcing policy for the flow.
+		switch err {
+		case errOutOfOrderSynAck:
+			// Drop this synack it is for a flow we know which is marked for deletion.
+			// We saw a FINACK and this synack has come without we seeing an appsyn for this flow again
+			return conn, fmt.Errorf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort()))
+		case errNonPUTraffic:
 			d.releaseUnmonitoredFlow(p)
 			return conn, nil
 		}
@@ -131,7 +132,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			p.Print(packet.PacketFailureService)
 			return conn, errors.New("post service processing failed for network packet")
 		}
-
+		// If we received a FIN packet here means the client sent a FIN packet and we can start clearing our cache
 		if conn.ServiceConnection && conn.TimeOut > 0 {
 			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
 		}
@@ -300,10 +301,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
-	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
+	dstAddr := tcpPacket.DestinationAddress()
+	dstPort := tcpPacket.DestPort()
 
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(dstAddr, dstPort)
 	if perr != nil {
-		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress(), tcpPacket.DestPort())
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, dstPort)
 
 		if perr == nil && policy.Action.Accepted() {
 			return nil, nil
@@ -600,8 +603,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
-	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestPort())))
-
+	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(int(tcpPacket.DestPort()))))
 	report, pkt := context.SearchRcvRules(tags)
 
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
@@ -684,7 +686,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// our ack packet was lost. We need to revert conntrack in this case and get
 	// back into the picture.
 	if conn.GetState() != connection.TCPSynSend {
-
 		// Revert the connmarks - dealing with retransmissions
 		if cerr := d.conntrack.UpdateNetworkFlowMark(
 			tcpPacket.SourceAddress(),
@@ -921,7 +922,11 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		return nil, err
 	}
 
-	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
+	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+		// return this connection only if we are not deleting this
+		// this is marked only when we see a FINACK for this l4flowhash
+		// this should not have happened for a connection while we are processing a appSyn for this connection
+		// The addorupdate for this cache will happen outside in processtcppacket
 		return conn.(*connection.TCPConnection), nil
 	}
 	return connection.NewTCPConnection(context, p), nil
@@ -990,7 +995,8 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 	context, err := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolTCP)
 	if err == nil {
-		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
+		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+			// Only if we havent seen FINACK on this connection
 			return conn.(*connection.TCPConnection), nil
 		}
 		return connection.NewTCPConnection(context, p), nil
@@ -1028,19 +1034,20 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
 // It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		return nil, errNonPUTraffic
 	}
-
+	if conn.(*connection.TCPConnection).MarkForDeletion {
+		return nil, errOutOfOrderSynAck
+	}
 	return conn.(*connection.TCPConnection), nil
 }
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
-
+	// ignore conn.MarkFordeletion here since these could be ack packets arriving out of order
 	// Did we see a network syn/ack packet? (PU is a client)
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err == nil {

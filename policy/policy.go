@@ -14,6 +14,9 @@ type PUPolicy struct {
 	// ManagementID is provided for the policy implementations as a means of
 	// holding a policy identifier related to the implementation.
 	managementID string
+	// managementNamespace is provided for the policy implementations as a means of
+	// holding a policy sub identifier related to the implementation.
+	managementNamespace string
 	// triremeAction defines what level of policy should be applied to that container.
 	triremeAction PUAction
 	// dnsACLs is the list of DNS names and the associated ports that the container is
@@ -68,6 +71,7 @@ const (
 // netACLs are the ACLs for packet coming from the Network to the Application/PU.
 func NewPUPolicy(
 	id string,
+	namespace string,
 	action PUAction,
 	appACLs IPRuleList,
 	netACLs IPRuleList,
@@ -121,6 +125,7 @@ func NewPUPolicy(
 
 	return &PUPolicy{
 		managementID:          id,
+		managementNamespace:   namespace,
 		triremeAction:         action,
 		applicationACLs:       appACLs,
 		networkACLs:           netACLs,
@@ -139,7 +144,7 @@ func NewPUPolicy(
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -149,6 +154,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 
 	np := NewPUPolicy(
 		p.managementID,
+		p.managementNamespace,
 		p.triremeAction,
 		p.applicationACLs.Copy(),
 		p.networkACLs.Copy(),
@@ -173,6 +179,14 @@ func (p *PUPolicy) ManagementID() string {
 	defer p.Unlock()
 
 	return p.managementID
+}
+
+// ManagementNamespace returns the management Namespace
+func (p *PUPolicy) ManagementNamespace() string {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.managementNamespace
 }
 
 // TriremeAction returns the TriremeAction
@@ -353,6 +367,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 
 	return &PUPolicyPublic{
 		ManagementID:          p.managementID,
+		ManagementNamespace:   p.managementNamespace,
 		TriremeAction:         p.triremeAction,
 		ApplicationACLs:       p.applicationACLs.Copy(),
 		NetworkACLs:           p.networkACLs.Copy(),
@@ -376,6 +391,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 // unit in an object that can be marshalled and transmitted over the RPC interface.
 type PUPolicyPublic struct {
 	ManagementID          string                  `json:"managementID,omitempty"`
+	ManagementNamespace   string                  `json:"managementNamespace,omitempty"`
 	TriremeAction         PUAction                `json:"triremeAction,omitempty"`
 	ApplicationACLs       IPRuleList              `json:"applicationACLs,omitempty"`
 	NetworkACLs           IPRuleList              `json:"networkACLs,omitempty"`
@@ -411,6 +427,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 
 	return &PUPolicy{
 		managementID:          p.ManagementID,
+		managementNamespace:   p.ManagementNamespace,
 		triremeAction:         p.TriremeAction,
 		applicationACLs:       p.ApplicationACLs,
 		networkACLs:           p.NetworkACLs.Copy(),

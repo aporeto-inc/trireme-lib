@@ -256,6 +256,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 
 		report.Claims = d.puFromIP.Identity().GetSlice()
 		report.PUID = d.puFromIP.ManagementID()
+		report.Namespace = d.puFromIP.ManagementNamespace()
 		report.Encrypt = false
 
 	} else {
@@ -266,6 +267,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 		report.Encrypt = msg.udpConn.ServiceConnection
 		report.Claims = msg.udpConn.Context.Identity().GetSlice()
 		report.PUID = msg.udpConn.Context.ManagementID()
+		report.Namespace = msg.udpConn.Context.ManagementNamespace()
 	}
 
 	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {

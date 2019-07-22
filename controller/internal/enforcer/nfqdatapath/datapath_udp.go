@@ -3,9 +3,7 @@ package nfqdatapath
 // Go libraries
 import (
 	"fmt"
-	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -132,7 +130,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
+			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -381,7 +379,7 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.writeWithRetransmit(newPacket.GetBuffer(0), conn, conn.SynChannel())
+	err = d.writeWithRetransmit(newPacket, conn, conn.SynChannel())
 	if err != nil {
 		zap.L().Error("Unable to send syn token on raw socket", zap.Error(err))
 		return fmt.Errorf("unable to transmit syn packet")
@@ -391,18 +389,18 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 	hash := udpPacket.L4FlowHash()
 	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
-	d.udpNatConnectionTracker.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), newPacket.SourcePortHash(packet.PacketTypeNetwork))
 
 	return nil
 
 }
 
-func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnection, stop chan bool) error {
+func (d *Datapath) writeWithRetransmit(udpPacket *packet.Packet, conn *connection.UDPConnection, stop chan bool) error {
 
+	buffer := udpPacket.GetBuffer(0)
 	localBuffer := make([]byte, len(buffer))
 	copy(localBuffer, buffer)
 
-	if err := d.udpSocketWriter.WriteSocket(localBuffer); err != nil {
+	if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion()); err != nil {
 		zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 		return err
 	}
@@ -414,7 +412,7 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, conn *connection.UDPConnec
 			case <-stop:
 				return
 			case <-time.After(delay):
-				if err := d.udpSocketWriter.WriteSocket(localBuffer); err != nil {
+				if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion()); err != nil {
 					zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 				}
 			}
@@ -450,7 +448,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress(), udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket()
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
@@ -462,7 +460,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	}
 
 	// Only start the retransmission timer once. Not on every packet.
-	if err := d.writeWithRetransmit(udpPacket.GetBuffer(0), conn, conn.SynAckChannel()); err != nil {
+	if err := d.writeWithRetransmit(udpPacket, conn, conn.SynAckChannel()); err != nil {
 		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
 		return err
 	}
@@ -482,25 +480,13 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		return err
 	}
 
-	srcPortHash, err := d.udpNatConnectionTracker.GetReset(udpPacket.SourcePortHash(packet.PacketTypeNetwork), 0)
-	if err != nil {
-		return fmt.Errorf("error getting actual destination")
-	}
-
-	destIPPort := srcPortHash.(string)
-	destIP := strings.Split(destIPPort, ":")[0]
-	destPort, err := (strconv.Atoi(strings.Split(destIPPort, ":")[1]))
-	if err != nil {
-		return fmt.Errorf("Unable to get dest port from cache")
-	}
-
-	udpPacket.CreateReverseFlowPacket(net.ParseIP(destIP), uint16(destPort))
+	udpPacket.CreateReverseFlowPacket()
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -510,10 +496,10 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 		if err = d.conntrack.UpdateApplicationFlowMark(
 			udpPacket.SourceAddress(),
-			net.ParseIP(destIP),
+			udpPacket.DestinationAddress(),
 			udpPacket.IPProto(),
 			udpPacket.SourcePort(),
-			uint16(destPort),
+			udpPacket.DestPort(),
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table for UDP flow at transmitter",
@@ -525,7 +511,6 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			return err
 		}
 	}
-
 	zap.L().Debug("Clearing fin packet entry in cache", zap.String("flowhash", udpPacket.L4FlowHash()))
 	if err := d.udpFinPacketTracker.Remove(udpPacket.L4FlowHash()); err != nil {
 		zap.L().Debug("Unable to remove entry from udp finack cache")
@@ -554,7 +539,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestPort())))
+	claims.T.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.DestPort()))))
 
 	report, pkt := context.SearchRcvRules(claims.T)
 	if pkt.Action.Rejected() {
@@ -640,14 +625,14 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 	// Create UDP Option
 	udpOptions := packet.CreateUDPAuthMarker(packet.UDPFinAckMask)
 
-	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress(), udpPacket.SourcePort())
+	udpPacket.CreateReverseFlowPacket()
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, []byte{})
 
 	zap.L().Info("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0))
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return err

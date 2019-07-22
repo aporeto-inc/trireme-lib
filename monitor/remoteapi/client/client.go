@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"time"
 
 	"go.aporeto.io/trireme-lib/common"
 )
@@ -36,6 +37,8 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				return net.DialUnix("unix", nil, c.addr)
 			},
+			MaxIdleConns:    10,
+			IdleConnTimeout: 10 * time.Second,
 		},
 	}
 
@@ -48,6 +51,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close() // nolint
 
 	if resp.StatusCode == http.StatusAccepted {
 		return nil

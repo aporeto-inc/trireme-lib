@@ -114,10 +114,17 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 	err := d.waitForDockerDaemon(ctx)
 	if err != nil {
-		zap.L().Error("Docker daemon is not running - skipping container processing", zap.Error(err))
+		zap.L().Error("Docker daemon is not running at startup - skipping container processing. periodic retries will be attempted",
+			zap.Error(err),
+			zap.Duration("retry interval", dockerRetryTimer),
+		)
 		return nil
 	}
 
+	return nil
+}
+
+func (d *DockerMonitor) initMonitor(ctx context.Context) error {
 	if d.syncAtStart && d.config.Policy != nil {
 
 		options := types.ContainerListOptions{All: true}
@@ -149,7 +156,6 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 	// Start processing the events
 	go d.eventProcessors(ctx)
-
 	return nil
 }
 
@@ -637,9 +643,13 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 
 	if d.dockerClient == nil {
 		// Initialize client
-		if d.dockerClient, err = initDockerClient(d.socketType, d.socketAddress); err != nil {
+		dockerClient, err := initDockerClient(d.socketType, d.socketAddress)
+		if err != nil {
+			// Reset this here since the interface = nil check will fail later this is partly initialized.
+			// cheaper than doing reflect and check later
 			return err
 		}
+		d.dockerClient = dockerClient
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), dockerPingTimeout)
@@ -654,14 +664,28 @@ func (d *DockerMonitor) setupDockerDaemon() (err error) {
 func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 
 	done := make(chan bool)
-	go func() {
-		for errg := d.setupDockerDaemon(); errg != nil; {
-			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(errg))
-			<-time.After(dockerRetryTimer)
-			continue
+	zap.L().Info("Trying to initialize docker monitor")
+	go func(gctx context.Context) {
+
+		for {
+			errg := d.setupDockerDaemon()
+			if errg == nil {
+				if err := d.initMonitor(gctx); err != nil {
+					zap.L().Error("Unable to init monitor", zap.Error(err))
+				}
+				break
+			}
+
+			select {
+			case <-gctx.Done():
+				return
+			case <-time.After(dockerRetryTimer):
+				continue
+			}
+
 		}
 		done <- true
-	}()
+	}(ctx)
 
 	select {
 	case <-ctx.Done():
@@ -669,6 +693,7 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 	case <-time.After(dockerInitializationWait):
 		return fmt.Errorf("Unable to connect to docker daemon")
 	case <-done:
+		zap.L().Info("Started Docker Monitor")
 	}
 
 	return nil
@@ -682,6 +707,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 		CgroupName:        strconv.Itoa(dockerInfo.State.Pid),
 		CgroupMark:        strconv.FormatUint(cgnetcls.MarkVal(), 10),
 		ConvertedDockerPU: true,
+		AutoPort:          true,
 	}
 
 	for p := range dockerInfo.Config.ExposedPorts {

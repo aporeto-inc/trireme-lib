@@ -103,6 +103,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 	}
 	plc := policy.NewPUPolicy(
 		name+"-policyid1",
+		"/ns1",
 		policy.Police,
 		policy.IPRuleList{},
 		policy.IPRuleList{},
@@ -118,7 +119,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		[]string{},
 	)
 
-	puInfo := policy.NewPUInfo(name, triremecommon.ContainerPU)
+	puInfo := policy.NewPUInfo(name, "/ns1", triremecommon.ContainerPU)
 	puInfo.Policy = plc
 	pctx, err := pucontext.NewPU(name, puInfo, time.Second*1000)
 	So(err, ShouldBeNil)

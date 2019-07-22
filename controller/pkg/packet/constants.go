@@ -33,9 +33,26 @@ const (
 	ipv4DestAddrPos = 16
 )
 
+const (
+	// ipv6HeaderLen is the length of the ipv6 header
+	ipv6HeaderLen = 40
+
+	// ipv6PayloadLenPos is the position in the buffer where the size of the payload is stored
+	ipv6PayloadLenPos = 4
+
+	// ipv6ProtoPos is the position in the buffer where the protocol(tcp/udp) is stored
+	ipv6ProtoPos = 6
+
+	// ipv6SourceAddrPos is the position in the buffer where ipv6 source address is stored
+	ipv6SourceAddrPos = 8
+
+	// ipv6DestAddrPos is the position in the buffer where ipv6 dest address is stored
+	ipv6DestAddrPos = 24
+)
+
 // IP Protocol numbers
 const (
-	// IPProtocolTCP defines the constant for UDP protocol number
+	// IPProtocolTCP defines the constant for TCP protocol number
 	IPProtocolTCP = 6
 
 	// IPProtocolUDP defines the constant for UDP protocol number
