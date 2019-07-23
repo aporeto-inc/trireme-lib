@@ -117,6 +117,38 @@ static int getgroupid(const char *groupname) {
   return grp->gr_gid;
 }
 
+
+static void setupsysctl(){
+  const char *procconntrackpath = "/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal";
+  const char *ipdemuxpath = "/proc/sys/net/ipv4/ip_early_demux";
+  const char *procconntrackval = "1";
+  const char *ipdemuxval = "0";
+  int fd = open(procconntrackpath,O_RDWR);
+  if (fd <0) {
+    printf("Cant open file %s %s\n",procconntrackpath,strerror(errno));
+    return;
+  }
+  int numBytes = write(fd,procconntrackval,strlen(procconntrackval));
+  if (numBytes <0) {
+    printf("Cant write file %s %s\n",procconntrackpath,strerror(errno));
+    close(fd);
+    return;
+  }
+  close(fd);
+  fd = open(ipdemuxpath,O_RDWR);
+  if (fd <0) {
+    printf("Cant open file %s %s\n",ipdemuxpath,strerror(errno));
+    return;
+  }
+  numBytes = write(fd,ipdemuxval,strlen(ipdemuxval));
+  if (numBytes <0) {
+    printf("Cant write file %s %s\n",ipdemuxpath,strerror(errno));
+    close(fd);
+    return;
+  }
+  close(fd);
+  
+}
 static void mkdircreatetree(const char *dir) {
         char workingdir[256];
         char *p = NULL;
@@ -210,6 +242,7 @@ void droppriveleges() {
   int groupid = getgroupid("aporeto");
   int userid = getuserid("enforcerd");
   int retval = 0;
+  setupsysctl();
   if (drop_priveleges != NULL) {
     free(hdr);
     free(data);
@@ -222,7 +255,7 @@ void droppriveleges() {
   }else {
     mask = MAINCAPMASK;
   }
-	  
+ 
   if (container_pid_env == NULL){
     mounttmpfs();
     createtriremesockdir();
