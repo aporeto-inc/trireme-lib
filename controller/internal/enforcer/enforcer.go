@@ -43,8 +43,8 @@ type Enforcer interface {
 	// SetTargetNetworks sets the target network configuration of the controllers.
 	SetTargetNetworks(cfg *runtime.Configuration) error
 
-	// TogglePacketLogs enables packet logs.
-	TogglePacketLogs(enable bool) error
+	// SetLogLevel sets log level.
+	SetLogLevel(level constants.LogLevel) error
 
 	// Cleanup request a clean up of the controllers.
 	CleanUp() error
@@ -181,11 +181,11 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
-// TogglePacketLogs toggles packet logs.
-func (e *enforcer) TogglePacketLogs(enable bool) error {
+// SetLogLevel sets log level.
+func (e *enforcer) SetLogLevel(level constants.LogLevel) error {
 
 	if e.transport != nil {
-		if err := e.transport.TogglePacketLogs(enable); err != nil {
+		if err := e.transport.SetLogLevel(level); err != nil {
 			return err
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.uber.org/zap"
 )
 
 var (
@@ -35,7 +36,9 @@ func newRemoteEnforcer(
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error { return nil }
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
+	return nil
+}
 
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer

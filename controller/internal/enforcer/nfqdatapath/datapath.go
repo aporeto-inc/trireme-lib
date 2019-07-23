@@ -494,10 +494,13 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
-// TogglePacketLogs toggles packet logs.
-func (d *Datapath) TogglePacketLogs(enable bool) error {
+// SetLogLevel sets log level.
+func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
 
-	d.packetLogs = enable
+	if level == constants.Trace {
+		d.packetLogs = true
+	}
+
 	return nil
 }
 

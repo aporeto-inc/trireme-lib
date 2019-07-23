@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.uber.org/zap"
 )
 
 // RemoteEnforcer : This is the structure for maintaining state required by the
@@ -33,4 +34,5 @@ type RemoteEnforcer struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	exit           chan bool
+	zapConfig      zap.Config
 }
