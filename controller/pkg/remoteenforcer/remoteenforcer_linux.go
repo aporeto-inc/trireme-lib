@@ -401,11 +401,13 @@ func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Re
 
 	payload := req.Payload.(rpcwrapper.SetLogLevelPayload)
 
-	s.configureZapLogLevel(payload.Level)
+	if payload.Level != "" && s.logLevel != payload.Level {
+		s.configureZapLogLevel(payload.Level)
 
-	if err := s.enforcer.SetLogLevel(payload.Level); err != nil {
-		resp.Status = err.Error()
-		return err
+		if err := s.enforcer.SetLogLevel(payload.Level); err != nil {
+			resp.Status = err.Error()
+			return err
+		}
 	}
 
 	resp.Status = ""
@@ -423,6 +425,7 @@ func (s *RemoteEnforcer) configureZapLogLevel(level constants.LogLevel) {
 	}
 
 	zap.ReplaceGlobals(l)
+	s.logLevel = level
 }
 
 // triremeLogLevelToZapLogLevel converts trireme log level to zap log level.

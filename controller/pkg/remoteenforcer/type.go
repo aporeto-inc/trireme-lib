@@ -3,6 +3,7 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
@@ -35,4 +36,5 @@ type RemoteEnforcer struct {
 	cancel         context.CancelFunc
 	exit           chan bool
 	zapConfig      zap.Config
+	logLevel       constants.LogLevel
 }
