@@ -497,6 +497,7 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 // SetLogLevel sets log level.
 func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
 
+	d.packetLogs = false
 	if level == constants.Trace {
 		d.packetLogs = true
 	}
