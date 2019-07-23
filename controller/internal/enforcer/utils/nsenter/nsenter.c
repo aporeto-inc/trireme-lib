@@ -15,6 +15,10 @@
 #include <pwd.h>
 #include <grp.h>
 #include <fcntl.h>
+#include <sys/mount.h>
+#include<errno.h>
+
+extern int errno;
 
 #define STRBUF_SIZE     128
 // Preserved Capabilities
@@ -113,6 +117,87 @@ static int getgroupid(const char *groupname) {
   return grp->gr_gid;
 }
 
+static void mkdircreatetree(const char *dir) {
+        char workingdir[256];
+        char *p = NULL;
+        size_t len;
+	strncpy(workingdir,dir,255);
+        len = strlen(workingdir);
+        if(workingdir[len - 1] == '/')
+                workingdir[len - 1] = 0;
+        for(p = workingdir + 1; *p; p++)
+                if(*p == '/') {
+                        *p = 0;
+                        mkdir(workingdir, S_IRWXU);
+                        *p = '/';
+                }
+        mkdir(workingdir, S_IRWXU);
+}
+
+int mounttmpfs() {
+  struct stat statbuf;
+  const char *tmpfspath = "/var/run/aporeto/tmp/bin";
+  int retval = stat(tmpfspath,&statbuf);
+  if(retval <0) {
+    mkdircreatetree(tmpfspath);
+  }
+  retval = umount(tmpfspath);
+  if (retval < 0){
+    printf("Not already mounted %s",tmpfspath);
+  }
+  retval = mount("tmpfs",tmpfspath,"tmpfs",0,NULL);
+  if (retval <0) {
+    printf("Mount Error %s\n",strerror(errno));
+   
+  }
+  return retval;
+  
+}
+
+
+void createLogDir() {
+  struct stat statbuf;
+  const char *path = "/var/log/enforcerd/";
+  int retval = stat(path,&statbuf);
+  if(retval <0) {
+    mkdircreatetree(path);
+  }
+  int uid,gid =0;
+  uid = getuserid("enforcerd");
+  gid = getgroupid("aporeto");
+  if (uid != -1 && gid != -1){
+    retval = chown(path,uid,gid);
+    if (retval < 0){
+      printf("Chown error %s %s",path,strerror(errno));
+    }
+    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR);
+    if (retval < 0){
+      printf("Chmod error %s %s",path,strerror(errno));
+    }
+  }
+}
+void createtriremesockdir() {
+  struct stat statbuf;
+  const char *path = "/var/run/aporetosock";
+  int retval = stat(path,&statbuf);
+  if(retval <0) {
+    mkdircreatetree(path);
+  }
+  int uid,gid =0;
+  uid = getuserid("enforcerd");
+  gid = getgroupid("aporeto");
+  if (uid != -1 && gid != -1){
+    retval = chown(path,uid,gid);
+    if (retval < 0){
+      printf("Chown error %s %s",path,strerror(errno));
+    }
+    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR);
+    if (retval < 0){
+      printf("Chmod error %s %s",path,strerror(errno));
+    }
+  }
+    
+}
 
 // droppriveleges called in init due to the same reason we do setns here. setuid setgid are per thread calls
 void droppriveleges() {
@@ -138,7 +223,11 @@ void droppriveleges() {
     mask = MAINCAPMASK;
   }
 	  
-  
+  if (container_pid_env == NULL){
+    mounttmpfs();
+    createtriremesockdir();
+    createLogDir();
+  }
   prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
   hdr->pid = getpid();
   hdr->version = 0x20080522;
@@ -265,6 +354,7 @@ void setupiptables() {
   }
   return;
 }
+
 
 
 
