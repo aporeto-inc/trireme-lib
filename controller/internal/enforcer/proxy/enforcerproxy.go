@@ -136,6 +136,12 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	return nil
 }
 
+// TogglePacketLogs toggles packet logs.
+func (s *ProxyInfo) TogglePacketLogs(enable bool) error {
+
+	return nil
+}
+
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 

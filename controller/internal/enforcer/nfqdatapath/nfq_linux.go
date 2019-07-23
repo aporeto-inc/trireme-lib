@@ -82,7 +82,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		netPacket.Print(packet.PacketFailureCreate)
+		netPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if netPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
 	} else if netPacket.IPProto() == packet.IPProtocolUDP {
@@ -172,7 +172,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		appPacket.Print(packet.PacketFailureCreate)
+		appPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if appPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
 	} else if appPacket.IPProto() == packet.IPProtocolUDP {

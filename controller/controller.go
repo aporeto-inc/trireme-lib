@@ -156,6 +156,10 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 	}
 
 	for _, e := range t.enforcers {
+		if err := e.TogglePacketLogs(cfg.EnablePacketLogs); err != nil {
+			zap.L().Error("unable to toggle packet logs", zap.Error(err))
+		}
+
 		err := e.SetTargetNetworks(cfg)
 		if err != nil {
 			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))

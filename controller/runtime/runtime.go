@@ -9,6 +9,8 @@ type Configuration struct {
 	UDPTargetNetworks []string
 	// ExcludedNetworks is the list of networks that must be excxluded from any enforcement.
 	ExcludedNetworks []string
+	// EnablePacketLogs toggles packet logs
+	EnablePacketLogs bool
 }
 
 // DeepCopy copies the configuration and avoids locking issues.
@@ -17,5 +19,6 @@ func (c *Configuration) DeepCopy() *Configuration {
 		TCPTargetNetworks: append([]string{}, c.TCPTargetNetworks...),
 		UDPTargetNetworks: append([]string{}, c.UDPTargetNetworks...),
 		ExcludedNetworks:  append([]string{}, c.ExcludedNetworks...),
+		EnablePacketLogs:  c.EnablePacketLogs,
 	}
 }

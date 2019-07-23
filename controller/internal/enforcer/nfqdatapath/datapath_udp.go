@@ -90,11 +90,11 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	conn.Lock()
 	defer conn.Unlock()
 
-	p.Print(packet.PacketStageIncoming)
+	p.Print(packet.PacketStageIncoming, d.packetLogs)
 
 	if d.service != nil {
 		if !d.service.PreProcessUDPNetPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
+			p.Print(packet.PacketFailureService, d.packetLogs)
 			return conn, fmt.Errorf("pre  processing failed for network packet")
 		}
 	}
@@ -112,7 +112,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	// Process the packet by any external services.
 	if d.service != nil {
 		if !d.service.PostProcessUDPNetPacket(p, action, claims, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
+			p.Print(packet.PacketFailureService, d.packetLogs)
 			return conn, fmt.Errorf("post service processing failed for network packet")
 		}
 	}
@@ -126,7 +126,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 				// PostProcessServiceInterface
 				// We call it for all outgoing packets.
 				if !d.service.PostProcessUDPAppPacket(udpPacket, nil, conn.Context, conn) {
-					udpPacket.Print(packet.PacketFailureService)
+					udpPacket.Print(packet.PacketFailureService, d.packetLogs)
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
@@ -290,7 +290,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessUDPAppPacket(p, conn.Context, conn, packet.UDPSynMask) {
-			p.Print(packet.PacketFailureService)
+			p.Print(packet.PacketFailureService, d.packetLogs)
 			return nil, fmt.Errorf("pre service processing failed for UDP application packet")
 		}
 	}
@@ -325,7 +325,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(p, nil, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
+			p.Print(packet.PacketFailureService, d.packetLogs)
 			return conn, fmt.Errorf("Encryption failed for application packet")
 		}
 	}
