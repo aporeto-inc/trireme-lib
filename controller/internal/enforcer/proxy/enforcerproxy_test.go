@@ -463,3 +463,44 @@ func TestPostPacketEvent(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 }
+
+func TestPostCounterEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
+	c := eventCollector()
+	counterReport := &collector.CounterReport{
+		Namespace: "/ns1",
+		ContextID: "contextid1",
+		Counters: []collector.Counters{
+			{
+				Name:  "SYNNOTSEEN",
+				Value: 1,
+			},
+		},
+	}
+	request := rpcwrapper.Request{
+		Payload: rpcwrapper.CounterReportPayload{
+			CounterReports: []*collector.CounterReport{counterReport},
+		},
+	}
+	statsserver := &StatsServer{
+		rpchdl:    rpchdl,
+		collector: c,
+		secret:    "test",
+	}
+	response := &rpcwrapper.Response{}
+
+	Convey("Given i receive a invalid message from the remote enforcer ", t, func() {
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(false)
+		err := statsserver.PostCounterEvent(request, response)
+		So(err, ShouldNotBeNil)
+	})
+	Convey("Given i receive a valid message from the remote enforcer ", t, func() {
+
+		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(true)
+		err := statsserver.PostCounterEvent(request, response)
+		So(err, ShouldBeNil)
+	})
+
+}

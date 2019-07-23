@@ -25,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
@@ -54,6 +55,7 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
+	counterClient counterclient.CounterClient,
 	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 
@@ -76,6 +78,13 @@ func newRemoteEnforcer(
 			return nil, err
 		}
 	}
+
+	if counterClient == nil {
+		counterClient, err = counterclient.NewCounterClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
@@ -89,6 +98,7 @@ func newRemoteEnforcer(
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
 		debugClient:    debugClient,
+		counterClient:  counterClient,
 		ctx:            ctx,
 		cancel:         cancel,
 		exit:           make(chan bool),
@@ -159,6 +169,10 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
+	if err = s.counterClient.Run(s.ctx); err != nil {
+		resp.Status = "CounterClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
 	resp.Status = ""
 
 	return nil
@@ -540,7 +554,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig)
 	if err != nil {
 		return err
 	}

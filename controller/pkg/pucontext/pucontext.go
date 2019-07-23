@@ -58,7 +58,14 @@ type PUContext struct {
 	scopes              []string
 	Extension           interface{}
 	CancelFunc          context.CancelFunc
+	counters            []uint32
+
 	sync.RWMutex
+}
+
+// Bad PU to hold counters for packets we know nothing about. We cant figure out context
+var unknownPU = &PUContext{
+	counters: make([]uint32, len(countedEvents)),
 }
 
 // NewPU creates a new PU context
@@ -81,6 +88,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		mark:                puInfo.Runtime.Options().CgroupMark,
 		scopes:              puInfo.Policy.Scopes(),
 		CancelFunc:          cancelFunc,
+		counters:            make([]uint32, len(countedEvents)),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())

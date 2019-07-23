@@ -65,3 +65,10 @@ func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	c.DatapathPacketReports = append(c.DatapathPacketReports, report)
 
 }
+
+// CollectCounterEvent collect counters from the datapath
+func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
+	c.Lock()
+	defer c.Unlock()
+	c.CounterReports = append(c.CounterReports, report)
+}

@@ -5,6 +5,7 @@ package nflog
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -55,24 +56,33 @@ func (a *nfLog) Run(ctx context.Context) {
 
 func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, _ interface{}) {
 
-	record, err := a.recordFromNFLogBuffer(buf, false)
+	record, packetEvent, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
 		return
 	}
-
-	a.collector.CollectFlowEvent(record)
+	if record != nil {
+		a.collector.CollectFlowEvent(record)
+	}
+	if packetEvent != nil {
+		a.collector.CollectPacketEvent(packetEvent)
+	}
 }
 
 func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, _ interface{}) {
 
-	record, err := a.recordFromNFLogBuffer(buf, true)
+	record, packetEvent, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
 		return
 	}
+	if record != nil {
+		a.collector.CollectFlowEvent(record)
+	}
+	if packetEvent != nil {
+		a.collector.CollectPacketEvent(packetEvent)
+	}
 
-	a.collector.CollectFlowEvent(record)
 }
 
 func (a *nfLog) nflogErrorHandler(err error) {
@@ -80,25 +90,72 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, error) {
-
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket) (*collector.PacketReport, error) {
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
 	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
 
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("nflog: prefix doesn't contain sufficient information: %s", buf.Prefix)
 	}
 
-	contextID, policyID, extSrvID := parts[0], parts[1], parts[2]
-	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
-
-	puID, puNamespace, tags := a.getPUInfo(contextID)
+	contextID, _, _ := parts[0], parts[1], parts[2]
+	puID, namespace, _ := a.getPUInfo(contextID)
 	if puID == "" {
 		return nil, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
 	}
 
+	report.PUID = puID
+	report.Namespace = namespace
+	ipPacket, err := packet.New(packet.PacketTypeNetwork, buf.Payload, "", false)
+	if err == nil {
+		report.Length = int(ipPacket.GetIPLength())
+		report.PacketID, _ = strconv.Atoi(ipPacket.ID())
+
+	} else {
+		zap.L().Debug("Payload Not Valid", zap.Error(err))
+	}
+
+	if buf.Protocol == packet.IPProtocolTCP || buf.Protocol == packet.IPProtocolUDP {
+		report.SourcePort = int(buf.Ports.SrcPort)
+		report.DestinationPort = int(buf.Ports.DstPort)
+	}
+	if buf.Protocol == packet.IPProtocolTCP {
+		report.TCPFlags = int(ipPacket.GetTCPFlags())
+	}
+	report.DestinationIP = buf.DstIP.String()
+	report.SourceIP = buf.SrcIP.String()
+	report.TriremePacket = false
+	report.DropReason = collector.PacketDrop
+	copy(report.Payload, buf.Payload[0:64])
+	return report, nil
+}
+func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
+	var packetReport *collector.PacketReport
+	var err error
+	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
+
+	if len(parts) != 3 {
+		return nil, nil, fmt.Errorf("nflog: prefix doesn't contain sufficient information: %s", buf.Prefix)
+	}
+
+	contextID, policyID, extSrvID := parts[0], parts[1], parts[2]
+	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
+
+	if encodedAction == "10" {
+		packetReport, _ = a.recordDroppedPacket(buf)
+	}
+
+	puID, puNamespace, tags := a.getPUInfo(contextID)
+
+	if puID == "" {
+		return nil, packetReport, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
+	}
+
 	action, _, err := policy.EncodedStringToAction(encodedAction)
 	if err != nil {
-		return nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
+		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
 	}
 
 	dropReason := ""
@@ -151,5 +208,5 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		record.Destination.ID = puID
 	}
 
-	return record, nil
+	return record, packetReport, nil
 }
