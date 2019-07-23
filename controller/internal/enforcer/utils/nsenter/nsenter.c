@@ -170,7 +170,7 @@ void createLogDir() {
     if (retval < 0){
       printf("Chown error %s %s",path,strerror(errno));
     }
-    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR);
+    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
     if (retval < 0){
       printf("Chmod error %s %s",path,strerror(errno));
     }
@@ -191,7 +191,7 @@ void createtriremesockdir() {
     if (retval < 0){
       printf("Chown error %s %s",path,strerror(errno));
     }
-    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR);
+    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
     if (retval < 0){
       printf("Chmod error %s %s",path,strerror(errno));
     }
