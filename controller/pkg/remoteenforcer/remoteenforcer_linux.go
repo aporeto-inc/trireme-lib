@@ -445,19 +445,18 @@ func (s *RemoteEnforcer) configureZapLogLevel(level constants.LogLevel) {
 // triremeLogLevelToZapLogLevel converts trireme log level to zap log level.
 func triremeLogLevelToZapLogLevel(level constants.LogLevel) zapcore.Level {
 
-	zapLogLevel := zap.InfoLevel
 	switch level {
 	case constants.Debug, constants.Trace:
-		zapLogLevel = zap.DebugLevel
+		return zap.DebugLevel
 	case constants.Error:
-		zapLogLevel = zap.ErrorLevel
+		return zap.ErrorLevel
 	case constants.Info:
-		zapLogLevel = zap.InfoLevel
+		return zap.InfoLevel
 	case constants.Warn:
-		zapLogLevel = zap.WarnLevel
+		return zap.WarnLevel
+	default:
+		return zap.InfoLevel
 	}
-
-	return zapLogLevel
 }
 
 // setup an enforcer
