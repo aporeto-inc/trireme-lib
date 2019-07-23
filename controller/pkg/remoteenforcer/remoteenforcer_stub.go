@@ -31,6 +31,7 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
+	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 	return nil, nil
 }

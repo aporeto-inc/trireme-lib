@@ -31,6 +31,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 const (
@@ -221,7 +222,7 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient)
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, zap.Config{})
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -293,7 +294,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient)
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, zap.Config{})
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
