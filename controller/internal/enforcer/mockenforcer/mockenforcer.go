@@ -10,6 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	constants "go.aporeto.io/trireme-lib/controller/constants"
 	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -126,6 +127,20 @@ func (m *MockEnforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
 // nolint
 func (mr *MockEnforcerMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), cfg)
+}
+
+// SetLogLevel mocks base method
+// nolint
+func (m *MockEnforcer) SetLogLevel(level constants.LogLevel) error {
+	ret := m.ctrl.Call(m, "SetLogLevel", level)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLogLevel indicates an expected call of SetLogLevel
+// nolint
+func (mr *MockEnforcerMockRecorder) SetLogLevel(level interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogLevel", reflect.TypeOf((*MockEnforcer)(nil).SetLogLevel), level)
 }
 
 // CleanUp mocks base method
