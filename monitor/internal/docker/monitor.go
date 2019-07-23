@@ -194,13 +194,23 @@ func (d *DockerMonitor) eventProcessors(ctx context.Context) {
 				select {
 				case event := <-d.eventnotifications[i]:
 					if f, ok := d.handlers[Event(event.Action)]; ok {
-						if err := f(ctx, event); err != nil {
+						var err error
+					retry:
+						for {
+
+							timeStart := time.Now()
+							zap.L().Info("calling docker event")
+							if err = f(ctx, event); err == nil {
+								break retry
+							}
+
+							zap.L().Error("Event failed in " + fmt.Sprintf("%v", time.Since(timeStart)))
 							zap.L().Error("Unable to handle docker event",
 								zap.String("action", event.Action),
 								zap.Error(err),
 							)
+							zap.L().Error("retrying...")
 						}
-						continue
 					}
 				case <-ctx.Done():
 					return

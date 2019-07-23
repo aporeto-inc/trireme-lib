@@ -2,6 +2,7 @@ package kubernetesmonitor
 
 import (
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
@@ -19,7 +20,8 @@ func NewKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error Building config from Kubeconfig: %v", err)
 	}
-
+	zap.L().Info("Setting 5 second timeout for kubeclient")
+	config.Timeout = time.Duration(5) * time.Second
 	return kubernetes.NewForConfig(config)
 }
 
