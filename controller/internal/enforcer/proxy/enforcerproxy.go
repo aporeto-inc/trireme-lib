@@ -350,3 +350,17 @@ func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.R
 	}
 	return nil
 }
+
+// PostCounterEvent is called from the remote to post multiple counter records from the remoteenforcer
+func (r *StatsServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.CounterReportPayload)
+	for _, record := range payload.CounterReports {
+		zap.L().Debug("Posting Remote counters")
+		r.collector.CollectCounterEvent(record)
+	}
+	return nil
+}

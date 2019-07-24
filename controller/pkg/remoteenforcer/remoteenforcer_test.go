@@ -25,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
@@ -214,14 +215,14 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 		statsClient := mockstatsclient.NewMockStatsClient(ctrl)
 		debugClient := mockdebugclient.NewMockDebugClient(ctrl)
 		collector := mockstatscollector.NewMockCollector(ctrl)
-
+		counterclient := mockcounterclient.NewMockCounterClient(ctrl)
 		Convey("When I try to create new server with no env set", func() {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient)
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient)
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -251,7 +252,7 @@ func TestInitEnforcer(t *testing.T) {
 		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
 		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
-
+		mockCounterClient := mockcounterclient.NewMockCounterClient(ctrl)
 		// Mock the global functions.
 		createEnforcer = func(
 			mutualAuthorization bool,
@@ -293,7 +294,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient)
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient)
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
@@ -489,7 +490,30 @@ func TestInitEnforcer(t *testing.T) {
 					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
 				})
 			})
+			Convey("When i try to instantiate the enforcer and counter Client fails to run it should cleanup", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+				mockCounterClient.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("CounterClientfailed to run counterclient"))
+				})
+
+			})
 			Convey("When I try to instantiate the enforcer and it succeeds it should not error", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
@@ -502,13 +526,14 @@ func TestInitEnforcer(t *testing.T) {
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
-
+				mockCounterClient.EXPECT().Run(server.ctx).Return(nil)
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should not get error", func() {
 					So(err, ShouldBeNil)
 				})
 			})
+
 		})
 	})
 }

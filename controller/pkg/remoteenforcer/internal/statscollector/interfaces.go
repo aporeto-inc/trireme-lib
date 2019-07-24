@@ -11,6 +11,7 @@ type CollectorReader interface {
 	GetUserRecords() map[string]*collector.UserRecord
 	FlushUserCache()
 	GetAllDataPathPacketRecords() []*collector.PacketReport
+	GetAllCounterReports() []*collector.CounterReport
 }
 
 // Collector interface implements
