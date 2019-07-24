@@ -35,6 +35,7 @@ extern int errno;
 // ~(1<<CAP_SYS_RESOURCE)&       --> required set ulimit on number of open files
 // ~(1<< CAP_AUDIT_WRITE)&       -->  required by audit functionality
 // ~(1<< CAP_AUDIT_CONTROL)&     -->  required by audit functionality
+//   ~(1<<CAP_SYS_ADMIN)&	 -->required to mount			
 
 #define MAINCAPMASK				\
   ~(1<<CAP_LEASE)&				\
@@ -43,7 +44,6 @@ extern int errno;
   ~(1<<CAP_SYS_TIME)&				\
   ~(1<<CAP_SYS_NICE)&				\
   ~(1<<CAP_SYS_BOOT)&				\
-  ~(1<<CAP_SYS_ADMIN)&				\
   ~(1<<CAP_SYS_TTY_CONFIG)&			\
   ~(1<<CAP_SYS_TIME)&				\
   ~(1<<CAP_SYS_NICE)&				\
@@ -257,7 +257,7 @@ void droppriveleges() {
   }
  
   if (container_pid_env == NULL){
-    mounttmpfs();
+    //mounttmpfs();
     createtriremesockdir();
     createLogDir();
   }
@@ -387,7 +387,6 @@ void setupiptables() {
   }
   return;
 }
-
 
 
 
