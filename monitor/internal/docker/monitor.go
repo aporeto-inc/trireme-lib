@@ -100,7 +100,8 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 func (d *DockerMonitor) dockerClient() dockerClient.CommonAPIClient {
 	d.dockerClientLock.Lock()
 	defer d.dockerClientLock.Unlock()
-	return d.client
+	d := d.client
+	return d
 }
 
 func (d *DockerMonitor) setDockerClient(client dockerClient.CommonAPIClient) {
