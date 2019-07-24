@@ -158,7 +158,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	}
 
 	var hoststat os.FileInfo
-	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
+	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "self/ns/net")); err != nil {
 		return false, err
 	}
 
@@ -374,7 +374,9 @@ func (p *RemoteMonitor) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnfor
 		zap.Strings("args", cmdArgs),
 	)
 
-	return execCommand(cmdName, cmdArgs...)
+	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	return cmd
 }
 
 // getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
@@ -426,7 +428,8 @@ func contextID2SocketPath(contextID string) string {
 		panic("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", strings.Replace(contextID, "/", "_", -1)+".sock")
+	return filepath.Join("/var/run/aporetosock/", strings.Replace(contextID, "/", "_", -1)+".sock")
+
 }
 
 // processIOReader will read from a reader and print it on the calling process

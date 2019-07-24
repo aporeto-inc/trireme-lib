@@ -41,13 +41,20 @@ func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor)
 	}
 }
 
+// SubOptionMonitorLinuxReleasePath provides a way to program the path of the cleaner binary
+func SubOptionMonitorLinuxReleasePath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // optionMonitorLinux provides a way to add a linux monitor and related configuration to be used with New().
 func optionMonitorLinux(
 	host bool,
 	opts ...LinuxMonitorOption,
 ) Options {
 	lc := linuxmonitor.DefaultConfig(host, false)
-	// Collect all docker options
+	// Collect all linux options
 	for _, opt := range opts {
 		opt(lc)
 	}
@@ -102,6 +109,13 @@ func SubOptionMonitorUIDExtractor(extractor extractors.EventMetadataExtractor) U
 	}
 }
 
+// SubOptionMonitorUIDReleasePath provides a way to program the path of the cleaner binary
+func SubOptionMonitorUIDReleasePath(releasePath string) UIDMonitorOption {
+	return func(cfg *uidmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // OptionMonitorUID provides a way to add a UID monitor and related configuration to be used with New().
 func OptionMonitorUID(
 	opts ...UIDMonitorOption,
@@ -120,6 +134,13 @@ func OptionMonitorUID(
 func SubOptionMonitorSSHExtractor(extractor extractors.EventMetadataExtractor) LinuxMonitorOption {
 	return func(cfg *linuxmonitor.Config) {
 		cfg.EventMetadataExtractor = extractor
+	}
+}
+
+// SubOptionMonitorSSHReleasePath provides a way to program the path of the cleaner binary
+func SubOptionMonitorSSHReleasePath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
 	}
 }
 

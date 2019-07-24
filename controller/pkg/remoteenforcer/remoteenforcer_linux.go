@@ -107,6 +107,21 @@ func newRemoteEnforcer(
 // data structure required by the remote enforcer
 func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
+	// Check if successfully switched namespace
+	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
+	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
+	if nsEnterState != "" {
+		zap.L().Error("Remote enforcer failed",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+		)
+		resp.Status = fmt.Sprintf("Remote enforcer failed: %s", nsEnterState)
+		return fmt.Errorf(resp.Status)
+	}
+
+	zap.L().Debug("Remote enforcer launched",
+		zap.String("nsLogs", nsEnterLogMsg),
+	)
 	zap.L().Debug("Configuring remote enforcer")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {

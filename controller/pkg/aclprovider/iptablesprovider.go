@@ -396,6 +396,6 @@ func restoreHasWait(restoreCmd string) bool {
 	if err != nil {
 		return false
 	}
-
+	fmt.Println("Restore version", restoreVersion.Original())
 	return !restoreVersion.LessThan(minimumVersion)
 }

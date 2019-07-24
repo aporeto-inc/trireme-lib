@@ -37,6 +37,7 @@ func GetCgroupList() []string {
 					cgroupList = append(cgroupList, filepath.Join(baseCgroupPath, file.Name()))
 				}
 			}
+
 		}
 	}
 	return cgroupList
@@ -45,7 +46,6 @@ func GetCgroupList() []string {
 // ListCgroupProcesses lists the cgroups that trireme has created
 // TODO: only used in autoport detection, and a bad usage as well
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
-
 	_, err := os.Stat(filepath.Join(basePath, cgroupname))
 	if os.IsNotExist(err) {
 		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
@@ -65,6 +65,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	return procs, nil
+
 }
 
 // GetAssignedMarkVal -- returns the mark val assigned to the group
@@ -77,4 +78,5 @@ func GetAssignedMarkVal(cgroupName string) string {
 		return ""
 	}
 	return string(mark[:len(mark)-1])
+
 }

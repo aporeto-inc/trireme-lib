@@ -29,6 +29,7 @@ func SetupDefaultConfig(uidConfig *Config) *Config {
 	if uidConfig.ReleasePath == "" {
 		uidConfig.ReleasePath = defaultConfig.ReleasePath
 	}
+
 	if uidConfig.StoredPath == "" {
 		uidConfig.StoredPath = defaultConfig.StoredPath
 	}

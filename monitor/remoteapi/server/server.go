@@ -66,7 +66,6 @@ func (e *EventServer) Run(ctx context.Context) error {
 	if err := os.Chmod(addr.String(), 0766); err != nil {
 		return fmt.Errorf("Cannot make the socket accessible to all users: %s", err)
 	}
-
 	listener := &UIDListener{nl}
 
 	// Start serving HTTP requests in the background
