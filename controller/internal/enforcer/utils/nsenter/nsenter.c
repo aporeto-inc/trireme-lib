@@ -257,7 +257,7 @@ void droppriveleges() {
  
   if (container_pid_env == NULL){
     //mounttmpfs();
-    //createtriremesockdir();
+    createtriremesockdir();
     createLogDir();
   }
   prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
