@@ -62,7 +62,6 @@ extern int errno;
   ~(1<<CAP_LINUX_IMMUTABLE)&			\
   ~(1<<CAP_NET_BROADCAST)&			\
   ~(1<<CAP_SYS_RAWIO)&				\
-  ~(1<<CAP_SYS_ADMIN)&				\
   ~(1<<CAP_SYS_CHROOT)
   
 #define MAINCAPMASK1 ~(1<<(CAP_MAC_OVERRIDE>>5)  
@@ -173,10 +172,10 @@ int mounttmpfs() {
   if(retval <0) {
     mkdircreatetree(tmpfspath);
   }
-  retval = umount(tmpfspath);
-  if (retval < 0){
-    printf("Not already mounted %s",tmpfspath);
-  }
+  /* retval = umount(tmpfspath); */
+  /* if (retval < 0){ */
+  /*   printf("Not already mounted %s",tmpfspath); */
+  /* } */
   retval = mount("tmpfs",tmpfspath,"tmpfs",0,NULL);
   if (retval <0) {
     printf("Mount Error %s\n",strerror(errno));
@@ -223,7 +222,7 @@ void createtriremesockdir() {
     if (retval < 0){
       printf("Chown error %s %s",path,strerror(errno));
     }
-    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+    retval = chmod(path,S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IWGRP|S_IXGRP|S_IROTH|S_IWOTH|S_IXOTH);
     if (retval < 0){
       printf("Chmod error %s %s",path,strerror(errno));
     }
@@ -258,7 +257,7 @@ void droppriveleges() {
  
   if (container_pid_env == NULL){
     //mounttmpfs();
-    createtriremesockdir();
+    //createtriremesockdir();
     createLogDir();
   }
   prctl(PR_SET_KEEPCAPS ,1,0,0,0); // nolint
