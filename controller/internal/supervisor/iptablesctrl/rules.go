@@ -41,7 +41,7 @@ var globalRules = `
 
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{if isLocalServer}}
-{{.MangleTable}} {{.MainAppChain}} -m cgroup --cgroup 0x600 -m mark ! --mark 0x40  -j {{.SelfAppChain}}
+{{.MangleTable}} {{.MainAppChain}} -m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j {{.SelfAppChain}}
 {{.MangleTable}} {{.SelfAppChain}} -j CONNMARK --set-mark 0x600
 {{.MangleTable}} {{.SelfAppChain}} -j ACCEPT
 {{end}}
