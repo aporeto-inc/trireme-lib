@@ -134,7 +134,7 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -j TRI-Self-App",
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -209,7 +209,7 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -j TRI-Self-App",
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -337,7 +337,7 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -j TRI-Self-App",
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
