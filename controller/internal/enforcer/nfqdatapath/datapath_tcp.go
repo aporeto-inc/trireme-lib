@@ -23,7 +23,7 @@ import (
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
-	if d.packetLogs {
+	if d.PacketLogsEnabled() {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -49,7 +49,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 				return conn, nil
 			default:
 
-				if d.packetLogs {
+				if d.PacketLogsEnabled() {
 					zap.L().Debug("Packet rejected",
 						zap.String("flow", p.L4FlowHash()),
 						zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -76,7 +76,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	default:
 		conn, err = d.netRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -90,23 +90,23 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	conn.Lock()
 	defer conn.Unlock()
 
-	p.Print(packet.PacketStageIncoming, d.packetLogs)
+	p.Print(packet.PacketStageIncoming, d.PacketLogsEnabled())
 
 	if d.service != nil {
 		if !d.service.PreProcessTCPNetPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			//return conn, errors.New("pre service processing failed for network packet")
 			return conn, pucontext.PuContextError(pucontext.ErrServicePreprocessorFailed, "pre service processing failed for network packet")
 		}
 	}
 
-	p.Print(packet.PacketStageAuth, d.packetLogs)
+	p.Print(packet.PacketStageAuth, d.PacketLogsEnabled())
 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, claims, err := d.processNetworkTCPPacket(p, conn.Context, conn)
 	if err != nil {
-		p.Print(packet.PacketFailureAuth, d.packetLogs)
-		if d.packetLogs {
+		p.Print(packet.PacketFailureAuth, d.PacketLogsEnabled())
+		if d.PacketLogsEnabled() {
 			zap.L().Debug("Rejecting packet ",
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -117,12 +117,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		return conn, err
 	}
 
-	p.Print(packet.PacketStageService, d.packetLogs)
+	p.Print(packet.PacketStageService, d.PacketLogsEnabled())
 
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action, claims, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			//return conn, errors.New("post service processing failed for network packet")
 			return conn, pucontext.PuContextError(pucontext.ErrServicePostprocessorFailed, "post service processing failed for network packet")
 		}
@@ -135,14 +135,14 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
-	p.Print(packet.PacketStageOutgoing, d.packetLogs)
+	p.Print(packet.PacketStageOutgoing, d.PacketLogsEnabled())
 
 	return conn, nil
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
-	if d.packetLogs {
+	if d.PacketLogsEnabled() {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -159,7 +159,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	case packet.TCPSynMask:
 		conn, err = d.appSynRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -171,7 +171,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	case packet.TCPSynAckMask:
 		conn, err = d.appSynAckRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -211,7 +211,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	default:
 		conn, err = d.appRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
@@ -225,40 +225,40 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	conn.Lock()
 	defer conn.Unlock()
 
-	p.Print(packet.PacketStageIncoming, d.packetLogs)
+	p.Print(packet.PacketStageIncoming, d.PacketLogsEnabled())
 
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			//return conn, errors.New("pre service processing failed for application packet")
 			return conn, conn.Context.PuContextError(pucontext.ErrServicePreprocessorFailed, fmt.Sprintf("%s:%s:%s", conn.Context.ID(), p.SourceAddress().String(), p.DestinationAddress().String()))
 		}
 	}
 
-	p.Print(packet.PacketStageAuth, d.packetLogs)
+	p.Print(packet.PacketStageAuth, d.PacketLogsEnabled())
 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processApplicationTCPPacket(p, conn.Context, conn)
 	if err != nil {
-		if d.packetLogs {
+		if d.PacketLogsEnabled() {
 			zap.L().Debug("Dropping packet  ",
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
 				zap.Error(err),
 			)
 		}
-		p.Print(packet.PacketFailureAuth, d.packetLogs)
+		p.Print(packet.PacketFailureAuth, d.PacketLogsEnabled())
 		//return conn, fmt.Errorf("processing failed for application packet: %s", err)
 		return conn, err
 	}
 
-	p.Print(packet.PacketStageService, d.packetLogs)
+	p.Print(packet.PacketStageService, d.PacketLogsEnabled())
 
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			//return conn, errors.New("post service processing failed for application packet")
 			return conn, conn.Context.PuContextError(pucontext.ErrServicePostprocessorFailed, fmt.Sprintf("%s:%s:%s", conn.Context.ID(), p.SourceAddress().String(), p.DestinationAddress().String()))
 		}
@@ -266,7 +266,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
-	p.Print(packet.PacketStageOutgoing, d.packetLogs)
+	p.Print(packet.PacketStageOutgoing, d.PacketLogsEnabled())
 	return conn, nil
 }
 
