@@ -136,6 +136,31 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	return nil
 }
 
+// SetLogLevel sets log level.
+func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
+
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.SetLogLevelPayload{
+			Level: level,
+		},
+	}
+
+	var allErrors string
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.SetLogLevel, request, resp); err != nil {
+			allErrors = allErrors + " contextID " + contextID + ":" + err.Error()
+		}
+	}
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("unable to set log level: %s", allErrors)
+	}
+
+	return nil
+}
+
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 
