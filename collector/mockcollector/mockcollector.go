@@ -97,3 +97,15 @@ func (m *MockEventCollector) CollectPacketEvent(report *collector.PacketReport) 
 func (mr *MockEventCollectorMockRecorder) CollectPacketEvent(report interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPacketEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectPacketEvent), report)
 }
+
+// CollectCounterEvent mocks base method
+// nolint
+func (m *MockEventCollector) CollectCounterEvent(counterReport *collector.CounterReport) {
+	m.ctrl.Call(m, "CollectCounterEvent", counterReport)
+}
+
+// CollectCounterEvent indicates an expected call of CollectCounterEvent
+// nolint
+func (mr *MockEventCollectorMockRecorder) CollectCounterEvent(counterReport interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectCounterEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectCounterEvent), counterReport)
+}

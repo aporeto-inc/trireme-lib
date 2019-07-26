@@ -3,7 +3,6 @@ package nfqdatapath
 // Go libraries
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"time"
@@ -33,13 +32,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var errMarkNotFound = errors.New("PU mark not found")
-var errPortNotFound = errors.New("Port not found")
-var errContextIDNotFound = errors.New("unable to find contextID")
-var errInvalidProtocol = errors.New("Invalid Protocol")
-
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
+
+var collectCounterInterval = 30 * time.Second
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
@@ -122,7 +118,8 @@ type Datapath struct {
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
 
-	puToPortsMap map[string]map[string]bool
+	puToPortsMap      map[string]map[string]bool
+	puCountersChannel chan *pucontext.PUContext
 }
 
 type tracingCacheEntry struct {
@@ -246,13 +243,12 @@ func New(
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
 		puToPortsMap:           map[string]map[string]bool{},
+		puCountersChannel:      make(chan *pucontext.PUContext, 220),
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
-
-	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
@@ -320,6 +316,54 @@ func NewWithDefaults(
 	return e
 }
 
+func (d *Datapath) collectCounters() {
+	keysList := d.puFromContextID.KeyList()
+	zap.L().Debug("Collecting Counters for", zap.Int("Num PU", len(keysList)))
+	for _, keys := range keysList {
+		val, err := d.puFromContextID.Get(keys)
+		if err != nil {
+			continue
+		}
+		counters := val.(*pucontext.PUContext).GetErrorCounters()
+		d.collector.CollectCounterEvent(
+			&collector.CounterReport{
+				ContextID: keys.(string),
+				Counters:  counters,
+				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
+			})
+	}
+	counters := pucontext.GetErrorCounters()
+	d.collector.CollectCounterEvent(
+		&collector.CounterReport{
+			ContextID: "",
+			Counters:  counters,
+			Namespace: "",
+		})
+}
+func (d *Datapath) counterCollector(ctx context.Context) {
+
+	for {
+		//drain the channel everytime we come here
+		select {
+		case pu := <-d.puCountersChannel:
+			counters := pu.GetErrorCounters()
+			d.collector.CollectCounterEvent(&collector.CounterReport{
+				ContextID: pu.ManagementID(),
+				Counters:  counters,
+				Namespace: pu.ManagementNamespace(),
+			})
+
+		case <-ctx.Done():
+			d.collectCounters()
+			return
+		case <-time.After(collectCounterInterval):
+			d.collectCounters()
+
+		}
+
+	}
+}
+
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
@@ -328,7 +372,19 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
+	// this context pointer is about to get lost. reclaims its counters
+	select {
+	case d.puCountersChannel <- pu:
+	default:
+		zap.L().Debug("Failed to enqueue pu to counters channel")
+		counters := pu.GetErrorCounters()
+		d.collector.CollectCounterEvent(&collector.CounterReport{
+			ContextID: pu.ID(),
+			Counters:  counters,
+			Namespace: pu.ManagementNamespace(),
+		})
 
+	}
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
@@ -396,10 +452,24 @@ func (d *Datapath) Unenforce(contextID string) error {
 	if err != nil {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
+	// Pu is being unenforcer. Collect its counters
 
+	d.puCountersChannel <- puContext.(*pucontext.PUContext)
 	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
+	// this context pointer is about to get lost. reclaims its counters
+	select {
+	case d.puCountersChannel <- pu:
+	default:
+		zap.L().Debug("Failed to enqueue pu to counters channel")
+		counters := pu.GetErrorCounters()
+		d.collector.CollectCounterEvent(&collector.CounterReport{
+			ContextID: pu.ID(),
+			Counters:  counters,
+			Namespace: pu.ManagementNamespace(),
+		})
 
+	}
 	// Cleanup the mark information
 	if err = d.puFromMark.Remove(pu.Mark()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",
@@ -485,7 +555,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 	d.startNetworkInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
-
+	go d.counterCollector(ctx)
 	return nil
 }
 
@@ -494,6 +564,17 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 
 	d.secrets = token
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
+}
+
+// SetLogLevel sets log level.
+func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
+
+	d.packetLogs = false
+	if level == constants.Trace {
+		d.packetLogs = true
+	}
+
+	return nil
 }
 
 // CleanUp implements the cleanup interface.
@@ -560,7 +641,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 				zap.Int("protocol", int(protocol)),
 				zap.Int("port", int(port)),
 			)
-			return nil, errMarkNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrMarkNotFound, "Mark Not Found")
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -570,12 +651,12 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for TCP server port ", zap.Uint16("port", port))
-			return nil, errPortNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf(" TCP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, errContextIDNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, "")
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -584,19 +665,19 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
-			return nil, errPortNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf("UDP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, errContextIDNotFound
+			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, fmt.Sprintf("contextID %s not Found", contextID))
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
 
 	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
 
-	return nil, errInvalidProtocol
+	return nil, pucontext.PuContextError(pucontext.ErrInvalidProtocol, fmt.Sprintf("Invalid Protocol %d", int(protocol)))
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing

@@ -136,6 +136,31 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	return nil
 }
 
+// SetLogLevel sets log level.
+func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
+
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.SetLogLevelPayload{
+			Level: level,
+		},
+	}
+
+	var allErrors string
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.SetLogLevel, request, resp); err != nil {
+			allErrors = allErrors + " contextID " + contextID + ":" + err.Error()
+		}
+	}
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("unable to set log level: %s", allErrors)
+	}
+
+	return nil
+}
+
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 
@@ -347,6 +372,20 @@ func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.R
 	for _, record := range payload.PacketRecords {
 
 		r.collector.CollectPacketEvent(record)
+	}
+	return nil
+}
+
+// PostCounterEvent is called from the remote to post multiple counter records from the remoteenforcer
+func (r *StatsServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.CounterReportPayload)
+	for _, record := range payload.CounterReports {
+		zap.L().Debug("Posting Remote counters")
+		r.collector.CollectCounterEvent(record)
 	}
 	return nil
 }
