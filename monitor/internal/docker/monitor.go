@@ -273,7 +273,7 @@ func (d *DockerMonitor) listener(ctx context.Context) {
 	}
 	client := d.dockerClient()
 	if client == nil {
-		return errors.New("unable to start listener: nil clienthdl")
+		return
 	}
 	messages, errs := client.Events(context.Background(), options)
 	for {
@@ -457,7 +457,7 @@ func (d *DockerMonitor) retrieveDockerInfo(ctx context.Context, event *events.Me
 			timeout := 0 * time.Second
 			client := d.dockerClient()
 			if client == nil {
-				return errors.New("unable to get container stop: nil clienthdl")
+				return nil, errors.New("unable to get container stop: nil clienthdl")
 			}
 			if err1 := client.ContainerStop(ctx, event.ID, &timeout); err1 != nil {
 				zap.L().Warn("Unable to stop illegal container",
