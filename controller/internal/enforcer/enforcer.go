@@ -43,6 +43,9 @@ type Enforcer interface {
 	// SetTargetNetworks sets the target network configuration of the controllers.
 	SetTargetNetworks(cfg *runtime.Configuration) error
 
+	// SetLogLevel sets log level.
+	SetLogLevel(level constants.LogLevel) error
+
 	// Cleanup request a clean up of the controllers.
 	CleanUp() error
 
@@ -171,6 +174,18 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 
 	if e.secrets != nil {
 		if err := e.secrets.UpdateSecrets(secrets); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// SetLogLevel sets log level.
+func (e *enforcer) SetLogLevel(level constants.LogLevel) error {
+
+	if e.transport != nil {
+		if err := e.transport.SetLogLevel(level); err != nil {
 			return err
 		}
 	}

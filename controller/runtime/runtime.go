@@ -1,5 +1,7 @@
 package runtime
 
+import "go.aporeto.io/trireme-lib/controller/constants"
+
 // Configuration is configuration parameters that can be safely updated
 // for the controller after it is started
 type Configuration struct {
@@ -9,6 +11,8 @@ type Configuration struct {
 	UDPTargetNetworks []string
 	// ExcludedNetworks is the list of networks that must be excxluded from any enforcement.
 	ExcludedNetworks []string
+	// LogLevel sets loglevel.
+	LogLevel constants.LogLevel
 }
 
 // DeepCopy copies the configuration and avoids locking issues.
@@ -17,5 +21,6 @@ func (c *Configuration) DeepCopy() *Configuration {
 		TCPTargetNetworks: append([]string{}, c.TCPTargetNetworks...),
 		UDPTargetNetworks: append([]string{}, c.UDPTargetNetworks...),
 		ExcludedNetworks:  append([]string{}, c.ExcludedNetworks...),
+		LogLevel:          c.LogLevel,
 	}
 }

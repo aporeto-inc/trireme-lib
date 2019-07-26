@@ -9,9 +9,9 @@ import (
 )
 
 // LaunchRemoteEnforcer launches a remote enforcer instance.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
 
-	return remoteenforcer.LaunchRemoteEnforcer(service)
+	return remoteenforcer.LaunchRemoteEnforcer(service, zapConfig)
 }
 
 // addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.

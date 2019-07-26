@@ -156,6 +156,12 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 	}
 
 	for _, e := range t.enforcers {
+		if cfg.LogLevel != "" {
+			if err := e.SetLogLevel(cfg.LogLevel); err != nil {
+				zap.L().Error("unable to set log level", zap.Error(err))
+			}
+		}
+
 		err := e.SetTargetNetworks(cfg)
 		if err != nil {
 			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))

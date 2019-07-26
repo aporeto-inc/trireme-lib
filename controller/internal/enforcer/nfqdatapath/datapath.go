@@ -250,8 +250,6 @@ func New(
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
-	packet.PacketLogLevel = packetLogs
-
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
 	if mode != constants.RemoteContainer {
@@ -566,6 +564,17 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 
 	d.secrets = token
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
+}
+
+// SetLogLevel sets log level.
+func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
+
+	d.packetLogs = false
+	if level == constants.Trace {
+		d.packetLogs = true
+	}
+
+	return nil
 }
 
 // CleanUp implements the cleanup interface.
