@@ -122,7 +122,7 @@ type Datapath struct {
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
 
-	logLevelLock sync.Mutex
+	logLevelLock sync.RWMutex
 }
 
 type tracingCacheEntry struct {
@@ -571,8 +571,8 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 
 // PacketLogsEnabled returns true if the packet logs are enabled.
 func (d *Datapath) PacketLogsEnabled() bool {
-	d.logLevelLock.Lock()
-	defer d.logLevelLock.Unlock()
+	d.logLevelLock.RLock()
+	defer d.logLevelLock.RUnlock()
 
 	return d.packetLogs
 }
