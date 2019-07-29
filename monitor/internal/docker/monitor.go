@@ -36,7 +36,7 @@ type lockedDockerClient struct {
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.
 type DockerMonitor struct {
-	lockedDockerClient
+	clientHdl                  lockedDockerClient
 	socketType                 string
 	socketAddress              string
 	metadataExtractor          extractors.DockerMetadataExtractor
@@ -102,16 +102,16 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 }
 
 func (d *DockerMonitor) dockerClient() dockerClient.CommonAPIClient {
-	d.dockerClientLock.Lock()
-	defer d.dockerClientLock.Unlock()
-	client := d.client
+	d.clientHdl.dockerClientLock.Lock()
+	defer d.clientHdl.dockerClientLock.Unlock()
+	client := d.clientHdl.client
 	return client
 }
 
 func (d *DockerMonitor) setDockerClient(client dockerClient.CommonAPIClient) {
-	d.dockerClientLock.Lock()
-	d.client = client
-	d.dockerClientLock.Unlock()
+	d.clientHdl.dockerClientLock.Lock()
+	d.clientHdl.client = client
+	d.clientHdl.dockerClientLock.Unlock()
 
 }
 
