@@ -175,7 +175,6 @@ func (f *FlowPolicy) LogPrefix(contextID string) string {
 	hash, err := XXHash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
-		return ""
 	}
 
 	return hash
