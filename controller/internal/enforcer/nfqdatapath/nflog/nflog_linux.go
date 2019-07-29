@@ -89,7 +89,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) (*collector.PacketReport, error) {
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) *collector.PacketReport {
 
 	report := &collector.PacketReport{
 		Payload: make([]byte, 64),
@@ -118,7 +118,7 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 	report.TriremePacket = false
 	report.DropReason = collector.PacketDrop
 	copy(report.Payload, buf.Payload[0:64])
-	return report, nil
+	return report
 }
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
@@ -137,7 +137,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	if report.Action.String() == "10" {
-		packetReport, _ = a.recordDroppedPacket(buf, pu)
+		packetReport = a.recordDroppedPacket(buf, pu)
 	}
 
 	if pu.ID() == "" {
