@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -66,11 +65,6 @@ type EnforcePayload struct {
 //UnEnforcePayload payload for unenforce request
 type UnEnforcePayload struct {
 	ContextID string `json:",omitempty"`
-}
-
-//SetLogLevelPayload payload for set log level request
-type SetLogLevelPayload struct {
-	Level constants.LogLevel `json:",omitempty"`
 }
 
 //InitResponsePayload Response payload

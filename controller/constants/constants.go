@@ -81,18 +81,6 @@ const (
 	Sidecar
 )
 
-// LogLevel corresponds to log level of any logger. eg: zap.
-type LogLevel string
-
-// Various log levels.
-const (
-	Info  LogLevel = "Info"
-	Debug LogLevel = "Debug"
-	Trace LogLevel = "Trace"
-	Error LogLevel = "Error"
-	Warn  LogLevel = "Warn"
-)
-
 // API service related constants
 const (
 	CallbackURIExtension = "/aporeto/oidc/callback"

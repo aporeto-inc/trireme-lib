@@ -444,7 +444,9 @@ func createTCPAuthenticationOption(token []byte) []byte {
 
 func TestAuthOptions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
-	pkt.Print(123456, true)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
 
 	if err := pkt.TCPDataDetach(4); err != nil {
 		t.Error("tcp data detach failed")
@@ -469,7 +471,9 @@ func TestAuthOptions(t *testing.T) {
 
 func TestNewPacketFunctions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
-	pkt.Print(123456, true)
+	PacketLogLevel = true
+	pkt.Print(123456)
+	PacketLogLevel = false
 
 	if pkt.TCPOptionLength() != 0 {
 		t.Error("Test packet option length")

@@ -452,7 +452,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 						if debug {
 							fmt.Println("Input packet", i)
-							tcpPacket.Print(0, false)
+							tcpPacket.Print(0)
 						}
 
 						So(err, ShouldBeNil)
@@ -471,7 +471,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 						if debug {
 							fmt.Println("Intermediate packet", i)
-							tcpPacket.Print(0, false)
+							tcpPacket.Print(0)
 						}
 
 						output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -485,16 +485,16 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 						if debug {
 							fmt.Println("Output packet", i)
-							outPacket.Print(0, false)
+							outPacket.Print(0)
 						}
 
 						if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 							packetDiffers = true
 							fmt.Println("Error: packets dont match")
 							fmt.Println("Input Packet")
-							oldPacket.Print(0, false)
+							oldPacket.Print(0)
 							fmt.Println("Output Packet")
-							outPacket.Print(0, false)
+							outPacket.Print(0)
 							t.Errorf("Packet %d Input and output packet do not match", i)
 							t.FailNow()
 						}
@@ -557,7 +557,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -576,7 +576,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							if tcpPacket.GetTCPFlags()&packet.TCPSynMask != 0 {
@@ -610,7 +610,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					} else if k == 1 {
@@ -643,7 +643,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -662,7 +662,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							if tcpPacket.GetTCPFlags()&packet.TCPSynMask != 0 {
@@ -696,7 +696,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -746,7 +746,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 
 					if debug {
 						fmt.Println("Input packet", i)
-						tcpPacket.Print(0, false)
+						tcpPacket.Print(0)
 					}
 
 					So(err, ShouldBeNil)
@@ -765,7 +765,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 
 					if debug {
 						fmt.Println("Intermediate packet", i)
-						tcpPacket.Print(0, false)
+						tcpPacket.Print(0)
 					}
 
 					output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -779,7 +779,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 
 					if debug {
 						fmt.Println("Output packet", i)
-						outPacket.Print(0, false)
+						outPacket.Print(0)
 					}
 				}
 			})
@@ -851,7 +851,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
-						outPacket.Print(0, false)
+						outPacket.Print(0)
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
 
@@ -998,7 +998,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 						outPacket, err := packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
-						outPacket.Print(0, false)
+						outPacket.Print(0)
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
 
@@ -1177,7 +1177,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 					}
 					if debug {
 						fmt.Println("Input packet", i)
-						tcpPacket.Print(0, false)
+						tcpPacket.Print(0)
 					}
 
 					So(err, ShouldBeNil)
@@ -1196,7 +1196,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 					if debug {
 						fmt.Println("Intermediate packet", i)
-						tcpPacket.Print(0, false)
+						tcpPacket.Print(0)
 					}
 
 					if reflect.DeepEqual(SIP, tcpPacket.SourceAddress()) {
@@ -1224,7 +1224,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 					if debug {
 						fmt.Println("Output packet", i)
-						outPacket.Print(0, false)
+						outPacket.Print(0)
 					}
 
 					if reflect.DeepEqual(SIP, tcpPacket.DestinationAddress()) {
@@ -1622,7 +1622,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -1641,7 +1641,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -1656,16 +1656,16 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -1772,7 +1772,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -1790,7 +1790,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -1803,7 +1803,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -1904,7 +1904,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -1924,7 +1924,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -1939,16 +1939,16 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -2052,7 +2052,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2071,7 +2071,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2091,16 +2091,16 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -2205,7 +2205,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2227,7 +2227,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2244,16 +2244,16 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -2357,7 +2357,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2376,7 +2376,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2391,16 +2391,16 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -2518,7 +2518,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2561,7 +2561,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2609,7 +2609,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 						}
@@ -2725,7 +2725,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2756,7 +2756,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2780,7 +2780,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -2859,7 +2859,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -2877,7 +2877,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -2907,7 +2907,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 						}
@@ -3013,7 +3013,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3029,7 +3029,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3043,16 +3043,16 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -3132,7 +3132,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3153,7 +3153,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3174,16 +3174,16 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -3284,7 +3284,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3312,7 +3312,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3343,16 +3343,16 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -3464,7 +3464,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 							So(err, ShouldBeNil)
 							So(tcpPacket, ShouldNotBeNil)
@@ -3501,7 +3501,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3525,15 +3525,15 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 							if !reflect.DeepEqual(oldPacket.GetTCPBytes(), outPacket.GetTCPBytes()) {
 								packetDiffers = true
 								fmt.Println("Error: packets dont match")
 								fmt.Println("Input Packet")
-								oldPacket.Print(0, false)
+								oldPacket.Print(0)
 								fmt.Println("Output Packet")
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 								t.Errorf("Packet %d Input and output packet do not match", i)
 								t.FailNow()
 							}
@@ -3640,7 +3640,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3662,7 +3662,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3692,7 +3692,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -3796,7 +3796,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3822,7 +3822,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -3848,7 +3848,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 
 							if isAckPacket {
@@ -3957,7 +3957,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -3987,7 +3987,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -4014,7 +4014,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								break
@@ -4104,7 +4104,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
 							So(err, ShouldBeNil)
 							oldPacket, err := packet.New(0, start, "0", true)
-							oldPacket.Print(123456, false)
+							oldPacket.Print(123456)
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPv4Checksum()
 								oldPacket.UpdateTCPChecksum()
@@ -4120,7 +4120,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -4139,7 +4139,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -4161,7 +4161,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -4232,7 +4232,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if debug {
 								fmt.Println("Input packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							So(err, ShouldBeNil)
@@ -4251,7 +4251,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
-								tcpPacket.Print(0, false)
+								tcpPacket.Print(0)
 							}
 
 							output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -4273,7 +4273,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							}
 							if debug {
 								fmt.Println("Output packet", i)
-								outPacket.Print(0, false)
+								outPacket.Print(0)
 							}
 						}
 					}
@@ -4368,7 +4368,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 				if debug {
 					fmt.Println("Input packet", i)
-					tcpPacket.Print(0, false)
+					tcpPacket.Print(0)
 				}
 
 				So(err, ShouldBeNil)
@@ -4386,7 +4386,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 				if debug {
 					fmt.Println("Intermediate packet", i)
-					tcpPacket.Print(0, false)
+					tcpPacket.Print(0)
 				}
 
 				output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -4401,7 +4401,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 				if debug {
 					fmt.Println("Output packet", i)
-					outPacket.Print(0, false)
+					outPacket.Print(0)
 				}
 			}
 		})
@@ -4568,7 +4568,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 						if debug {
 							fmt.Println("Input packet", i)
-							tcpPacket.Print(0, false)
+							tcpPacket.Print(0)
 						}
 
 						So(err, ShouldBeNil)
@@ -4587,7 +4587,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 						if debug {
 							fmt.Println("Intermediate packet", i)
-							tcpPacket.Print(0, false)
+							tcpPacket.Print(0)
 						}
 
 						output := make([]byte, len(tcpPacket.GetTCPBytes()))
@@ -4602,7 +4602,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 						if debug {
 							fmt.Println("Output packet", i)
-							outPacket.Print(0, false)
+							outPacket.Print(0)
 						}
 					}
 				}

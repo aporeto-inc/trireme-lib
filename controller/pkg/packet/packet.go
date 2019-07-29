@@ -13,8 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// printCount prints the debug header for packets every few lines that it prints
-var printCount int
+var (
+	// PacketLogLevel determines if packet logging is turned on
+	PacketLogLevel bool
+
+	// printCount prints the debug header for packets every few lines that it prints
+	printCount int
+)
 
 var errIPPacketCorrupt = errors.New("IP packet is smaller than min IP size of 20")
 var errTCPPacketCorrupt = errors.New("TCP Packet corrupt")
@@ -215,7 +220,7 @@ func (p *Packet) GetIPLength() uint16 {
 }
 
 // Print is a print helper function
-func (p *Packet) Print(context uint64, packetLogLevel bool) {
+func (p *Packet) Print(context uint64) {
 
 	if p.ipHdr.ipProto != IPProtocolTCP {
 		return
@@ -224,7 +229,7 @@ func (p *Packet) Print(context uint64, packetLogLevel bool) {
 	logPkt := false
 	detailed := false
 
-	if packetLogLevel || context == 0 {
+	if PacketLogLevel || context == 0 {
 		logPkt = true
 		detailed = true
 	}

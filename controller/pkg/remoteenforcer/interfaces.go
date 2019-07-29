@@ -21,8 +21,6 @@ const (
 	EnableIPTablesPacketTracing = "RemoteEnforcer.EnableIPTablesPacketTracing"
 	// EnableDatapathPacketTracing enable datapath packet tracing
 	EnableDatapathPacketTracing = "RemoteEnforcer.EnableDatapathPacketTracing"
-	// SetLogLevel is string for invoking set log level RPC
-	SetLogLevel = "RemoteEnforcer.SetLogLevel"
 )
 
 // RemoteIntf is the interface implemented by the remote enforcer
