@@ -131,7 +131,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, nil, err
 	}
 
-	report, err := ReportPolicyFromAddr(pu, buf.DstIP, buf.DstPort, puIsSource)
+	report, err := reportPolicyFromAddr(pu, buf.DstIP, buf.DstPort, puIsSource)
 	if err != nil {
 		return nil, nil, err
 	}
