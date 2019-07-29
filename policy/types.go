@@ -2,6 +2,8 @@ package policy
 
 import (
 	"errors"
+	"fmt"
+	"hash/fnv"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
@@ -364,4 +366,24 @@ type OptionsType struct {
 type RuntimeError struct {
 	ContextID string
 	Error     error
+}
+
+// Fnv32Hash hash the given data by Fnv32-bit algorithm.
+func Fnv32Hash(data ...string) (string, error) {
+
+	if len(data) == 0 {
+		return "", fmt.Errorf("no data to hash")
+	}
+
+	aggregatedData := ""
+	for _, ed := range data {
+		aggregatedData += ed
+	}
+
+	hash := fnv.New32()
+	if _, err := hash.Write([]byte(aggregatedData)); err != nil {
+		return "", fmt.Errorf("unable to hash data: %v", err)
+	}
+
+	return fmt.Sprintf("%d", hash.Sum32()), nil
 }

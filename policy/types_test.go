@@ -32,6 +32,36 @@ func TestLogPrefix(t *testing.T) {
 	})
 }
 
+func TestFnv32(t *testing.T) {
+
+	Convey("When I request log prefix with no data", t, func() {
+		hash, err := Fnv32Hash()
+
+		Convey("I should have the hash", func() {
+			So(hash, ShouldBeEmpty)
+			So(err, ShouldNotBeNil)
+		})
+	})
+
+	Convey("When I request log prefix with small data", t, func() {
+		hash, err := Fnv32Hash("xyz")
+
+		Convey("I should have the hash", func() {
+			So(hash, ShouldEqual, "845396910")
+			So(err, ShouldBeNil)
+		})
+	})
+
+	Convey("When I request log prefix with large data", t, func() {
+		hash, err := Fnv32Hash("xyzsadsadasfkjhjkasdjhsajkdhsad", "asdasdasda", "asdhjkashdjkashdjashdkasjdhasjkdhjashdkasjdhkaslfjsalkjdklasjdklasjdk")
+
+		Convey("I should have the hash", func() {
+			So(hash, ShouldEqual, "2149035768")
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
 func TestEncodedStringToActionInvalidValue(t *testing.T) {
 	Convey("When I run decode and encode, the results should match", t, func() {
 		ea := "badvalue"
