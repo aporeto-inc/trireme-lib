@@ -67,6 +67,7 @@ type Datapath struct {
 	puFromContextID cache.DataStore
 	puFromMark      cache.DataStore
 	puFromUser      cache.DataStore
+	puFromHash      cache.DataStore
 
 	contextIDFromTCPPort *portcache.PortCache
 	contextIDFromUDPPort *portcache.PortCache
@@ -209,6 +210,7 @@ func New(
 	d := &Datapath{
 		puFromMark:           cache.NewCache("puFromMark"),
 		puFromUser:           cache.NewCache("puFromUser"),
+		puFromHash:           cache.NewCache("puFromHash"),
 		contextIDFromTCPPort: contextIDFromTCPPort,
 		contextIDFromUDPPort: contextIDFromUDPPort,
 
@@ -250,7 +252,7 @@ func New(
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
 	}
 
-	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+	d.nflogger = nflog.NewNFLogger(11, 10, d.puContextDelegate, collector)
 
 	if mode != constants.RemoteContainer {
 		go d.autoPortDiscovery()
@@ -437,6 +439,9 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		prevPU.(*pucontext.PUContext).CancelFunc()
 	}
 
+	// Cache PU to its contextID hash.
+	d.puFromHash.AddOrUpdate(pu.HashID(), pu)
+
 	// Cache PU from contextID for management and policy updates
 	d.puFromContextID.AddOrUpdate(contextID, pu)
 
@@ -505,6 +510,14 @@ func (d *Datapath) Unenforce(contextID string) error {
 				zap.Error(err),
 			)
 		}
+	}
+
+	// Cleanup the contextID hash cache.
+	if err := d.puFromHash.Remove(pu.HashID()); err != nil {
+		zap.L().Warn("unable to remove pucontext from hash cache",
+			zap.String("hash", pu.HashID()),
+			zap.Error(err),
+		)
 	}
 
 	// Cleanup the contextID cache
@@ -583,20 +596,14 @@ func (d *Datapath) CleanUp() error {
 	return nil
 }
 
-func (d *Datapath) puInfoDelegate(contextID string) (ID string, namespace string, tags *policy.TagStore) {
+func (d *Datapath) puContextDelegate(hash string) (*pucontext.PUContext, error) {
 
-	item, err := d.puFromContextID.Get(contextID)
+	pu, err := d.puFromHash.Get(hash)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	ctx := item.(*pucontext.PUContext)
-
-	ID = ctx.ManagementID()
-	namespace = ctx.ManagementNamespace()
-	tags = ctx.Annotations().Copy()
-
-	return
+	return pu.(*pucontext.PUContext), nil
 }
 
 func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {

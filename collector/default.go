@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cespare/xxhash"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // DefaultCollector implements a default collector infrastructure to syslog
@@ -65,7 +66,7 @@ func StatsUserHash(r *UserRecord) error {
 		}
 	}
 
-	hashWithNS, err := HashHashWithNamespace(fmt.Sprintf("%d", hash.Sum64()), r.Namespace)
+	hashWithNS, err := policy.XXHash(fmt.Sprintf("%d", hash.Sum64()), r.Namespace)
 	if err != nil {
 		return err
 	}
@@ -73,15 +74,4 @@ func StatsUserHash(r *UserRecord) error {
 	r.ID = hashWithNS
 
 	return nil
-}
-
-// HashHashWithNamespace hash the given claim hash with the given namespace.
-func HashHashWithNamespace(claimsHash string, namespace string) (string, error) {
-
-	hash := xxhash.New()
-	if _, err := hash.Write(append([]byte(claimsHash), []byte(namespace)...)); err != nil {
-		return "", fmt.Errorf("unable to create namespace hash: %v", err)
-	}
-
-	return fmt.Sprintf("%d", hash.Sum64()), nil
 }

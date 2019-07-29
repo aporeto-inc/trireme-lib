@@ -27,7 +27,27 @@ func TestLogPrefix(t *testing.T) {
 			ServiceID:     "beaddead",
 		}
 		Convey("I should have the correct log prefix", func() {
-			So(f.LogPrefix("somecontext"), ShouldEqual, "somecontext:deadbeef:beaddead"+f.EncodedActionString())
+			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350")
+		})
+	})
+}
+
+func TestXXHash(t *testing.T) {
+	Convey("When I call xxhash with no data", t, func() {
+		hash, err := XXHash()
+
+		Convey("I should get error", func() {
+			So(hash, ShouldBeEmpty)
+			So(err, ShouldNotBeNil)
+		})
+	})
+
+	Convey("When I call xxhash with with data", t, func() {
+		hash, err := XXHash("abc")
+
+		Convey("I should not get error", func() {
+			So(hash, ShouldNotBeNil)
+			So(err, ShouldBeNil)
 		})
 	})
 }

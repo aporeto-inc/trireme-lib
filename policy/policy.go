@@ -429,7 +429,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 		managementID:          p.ManagementID,
 		managementNamespace:   p.ManagementNamespace,
 		triremeAction:         p.TriremeAction,
-		applicationACLs:       p.ApplicationACLs,
+		applicationACLs:       p.ApplicationACLs.Copy(),
 		networkACLs:           p.NetworkACLs.Copy(),
 		DNSACLs:               p.DNSACLs.Copy(),
 		transmitterRules:      p.TransmitterRules.Copy(),

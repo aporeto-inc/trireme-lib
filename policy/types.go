@@ -2,9 +2,12 @@ package policy
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/cespare/xxhash"
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
+	"go.uber.org/zap"
 )
 
 const (
@@ -168,8 +171,14 @@ func DefaultAcceptLogPrefix(contextID string) string {
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
 func (f *FlowPolicy) LogPrefix(contextID string) string {
-	prefix := contextID + ":" + f.PolicyID + ":" + f.ServiceID + f.EncodedActionString()
-	return prefix
+
+	hash, err := XXHash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+		return ""
+	}
+
+	return hash
 }
 
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
@@ -364,4 +373,24 @@ type OptionsType struct {
 type RuntimeError struct {
 	ContextID string
 	Error     error
+}
+
+// XXHash hash the given data by xxhash algorithm.
+func XXHash(data ...string) (string, error) {
+
+	if len(data) == 0 {
+		return "", fmt.Errorf("no data to hash")
+	}
+
+	aggregatedData := ""
+	for _, ed := range data {
+		aggregatedData += ed
+	}
+
+	hash := xxhash.New()
+	if _, err := hash.Write([]byte(aggregatedData)); err != nil {
+		return "", fmt.Errorf("unable to hash data: %v", err)
+	}
+
+	return fmt.Sprintf("%d", hash.Sum64()), nil
 }
