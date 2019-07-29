@@ -600,7 +600,7 @@ func (d *Datapath) puContextDelegate(hash string) (*pucontext.PUContext, error) 
 
 	pu, err := d.puFromHash.Get(hash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to find pucontext in cache with hash %s: %v", hash, err)
 	}
 
 	return pu.(*pucontext.PUContext), nil

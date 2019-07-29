@@ -218,7 +218,7 @@ func (p *PUContext) ID() string {
 
 // HashID returns the hash of the ID of the PU
 func (p *PUContext) HashID() string {
-	return p.id
+	return p.hashID
 }
 
 // Username returns the ID of the PU
