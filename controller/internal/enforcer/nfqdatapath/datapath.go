@@ -513,7 +513,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	// Cleanup the contextID hash cache.
-	if err := d.puFromHash.Remove(pu.HashID()); err != nil {
+	if err := d.puFromHash.RemoveWithDelay(pu.HashID(), 10*time.Second); err != nil {
 		zap.L().Warn("unable to remove pucontext from hash cache",
 			zap.String("hash", pu.HashID()),
 			zap.Error(err),
