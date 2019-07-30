@@ -13,7 +13,7 @@ func Test_NewPU(t *testing.T) {
 	Convey("When I call NewPU with proper data", t, func() {
 
 		fp := &policy.PUInfo{
-			Runtime: &policy.PURuntime{},
+			Runtime: policy.NewPURuntimeWithDefaults(),
 			Policy:  policy.NewPUPolicyWithDefaults(),
 		}
 
