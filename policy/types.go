@@ -166,7 +166,13 @@ type FlowPolicy struct {
 
 // DefaultAcceptLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultAcceptLogPrefix(contextID string) string {
-	return contextID + ":default:default" + "3"
+
+	hash, err := XXHash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":3"
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
@@ -177,17 +183,29 @@ func (f *FlowPolicy) LogPrefix(contextID string) string {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash
+	return hash + ":" + f.EncodedActionString()
 }
 
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultLogPrefix(contextID string) string {
-	return contextID + ":default:default" + "6"
+
+	hash, err := XXHash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":6"
 }
 
 // DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
 func DefaultDroppedPacketLogPrefix(contextID string) string {
-	return contextID + ":default:default" + "10"
+
+	hash, err := XXHash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":10"
 }
 
 // EncodedActionString is used to encode observed action as well as action

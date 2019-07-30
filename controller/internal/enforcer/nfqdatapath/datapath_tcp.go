@@ -67,7 +67,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			// Drop this synack it is for a flow we know which is marked for deletion.
 			// We saw a FINACK and this synack has come without we seeing an appsyn for this flow again
 			//return conn, fmt.Errorf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort()))
-			return conn, conn.Context.PuContextError(pucontext.ErrOutOfOrderSynAck, fmt.Sprintf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort())))
+			return conn, pucontext.PuContextError(pucontext.ErrOutOfOrderSynAck, fmt.Sprintf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort())))
 		case pucontext.ToError(pucontext.ErrNonPUTraffic):
 			d.releaseUnmonitoredFlow(p)
 			return conn, nil

@@ -13,13 +13,13 @@ func TestDefaultLogPrefix(t *testing.T) {
 			Action: Reject,
 		}
 		Convey("I should have the correct default prefix", func() {
-			So(t, ShouldEqual, "abc:default:default"+f.EncodedActionString())
+			So(t, ShouldEqual, "4952883123889572249:"+f.EncodedActionString())
 		})
 	})
 }
 
 func TestLogPrefix(t *testing.T) {
-	Convey("When I request log prefix", t, func() {
+	Convey("When I request log prefix reject", t, func() {
 		f := &FlowPolicy{
 			Action:        Reject,
 			ObserveAction: ObserveNone,
@@ -27,7 +27,19 @@ func TestLogPrefix(t *testing.T) {
 			ServiceID:     "beaddead",
 		}
 		Convey("I should have the correct log prefix", func() {
-			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350")
+			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350:6")
+		})
+	})
+
+	Convey("When I request log prefix", t, func() {
+		f := &FlowPolicy{
+			Action:        Accept,
+			ObserveAction: ObserveNone,
+			PolicyID:      "deadbeef",
+			ServiceID:     "beaddead",
+		}
+		Convey("I should have the correct log prefix", func() {
+			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350:3")
 		})
 	})
 }

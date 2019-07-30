@@ -17,13 +17,13 @@ type NFLogger interface {
 type GetPUContextFunc func(hash string) (*pucontext.PUContext, error)
 
 // reportPolicyFromAddr retrieves policy from aclcache based on transport direction.
-func reportPolicyFromAddr(pu *pucontext.PUContext, ip net.IP, port uint16, app bool) (report *policy.FlowPolicy, err error) {
+func reportPolicyFromAddr(pu *pucontext.PUContext, ip net.IP, port uint16, app bool) (report *policy.FlowPolicy) {
 
 	if app {
-		report, _, err = pu.ApplicationACLPolicyFromAddr(ip, port)
+		report, _, _ = pu.ApplicationACLPolicyFromAddr(ip, port)
 		return
 	}
 
-	report, _, err = pu.NetworkACLPolicyFromAddr(ip, port)
+	report, _, _ = pu.NetworkACLPolicyFromAddr(ip, port)
 	return
 }

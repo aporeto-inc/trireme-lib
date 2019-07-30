@@ -6,12 +6,14 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -126,26 +128,32 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	var packetReport *collector.PacketReport
 	var err error
 
-	pu, err := a.getPUContext(buf.Prefix)
+	// `hashID:action`
+	parts := strings.SplitN(buf.Prefix, ":", 2)
+	if len(parts) != 2 {
+		return nil, nil, fmt.Errorf("nflog: prefix doesn't contain sufficient information: %s", buf.Prefix)
+	}
+
+	pu, err := a.getPUContext(parts[0])
 	if err != nil {
 		return nil, nil, err
 	}
 
-	report, err := reportPolicyFromAddr(pu, buf.DstIP, buf.DstPort, puIsSource)
-	if err != nil {
-		return nil, nil, err
-	}
+	report := reportPolicyFromAddr(pu, buf.DstIP, buf.DstPort, puIsSource)
 
-	if report.Action.String() == "10" {
+	encodedAction := parts[1]
+	if encodedAction == "10" {
 		packetReport = a.recordDroppedPacket(buf, pu)
+		return nil, packetReport, nil
 	}
 
-	if pu.ID() == "" {
-		return nil, packetReport, fmt.Errorf("nflog: unable to find pu id associated given hash prefix: %s", buf.Prefix)
+	action, _, err := policy.EncodedStringToAction(encodedAction)
+	if err != nil {
+		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
 	dropReason := ""
-	if report.Action.Rejected() {
+	if action.Rejected() {
 		dropReason = collector.PolicyDrop
 	}
 
@@ -171,14 +179,14 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		DropReason:  dropReason,
 		PolicyID:    report.PolicyID,
 		Tags:        pu.Annotations().Copy(),
-		Action:      report.Action,
+		Action:      action,
 		L4Protocol:  buf.Protocol,
 		Namespace:   pu.ManagementNamespace(),
 		Count:       1,
 	}
 
-	if report.Action.Observed() {
-		record.ObservedAction = report.Action
+	if action.Observed() {
+		record.ObservedAction = action
 		record.ObservedPolicyID = report.PolicyID
 	}
 
