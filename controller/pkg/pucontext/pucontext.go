@@ -72,7 +72,7 @@ var unknownPU = &PUContext{
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
 
-	hashID, err := policy.XXHash(contextID)
+	hashID, err := policy.Fnv32Hash(contextID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to hash contextID: %v", err)
 	}

@@ -128,20 +128,18 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	var packetReport *collector.PacketReport
 	var err error
 
-	// `hashID:action`
-	parts := strings.SplitN(buf.Prefix, ":", 2)
-	if len(parts) != 2 {
+	// `hashID:policyID:extServiceID:action`
+	parts := strings.SplitN(buf.Prefix, ":", 4)
+	if len(parts) != 4 {
 		return nil, nil, fmt.Errorf("nflog: prefix doesn't contain sufficient information: %s", buf.Prefix)
 	}
+	hashID, policyID, extServiceID, encodedAction := parts[0], parts[1], parts[2], parts[3]
 
-	pu, err := a.getPUContext(parts[0])
+	pu, err := a.getPUContext(hashID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	report := reportPolicyFromAddr(pu, buf.DstIP, buf.DstPort, puIsSource)
-
-	encodedAction := parts[1]
 	if encodedAction == "10" {
 		packetReport = a.recordDroppedPacket(buf, pu)
 		return nil, packetReport, nil
@@ -177,7 +175,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		},
 		Destination: destination,
 		DropReason:  dropReason,
-		PolicyID:    report.PolicyID,
+		PolicyID:    policyID,
 		Tags:        pu.Annotations().Copy(),
 		Action:      action,
 		L4Protocol:  buf.Protocol,
@@ -187,17 +185,17 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	if action.Observed() {
 		record.ObservedAction = action
-		record.ObservedPolicyID = report.PolicyID
+		record.ObservedPolicyID = policyID
 	}
 
 	if puIsSource {
 		record.Source.Type = collector.EnpointTypePU
 		record.Source.ID = pu.ManagementID()
 		record.Destination.Type = collector.EndPointTypeExternalIP
-		record.Destination.ID = report.ServiceID
+		record.Destination.ID = extServiceID
 	} else {
 		record.Source.Type = collector.EndPointTypeExternalIP
-		record.Source.ID = report.ServiceID
+		record.Source.ID = extServiceID
 		record.Destination.Type = collector.EnpointTypePU
 		record.Destination.ID = pu.ManagementID()
 	}

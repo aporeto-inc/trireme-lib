@@ -3,8 +3,8 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
 
-	"github.com/cespare/xxhash"
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
@@ -167,45 +167,45 @@ type FlowPolicy struct {
 // DefaultAcceptLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultAcceptLogPrefix(contextID string) string {
 
-	hash, err := XXHash(contextID)
+	hash, err := Fnv32Hash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash + ":3"
+	return hash + ":default:default:3"
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
 func (f *FlowPolicy) LogPrefix(contextID string) string {
 
-	hash, err := XXHash(contextID)
+	hash, err := Fnv32Hash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash + ":" + f.EncodedActionString()
+	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + f.EncodedActionString()
 }
 
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultLogPrefix(contextID string) string {
 
-	hash, err := XXHash(contextID)
+	hash, err := Fnv32Hash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash + ":6"
+	return hash + ":default:default:6"
 }
 
 // DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
 func DefaultDroppedPacketLogPrefix(contextID string) string {
 
-	hash, err := XXHash(contextID)
+	hash, err := Fnv32Hash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash + ":10"
+	return hash + ":default:default:10"
 }
 
 // EncodedActionString is used to encode observed action as well as action
@@ -392,8 +392,8 @@ type RuntimeError struct {
 	Error     error
 }
 
-// XXHash hash the given data by xxhash algorithm.
-func XXHash(data ...string) (string, error) {
+// Fnv32Hash hash the given data by Fnv32-bit algorithm.
+func Fnv32Hash(data ...string) (string, error) {
 
 	if len(data) == 0 {
 		return "", fmt.Errorf("no data to hash")
@@ -404,10 +404,10 @@ func XXHash(data ...string) (string, error) {
 		aggregatedData += ed
 	}
 
-	hash := xxhash.New()
+	hash := fnv.New32()
 	if _, err := hash.Write([]byte(aggregatedData)); err != nil {
 		return "", fmt.Errorf("unable to hash data: %v", err)
 	}
 
-	return fmt.Sprintf("%d", hash.Sum64()), nil
+	return fmt.Sprintf("%d", hash.Sum32()), nil
 }

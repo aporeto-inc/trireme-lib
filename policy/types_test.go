@@ -13,7 +13,7 @@ func TestDefaultLogPrefix(t *testing.T) {
 			Action: Reject,
 		}
 		Convey("I should have the correct default prefix", func() {
-			So(t, ShouldEqual, "4952883123889572249:"+f.EncodedActionString())
+			So(t, ShouldEqual, "1134309195:default:default:"+f.EncodedActionString())
 		})
 	})
 }
@@ -23,7 +23,7 @@ func TestDefaultDroppedPacketLogPrefix(t *testing.T) {
 		t := DefaultDroppedPacketLogPrefix("abcasd")
 
 		Convey("I should have the correct default prefix", func() {
-			So(t, ShouldEqual, "10539948334854047907:10")
+			So(t, ShouldEqual, "2569040509:default:default:10")
 		})
 	})
 }
@@ -33,7 +33,7 @@ func TestDefaultAcceptLogPrefix(t *testing.T) {
 		t := DefaultAcceptLogPrefix("abcasasd")
 
 		Convey("I should have the correct default prefix", func() {
-			So(t, ShouldEqual, "4322705134529639285:3")
+			So(t, ShouldEqual, "2899028581:default:default:3")
 		})
 	})
 }
@@ -47,7 +47,7 @@ func TestLogPrefix(t *testing.T) {
 			ServiceID:     "beaddead",
 		}
 		Convey("I should have the correct log prefix", func() {
-			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350:6")
+			So(f.LogPrefix("somecontextID"), ShouldEqual, "3985287229:deadbeef:beaddead:6")
 		})
 	})
 
@@ -59,26 +59,36 @@ func TestLogPrefix(t *testing.T) {
 			ServiceID:     "beaddead",
 		}
 		Convey("I should have the correct log prefix", func() {
-			So(f.LogPrefix("somecontextID"), ShouldEqual, "6986817270748606350:3")
+			So(f.LogPrefix("somecontextID"), ShouldEqual, "3985287229:deadbeef:beaddead:3")
 		})
 	})
 }
 
-func TestXXHash(t *testing.T) {
-	Convey("When I call xxhash with no data", t, func() {
-		hash, err := XXHash()
+func TestFnv32(t *testing.T) {
 
-		Convey("I should get error", func() {
+	Convey("When I request log prefix with no data", t, func() {
+		hash, err := Fnv32Hash()
+
+		Convey("I should have the hash", func() {
 			So(hash, ShouldBeEmpty)
 			So(err, ShouldNotBeNil)
 		})
 	})
 
-	Convey("When I call xxhash with with data", t, func() {
-		hash, err := XXHash("abc")
+	Convey("When I request log prefix with small data", t, func() {
+		hash, err := Fnv32Hash("xyz")
 
-		Convey("I should not get error", func() {
-			So(hash, ShouldNotBeNil)
+		Convey("I should have the hash", func() {
+			So(hash, ShouldEqual, "845396910")
+			So(err, ShouldBeNil)
+		})
+	})
+
+	Convey("When I request log prefix with large data", t, func() {
+		hash, err := Fnv32Hash("xyzsadsadasfkjhjkasdjhsajkdhsad", "asdasdasda", "asdhjkashdjkashdjashdkasjdhasjkdhjashdkasjdhkaslfjsalkjdklasjdklasjdk")
+
+		Convey("I should have the hash", func() {
+			So(hash, ShouldEqual, "2149035768")
 			So(err, ShouldBeNil)
 		})
 	})
