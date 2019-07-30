@@ -18,6 +18,26 @@ func TestDefaultLogPrefix(t *testing.T) {
 	})
 }
 
+func TestDefaultDroppedPacketLogPrefix(t *testing.T) {
+	Convey("When I request a new default dropped log prefix", t, func() {
+		t := DefaultDroppedPacketLogPrefix("abcasd")
+
+		Convey("I should have the correct default prefix", func() {
+			So(t, ShouldEqual, "10539948334854047907:10")
+		})
+	})
+}
+
+func TestDefaultAcceptLogPrefix(t *testing.T) {
+	Convey("When I request a new default dropped log prefix", t, func() {
+		t := DefaultAcceptLogPrefix("abcasasd")
+
+		Convey("I should have the correct default prefix", func() {
+			So(t, ShouldEqual, "4322705134529639285:3")
+		})
+	})
+}
+
 func TestLogPrefix(t *testing.T) {
 	Convey("When I request log prefix reject", t, func() {
 		f := &FlowPolicy{
