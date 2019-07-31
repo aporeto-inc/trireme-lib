@@ -42,7 +42,8 @@ func TestRecordDroppedPacket(t *testing.T) {
 			_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 			So(err, ShouldBeNil)
 			pkt := PacketFlow.GetAckPackets().GetNthPacket(1)
-			pkt.NewTCPPayload("abcdedghijklmnopqrstuvwxyz")
+			err = pkt.NewTCPPayload("abcdedghijklmnopqrstuvwxyz")
+			So(err, ShouldBeNil)
 			payloadBuf, err := pkt.ToBytes()
 			So(err, ShouldBeNil)
 			nfPacket := &nflog.NfPacket{
