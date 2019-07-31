@@ -57,3 +57,12 @@ func (c *collectorImpl) GetAllDataPathPacketRecords() []*collector.PacketReport 
 	c.DatapathPacketReports = []*collector.PacketReport{}
 	return record
 }
+
+func (c *collectorImpl) GetAllCounterReports() []*collector.CounterReport {
+	c.Lock()
+	defer c.Unlock()
+
+	records := c.CounterReports
+	c.CounterReports = []*collector.CounterReport{}
+	return records
+}

@@ -3,14 +3,17 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.uber.org/zap"
 )
 
 // RemoteEnforcer : This is the structure for maintaining state required by the
@@ -25,6 +28,7 @@ type RemoteEnforcer struct {
 	collector      statscollector.Collector
 	statsClient    statsclient.StatsClient
 	debugClient    debugclient.DebugClient
+	counterClient  counterclient.CounterClient
 	procMountPoint string
 	enforcer       enforcer.Enforcer
 	supervisor     supervisor.Supervisor
@@ -33,4 +37,6 @@ type RemoteEnforcer struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	exit           chan bool
+	zapConfig      zap.Config
+	logLevel       constants.LogLevel
 }

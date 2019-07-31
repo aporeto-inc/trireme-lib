@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -67,6 +68,11 @@ type UnEnforcePayload struct {
 	ContextID string `json:",omitempty"`
 }
 
+//SetLogLevelPayload payload for set log level request
+type SetLogLevelPayload struct {
+	Level constants.LogLevel `json:",omitempty"`
+}
+
 //InitResponsePayload Response payload
 type InitResponsePayload struct {
 	Status int `json:",omitempty"`
@@ -91,6 +97,11 @@ type StatsPayload struct {
 // DebugPacketPayload is the enforcer packet report from remote enforcers
 type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
+}
+
+// CounterReportPayload is the counter report from remote enforcer
+type CounterReportPayload struct {
+	CounterReports []*collector.CounterReport
 }
 
 //SetTargetNetworksPayload carries the payload for target networks
