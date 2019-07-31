@@ -82,7 +82,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		netPacket.Print(packet.PacketFailureCreate)
+		netPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if netPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
 	} else if netPacket.IPProto() == packet.IPProtocolUDP {
@@ -172,7 +172,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		appPacket.Print(packet.PacketFailureCreate)
+		appPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if appPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
 	} else if appPacket.IPProto() == packet.IPProtocolUDP {
@@ -244,7 +244,9 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 	var value interface{}
 	var err error
-	report := &collector.PacketReport{}
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
 	if msg.udpConn == nil {
 		if d.puFromIP == nil {
 			return
@@ -291,6 +293,12 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
 
 	d.collector.CollectPacketEvent(report)
 }
@@ -298,7 +306,9 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	var value interface{}
 	var err error
-	report := &collector.PacketReport{}
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
 
 	if msg.tcpConn == nil {
 		if d.puFromIP == nil {
@@ -349,7 +359,12 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
-
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
 	d.collector.CollectPacketEvent(report)
 
 }

@@ -25,12 +25,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sys/unix"
 )
 
@@ -53,6 +55,8 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
+	counterClient counterclient.CounterClient,
+	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -74,6 +78,13 @@ func newRemoteEnforcer(
 			return nil, err
 		}
 	}
+
+	if counterClient == nil {
+		counterClient, err = counterclient.NewCounterClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
@@ -87,9 +98,11 @@ func newRemoteEnforcer(
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
 		debugClient:    debugClient,
+		counterClient:  counterClient,
 		ctx:            ctx,
 		cancel:         cancel,
 		exit:           make(chan bool),
+		zapConfig:      zapConfig,
 	}, nil
 }
 
@@ -156,6 +169,10 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
+	if err = s.counterClient.Run(s.ctx); err != nil {
+		resp.Status = "CounterClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
 	resp.Status = ""
 
 	return nil
@@ -382,6 +399,66 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 	return nil
 }
 
+// SetLogLevel sets log level.
+func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "set log level auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	if s.enforcer == nil {
+		return fmt.Errorf(resp.Status)
+	}
+
+	payload := req.Payload.(rpcwrapper.SetLogLevelPayload)
+
+	if payload.Level != "" && s.logLevel != payload.Level {
+		s.configureZapLogLevel(payload.Level)
+
+		if err := s.enforcer.SetLogLevel(payload.Level); err != nil {
+			resp.Status = err.Error()
+			return err
+		}
+	}
+
+	resp.Status = ""
+	return nil
+}
+
+func (s *RemoteEnforcer) configureZapLogLevel(level constants.LogLevel) {
+
+	zapLogLevel := triremeLogLevelToZapLogLevel(level)
+	s.zapConfig.Level = zap.NewAtomicLevelAt(zapLogLevel)
+	l, err := s.zapConfig.Build()
+	if err != nil {
+		zap.L().Warn("unable to build logger", zap.Error(err))
+		return
+	}
+
+	zap.ReplaceGlobals(l)
+	s.logLevel = level
+}
+
+// triremeLogLevelToZapLogLevel converts trireme log level to zap log level.
+func triremeLogLevelToZapLogLevel(level constants.LogLevel) zapcore.Level {
+
+	switch level {
+	case constants.Debug, constants.Trace:
+		return zap.DebugLevel
+	case constants.Error:
+		return zap.ErrorLevel
+	case constants.Info:
+		return zap.InfoLevel
+	case constants.Warn:
+		return zap.WarnLevel
+	default:
+		return zap.InfoLevel
+	}
+}
+
 // setup an enforcer
 func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) error {
 
@@ -454,7 +531,7 @@ func (s *RemoteEnforcer) cleanup() {
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
 
 	// Before doing anything validate that we are in the right namespace.
 	if err := validateNamespace(); err != nil {
@@ -476,7 +553,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig)
 	if err != nil {
 		return err
 	}
