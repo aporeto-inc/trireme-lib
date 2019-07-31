@@ -150,14 +150,12 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	// if this pod is going to be deleted, notify our DeleteController about that
-	// it will take care to send destroy events to trireme when the pod is completely gone
-	if pod.DeletionTimestamp != nil {
-		zap.L().Debug("Pod is terminating, deletion timestamp found", zap.String("puID", puID), zap.String("namespacedName", nn), zap.String("deletionTimestamp", pod.DeletionTimestamp.String()))
-		r.deleteCh <- DeleteEvent{
-			NativeID: puID,
-			Key:      request.NamespacedName,
-		}
+	// it looks like we can miss events for all sorts of unknown reasons
+	// if we reconcile though and the pod exists, we definitely know though
+	// that it must go away at some point, so always register it with the delete controller
+	r.deleteCh <- DeleteEvent{
+		NativeID: puID,
+		Key:      request.NamespacedName,
 	}
 
 	// try to find out if any of the containers have been started yet
