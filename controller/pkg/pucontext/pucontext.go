@@ -34,6 +34,7 @@ var LookupHost = net.LookupHost
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
 	id                  string
+	hashID              string
 	username            string
 	autoport            bool
 	managementID        string
@@ -70,11 +71,18 @@ var unknownPU = &PUContext{
 
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
+
+	hashID, err := policy.Fnv32Hash(contextID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to hash contextID: %v", err)
+	}
+
 	ctx := context.Background()
 	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
 		id:                  contextID,
+		hashID:              hashID,
 		username:            puInfo.Runtime.Options().UserID,
 		autoport:            puInfo.Runtime.Options().AutoPort,
 		managementID:        puInfo.Policy.ManagementID(),
@@ -206,6 +214,11 @@ func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
 // ID returns the ID of the PU
 func (p *PUContext) ID() string {
 	return p.id
+}
+
+// HashID returns the hash of the ID of the PU
+func (p *PUContext) HashID() string {
+	return p.hashID
 }
 
 // Username returns the ID of the PU
