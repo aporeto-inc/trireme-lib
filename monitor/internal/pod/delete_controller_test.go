@@ -120,15 +120,12 @@ func TestDeleteController(t *testing.T) {
 			}
 		}
 
-		dc := &DeleteController{
-			client:             nil,
-			handler:            nil,
-			deleteCh:           make(chan DeleteEvent),
-			reconcileCh:        make(chan struct{}),
-			tickerPeriod:       1 * time.Second,
-			itemProcessTimeout: 1 * time.Second,
-			reconcileFunc:      reconcileFunc,
-		}
+		dc := NewDeleteController(nil, nil)
+		dc.deleteCh = make(chan DeleteEvent)
+		dc.reconcileCh = make(chan struct{})
+		dc.tickerPeriod = 1 * time.Second
+		dc.itemProcessTimeout = 1 * time.Second
+		dc.reconcileFunc = reconcileFunc
 
 		Convey("it should be able to receive delete events, and access them during a reconcile", func() {
 			ev := DeleteEvent{

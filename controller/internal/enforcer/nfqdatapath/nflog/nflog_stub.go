@@ -13,7 +13,7 @@ type nfLog struct {
 }
 
 // NewNFLogger provides an NFLog instance
-func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo GetPUInfoFunc, collector collector.EventCollector) NFLogger {
+func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUContext GetPUContextFunc, collector collector.EventCollector) NFLogger {
 	return &nfLog{}
 }
 
