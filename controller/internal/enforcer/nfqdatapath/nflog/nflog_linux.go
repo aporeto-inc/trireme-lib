@@ -115,6 +115,7 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 	if buf.Protocol == packet.IPProtocolTCP {
 		report.TCPFlags = int(ipPacket.GetTCPFlags())
 	}
+	report.Protocol = int(buf.Protocol)
 	report.DestinationIP = buf.DstIP.String()
 	report.SourceIP = buf.SrcIP.String()
 	report.TriremePacket = false
