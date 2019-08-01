@@ -35,7 +35,7 @@ func init() {
 func GetIPv6Impl() (IPImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err != nil {
-		zap.L().Error("Unable to initialize ipv6 iptables :%s", zap.Error(err))
+		zap.L().Debug("Unable to initialize ipv6 iptables :%s", zap.Error(err))
 	}
 
 	return &ipv6{ipt: ipt, ipv6Disabled: ipv6Disabled}, nil
