@@ -93,9 +93,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 
 func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) *collector.PacketReport {
 
-	report := &collector.PacketReport{
-		Payload: make([]byte, 64),
-	}
+	report := &collector.PacketReport{}
 
 	report.PUID = pu.ManagementID()
 	report.Namespace = pu.ManagementNamespace()
@@ -120,7 +118,15 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 	report.SourceIP = buf.SrcIP.String()
 	report.TriremePacket = false
 	report.DropReason = collector.PacketDrop
-	copy(report.Payload, buf.Payload[0:64])
+
+	if len(buf.Payload) <= 64 {
+		report.Payload = make([]byte, len(buf.Payload))
+		copy(report.Payload, buf.Payload)
+
+	} else {
+		report.Payload = make([]byte, 64)
+		copy(report.Payload, buf.Payload[0:64])
+	}
 	return report
 }
 
