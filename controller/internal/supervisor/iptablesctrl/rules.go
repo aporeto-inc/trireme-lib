@@ -9,6 +9,8 @@ var triremChains = `
 -t {{.MangleTable}} -N {{.TriremeOutput}}
 -t {{.MangleTable}} -N {{.UIDInput}}
 -t {{.MangleTable}} -N {{.UIDOutput}}
+-t {{.MangleTable}} -N {{.SelfAppChain}}
+-t {{.MangleTable}} -N {{.SelfNetChain}}
 {{end}}-t {{.MangleTable}} -N {{.MangleProxyAppChain}}
 -t {{.MangleTable}} -N {{.MainAppChain}}
 -t {{.MangleTable}} -N {{.MainNetChain}}
@@ -18,6 +20,10 @@ var triremChains = `
 `
 
 var globalRules = `
+{{if isLocalServer}}
+{{.MangleTable}} {{.MainNetChain}} -m connmark --mark 0x600  -j {{.SelfNetChain}}
+{{.MangleTable}} {{.SelfNetChain}} -j ACCEPT
+{{end}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
@@ -34,6 +40,11 @@ var globalRules = `
 {{end}}
 
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
+{{if isLocalServer}}
+{{.MangleTable}} {{.MainAppChain}} -m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j {{.SelfAppChain}}
+{{.MangleTable}} {{.SelfAppChain}} -j CONNMARK --set-mark 0x600
+{{.MangleTable}} {{.SelfAppChain}} -j ACCEPT
+{{end}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.MangleProxyAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -m mark --mark {{.RawSocketMark}} -j ACCEPT
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
@@ -207,6 +218,11 @@ var deleteChains = `
 
 -t {{.MangleTable}} -F {{.UIDOutput}}
 -t {{.MangleTable}} -X {{.UIDOutput}}
+
+-t {{.MangleTable}} -F {{.SelfAppChain}}
+-t {{.MangleTable}} -X {{.SelfAppChain}}
+-t {{.MangleTable}} -F {{.SelfNetChain}}
+-t {{.MangleTable}} -X {{.SelfNetChain}}
 {{end}}
 
 -t {{.MangleTable}} -F {{.MangleProxyAppChain}}

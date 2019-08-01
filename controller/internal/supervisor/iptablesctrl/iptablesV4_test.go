@@ -256,6 +256,7 @@ var (
 			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -267,6 +268,7 @@ var (
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
+			"-m connmark --mark 0x600 -j TRI-Self-Net",
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -276,6 +278,13 @@ var (
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
+		},
+		"TRI-Self-App": {
+			"-j CONNMARK --set-mark 0x600",
+			"-j ACCEPT",
+		},
+		"TRI-Self-Net": {
+			"-j ACCEPT",
 		},
 		"TRI-Pid-App": {},
 		"TRI-Pid-Net": {},
@@ -322,6 +331,7 @@ var (
 			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -333,6 +343,7 @@ var (
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
+			"-m connmark --mark 0x600 -j TRI-Self-Net",
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -342,6 +353,13 @@ var (
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
+		},
+		"TRI-Self-App": {
+			"-j CONNMARK --set-mark 0x600",
+			"-j ACCEPT",
+		},
+		"TRI-Self-Net": {
+			"-j ACCEPT",
 		},
 		"TRI-Pid-App": {
 			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
@@ -439,6 +457,7 @@ var (
 			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
+			"-m cgroup --cgroup 0x600 -m mark ! --mark 0x40 -m mark ! --mark 0x40000062 -m mark ! --mark 0x40000063 -j TRI-Self-App",
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -450,6 +469,7 @@ var (
 			"-j TRI-Hst-App",
 		},
 		"TRI-Net": {
+			"-m connmark --mark 0x600 -j TRI-Self-Net",
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
 			"-m connmark --mark 61166 -j ACCEPT",
@@ -459,6 +479,13 @@ var (
 			"-j TRI-Pid-Net",
 			"-j TRI-Svc-Net",
 			"-j TRI-Hst-Net",
+		},
+		"TRI-Self-App": {
+			"-j CONNMARK --set-mark 0x600",
+			"-j ACCEPT",
+		},
+		"TRI-Self-Net": {
+			"-j ACCEPT",
 		},
 		"TRI-Pid-App": {
 			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
