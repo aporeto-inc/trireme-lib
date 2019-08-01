@@ -1,5 +1,7 @@
 package common
 
+import "strconv"
+
 // JWTType is the type of user JWTs that must be implemented.
 type JWTType int
 
@@ -26,6 +28,9 @@ func FlattenClaim(key string, claim interface{}) []string {
 				attributes = append(attributes, key+":"+ikey+"="+attr)
 			}
 		}
+	}
+	if attr, ok := claim.(bool); ok {
+		attributes = append(attributes, key+"="+strconv.FormatBool(attr))
 	}
 	return attributes
 }
