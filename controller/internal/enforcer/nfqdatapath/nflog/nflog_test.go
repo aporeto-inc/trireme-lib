@@ -27,11 +27,14 @@ func TestRecordDroppedPacket(t *testing.T) {
 
 			_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 			So(err, ShouldBeNil)
-			packet := PacketFlow.GetNthPacket(0)
-			payloadBuf, _ := packet.ToBytes()
+			pkt := PacketFlow.GetNthPacket(0)
+			payloadBuf, _ := pkt.ToBytes()
 			nfPacket := &nflog.NfPacket{
 				Payload: payloadBuf,
 			}
+			ipPacket, err := packet.New(packet.PacketTypeNetwork, nfPacket.Payload, "", false)
+			So(err, ShouldBeNil)
+			nfPacket.Protocol = ipPacket.IPProto()
 			report := nflogger.(*nfLog).recordDroppedPacket(nfPacket, pu)
 			So(report.TriremePacket, ShouldBeFalse)
 			So(len(report.Payload), ShouldEqual, len(nfPacket.Payload))
@@ -51,10 +54,11 @@ func TestRecordDroppedPacket(t *testing.T) {
 			}
 
 			ipPacket, err := packet.New(packet.PacketTypeNetwork, nfPacket.Payload, "", false)
-
+			nfPacket.Protocol = ipPacket.IPProto()
 			So(err, ShouldBeNil)
 			report := nflogger.(*nfLog).recordDroppedPacket(nfPacket, pu)
 			So(report.TriremePacket, ShouldBeFalse)
+			So(report.Protocol, ShouldEqual, int(packet.IPProtocolTCP))
 			So(len(report.Payload), ShouldEqual, 64)
 			id, _ := strconv.Atoi(ipPacket.ID())
 			So(report.PacketID, ShouldEqual, id)
