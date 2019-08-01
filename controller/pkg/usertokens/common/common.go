@@ -1,6 +1,8 @@
 package common
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // JWTType is the type of user JWTs that must be implemented.
 type JWTType int
@@ -11,26 +13,60 @@ const (
 	OIDC
 )
 
-// FlattenClaim flattes all the generic claims in a flat array for strings.
+// convert an unknown int type to int64
+func toInt64(i interface{}) int64 {
+	switch i := i.(type) {
+	case int:
+		return int64(i)
+	case int8:
+		return int64(i)
+	case int16:
+		return int64(i)
+	case int32:
+		return int64(i)
+	}
+	return int64(i.(int64))
+}
+
+// convert an unknown int type to int64
+func toUint64(i interface{}) uint64 {
+	switch i := i.(type) {
+	case uint:
+		return uint64(i)
+	case uint8:
+		return uint64(i)
+	case uint16:
+		return uint64(i)
+	case uint32:
+		return uint64(i)
+	}
+	return uint64(i.(uint64))
+
+}
+
+// FlattenClaim flattens all the generic claims in a flat array for strings.
 func FlattenClaim(key string, claim interface{}) []string {
 	attributes := []string{}
-	if slice, ok := claim.([]string); ok {
-		for _, data := range slice {
+
+	switch claim := claim.(type) {
+	case string:
+		attributes = append(attributes, key+"="+claim)
+	case int, int8, int16, int32, int64:
+		attributes = append(attributes, key+"="+strconv.FormatInt(toInt64(claim), 10))
+	case uint, uint8, uint16, uint32, uint64:
+		attributes = append(attributes, key+"="+strconv.FormatUint(toUint64(claim), 10))
+	case bool:
+		attributes = append(attributes, key+"="+strconv.FormatBool(claim))
+	case []string:
+		for _, data := range claim {
 			attributes = append(attributes, key+"="+data)
 		}
-	}
-	if attr, ok := claim.(string); ok {
-		attributes = append(attributes, key+"="+attr)
-	}
-	if kv, ok := claim.(map[string]interface{}); ok {
-		for ikey, ivalue := range kv {
-			if attr, ok := ivalue.(string); ok {
-				attributes = append(attributes, key+":"+ikey+"="+attr)
+	case map[string]interface{}:
+		for ikey, ivalue := range claim {
+			for _, v := range FlattenClaim(ikey, ivalue) {
+				attributes = append(attributes, key+":"+v)
 			}
 		}
-	}
-	if attr, ok := claim.(bool); ok {
-		attributes = append(attributes, key+"="+strconv.FormatBool(attr))
 	}
 	return attributes
 }
