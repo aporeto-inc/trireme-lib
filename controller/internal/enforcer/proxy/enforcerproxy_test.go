@@ -444,7 +444,7 @@ func TestPostPacketEvent(t *testing.T) {
 			PacketRecords: []*collector.PacketReport{packetreport},
 		},
 	}
-	statsserver := &StatsServer{
+	statsserver := &ProxyRPCServer{
 		rpchdl:    rpchdl,
 		collector: c,
 		secret:    "test",
@@ -484,7 +484,7 @@ func TestPostCounterEvent(t *testing.T) {
 			CounterReports: []*collector.CounterReport{counterReport},
 		},
 	}
-	statsserver := &StatsServer{
+	statsserver := &ProxyRPCServer{
 		rpchdl:    rpchdl,
 		collector: c,
 		secret:    "test",

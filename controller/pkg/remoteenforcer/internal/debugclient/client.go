@@ -16,7 +16,7 @@ import (
 const (
 	defaultDebugIntervalMilliseconds = 1000
 	debugContextID                   = "UNUSED"
-	debugRPCCommand                  = "StatsServer.PostPacketEvent"
+	debugRPCCommand                  = "ProxyRPCServer.PostPacketEvent"
 )
 
 type debugClient struct {
