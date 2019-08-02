@@ -49,14 +49,18 @@ func FlattenClaim(key string, claim interface{}) []string {
 	attributes := []string{}
 
 	switch claim := claim.(type) {
-	case string:
-		attributes = append(attributes, key+"="+claim)
+	case bool:
+		attributes = append(attributes, key+"="+strconv.FormatBool(claim))
 	case int, int8, int16, int32, int64:
 		attributes = append(attributes, key+"="+strconv.FormatInt(toInt64(claim), 10))
 	case uint, uint8, uint16, uint32, uint64:
 		attributes = append(attributes, key+"="+strconv.FormatUint(toUint64(claim), 10))
-	case bool:
-		attributes = append(attributes, key+"="+strconv.FormatBool(claim))
+	case float32:
+		attributes = append(attributes, key+"="+strconv.FormatFloat(float64(claim), 'G', -1, 32))
+	case float64:
+		attributes = append(attributes, key+"="+strconv.FormatFloat(claim, 'G', -1, 64))
+	case string:
+		attributes = append(attributes, key+"="+claim)
 	case []string:
 		for _, data := range claim {
 			attributes = append(attributes, key+"="+data)

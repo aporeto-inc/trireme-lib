@@ -148,6 +148,96 @@ func TestFlattenClaim(t *testing.T) {
 			args: args{key: "key", claim: uint64(1)},
 			want: []string{"key=1"},
 		},
+		{
+			name: "test-float32-small",
+			args: args{key: "key", claim: float32(3.14)},
+			want: []string{"key=3.14"},
+		},
+		{
+			name: "test-negative-float32-small",
+			args: args{key: "key", claim: float32(-3.14)},
+			want: []string{"key=-3.14"},
+		},
+		{
+			name: "test-float32-rounding",
+			args: args{key: "key", claim: float32(3.141592654)},
+			want: []string{"key=3.1415927"},
+		},
+		{
+			name: "test-negative-float32-rounding",
+			args: args{key: "key", claim: float32(-3.141592654)},
+			want: []string{"key=-3.1415927"},
+		},
+		{
+			name: "test-float32-exponent",
+			args: args{key: "key", claim: float32(3.141592654e22)},
+			want: []string{"key=3.1415927E+22"},
+		},
+		{
+			name: "test-float32-negative-exponent",
+			args: args{key: "key", claim: float32(3.141592654e-22)},
+			want: []string{"key=3.1415927E-22"},
+		},
+		{
+			name: "test-negative-float32-exponent",
+			args: args{key: "key", claim: float32(-3.141592654e22)},
+			want: []string{"key=-3.1415927E+22"},
+		},
+		{
+			name: "test-negative-float32-negative-exponent",
+			args: args{key: "key", claim: float32(-3.141592654e-22)},
+			want: []string{"key=-3.1415927E-22"},
+		},
+		{
+			name: "test-float64-small",
+			args: args{key: "key", claim: float64(3.14)},
+			want: []string{"key=3.14"},
+		},
+		{
+			name: "test-negative-float64-small",
+			args: args{key: "key", claim: float64(-3.14)},
+			want: []string{"key=-3.14"},
+		},
+		{
+			name: "test-float64-rounding",
+			args: args{key: "key", claim: float64(1.412135623730950488)},
+			want: []string{"key=1.4121356237309506"},
+		},
+		{
+			name: "test-negative-float64-rounding",
+			args: args{key: "key", claim: float64(-1.412135623730950488)},
+			want: []string{"key=-1.4121356237309506"},
+		},
+		{
+			name: "test-float64-exponent",
+			args: args{key: "key", claim: float64(1.41213562373095e22)},
+			want: []string{"key=1.41213562373095E+22"},
+		},
+		{
+			name: "test-float64-negative-exponent",
+			args: args{key: "key", claim: float64(1.41213562373095e-22)},
+			want: []string{"key=1.41213562373095E-22"},
+		},
+		{
+			name: "test-negative-float64-exponent",
+			args: args{key: "key", claim: float64(-1.41213562373095e22)},
+			want: []string{"key=-1.41213562373095E+22"},
+		},
+		{
+			name: "test-negative-float64-negative-exponent",
+			args: args{key: "key", claim: float64(-1.41213562373095e-22)},
+			want: []string{"key=-1.41213562373095E-22"},
+		},
+		{
+			name: "test-map-string-float",
+			args: args{key: "test", claim: map[string]interface{}{"key1": 3.1415, "key2": -1.21e+33}},
+			want: []string{"test:key1=3.1415", "test:key2=-1.21E+33"},
+		},
+		{
+			name: "test-map-string-mixed",
+			args: args{key: "test", claim: map[string]interface{}{"key1": true, "key2": -1.21e+33, "key3": "val3"}},
+			want: []string{"test:key1=true", "test:key2=-1.21E+33", "test:key3=val3"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
