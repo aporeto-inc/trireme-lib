@@ -26,7 +26,7 @@ func toInt64(i interface{}) int64 {
 	case int32:
 		return int64(i)
 	case int64:
-		return int64(i)
+		return i
 	default:
 		panic("toInt64(): expected a signed integer type, got " + reflect.TypeOf(i).String() + " instead")
 	}
@@ -44,7 +44,7 @@ func toUint64(i interface{}) uint64 {
 	case uint32:
 		return uint64(i)
 	case uint64:
-		return uint64(i)
+		return i
 	default:
 		panic("toUint64(): expected an unsigned integer type, got " + reflect.TypeOf(i).String() + " instead")
 	}
