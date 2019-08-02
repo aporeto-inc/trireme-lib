@@ -25,7 +25,7 @@ func toInt64(i interface{}) int64 {
 	case int32:
 		return int64(i)
 	}
-	return int64(i.(int64))
+	return i.(int64)
 }
 
 // convert an unknown int type to int64
@@ -40,7 +40,7 @@ func toUint64(i interface{}) uint64 {
 	case uint32:
 		return uint64(i)
 	}
-	return uint64(i.(uint64))
+	return i.(uint64)
 
 }
 
