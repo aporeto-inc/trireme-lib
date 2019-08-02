@@ -27,7 +27,7 @@ const (
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application.
 func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.UDPConnection, err error) {
 
-	if d.packetLogs {
+	if d.PacketLogsEnabled() {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
 		)
@@ -44,7 +44,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	case packet.UDPSynMask:
 		conn, err = d.netSynUDPRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.Error(err),
@@ -55,7 +55,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	case packet.UDPSynAckMask:
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("Syn ack Packet Rejected/ignored",
 					zap.String("flow", p.L4FlowHash()),
 				)
@@ -76,7 +76,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 		// Process packets that don't have the control header. These are data packets.
 		conn, err = d.netUDPAckRetrieveState(p)
 		if err != nil {
-			if d.packetLogs {
+			if d.PacketLogsEnabled() {
 				zap.L().Debug("No connection found for the flow, Dropping it",
 					zap.String("flow", p.L4FlowHash()),
 					zap.Error(err),
@@ -90,11 +90,11 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	conn.Lock()
 	defer conn.Unlock()
 
-	p.Print(packet.PacketStageIncoming, d.packetLogs)
+	p.Print(packet.PacketStageIncoming, d.PacketLogsEnabled())
 
 	if d.service != nil {
 		if !d.service.PreProcessUDPNetPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			return conn, conn.Context.PuContextError(pucontext.ErrUDPPreProcessingFailed, "pre  processing failed for network packet")
 		}
 	}
@@ -112,7 +112,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	// Process the packet by any external services.
 	if d.service != nil {
 		if !d.service.PostProcessUDPNetPacket(p, action, claims, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			return conn, conn.Context.PuContextError(pucontext.ErrUDPPostProcessingFailed, "post service processing failed for network packet")
 		}
 	}
@@ -126,7 +126,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 				// PostProcessServiceInterface
 				// We call it for all outgoing packets.
 				if !d.service.PostProcessUDPAppPacket(udpPacket, nil, conn.Context, conn) {
-					udpPacket.Print(packet.PacketFailureService, d.packetLogs)
+					udpPacket.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
@@ -266,7 +266,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 // ProcessApplicationUDPPacket processes packets arriving from an application and are destined to the network
 func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connection.UDPConnection, err error) {
 
-	if d.packetLogs {
+	if d.PacketLogsEnabled() {
 		zap.L().Debug("Processing application UDP packet ",
 			zap.String("flow", p.L4FlowHash()),
 		)
@@ -290,7 +290,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessUDPAppPacket(p, conn.Context, conn, packet.UDPSynMask) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			return nil, conn.Context.PuContextError(pucontext.ErrUDPPreProcessingFailed, "pre service processing failed for UDP application packet")
 		}
 	}
@@ -325,7 +325,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(p, nil, conn.Context, conn) {
-			p.Print(packet.PacketFailureService, d.packetLogs)
+			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
 			return conn, conn.Context.PuContextError(pucontext.ErrUDPPostProcessingFailed, "Encryption failed for application packet")
 		}
 	}
