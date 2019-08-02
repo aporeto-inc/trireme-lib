@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"sync"
 	"time"
 
 	"go.aporeto.io/trireme-lib/buildflags"
@@ -121,6 +122,8 @@ type Datapath struct {
 
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
+
+	logLevelLock sync.RWMutex
 }
 
 type tracingCacheEntry struct {
@@ -579,8 +582,19 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
+// PacketLogsEnabled returns true if the packet logs are enabled.
+func (d *Datapath) PacketLogsEnabled() bool {
+	d.logLevelLock.RLock()
+	defer d.logLevelLock.RUnlock()
+
+	return d.packetLogs
+}
+
 // SetLogLevel sets log level.
 func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
+
+	d.logLevelLock.Lock()
+	defer d.logLevelLock.Unlock()
 
 	d.packetLogs = false
 	if level == constants.Trace {
