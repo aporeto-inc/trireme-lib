@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/assertions"
@@ -242,7 +241,7 @@ func TestFlattenClaim(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FlattenClaim(tt.args.key, tt.args.claim)
-			fmt.Printf("test: %s, got: %v\n", tt.name, got)
+			t.Logf("test: %s, got: %v\n", tt.name, got)
 			for _, want := range tt.want {
 				if ok, errStr := So(got, ShouldContain, want); !ok {
 					t.Errorf("%s", errStr)
@@ -252,6 +251,124 @@ func TestFlattenClaim(t *testing.T) {
 				if ok, errStr := So(got, ShouldNotContain, notwant); !ok {
 					t.Errorf("%s", errStr)
 				}
+			}
+		})
+	}
+}
+
+func Test_toInt64(t *testing.T) {
+	type args struct {
+		i interface{}
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      int64
+		wantPanic bool
+	}{
+		{
+			name: "test-toInt64-int",
+			args: args{i: int(1)},
+			want: int64(1),
+		},
+		{
+			name: "test-toInt64-int8",
+			args: args{i: int8(1)},
+			want: int64(1),
+		},
+		{
+			name: "test-toInt64-int16",
+			args: args{i: int16(1)},
+			want: int64(1),
+		},
+		{
+			name: "test-toInt64-int32",
+			args: args{i: int32(1)},
+			want: int64(1),
+		},
+		{
+			name: "test-toInt64-int64",
+			args: args{i: int64(1)},
+			want: int64(1),
+		},
+		{
+			name:      "test-toInt64-string",
+			args:      args{i: "a string"},
+			want:      int64(1),
+			wantPanic: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if (r != nil) != tt.wantPanic {
+					t.Errorf("toInt64() recover = %v, wantPanic = %v", r, tt.wantPanic)
+				}
+			}()
+			if got := toInt64(tt.args.i); got != tt.want {
+				t.Errorf("toInt64() = %v, want %v", got, tt.want)
+			} else {
+				t.Logf("toInt64(): test: %s PASS, want %v, got: %v\n", tt.name, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_toUint64(t *testing.T) {
+	type args struct {
+		i interface{}
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      uint64
+		wantPanic bool
+	}{
+		{
+			name: "test-toUint64-int",
+			args: args{i: uint(1)},
+			want: uint64(1),
+		},
+		{
+			name: "test-toUint64-int8",
+			args: args{i: uint8(1)},
+			want: uint64(1),
+		},
+		{
+			name: "test-toUint64-int16",
+			args: args{i: uint16(1)},
+			want: uint64(1),
+		},
+		{
+			name: "test-toUint64-int32",
+			args: args{i: uint32(1)},
+			want: uint64(1),
+		},
+		{
+			name: "test-toUint64-int64",
+			args: args{i: uint64(1)},
+			want: uint64(1),
+		},
+		{
+			name:      "test-toUint64-string",
+			args:      args{i: "a string"},
+			want:      uint64(1),
+			wantPanic: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if (r != nil) != tt.wantPanic {
+					t.Errorf("toUint64() recover = %v, wantPanic = %v", r, tt.wantPanic)
+				}
+			}()
+			if got := toUint64(tt.args.i); got != tt.want {
+				t.Errorf("toUint64() = %v, want %v", got, tt.want)
+			} else {
+				t.Logf("toUint64(): test: %s PASS, want %v, got: %v\n", tt.name, tt.want, got)
 			}
 		})
 	}

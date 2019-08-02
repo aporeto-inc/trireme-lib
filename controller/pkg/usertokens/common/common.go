@@ -1,6 +1,7 @@
 package common
 
 import (
+	"reflect"
 	"strconv"
 )
 
@@ -24,8 +25,11 @@ func toInt64(i interface{}) int64 {
 		return int64(i)
 	case int32:
 		return int64(i)
+	case int64:
+		return int64(i)
+	default:
+		panic("toInt64(): expected a signed integer type, got " + reflect.TypeOf(i).String() + " instead")
 	}
-	return i.(int64)
 }
 
 // convert an unknown int type to int64
@@ -39,9 +43,11 @@ func toUint64(i interface{}) uint64 {
 		return uint64(i)
 	case uint32:
 		return uint64(i)
+	case uint64:
+		return uint64(i)
+	default:
+		panic("toUint64(): expected an unsigned integer type, got " + reflect.TypeOf(i).String() + " instead")
 	}
-	return i.(uint64)
-
 }
 
 // FlattenClaim flattens all the generic claims in a flat array for strings.
