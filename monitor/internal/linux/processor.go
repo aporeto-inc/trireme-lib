@@ -3,7 +3,6 @@ package linuxmonitor
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
@@ -184,7 +183,7 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 			return nil
 		}
 
-		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
+		if err := l.netcls.AssignMark("/", 0); err != nil {
 			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
@@ -362,7 +361,6 @@ func (l *linuxProcessor) processHostServiceStart(event *common.EventInfo, runtim
 
 	markval := runtimeInfo.Options().CgroupMark
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	hexmark := "0x" + (strconv.FormatUint(mark, 16))
 
-	return ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644)
+	return l.netcls.AssignMark("/", mark)
 }
