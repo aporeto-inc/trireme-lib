@@ -183,7 +183,7 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 			return nil
 		}
 
-		if err := l.netcls.AssignMark("/", 0); err != nil {
+		if err := l.netcls.AssignRootMark(0); err != nil {
 			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
@@ -332,7 +332,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	err = l.netcls.AssignMark(nativeID, mark)
+	err = l.netcls.AssignRootMark(nativeID, mark)
 	if err != nil {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
