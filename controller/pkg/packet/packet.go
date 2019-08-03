@@ -32,7 +32,7 @@ func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet
 
 	// Set the context
 	p.context = context
-	if len(bytes) < 40 {
+	if len(bytes) < ipv4HdrLenPos {
 		return nil, fmt.Errorf("invalid packet length %d", len(bytes))
 	}
 	if bytes[ipv4HdrLenPos]&ipv4ProtoMask == 0x40 {
