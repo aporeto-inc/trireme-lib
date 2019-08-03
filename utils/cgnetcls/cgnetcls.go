@@ -73,6 +73,23 @@ func (s *netCls) Creategroup(cgroupname string) error {
 
 }
 
+// AssignRootMark assings the mark at the root of the file system.
+func (s *netCls) AssignRootMark(mark uint64) error {
+	_, err := os.Stat(basePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("cgroup does not exist: %s", err)
+	}
+
+	//16 is the base since the mark file expects hexadecimal values
+	markval := "0x" + (strconv.FormatUint(mark, 16))
+
+	if err := ioutil.WriteFile(filepath.Join(basePath, markFile), []byte(markval), 0644); err != nil {
+		return fmt.Errorf("failed to write to net_cls.classid file for new cgroup: %s", err)
+	}
+
+	return nil
+}
+
 //AssignMark writes the mark value to net_cls.classid file.
 func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 
