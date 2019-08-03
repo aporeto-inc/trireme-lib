@@ -84,7 +84,7 @@ func (s *netCls) AssignRootMark(mark uint64) error {
 	markval := "0x" + (strconv.FormatUint(mark, 16))
 
 	if err := ioutil.WriteFile(filepath.Join(basePath, markFile), []byte(markval), 0644); err != nil {
-		return fmt.Errorf("failed to write to net_cls.classid file for new cgroup: %s", err)
+		return fmt.Errorf("failed to write to net_cls.classid file for the root cgroup: %s", err)
 	}
 
 	return nil
