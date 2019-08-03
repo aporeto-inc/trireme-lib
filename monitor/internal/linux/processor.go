@@ -332,7 +332,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	err = l.netcls.AssignRootMark(nativeID, mark)
+	err = l.netcls.AssignMark(nativeID, mark)
 	if err != nil {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
@@ -362,5 +362,5 @@ func (l *linuxProcessor) processHostServiceStart(event *common.EventInfo, runtim
 	markval := runtimeInfo.Options().CgroupMark
 	mark, _ := strconv.ParseUint(markval, 10, 32)
 
-	return l.netcls.AssignMark("/", mark)
+	return l.netcls.AssignRootMark(mark)
 }
