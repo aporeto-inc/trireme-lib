@@ -112,5 +112,3 @@ func (i *goIpsetProvider) ListIPSets() ([]string, error) {
 func NewGoIPsetProvider() IpsetProvider {
 	return &goIpsetProvider{}
 }
-	return &goIpsetProvider{}
-}
