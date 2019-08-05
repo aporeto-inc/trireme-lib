@@ -340,14 +340,14 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 	}
 	filter, ruleAction := parts[0], parts[1]
 
-	action := "3"
-	if ruleAction == "DROP" {
-		action = "6"
-	}
-
 	filterArgs, err := shellwords.Parse(filter)
 	if err != nil {
 		return fmt.Errorf("unable to parse extension %s: %v", ext, err)
+	}
+
+	action := "3"
+	if ruleAction == "DROP" {
+		action = "6"
 	}
 
 	defaultNflogSuffix := []string{"-m", "state", "--state", "NEW",
