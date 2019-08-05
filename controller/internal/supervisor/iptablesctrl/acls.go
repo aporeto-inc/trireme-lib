@@ -330,6 +330,8 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 	return nil
 }
 
+// WARNING: The extension should always contain the action at the end else,
+// the function returns error
 func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, rulesspec []string, ext string, chain, proto, nfLogGroup string) error {
 
 	parts := strings.SplitN(ext, " -j ", 2)
