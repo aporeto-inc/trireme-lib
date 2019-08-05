@@ -1,3 +1,5 @@
+// +build linux darwin
+
 // Package processmon is to manage and monitor remote enforcers.
 package processmon
 

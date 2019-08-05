@@ -1,3 +1,5 @@
+// +build linux darwin
+
 package provider
 
 import (
@@ -108,5 +110,7 @@ func (i *goIpsetProvider) ListIPSets() ([]string, error) {
 
 // NewGoIPsetProvider Return a Go IPSet Provider
 func NewGoIPsetProvider() IpsetProvider {
+	return &goIpsetProvider{}
+}
 	return &goIpsetProvider{}
 }
