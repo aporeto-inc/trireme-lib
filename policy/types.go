@@ -186,6 +186,17 @@ func (f *FlowPolicy) LogPrefix(contextID string) string {
 	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + f.EncodedActionString()
 }
 
+// LogPrefixAction is the prefix used in nf-log action with the given action.
+func (f *FlowPolicy) LogPrefixAction(contextID string, action string) string {
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + action
+}
+
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultLogPrefix(contextID string) string {
 
