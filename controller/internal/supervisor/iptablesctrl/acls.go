@@ -311,7 +311,7 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 	for _, ext := range rule.extensions {
 
 		if rule.policy.Action&policy.Log > 0 {
-			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, proto, nfLogGroup); err != nil {
+			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
 				return fmt.Errorf("unable to program nflog extension: %v", err)
 			}
 		}
@@ -332,7 +332,7 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 
 // WARNING: The extension should always contain the action at the end else,
 // the function returns error.
-func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, rulesspec []string, ext string, chain, proto, nfLogGroup string) error {
+func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, rulesspec []string, ext string, chain, nfLogGroup string) error {
 
 	parts := strings.SplitN(ext, " -j ", 2)
 	if len(parts) != 2 {
