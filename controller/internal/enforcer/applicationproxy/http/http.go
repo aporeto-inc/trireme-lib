@@ -395,7 +395,13 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		// If it is a secrets request we process it and move on. No need to
 		// validate policy.
-		if p.isSecretsRequest(w, r, sctx) {
+		isSecrets, err := p.isSecretsRequest(w, r, sctx)
+		if err != nil {
+			zap.L().Debug("Metadata request without proper HTTP headers", zap.String("URI", r.RequestURI))
+			http.Error(w, fmt.Sprintf("uknown service"), http.StatusUnprocessableEntity)
+			return
+		}
+		if isSecrets {
 			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
 			return
 		}
@@ -606,10 +612,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
-func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *serviceregistry.ServiceContext) bool {
+func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *serviceregistry.ServiceContext) (bool, error) {
 
 	if r.Host != "169.254.254.1" {
-		return false
+		return false, nil
+	}
+
+	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
+		return false, fmt.Errorf("unauthorized")
 	}
 
 	switch r.RequestURI {
@@ -637,7 +647,7 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *
 		http.Error(w, fmt.Sprintf("Unknown"), http.StatusBadRequest)
 	}
 
-	return true
+	return true, nil
 }
 
 // userCredentials will find all the user credentials in the http request.
