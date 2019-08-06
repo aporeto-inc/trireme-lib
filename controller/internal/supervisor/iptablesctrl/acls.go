@@ -338,7 +338,11 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid extension format: %s", ext)
 	}
-	filter, ruleAction := parts[0], parts[1]
+	filter, target := parts[0], parts[1]
+
+	if filter == "" || target == "" {
+		return fmt.Errorf("filter or target is empty: %s", ext)
+	}
 
 	filterArgs, err := shellwords.Parse(filter)
 	if err != nil {
@@ -346,7 +350,7 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 	}
 
 	action := "3"
-	if ruleAction == "DROP" {
+	if target == "DROP" {
 		action = "6"
 	}
 
