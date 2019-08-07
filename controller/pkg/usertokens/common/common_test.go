@@ -18,6 +18,14 @@ func TestFlattenClaim(t *testing.T) {
 		notwant []string
 	}{
 		{
+			name: "test-slice",
+			args: args{
+				key:   "slicekey",
+				claim: []interface{}{"claim1", "claim2"},
+			},
+			want: []string{"slicekey=claim1", "slicekey=claim2"},
+		},
+		{
 			name: "test-string",
 			args: args{key: "testkey1", claim: "testclaim1"},
 			want: []string{"testkey1=testclaim1"},

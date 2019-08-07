@@ -77,6 +77,12 @@ func FlattenClaim(key string, claim interface{}) []string {
 				attributes = append(attributes, key+":"+v)
 			}
 		}
+	case []interface{}:
+		for _, value := range claim {
+			attributes = append(attributes, FlattenClaim(key, value)...)
+		}
+	default:
+		// do nothing, just return attributes
 	}
 	return attributes
 }
