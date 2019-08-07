@@ -1110,7 +1110,7 @@ func Test_ExtensionsV4(t *testing.T) {
 							ServiceID: "s2",
 							PolicyID:  "2",
 						},
-						Extensions: []string{"-m bpf --bytecode \"20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535\" -j DROP"},
+						Extensions: []string{"--match multiport --dports 443 -m bpf --bytecode \"20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535\" -j DROP"},
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
@@ -1463,7 +1463,7 @@ func Test_ExtensionsV4(t *testing.T) {
 							ServiceID: "s2",
 							PolicyID:  "2",
 						},
-						Extensions: []string{"-m bpf --bytecode \"20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535\" -j DROP"},
+						Extensions: []string{"--match multiport --dports 443  -m bpf --bytecode \"20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535\" -j DROP"},
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},

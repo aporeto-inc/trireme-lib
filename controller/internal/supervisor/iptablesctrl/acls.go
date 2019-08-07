@@ -305,11 +305,9 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 	rulesspec := []string{
 		"-p", proto,
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 	}
 
 	for _, ext := range rule.extensions {
-
 		if rule.policy.Action&policy.Log > 0 {
 			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
 				return fmt.Errorf("unable to program nflog extension: %v", err)
