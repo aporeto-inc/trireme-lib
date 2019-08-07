@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/collector"
+	tcommon "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	httpproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -53,12 +54,13 @@ type AppProxy struct {
 
 	registry *serviceregistry.Registry
 
-	clients cache.DataStore
+	clients     cache.DataStore
+	tokenIssuer tcommon.OAUTHTokenIssuer
 	sync.RWMutex
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
+func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets, t tcommon.OAUTHTokenIssuer) (*AppProxy, error) {
 
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
@@ -78,6 +80,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		clients:       cache.NewCache("clients"),
 		systemCAPool:  systemPool,
 		registry:      serviceregistry.NewServiceRegistry(),
+		tokenIssuer:   t,
 	}, nil
 }
 
