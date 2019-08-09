@@ -261,7 +261,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	return nil
 }
 
-func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
+func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, dnsProxyPort string, puType common.PUType) error {
 	cfg, err := i.newACLInfo(version, contextID, nil, puType)
 	if err != nil {
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
@@ -275,7 +275,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	cfg.UID = username
 	cfg.PUType = puType
 	cfg.ProxyPort = proxyPort
-
+	cfg.DNSProxyPort = dnsProxyPort
 	// We clean up the chain rules first, so that we can delete the chains.
 	// If any rule is not deleted, then the chain will show as busy.
 	if err := i.deleteChainRules(cfg); err != nil {

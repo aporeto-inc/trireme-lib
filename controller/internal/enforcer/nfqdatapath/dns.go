@@ -99,11 +99,11 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	ps, err := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err == nil {
 		for _, p := range ps {
-			if err := puCtx.ApplicationACLs.AddRule(policy.IPRule{Addresses: ips,
+			if err := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
 				Protocols: p.Protocols,
 				Policy:    p.Policy,
-			}); err != nil {
+			}}); err != nil {
 				zap.L().Error("Adding IP rule returned error", zap.Error(err))
 			}
 		}
