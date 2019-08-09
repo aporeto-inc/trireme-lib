@@ -314,7 +314,7 @@ func (p *PUPolicy) ExposedServices() ApplicationServicesList {
 	return p.exposedServices
 }
 
-// GetDNSProxyPort sets the dns proxy port
+// DNSProxyPort gets the dns proxy port
 func (p *PUPolicy) DNSProxyPort() string {
 	p.Lock()
 	defer p.Unlock()

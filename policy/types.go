@@ -280,13 +280,14 @@ type IPRule struct {
 // IPRuleList is a list of IP rules
 type IPRuleList []IPRule
 
-// DNSRule holds the dns names and the assicated ports
+// PortProtocolPolicy holds the assicated ports, protocols and policy
 type PortProtocolPolicy struct {
 	Ports     []string
 	Protocols []string
 	Policy    *FlowPolicy
 }
 
+// DNSRuleList is a map from fqdns to a list of policies.
 type DNSRuleList map[string][]PortProtocolPolicy
 
 // Copy creates a clone of DNS rule list
