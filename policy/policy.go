@@ -40,6 +40,8 @@ type PUPolicy struct {
 	ips ExtendedMap
 	// servicesListeningPort is the port that we will use for the proxy.
 	servicesListeningPort int
+	// dnsProxyPort is the proxy port that listens dns traffic
+	dnsProxyPort int
 	// exposedServices is the list of services that this PU is exposing.
 	exposedServices ApplicationServicesList
 	// dependentServices is the list of services that this PU depends on.
@@ -82,6 +84,7 @@ func NewPUPolicy(
 	annotations *TagStore,
 	ips ExtendedMap,
 	servicesListeningPort int,
+	dnsProxyPort int,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
 	scopes []string,
@@ -136,6 +139,7 @@ func NewPUPolicy(
 		annotations:           annotations,
 		ips:                   ips,
 		servicesListeningPort: servicesListeningPort,
+		dnsProxyPort:          dnsProxyPort,
 		exposedServices:       exposedServices,
 		dependentServices:     dependentServices,
 		scopes:                scopes,
@@ -144,7 +148,7 @@ func NewPUPolicy(
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -165,6 +169,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.annotations.Copy(),
 		p.ips.Copy(),
 		p.servicesListeningPort,
+		p.dnsProxyPort,
 		p.exposedServices,
 		p.dependentServices,
 		p.scopes,
@@ -309,6 +314,14 @@ func (p *PUPolicy) ExposedServices() ApplicationServicesList {
 	return p.exposedServices
 }
 
+// GetDNSProxyPort sets the dns proxy port
+func (p *PUPolicy) DNSProxyPort() string {
+	p.Lock()
+	defer p.Unlock()
+
+	return strconv.Itoa(p.dnsProxyPort)
+}
+
 // DependentServices returns the external services.
 func (p *PUPolicy) DependentServices() ApplicationServicesList {
 	p.Lock()
@@ -330,9 +343,9 @@ func (p *PUPolicy) UpdateDNSNetworks(networks DNSRuleList) {
 	p.Lock()
 	defer p.Unlock()
 
-	p.DNSACLs = make(DNSRuleList, len(networks))
-
-	copy(p.DNSACLs, networks)
+	for k, v := range networks {
+		p.DNSACLs[k] = v
+	}
 }
 
 // UpdateServiceCertificates updates the certificate and private key of the policy
@@ -378,6 +391,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		Identity:              p.identity.Copy(),
 		IPs:                   p.ips.Copy(),
 		ServicesListeningPort: p.servicesListeningPort,
+		DNSProxyPort:          p.dnsProxyPort,
 		ExposedServices:       p.exposedServices,
 		DependentServices:     p.dependentServices,
 		Scopes:                p.scopes,
@@ -402,6 +416,7 @@ type PUPolicyPublic struct {
 	ReceiverRules         TagSelectorList         `json:"receiverRules,omitempty"`
 	IPs                   ExtendedMap             `json:"IPs,omitempty"`
 	ServicesListeningPort int                     `json:"servicesListeningPort,omitempty"`
+	DNSProxyPort          int                     `json:"dnsProxyPort,omitempty"`
 	ExposedServices       ApplicationServicesList `json:"exposedServices,omitempty"`
 	DependentServices     ApplicationServicesList `json:"dependentServices,omitempty"`
 	ServicesCertificate   string                  `json:"servicesCertificate,omitempty"`
@@ -438,6 +453,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 		identity:              p.Identity.Copy(),
 		ips:                   p.IPs.Copy(),
 		servicesListeningPort: p.ServicesListeningPort,
+		dnsProxyPort:          p.DNSProxyPort,
 		exposedServices:       exposedServices,
 		dependentServices:     p.DependentServices,
 		scopes:                p.Scopes,

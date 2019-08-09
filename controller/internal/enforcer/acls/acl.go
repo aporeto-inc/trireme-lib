@@ -42,6 +42,13 @@ func (a *acl) addToCache(ip net.IP, mask int, port string, policy *policy.FlowPo
 		portList = val.(portActionList)
 	}
 
+	/* check if this is duplicate entry */
+	for _, portAction := range portList {
+		if *r == *portAction {
+			return nil
+		}
+	}
+
 	portList = append(portList, r)
 
 	a.cache.Put(ip, mask, portList)

@@ -114,6 +114,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		policy.NewTagStoreFromSlice([]string{"app=web", "type=aporeto"}),
 		nil,
 		0,
+		0,
 		exposedServices,
 		dependentServices,
 		[]string{},

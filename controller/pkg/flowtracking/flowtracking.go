@@ -9,6 +9,7 @@ import (
 
 	"github.com/aporeto-inc/conntrack"
 	"github.com/mdlayher/netlink"
+	"go.uber.org/zap"
 )
 
 // Client is a flow update client
@@ -46,6 +47,18 @@ func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstpor
 	}
 
 	return c.UpdateApplicationFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark)
+}
+
+// GetOriginalDest gets the original destination ip, port and the mark on the packet
+func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
+	flow := conntrack.NewFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, 0)
+	origFlow, err := c.conn.Get(flow)
+
+	if err != nil {
+		zap.L().Error("")
+	}
+
+	return origFlow.TupleOrig.IP.DestinationAddress, origFlow.TupleOrig.Proto.DestinationPort, origFlow.Mark, err
 }
 
 // UpdateNetworkFlowMark will update the mark for a flow based on packet information received

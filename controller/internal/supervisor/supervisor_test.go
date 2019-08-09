@@ -72,6 +72,7 @@ func createPUInfo() *policy.PUInfo {
 		nil,
 		ips,
 		0,
+		0,
 		nil,
 		nil,
 		[]string{},

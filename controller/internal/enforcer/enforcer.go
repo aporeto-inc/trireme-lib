@@ -94,7 +94,6 @@ func (e *enforcer) Run(ctx context.Context) error {
 
 // Enforce implements the enforce interface by sending the event to all the enforcers.
 func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
 			return fmt.Errorf("unable to enforce in nfq: %s", err)

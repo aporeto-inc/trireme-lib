@@ -2,6 +2,7 @@ package acls
 
 import (
 	"errors"
+	"net"
 
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -52,7 +53,7 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 }
 
 // GetMatchingAction gets the matching action
-func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+func (c *ACLCache) GetMatchingAction(ip net.IP, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
 	report, packet, err = c.reject.getMatchingAction(ip, port, report)
 	if err == nil {

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miekg/dns"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -31,6 +32,10 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portcache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
+)
+
+const (
+	proxyMarkInt = 0x40
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -232,23 +237,22 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
-
-		packetTracingCache:     cache.NewCache("PacketTracingCache"),
-		targetNetworks:         acls.NewACLCache(),
-		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
-		filterQueue:            filterQueue,
-		mutualAuthorization:    mutualAuth,
-		service:                service,
-		collector:              collector,
-		tokenAccessor:          tokenaccessor,
-		secrets:                secrets,
-		ackSize:                secrets.AckSize(),
-		mode:                   mode,
-		procMountPoint:         procMountPoint,
-		packetLogs:             packetLogs,
-		udpSocketWriter:        udpSocketWriter,
-		puToPortsMap:           map[string]map[string]bool{},
-		puCountersChannel:      make(chan *pucontext.PUContext, 220),
+		packetTracingCache:           cache.NewCache("PacketTracingCache"),
+		targetNetworks:               acls.NewACLCache(),
+		ExternalIPCacheTimeout:       ExternalIPCacheTimeout,
+		filterQueue:                  filterQueue,
+		mutualAuthorization:          mutualAuth,
+		service:                      service,
+		collector:                    collector,
+		tokenAccessor:                tokenaccessor,
+		secrets:                      secrets,
+		ackSize:                      secrets.AckSize(),
+		mode:                         mode,
+		procMountPoint:               procMountPoint,
+		packetLogs:                   packetLogs,
+		udpSocketWriter:              udpSocketWriter,
+		puToPortsMap:                 map[string]map[string]bool{},
+		puCountersChannel:            make(chan *pucontext.PUContext, 220),
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -436,11 +440,16 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromIP = pu
 	}
 
-	// pucontext launches a go routine to periodically
-	// lookup dns names. ctx cancel signals the go routine to exit
-	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
-		prevPU.(*pucontext.PUContext).CancelFunc()
+	var dnsServer *dns.Server
+	// start the dns proxy server for the first time.
+	if p, err := d.puFromContextID.Get(contextID); err != nil {
+		dnsServer = d.startDNSServer(puInfo.Policy.DNSProxyPort())
+	} else {
+		pu := p.(*pucontext.PUContext)
+		dnsServer = pu.DNSProxyServer
 	}
+
+	pu.DNSProxyServer = dnsServer
 
 	// Cache PU to its contextID hash.
 	d.puFromHash.AddOrUpdate(pu.HashID(), pu)
@@ -529,6 +538,12 @@ func (d *Datapath) Unenforce(contextID string) error {
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
+	}
+
+	if pu.DNSProxyServer != nil {
+		if err := pu.DNSProxyServer.Shutdown(); err != nil {
+			zap.L().Debug("dns proxy server returned error on shutdown", zap.Error(err))
+		}
 	}
 
 	return nil

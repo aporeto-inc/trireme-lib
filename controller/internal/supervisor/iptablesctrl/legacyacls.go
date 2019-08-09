@@ -12,7 +12,7 @@ import (
 // This refers to the pu chain rules for pus in older distros like RH 6.9/Ubuntu 14.04. The rules
 // consider source ports to identify packets from the process.
 func (i *iptables) legacyPuChainRules(contextID, appChain string, netChain string, mark string, tcpPorts, udpPorts string, proxyPort string, proxyPortSetName string,
-	appSection, netSection string, puType common.PUType) [][]string {
+	appSection, netSection string, puType common.PUType, dnsProxyPort string) [][]string {
 
 	iptableCgroupSection := appSection
 	iptableNetSection := netSection
@@ -120,10 +120,10 @@ func (i *iptables) legacyPuChainRules(contextID, appChain string, netChain strin
 		})
 	}
 
-	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark)...)
+	return append(rules, i.legacyProxyRules(tcpPorts, proxyPort, proxyPortSetName, mark, dnsProxyPort)...)
 }
 
-func (i *iptables) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
+func (i *iptables) legacyProxyRules(tcpPorts string, proxyPort string, proxyPortSetName string, cgroupMark string, dnsProxyPort string) [][]string {
 	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 
 	aclInfo := ACLInfo{
@@ -144,6 +144,9 @@ func (i *iptables) legacyProxyRules(tcpPorts string, proxyPort string, proxyPort
 	tmpl := template.Must(template.New(legacyProxyRules).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
 			return cgroupMark != ""
+		},
+		"isDNSProxyPort": func() bool {
+			return dnsProxyPort != ""
 		},
 	}).Parse(legacyProxyRules))
 

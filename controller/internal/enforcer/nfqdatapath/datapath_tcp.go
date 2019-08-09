@@ -142,6 +142,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connection.TCPConnection, err error) {
+
 	if d.PacketLogsEnabled() {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
