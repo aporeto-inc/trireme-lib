@@ -16,7 +16,7 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if sourceID == destID {
 		report = &policy.FlowPolicy{
 			Action:   policy.Accept,
-			PolicyID: "default",
+			PolicyID: "local",
 		}
 		packet = report
 	}
