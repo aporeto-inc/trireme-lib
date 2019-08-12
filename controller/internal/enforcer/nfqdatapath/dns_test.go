@@ -99,6 +99,6 @@ func TestDNS(t *testing.T) {
 	resolver := createCustomResolver()
 	ctx := context.Background()
 	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
-	err = server.Shutdown()
+	err := server.Shutdown()
 	assert.Equal(t, err == nil, true, "err should be nil")
 }
