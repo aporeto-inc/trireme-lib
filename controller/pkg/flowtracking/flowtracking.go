@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// FlowClient defines an interface that trireme uses to communicate with the conntrack
 type FlowClient interface {
 	// Close will close the connection of the client.
 	Close() error

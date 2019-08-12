@@ -70,7 +70,7 @@ func createCustomResolver() *net.Resolver {
 
 func TestDNS(t *testing.T) {
 
-	secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+	secret, _ := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone) //nolint
 	collector := &collector.DefaultCollector{}
 
 	// mock the call
@@ -86,7 +86,7 @@ func TestDNS(t *testing.T) {
 	enforcer.packetLogs = true
 
 	puInfo := policy.NewPUInfo("SomePU", "/ns", common.ContainerPU)
-	pucontext, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
+	pucontext, _ := pucontext.NewPU("SomePU", puInfo, 10*time.Second) //nolint
 
 	addDNSNamePolicy(pucontext)
 
@@ -102,6 +102,7 @@ func TestDNS(t *testing.T) {
 
 	resolver := createCustomResolver()
 	ctx := context.Background()
-	resolver.LookupIPAddr(ctx, "www.google.com")
-	server.Shutdown()
+	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
+	err = server.Shutdown()
+	t.assert(t, err == nil, true, "err should be nil")
 }
