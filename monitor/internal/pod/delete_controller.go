@@ -6,6 +6,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +15,7 @@ import (
 )
 
 // deleteControllerReconcileFunc is the reconciler function signature for the DeleteController
-type deleteControllerReconcileFunc func(context.Context, client.Client, *config.ProcessorConfig, time.Duration, *map[string]client.ObjectKey)
+type deleteControllerReconcileFunc func(context.Context, client.Client, *config.ProcessorConfig, time.Duration, *map[string]client.ObjectKey, extractors.PodSandboxExtractor)
 
 // DeleteController is responsible for cleaning up after Kubernetes because we
 // are missing our native ID on the last reconcile event where the pod has already
@@ -31,10 +32,11 @@ type DeleteController struct {
 	reconcileFunc      deleteControllerReconcileFunc
 	tickerPeriod       time.Duration
 	itemProcessTimeout time.Duration
+	sandboxExtractor   extractors.PodSandboxExtractor
 }
 
 // NewDeleteController creates a new DeleteController.
-func NewDeleteController(c client.Client, pc *config.ProcessorConfig) *DeleteController {
+func NewDeleteController(c client.Client, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor) *DeleteController {
 	return &DeleteController{
 		client:             c,
 		handler:            pc,
@@ -43,6 +45,7 @@ func NewDeleteController(c client.Client, pc *config.ProcessorConfig) *DeleteCon
 		reconcileFunc:      deleteControllerReconcile,
 		tickerPeriod:       5 * time.Second,
 		itemProcessTimeout: 30 * time.Second,
+		sandboxExtractor:   sandboxExtractor,
 	}
 }
 
@@ -68,9 +71,9 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 		case ev := <-c.deleteCh:
 			m[ev.NativeID] = ev.Key
 		case <-c.reconcileCh:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, &m)
+			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, &m, c.sandboxExtractor)
 		case <-t.C:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, &m)
+			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, &m, c.sandboxExtractor)
 		case <-z:
 			t.Stop()
 			return nil
@@ -79,13 +82,13 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 }
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
-func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m *map[string]client.ObjectKey) {
+func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m *map[string]client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor) {
 	for nativeID, req := range *m {
-		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req)
+		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req, sandboxExtractor)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m *map[string]client.ObjectKey, nativeID string, req client.ObjectKey) {
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m *map[string]client.ObjectKey, nativeID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor) {
 	ctx, cancel := context.WithTimeout(backgroundCtx, itemProcessTimeout)
 	defer cancel()
 	pod := &corev1.Pod{}
@@ -114,7 +117,13 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 
 	// the edge case: a pod with the same namespaced name came up and we have missed a delete event
 	// this means that this pod belongs to a different PU and must live, therefore we try to delete the old one
-	if nativeID != string(pod.GetUID()) {
+	//if nativeID != string(pod.GetUID()) {
+	currentPuID, err := sandboxExtractor(ctx, pod)
+	if err != nil {
+		zap.L().Error("Delete controller, cannot extract the SandboxID", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+		return
+	}
+	if nativeID != currentPuID {
 		zap.L().Error("Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 		if err := pc.Policy.HandlePUEvent(
 			ctx,

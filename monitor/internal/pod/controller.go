@@ -132,7 +132,8 @@ type ReconcilePod struct {
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
 	nn := request.NamespacedName.String()
-
+	var puID string
+	var err error
 	// Fetch the corresponding pod object.
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, request.NamespacedName, pod); err != nil {
@@ -145,14 +146,15 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	}
 	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase)
 	if pod.Status.Phase == corev1.PodRunning {
-		testpuID, err := r.sandboxExtractor(ctx, pod)
+		puID, err = r.sandboxExtractor(ctx, pod)
 		if err != nil {
-			fmt.Println("\n\n *** Failure cannot get the sandboxID: ", testpuID)
+			fmt.Println("\n\n *** Failure cannot get the sandboxID: ", puID)
 		} else {
-			fmt.Println("\n\n *** success got the sandboxID: ", testpuID)
+			fmt.Println("\n\n *** success got the sandboxID: ", puID)
 		}
 	}
-	puID := string(pod.GetUID())
+	fmt.Println("\n\n **** puID is :", puID)
+	//puID = string(pod.GetUID())
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
 	if pod.Spec.HostNetwork && !r.enableHostPods {
