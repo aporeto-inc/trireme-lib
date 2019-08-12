@@ -115,6 +115,7 @@ type ReconcilePod struct {
 	handler           *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
 	netclsProgrammer  extractors.PodNetclsProgrammer
+	sandboxExtractor  extractors.PodSandboxExtractor
 	nodeName          string
 	enableHostPods    bool
 	deleteCh          chan<- DeleteEvent
