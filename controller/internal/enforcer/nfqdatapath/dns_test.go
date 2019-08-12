@@ -56,7 +56,7 @@ func addDNSNamePolicy(context *pucontext.PUContext) {
 
 func CustomDialer(ctx context.Context, network, address string) (net.Conn, error) {
 	d := net.Dialer{}
-	return d.DialContext(ctx, "udp", "127.0.0,1:53001")
+	return d.DialContext(ctx, "udp", "127.0.0.1:53001")
 }
 
 func createCustomResolver() *net.Resolver {
