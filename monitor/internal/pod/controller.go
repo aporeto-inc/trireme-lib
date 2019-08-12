@@ -3,6 +3,7 @@ package podmonitor
 import (
 	"context"
 	errs "errors"
+	"fmt"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -41,7 +42,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -49,6 +50,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		netclsProgrammer:  netclsProgrammer,
+		sandboxExtractor:  sandboxExtractor,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
 		deleteCh:          deleteCh,
@@ -141,9 +143,16 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// Otherwise, we retry.
 		return reconcile.Result{}, err
 	}
-
+	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase)
+	if pod.Status.Phase == corev1.PodRunning {
+		testpuID, err := r.sandboxExtractor(ctx, pod)
+		if err != nil {
+			fmt.Println("\n\n *** Failure cannot get the sandboxID: ", testpuID)
+		} else {
+			fmt.Println("\n\n *** success got the sandboxID: ", testpuID)
+		}
+	}
 	puID := string(pod.GetUID())
-
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
 	if pod.Spec.HostNetwork && !r.enableHostPods {
