@@ -12,7 +12,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -93,9 +92,6 @@ func TestDNS(t *testing.T) {
 	enforcer.puFromMark.AddOrUpdate("100", pucontext)
 	enforcer.mode = constants.LocalServer
 
-	_, err := enforcer.contextFromIP(true, "100", 0, packet.IPProtocolTCP)
-	assert.Equal(t, err == nil, true, "error should be nil")
-
 	enforcer.conntrack = &flowClientDummy{}
 	server := enforcer.startDNSServer("53001")
 	assert.Equal(t, server != nil, true, "We should be able to create a dns server")
@@ -104,5 +100,5 @@ func TestDNS(t *testing.T) {
 	ctx := context.Background()
 	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
 	err = server.Shutdown()
-	t.assert(t, err == nil, true, "err should be nil")
+	assert.Equal(t, err == nil, true, "err should be nil")
 }
