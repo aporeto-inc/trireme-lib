@@ -117,7 +117,7 @@ type Datapath struct {
 	ackSize uint32
 
 	// conntrack is the conntrack client
-	conntrack *flowtracking.Client
+	conntrack flowtracking.FlowClient
 
 	mutualAuthorization bool
 	packetLogs          bool
