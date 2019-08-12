@@ -93,7 +93,7 @@ func TestDNS(t *testing.T) {
 	enforcer.puFromMark.AddOrUpdate("100", pucontext)
 	enforcer.mode = constants.LocalServer
 
-	_, err = enforcer.contextFromIP(true, "100", 0, packet.IPProtocolTCP)
+	_, err := enforcer.contextFromIP(true, "100", 0, packet.IPProtocolTCP)
 	assert.Equal(t, err == nil, true, "error should be nil")
 
 	enforcer.conntrack = &flowClientDummy{}
