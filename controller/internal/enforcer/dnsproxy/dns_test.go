@@ -78,7 +78,7 @@ func TestDNS(t *testing.T) {
 
 	proxy := New(puIDcache, conntrack)
 
-	err = proxy.StartDNSServer("pu1", "53001")
+	err := proxy.StartDNSServer("pu1", "53001")
 	assert.Equal(t, err == nil, true, "start dns server")
 
 	resolver := createCustomResolver()

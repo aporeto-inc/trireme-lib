@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ type Proxy struct {
 	puFromID          cache.DataStore
 	conntrack         flowtracking.FlowClient
 	contextIDToServer map[string]*dns.Server
+	sync.RWMutex
 }
 
 type serveDNS struct {
@@ -132,6 +134,9 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // StartDNSServer starts the dns server on the port provided for contextID
 func (p *Proxy) StartDNSServer(contextID, port string) error {
+	p.Lock()
+	defer p.Unlock()
+
 	netPacketConn, err := listenUDP("udp", "127.0.0.1:"+port)
 	if err != nil {
 		return err
@@ -156,6 +161,8 @@ func (p *Proxy) StartDNSServer(contextID, port string) error {
 
 // ShutdownDNS shuts down the dns server for contextID
 func (p *Proxy) ShutdownDNS(contextID string) {
+	p.Lock()
+	defer p.Unlock()
 	if s, ok := p.contextIDToServer[contextID]; ok {
 		if err := s.Shutdown(); err != nil {
 			zap.L().Error("shutdown of dns server returned error", zap.String("contextID", contextID), zap.Error(err))

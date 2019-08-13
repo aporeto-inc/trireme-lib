@@ -113,6 +113,9 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 
 // GetPolicyFromFQDN gets the list of policies that are mapped with the hostname
 func (p *PUContext) GetPolicyFromFQDN(fqdn string) ([]policy.PortProtocolPolicy, error) {
+	p.RLock()
+	defer p.RUnlock()
+
 	// If we find a direct match, return policy
 	if v, ok := p.DNSACLs[fqdn]; ok {
 		return v, nil
