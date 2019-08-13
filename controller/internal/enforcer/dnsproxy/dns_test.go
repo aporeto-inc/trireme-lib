@@ -1,4 +1,4 @@
-package nfqdatapath
+package dnsproxy
 
 import (
 	"context"

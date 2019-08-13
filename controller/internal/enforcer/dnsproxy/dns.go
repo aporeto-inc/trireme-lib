@@ -1,4 +1,4 @@
-package nfqdatapath
+package dnsproxy
 
 import (
 	"context"
@@ -8,14 +8,25 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
-type serveDNS struct {
-	*Datapath
+type Proxy struct {
+	puFromID          cache.DataStore
+	conntrack         flowtracking.FlowClient
+	contextIDToServer map[string]*dns.Server
 }
+
+type serveDNS struct {
+	contextID string
+	*Proxy
+}
+
+const proxyMarkInt = 0x40
 
 func socketOptions(_, _ string, c syscall.RawConn) error {
 	var opErr error
@@ -78,15 +89,15 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	lAddr := w.LocalAddr().(*net.UDPAddr)
 	rAddr := w.RemoteAddr().(*net.UDPAddr)
 
-	origIP, origPort, mark, err := s.conntrack.GetOriginalDest(net.ParseIP("127.0.0.1"), rAddr.IP, uint16(lAddr.Port), uint16(rAddr.Port), 17)
+	origIP, origPort, _, err := s.conntrack.GetOriginalDest(net.ParseIP("127.0.0.1"), rAddr.IP, uint16(lAddr.Port), uint16(rAddr.Port), 17)
 	if err != nil {
 		zap.L().Error("Failed to find flow for the redirected dns traffic", zap.Error(err))
 		return
 	}
 
-	puCtx, err := s.contextFromIP(true, strconv.Itoa(int(mark)), 0, packet.IPProtocolUDP)
+	data, err := s.puFromID.Get(s.contextID)
 	if err != nil {
-		zap.L().Error("context not found for the PU with mark", zap.Int("mark", int(mark)), zap.Error(err))
+		zap.L().Error("context not found for the PU with ID", zap.String("contextID", s.contextID))
 		return
 	}
 
@@ -96,6 +107,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
+	puCtx := data.(*pucontext.PUContext)
 	ps, err := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err == nil {
 		for _, p := range ps {
@@ -114,20 +126,36 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
-func (d *Datapath) startDNSServer(port string) *dns.Server {
-
+func (p *Proxy) StartDNSServer(contextID, port string) error {
 	netPacketConn, err := listenUDP("udp", "127.0.0.1:"+port)
 	if err != nil {
-		zap.L().Error("Error starting dns server", zap.Error(err))
-		return nil
+		return err
 	}
 
-	server := &dns.Server{PacketConn: netPacketConn, Handler: &serveDNS{d}}
+	var server *dns.Server
+
+	storeInMap := func() {
+		p.contextIDToServer[contextID] = server
+	}
+
+	server = &dns.Server{NotifyStartedFunc: storeInMap, PacketConn: netPacketConn, Handler: &serveDNS{contextID, p}}
+
 	go func() {
 		if err := server.ActivateAndServe(); err != nil {
 			zap.L().Error("Could not start DNS proxy server", zap.Error(err))
 		}
 	}()
 
-	return server
+	return nil
+}
+
+func (p *Proxy) ShutdownDNS(contextID string) {
+	if s, ok := p.contextIDToServer[contextID]; ok {
+		s.Shutdown()
+		delete(p.contextIDToServer, contextID)
+	}
+}
+
+func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient) *Proxy {
+	return &Proxy{puFromID: puFromID, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
 }

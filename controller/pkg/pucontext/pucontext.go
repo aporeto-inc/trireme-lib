@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
 	"github.com/minio/minio/pkg/wildcard"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
@@ -44,7 +43,6 @@ type PUContext struct {
 	networkACLs         *acls.ACLCache
 	externalIPCache     cache.DataStore
 	DNSACLs             policy.DNSRuleList
-	DNSProxyServer      *dns.Server
 	DNSProxyPort        string
 	mark                string
 	tcpPorts            []string

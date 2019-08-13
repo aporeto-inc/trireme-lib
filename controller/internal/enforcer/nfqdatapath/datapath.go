@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -118,6 +118,7 @@ type Datapath struct {
 
 	// conntrack is the conntrack client
 	conntrack flowtracking.FlowClient
+	dnsProxy  *dnsproxy.Proxy
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -322,6 +323,8 @@ func NewWithDefaults(
 	}
 	e.conntrack = conntrackClient
 
+	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient)
+
 	return e
 }
 
@@ -440,16 +443,12 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromIP = pu
 	}
 
-	var dnsServer *dns.Server
 	// start the dns proxy server for the first time.
-	if p, err := d.puFromContextID.Get(contextID); err != nil {
-		dnsServer = d.startDNSServer(puInfo.Policy.DNSProxyPort())
-	} else {
-		pu := p.(*pucontext.PUContext)
-		dnsServer = pu.DNSProxyServer
+	if _, err := d.puFromContextID.Get(contextID); err != nil {
+		if err := d.dnsProxy.StartDNSServer(contextID, puInfo.Policy.DNSProxyPort()); err != nil {
+			zap.L().Error("could not start dns server for PU", zap.String("contexID", contextID), zap.Error(err))
+		}
 	}
-
-	pu.DNSProxyServer = dnsServer
 
 	// Cache PU to its contextID hash.
 	d.puFromHash.AddOrUpdate(pu.HashID(), pu)
@@ -540,11 +539,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		)
 	}
 
-	if pu.DNSProxyServer != nil {
-		if err := pu.DNSProxyServer.Shutdown(); err != nil {
-			zap.L().Debug("dns proxy server returned error on shutdown", zap.Error(err))
-		}
-	}
+	d.dnsProxy.ShutdownDNS(contextID)
 
 	return nil
 }
@@ -580,6 +575,10 @@ func (d *Datapath) Run(ctx context.Context) error {
 			return err
 		}
 		d.conntrack = conntrackClient
+	}
+
+	if d.dnsProxy == nil {
+		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack)
 	}
 
 	d.startApplicationInterceptor(ctx)
