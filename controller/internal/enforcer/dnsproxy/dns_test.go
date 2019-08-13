@@ -7,14 +7,9 @@ import (
 	"time"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 type flowClientDummy struct {
@@ -68,37 +63,29 @@ func createCustomResolver() *net.Resolver {
 }
 
 func TestDNS(t *testing.T) {
+	puIDcache := cache.NewCache("puFromContextID")
 
-	secret, _ := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone) //nolint
-	collector := &collector.DefaultCollector{}
-
-	// mock the call
-	prevRawSocket := GetUDPRawSocket
-	defer func() {
-		GetUDPRawSocket = prevRawSocket
-	}()
-	GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-		return nil, nil
+	fp := &policy.PUInfo{
+		Runtime: policy.NewPURuntimeWithDefaults(),
+		Policy:  policy.NewPUPolicyWithDefaults(),
 	}
+	pu, err := pucontext.NewPU("pu1", fp, 24*time.Hour)
 
-	enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
-	enforcer.packetLogs = true
+	addDNSNamePolicy(pu)
 
-	puInfo := policy.NewPUInfo("SomePU", "/ns", common.ContainerPU)
-	pucontext, _ := pucontext.NewPU("SomePU", puInfo, 10*time.Second) //nolint
+	puIDcache.AddOrUpdate("pu1", pu)
+	conntrack := &flowClientDummy{}
 
-	addDNSNamePolicy(pucontext)
+	proxy := New(puIDcache, conntrack)
 
-	enforcer.puFromMark.AddOrUpdate("100", pucontext)
-	enforcer.mode = constants.LocalServer
-
-	enforcer.conntrack = &flowClientDummy{}
-	server := enforcer.startDNSServer("53001")
-	assert.Equal(t, server != nil, true, "We should be able to create a dns server")
+	err = proxy.StartDNSServer("pu1", "53001")
+	assert.Equal(t, err == nil, true, "start dns server")
 
 	resolver := createCustomResolver()
 	ctx := context.Background()
 	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
-	err := server.Shutdown()
+
 	assert.Equal(t, err == nil, true, "err should be nil")
+
+	proxy.ShutdownDNS("pu1")
 }

@@ -26,7 +26,10 @@ type serveDNS struct {
 	*Proxy
 }
 
-const proxyMarkInt = 0x40
+const (
+	dnsRequestTimeout = 2 * time.Second
+	proxyMarkInt      = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
+)
 
 func socketOptions(_, _ string, c syscall.RawConn) error {
 	var opErr error
@@ -62,7 +65,7 @@ func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, erro
 				}
 			})
 		},
-		Timeout: 500 * time.Millisecond,
+		Timeout: dnsRequestTimeout,
 	}
 
 	in, _, err := c.Exchange(r, net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))

@@ -34,10 +34,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	proxyMarkInt = 0x40
-)
-
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
 
