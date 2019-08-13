@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Proxy struct represents the object for dns proxy
 type Proxy struct {
 	puFromID          cache.DataStore
 	conntrack         flowtracking.FlowClient
@@ -129,6 +130,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
+// StartDNSServer starts the dns server on the port provided for contextID
 func (p *Proxy) StartDNSServer(contextID, port string) error {
 	netPacketConn, err := listenUDP("udp", "127.0.0.1:"+port)
 	if err != nil {
@@ -152,9 +154,12 @@ func (p *Proxy) StartDNSServer(contextID, port string) error {
 	return nil
 }
 
+// ShutdownDNS shuts down the dns server for contextID
 func (p *Proxy) ShutdownDNS(contextID string) {
 	if s, ok := p.contextIDToServer[contextID]; ok {
-		s.Shutdown()
+		if err := s.Shutdown(); err != nil {
+			zap.L().Error("shutdown of dns server returned error", zap.String("contextID", contextID), zap.Error(err))
+		}
 		delete(p.contextIDToServer, contextID)
 	}
 }

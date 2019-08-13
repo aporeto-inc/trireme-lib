@@ -69,7 +69,7 @@ func TestDNS(t *testing.T) {
 		Runtime: policy.NewPURuntimeWithDefaults(),
 		Policy:  policy.NewPUPolicyWithDefaults(),
 	}
-	pu, err := pucontext.NewPU("pu1", fp, 24*time.Hour)
+	pu, _ := pucontext.NewPU("pu1", fp, 24*time.Hour) // nolint
 
 	addDNSNamePolicy(pu)
 
