@@ -144,14 +144,14 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// Otherwise, we retry.
 		return reconcile.Result{}, err
 	}
-	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase)
-	if pod.Status.Phase == corev1.PodRunning {
-		puID, err = r.sandboxExtractor(ctx, pod)
-		if err != nil {
-			fmt.Println("\n\n *** Failure cannot get the sandboxID: ", puID)
-		} else {
-			fmt.Println("\n\n *** success got the sandboxID: ", puID)
-		}
+	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase, " name: ", nn)
+
+	puID, err = r.sandboxExtractor(ctx, pod)
+	if err != nil {
+		fmt.Println("\n\n *** Failure cannot get the sandboxID: ", puID, "reconcile till we get the sandboxID")
+		return reconcile.Result{}, err
+	} else {
+		fmt.Println("\n\n *** success got the sandboxID: ", puID)
 	}
 	fmt.Println("\n\n **** puID is :", puID)
 	//puID = string(pod.GetUID())

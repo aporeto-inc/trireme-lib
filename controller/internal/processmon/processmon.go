@@ -120,7 +120,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	statsServerSecret string,
 	procMountPoint string,
 ) (bool, error) {
-
+	fmt.Println("\n launching the remopte enforcer with pid:", refPid, " ctx-id: ", contextID)
 	// Locking here to get the procesinfo to avoid race conditions
 	// where multiple LaunchProcess happen for the same context.
 	p.Lock()
