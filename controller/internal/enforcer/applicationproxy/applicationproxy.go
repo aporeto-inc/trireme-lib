@@ -60,7 +60,7 @@ type AppProxy struct {
 // NewAppProxy creates a new instance of the application proxy.
 func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
 
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := GetSystemCertPool()
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := GetSystemCertPool()
 	if err != nil {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool

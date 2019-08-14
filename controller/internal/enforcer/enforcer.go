@@ -256,7 +256,7 @@ func New(
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("App proxy %s", err)
 	}
 
 	return &enforcer{

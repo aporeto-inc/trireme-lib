@@ -8,17 +8,28 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 )
 
+type monitors struct {
+	config   *config.MonitorConfig
+	monitors map[config.Type]Implementation
+}
+
 // Run starts the monitor.
-func Run(ctx context.Context) error {
+func (m *monitors) Run(ctx context.Context) error {
 	return nil
 }
 
 // UpdateConfiguration updates the configuration of the monitor
-func UpdateConfiguration(ctx context.Context, config *config.MonitorConfig) error {
+func (m *monitors) UpdateConfiguration(ctx context.Context, config *config.MonitorConfig) error {
 	return nil
 }
 
 // Resync requests to the monitor to do a resync.
-func Resync(ctx context.Context) error {
+func (m *monitors) Resync(ctx context.Context) error {
 	return nil
+}
+
+// NewMonitors instantiates all/any combination of monitors supported.
+func NewMonitors(opts ...Options) (Monitor, error) {
+	return &monitors{}, nil
+
 }
