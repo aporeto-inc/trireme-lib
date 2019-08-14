@@ -33,8 +33,13 @@ echo
 
 echo "Updating / Downloading necessary packages and repo..."
 go get -u -v google.golang.org/grpc
+echo
 go get -u -v github.com/gogo/protobuf/types
+echo
 go get -u -v github.com/gogo/googleapis/google/rpc
+echo
+go get -u -v github.com/gogo/googleapis/google/api
+echo
 go get -u -v github.com/envoyproxy/protoc-gen-validate
 echo "NOTE: it is okay for this to fail, there is no go code in here"
 go get -v -u -d ${ENVOY_REPO}
@@ -57,9 +62,12 @@ ${PROTOC} \
 grpc,\
 Menvoy/type/percent.proto=${ENVOY_REPO_PKG}/envoy/type,\
 Menvoy/type/http_status.proto=${ENVOY_REPO_PKG}/envoy/type,\
-Menvoy/api/v2/core/base.proto=${ENVOY_REPO_PKG}/envoy/api/v2/core,\
+Menvoy/api/v2/discovery.proto=${ENVOY_REPO_PKG}/envoy/api/v2,\
 Menvoy/api/v2/core/address.proto=${ENVOY_REPO_PKG}/envoy/api/v2/core,\
+Menvoy/api/v2/core/base.proto=${ENVOY_REPO_PKG}/envoy/api/v2/core,\
+Menvoy/api/v2/core/http_uri.proto=${ENVOY_REPO_PKG}/envoy/api/v2/core,\
 Mgoogle/rpc/status.proto=github.com/gogo/googleapis/google/rpc,\
+Mgoogle/api/annotations.proto=github.com/gogo/googleapis/google/api,\
 Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types,\
@@ -80,7 +88,8 @@ echo
 echo "running protoc for dependencies from envoy/api/v2/core..."
 $PROTOC_CMD \
   envoy/api/v2/core/address.proto \
-  envoy/api/v2/core/base.proto
+  envoy/api/v2/core/base.proto \
+  envoy/api/v2/core/http_uri.proto
 echo
 
 echo "running protoc for ext_authz_v2..."
@@ -88,5 +97,13 @@ $PROTOC_CMD \
   envoy/service/auth/v2/attribute_context.proto \
   envoy/service/auth/v2/external_auth.proto
 echo
+
+echo "running protoc for discovery..."
+$PROTOC_CMD \
+  envoy/api/v2/discovery.proto
+
+echo "running protoc for disovery services..."
+$PROTOC_CMD \
+  envoy/service/discovery/v2/sds.proto
 
 cd ${CUR_DIR}
