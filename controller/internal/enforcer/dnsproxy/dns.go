@@ -134,9 +134,6 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // StartDNSServer starts the dns server on the port provided for contextID
 func (p *Proxy) StartDNSServer(contextID, port string) error {
-	p.Lock()
-	defer p.Unlock()
-
 	netPacketConn, err := listenUDP("udp", "127.0.0.1:"+port)
 	if err != nil {
 		return err
@@ -145,6 +142,9 @@ func (p *Proxy) StartDNSServer(contextID, port string) error {
 	var server *dns.Server
 
 	storeInMap := func() {
+		p.Lock()
+		defer p.Unlock()
+
 		p.contextIDToServer[contextID] = server
 	}
 
