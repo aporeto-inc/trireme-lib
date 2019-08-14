@@ -171,6 +171,7 @@ func (p *Proxy) ShutdownDNS(contextID string) {
 	}
 }
 
+// New creates an instance of the dns proxy
 func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient) *Proxy {
 	return &Proxy{puFromID: puFromID, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
 }
