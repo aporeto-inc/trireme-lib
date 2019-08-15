@@ -2,6 +2,7 @@ package httpproxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -26,7 +27,7 @@ type TriremeHTTPErrHandler struct{}
 
 func (e TriremeHTTPErrHandler) ServeHTTP(w http.ResponseWriter, req *http.Request, err error) {
 	statusCode := http.StatusInternalServerError
-
+	fmt.Printf("This is the real headers: %+v\n", req.Header)
 	if e, ok := err.(net.Error); ok {
 		if e.Timeout() {
 			statusCode = http.StatusGatewayTimeout

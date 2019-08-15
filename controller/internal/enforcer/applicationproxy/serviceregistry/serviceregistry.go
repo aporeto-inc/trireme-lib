@@ -37,6 +37,8 @@ type DependentServiceData struct {
 	APICache *urisearch.APICache
 	// Used by the protomux to find the right service type.
 	ServiceType common.ListenerType
+	// ServiceObject is the original service object.
+	ServiceObject *policy.ApplicationService
 }
 
 // PortContext includes all the needed associations to refer to a service by port.
@@ -273,7 +275,8 @@ func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 		}
 
 		serviceData := &DependentServiceData{
-			ServiceType: serviceTypeToApplicationListenerType(service.Type),
+			ServiceType:   serviceTypeToApplicationListenerType(service.Type),
+			ServiceObject: service,
 		}
 		if service.Type == policy.ServiceHTTP {
 			serviceData.APICache = urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)

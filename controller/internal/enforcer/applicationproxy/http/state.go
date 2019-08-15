@@ -4,10 +4,10 @@ import (
 	"net"
 	"net/http"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
+
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -19,7 +19,7 @@ type connectionState struct {
 }
 
 // newAppConnectionState will create the initial connection state object.
-func newAppConnectionState(nativeID, serviceID string, p *pucontext.PUContext, r *http.Request, originalDestination *net.TCPAddr) *connectionState {
+func newAppConnectionState(nativeID string, r *http.Request, authRequest *apiauth.Request, resp *apiauth.AppAuthResponse) *connectionState {
 
 	sourceIP := "0.0.0.0/0"
 	sourcePort := 0
@@ -35,57 +35,109 @@ func newAppConnectionState(nativeID, serviceID string, p *pucontext.PUContext, r
 				URI:        r.Method + " " + r.RequestURI,
 				HTTPMethod: r.Method,
 				Type:       collector.EndPointTypeExternalIP,
-				Port:       uint16(originalDestination.Port),
-				IP:         originalDestination.IP.String(),
-				ID:         collector.DefaultEndPoint,
+				Port:       uint16(authRequest.OriginalDestination.Port),
+				IP:         authRequest.OriginalDestination.IP.String(),
+				ID:         resp.NetworkServiceID,
 			},
 			Source: &collector.EndPoint{
 				Type:       collector.EnpointTypePU,
-				ID:         p.ManagementID(),
+				ID:         resp.PUContext.ManagementID(),
 				IP:         sourceIP,
 				Port:       uint16(sourcePort),
 				HTTPMethod: r.Method,
 				URI:        r.Method + " " + r.RequestURI,
 			},
-			Action:      policy.Reject,
+			Action:      resp.Action,
 			L4Protocol:  packet.IPProtocolTCP,
 			ServiceType: policy.ServiceHTTP,
-			ServiceID:   serviceID,
-			Tags:        p.Annotations(),
-			Namespace:   p.ManagementNamespace(),
-			PolicyID:    "default",
+			ServiceID:   resp.ServiceID,
+			Tags:        resp.PUContext.Annotations(),
+			Namespace:   resp.PUContext.ManagementNamespace(),
+			PolicyID:    resp.NetworkPolicyID,
 			Count:       1,
 		},
 	}
 }
 
 // newNetworkConnectionState will create the initial connection state object.
-func newNetworkConnectionState(nativeID string, pctx *serviceregistry.PortContext, r *http.Request, source, dest *net.TCPAddr) *connectionState {
-	return &connectionState{
+func newNetworkConnectionState(nativeID string, userID string, r *apiauth.Request, d *apiauth.NetworkAuthResponse) *connectionState {
+
+	var mgmtID, namespace, serviceID string
+	var tags *policy.TagStore
+
+	if d.PUContext != nil {
+		mgmtID = d.PUContext.ManagementID()
+		namespace = d.PUContext.ManagementNamespace()
+		tags = d.PUContext.Annotations()
+		serviceID = d.ServiceID
+	} else {
+		mgmtID = "default"
+		namespace = "default"
+		tags = policy.NewTagStore()
+		serviceID = "default "
+	}
+
+	sourceType := collector.EndPointTypeExternalIP
+	sourceID := collector.DefaultEndPoint
+	networkPolicyID := "default"
+	action := policy.Reject
+
+	if d != nil {
+		sourceType = d.SourceType
+		if sourceType == collector.EndpointTypeClaims {
+			sourceType = collector.EndPointTypeExternalIP
+		}
+
+		switch d.SourceType {
+		case collector.EnpointTypePU:
+			sourceID = d.SourcePUID
+		case collector.EndpointTypeClaims:
+			sourceID = d.NetworkServiceID
+		default:
+			sourceID = d.NetworkServiceID
+		}
+
+		if d.NetworkPolicyID != "" {
+			networkPolicyID = d.NetworkPolicyID
+		}
+		action = d.Action
+	}
+
+	c := &connectionState{
 		stats: &collector.FlowRecord{
 			ContextID: nativeID,
 			Destination: &collector.EndPoint{
-				ID:         pctx.PUContext.ManagementID(),
+				ID:         mgmtID,
+				Type:       collector.EnpointTypePU,
+				IP:         r.OriginalDestination.IP.String(),
+				Port:       uint16(r.OriginalDestination.Port),
 				URI:        r.Method + " " + r.RequestURI,
 				HTTPMethod: r.Method,
-				Type:       collector.EnpointTypePU,
-				IP:         dest.IP.String(),
-				Port:       uint16(dest.Port),
+				UserID:     userID,
 			},
 			Source: &collector.EndPoint{
-				Type: collector.EndPointTypeExternalIP,
-				IP:   source.IP.String(),
-				ID:   collector.DefaultEndPoint,
-				Port: uint16(source.Port),
+				ID:     sourceID,
+				Type:   sourceType,
+				IP:     r.SourceAddress.IP.String(),
+				Port:   uint16(r.SourceAddress.Port),
+				UserID: userID,
 			},
-			Action:      policy.Reject,
+			Action:      action,
 			L4Protocol:  packet.IPProtocolTCP,
 			ServiceType: policy.ServiceHTTP,
-			PolicyID:    "default",
-			ServiceID:   pctx.Service.ID,
-			Tags:        pctx.PUContext.Annotations(),
-			Namespace:   pctx.PUContext.ManagementNamespace(),
+			PolicyID:    networkPolicyID,
+			ServiceID:   serviceID,
+			Tags:        tags,
+			Namespace:   namespace,
 			Count:       1,
 		},
 	}
+
+	if d != nil && d.Action.Rejected() {
+		c.stats.DropReason = d.DropReason
+	}
+
+	c.cookie = d.Cookie
+
+	return c
 }

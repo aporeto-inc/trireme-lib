@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -41,6 +42,7 @@ type ProxyInfo struct {
 	ExternalIPCacheTimeout time.Duration
 	collector              collector.EventCollector
 	cfg                    *runtime.Configuration
+	tokenIssuer            common.ServiceTokenIssuer
 
 	sync.RWMutex
 }
@@ -256,15 +258,17 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 // Run starts the the remote enforcer proxy.
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
-	statsServer := rpcwrapper.NewRPCWrapper()
-	rpcServer := &ProxyRPCServer{
-		rpchdl:    statsServer,
-		collector: s.collector,
-		secret:    s.statsServerSecret,
+	server := rpcwrapper.NewRPCWrapper()
+	handler := &ProxyRPCServer{
+		rpchdl:      server,
+		collector:   s.collector,
+		secret:      s.statsServerSecret,
+		tokenIssuer: s.tokenIssuer,
 	}
 
 	// Start the server for statistics collection.
-	go statsServer.StartServer(ctx, "unix", constants.StatsChannel, rpcServer) // nolint
+	go server.StartServer(ctx, "unix", constants.StatsChannel, handler) // nolint
+
 	return nil
 }
 
@@ -304,6 +308,7 @@ func NewProxyEnforcer(
 	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
+	tokenIssuer common.ServiceTokenIssuer,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -331,5 +336,6 @@ func NewProxyEnforcer(
 		packetLogs:             packetLogs,
 		collector:              collector,
 		cfg:                    cfg,
+		tokenIssuer:            tokenIssuer,
 	}
 }

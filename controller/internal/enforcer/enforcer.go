@@ -229,7 +229,7 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	cfg *runtime.Configuration,
-	tokenIssuer common.OAUTHTokenIssuer,
+	tokenIssuer common.ServiceTokenIssuer,
 ) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)

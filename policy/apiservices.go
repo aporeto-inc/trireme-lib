@@ -139,4 +139,8 @@ type HTTPRule struct {
 	// Public indicates that this is a public API and anyone can access it.
 	// No authorization will be performed on public APIs.
 	Public bool
+
+	// HookMethod indicates that this rule is not for generic proxying but
+	// must first be processed by the hook with the corresponding name.
+	HookMethod string
 }
