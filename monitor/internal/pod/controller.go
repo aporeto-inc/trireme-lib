@@ -104,6 +104,7 @@ var _ reconcile.Reconciler = &ReconcilePod{}
 // send down destroy events to trireme.
 type DeleteEvent struct {
 	NativeID string
+	PodUID   string
 	Key      client.ObjectKey
 }
 
@@ -167,6 +168,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	// that it must go away at some point, so always register it with the delete controller
 	r.deleteCh <- DeleteEvent{
 		NativeID: puID,
+		PodUID:   string(pod.GetUID()),
 		Key:      request.NamespacedName,
 	}
 
