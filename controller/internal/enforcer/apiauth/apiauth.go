@@ -58,7 +58,9 @@ func (p *Processor) retrieveApplicationContext(address *net.TCPAddr) (*servicere
 // error if the request must be rejected.
 func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 
-	d := &AppAuthResponse{}
+	d := &AppAuthResponse{
+		TLSListener: true,
+	}
 
 	// Derive the service context for this request. This is another PU
 	// or some external service. Context is derived based on the original
@@ -109,7 +111,13 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 				}
 			}
 		}
-		d.Action = policy.Accept | policy.Encrypt
+
+		d.Action = policy.Accept
+		if !serviceData.ServiceObject.NoTLSExternalService {
+			d.Action = d.Action | policy.Encrypt
+		}
+		d.TLSListener = !serviceData.ServiceObject.NoTLSExternalService
+
 		return d, nil
 	}
 

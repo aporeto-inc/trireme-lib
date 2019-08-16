@@ -51,6 +51,11 @@ type ApplicationService struct {
 	// result we must TLS for traffic send locally in the service.
 	PrivateTLSListener bool
 
+	// NoTLSExternalService indicates that TLS should not be used for an external
+	// service. This option is used for API calls to local metadata APIs and
+	// should not be used for access to the Internet.
+	NoTLSExternalService bool
+
 	// PublicNetworkInfo provides the network information where the enforcer
 	// should listen for incoming connections of the service. This can be
 	// different than the PrivateNetworkInfo where the application is listening

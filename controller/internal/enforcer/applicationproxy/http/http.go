@@ -271,7 +271,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { // nolint
-				fmt.Println("Its calling me to do https ")
 				return p.cert, nil
 			},
 		},
@@ -448,7 +447,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
-	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+	zap.L().Info("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
