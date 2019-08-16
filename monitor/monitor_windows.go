@@ -4,11 +4,14 @@ package monitor
 
 import (
 	"context"
+	"fmt"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
+	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
+	"go.uber.org/zap"
 )
 
 type monitors struct {
@@ -67,9 +70,17 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		switch k {
 		case config.Windows:
 			mon := windowsmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Windows: %s", err.Error())
+			}
+			m.monitors[config.Windows] = mon
 		default:
-			break
+			return nil, fmt.Errorf("Unsupported type %d", k)
 		}
 	}
+	zap.L().Debug("Monitor configuration", zap.String("conf", m.config.String()))
+
+	return m, nil
 
 }
