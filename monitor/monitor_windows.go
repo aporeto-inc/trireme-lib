@@ -75,8 +75,8 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("Windows: %s", err.Error())
 			}
 			m.monitors[config.Windows] = mon
-		default:
-			return nil, fmt.Errorf("Unsupported type %d", k)
+			/* default:
+			return nil, nil //fmt.Errorf("Unsupported type %d", k) */
 		}
 	}
 	zap.L().Debug("Monitor configuration", zap.String("conf", m.config.String()))

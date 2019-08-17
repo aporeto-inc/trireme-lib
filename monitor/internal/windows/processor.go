@@ -91,7 +91,6 @@ func (w *windowsProcessor) Destroy(ctx context.Context, eventInfo *common.EventI
 // Event processes a pause event
 func (w *windowsProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
 	return fmt.Errorf("Use start directly for windows processes. Pause not supported")
-	return nil
 }
 
 // Resync resyncs all PUs handled by this processor
