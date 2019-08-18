@@ -417,8 +417,13 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		defer p.collector.CollectFlowEvent(state.stats)
 	}
 
-	if hook, ok := p.hooks[resp.HookMethod]; ok {
-		if isHook, err := hook(w, r); err != nil || isHook {
+	if resp.HookMethod != "" {
+		if hook, ok := p.hooks[resp.HookMethod]; ok {
+			if isHook, err := hook(w, r); err != nil || isHook {
+				return
+			}
+		} else {
+			http.Error(w, "Invalid hook configuration", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -597,6 +602,13 @@ func (p *Config) keyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 }
 
 func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	// Health hook will only return ok if the current policy is already populated.
+	plc, _, err := p.metadata.GetCurrentPolicy()
+	if err != nil || plc == nil {
+		http.Error(w, fmt.Sprintf("Unable to retrieve current policy"), http.StatusInternalServerError)
+		return true, err
+	}
 
 	if _, err := w.Write([]byte("OK\n")); err != nil {
 		zap.L().Error("Unable to write response to health API")
