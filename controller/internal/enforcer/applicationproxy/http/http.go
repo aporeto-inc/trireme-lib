@@ -412,6 +412,11 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	state := newAppConnectionState(p.puContext, r, authRequest, resp)
+	if resp.External {
+		defer p.collector.CollectFlowEvent(state.stats)
+	}
+
 	if resp.HookMethod != "" {
 		if hook, ok := p.hooks[resp.HookMethod]; ok {
 			if isHook, err := hook(w, r); err != nil || isHook {
@@ -421,11 +426,6 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid hook configuration", http.StatusInternalServerError)
 			return
 		}
-	}
-
-	state := newAppConnectionState(p.puContext, r, authRequest, resp)
-	if resp.External {
-		defer p.collector.CollectFlowEvent(state.stats)
 	}
 
 	httpScheme := "http://"
