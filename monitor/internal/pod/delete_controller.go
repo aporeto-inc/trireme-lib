@@ -13,10 +13,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
 // deleteControllerReconcileFunc is the reconciler function signature for the DeleteController
-type deleteControllerReconcileFunc func(context.Context, client.Client, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor)
+type deleteControllerReconcileFunc func(context.Context, client.Client, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent)
 
 // DeleteController is responsible for cleaning up after Kubernetes because we
 // are missing our native ID on the last reconcile event where the pod has already
@@ -34,16 +35,18 @@ type DeleteController struct {
 	tickerPeriod       time.Duration
 	itemProcessTimeout time.Duration
 	sandboxExtractor   extractors.PodSandboxExtractor
+	eventsCh           chan event.GenericEvent
 }
 
+// DeleteObject is the obj used to store in the event map.
 type DeleteObject struct {
-	nativeID string
-	podUID   string
-	podName  client.ObjectKey
+	nativeID  string
+	sandboxID string
+	podName   client.ObjectKey
 }
 
 // NewDeleteController creates a new DeleteController.
-func NewDeleteController(c client.Client, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor) *DeleteController {
+func NewDeleteController(c client.Client, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) *DeleteController {
 	return &DeleteController{
 		client:             c,
 		handler:            pc,
@@ -53,6 +56,7 @@ func NewDeleteController(c client.Client, pc *config.ProcessorConfig, sandboxExt
 		tickerPeriod:       5 * time.Second,
 		itemProcessTimeout: 30 * time.Second,
 		sandboxExtractor:   sandboxExtractor,
+		eventsCh:           eventsCh,
 	}
 }
 
@@ -76,12 +80,15 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 	for {
 		select {
 		case ev := <-c.deleteCh:
-			obj := DeleteObject{nativeID: ev.NativeID, podUID: ev.PodUID, podName: ev.Key}
-			m[ev.NativeID] = obj
+			obj := DeleteObject{nativeID: ev.NativeID, sandboxID: ev.SandboxID, podName: ev.Key}
+			// here don't update the map, insert only if not present.
+			if _, ok := m[ev.NativeID]; !ok {
+				m[ev.NativeID] = obj
+			}
 		case <-c.reconcileCh:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor)
+			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
 		case <-t.C:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor)
+			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
 		case <-z:
 			t.Stop()
 			return nil
@@ -90,14 +97,20 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 }
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
-func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor) {
+func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	for nativeID, req := range m {
-		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req.podName, sandboxExtractor)
+		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req.podName, sandboxExtractor, eventCh)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, nativeID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor) {
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, nativeID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	//var err error
+	var ok bool
+	var delObj DeleteObject
+	if delObj, ok = m[nativeID]; !ok {
+		zap.L().Error("deleteController: nativeID not found in delete controller map", zap.String("nativeID", nativeID))
+		return
+	}
 	ctx, cancel := context.WithTimeout(backgroundCtx, itemProcessTimeout)
 	defer cancel()
 	pod := &corev1.Pod{}
@@ -123,33 +136,60 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		}
 		return
 	}
-
+	fmt.Println("IN delete controller", pod.Name)
 	// the edge case: a pod with the same namespaced name came up and we have missed a delete event
 	// this means that this pod belongs to a different PU and must live, therefore we try to delete the old one
 	//if nativeID != string(pod.GetUID()) {
 	// Now destroy the PU only if the following
-	// 1. if the namesapce-name match && pod UID match
-	// 2. SandboxID differ.
-	podNamespaceName, err := client.ObjectKeyFromObject(pod)
-	if err != nil {
-		fmt.Println("Dlete controller: err", err)
-	}
-	fmt.Println("\n\n ** Delete controller with pod name and rename:", podNamespaceName.String(), req.String())
-	var ok bool
-	var delObj DeleteObject
-	if delObj, ok = m[nativeID]; ok {
-		fmt.Println("the del obj details are: ", delObj)
+	// 1. Simple case if the pod UID don't match then go ahead and destory the PU.
+	// 2. When the pod UID match then do the following:
+	//		2.a Get the current SandboxID from the pod.
+	// 		2.b Get the sandboxID from the map.
+	// 		2.c If the sandBoxID differ then send the destroy event for the old(map) sandBoxID.
+
+	// 1st case, simple if the pod UID don't match then just call the destroy PU event and delete the map entry with the old key.
+	if string(pod.UID) != delObj.nativeID {
+
+		zap.L().Error("Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+		if err := pc.Policy.HandlePUEvent(
+			ctx,
+			nativeID,
+			common.EventDestroy,
+			policy.NewPURuntimeWithDefaults(),
+		); err != nil {
+			// we don't really care, we just warn
+			zap.L().Warn("failed to handle destroy event", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
+		}
+		// we only fire events away, we don't really care about the error anyway
+		// it is up to the policy engine to make sense of that
+		delete(m, nativeID)
+		return
 	}
 
-	if podNamespaceName.String() == req.String() && string(pod.UID) == delObj.podUID {
-		fmt.Println("namespacedName and uid are same: ", req.String(), delObj.podUID)
-		currentPuID, err := sandboxExtractor(ctx, pod)
+	// now the 2nd case, when pod UID match
+	if string(pod.UID) == delObj.nativeID {
+		zap.L().Info("Delete-controller: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
+		// 2a get the current sandboxID
+		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
-			zap.L().Error("Delete controller, cannot extract the SandboxID", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 			return
 		}
-		if nativeID != currentPuID {
-			zap.L().Error("Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+		// update the map with the sandboxID
+		if delObj.sandboxID == "" {
+			updatedDelObj := DeleteObject{nativeID: nativeID, sandboxID: currentSandboxID, podName: req}
+			m[nativeID] = updatedDelObj
+		}
+		// 2b get the pod/old sandboxID
+		if delObj, ok = m[nativeID]; !ok {
+			zap.L().Error("deleteController: nativeID not found in delete controller map", zap.String("nativeID", nativeID))
+			return
+		}
+		oldSandboxID := delObj.sandboxID
+		zap.L().Debug("Delete controller:", zap.String("the sandboxID, curr:", currentSandboxID), zap.String(" old sandboxID: ", oldSandboxID))
+		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
+		if oldSandboxID != currentSandboxID {
+			zap.L().Error("Pod SandboxID differ. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("currentSandboxID", string(currentSandboxID)), zap.String("oldSandboxID", string(oldSandboxID)))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
 				nativeID,
@@ -162,6 +202,12 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
 			delete(m, nativeID)
+			zap.L().Debug("delete controller: PU destoryed, now send event for the pod to reconcile", zap.String(" podName: ", req.String()))
+			eventCh <- event.GenericEvent{
+				Object: pod,
+				Meta:   pod.GetObjectMeta(),
+			}
+			return
 		}
 	}
 }

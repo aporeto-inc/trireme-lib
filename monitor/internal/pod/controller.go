@@ -103,9 +103,9 @@ var _ reconcile.Reconciler = &ReconcilePod{}
 // them for real deletion in the Kubernetes API. Once an object is gone, we will
 // send down destroy events to trireme.
 type DeleteEvent struct {
-	NativeID string
-	PodUID   string
-	Key      client.ObjectKey
+	NativeID  string
+	SandboxID string
+	Key       client.ObjectKey
 }
 
 // ReconcilePod reconciles a Pod object
@@ -133,7 +133,7 @@ type ReconcilePod struct {
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
 	nn := request.NamespacedName.String()
-	var puID string
+	var puID, sandboxID string
 	var err error
 	// Fetch the corresponding pod object.
 	pod := &corev1.Pod{}
@@ -147,15 +147,15 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	}
 	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase, " name: ", nn)
 
-	puID, err = r.sandboxExtractor(ctx, pod)
+	sandboxID, err = r.sandboxExtractor(ctx, pod)
 	if err != nil {
-		fmt.Println("\n\n *** Failure cannot get the sandboxID: ", puID, "reconcile till we get the sandboxID")
-		return reconcile.Result{}, err
-	} else {
-		fmt.Println("\n\n *** success got the sandboxID: ", puID)
-	}
-	fmt.Println("\n\n **** puID is :", puID)
-	//puID = string(pod.GetUID())
+		zap.L().Info("Pod recocile: Cannot extract the Sandboc for ", zap.String("podname: ", nn))
+		//return reconcile.Result{}, err
+	} // aelse {
+	// 	fmt.Println("\n\n *** success got the sandboxID: ", puID)
+	// }
+	// fmt.Println("\n\n **** puID is :", puID)
+	puID = string(pod.GetUID())
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
 	if pod.Spec.HostNetwork && !r.enableHostPods {
@@ -167,9 +167,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	// if we reconcile though and the pod exists, we definitely know though
 	// that it must go away at some point, so always register it with the delete controller
 	r.deleteCh <- DeleteEvent{
-		NativeID: puID,
-		PodUID:   string(pod.GetUID()),
-		Key:      request.NamespacedName,
+		NativeID:  puID,
+		SandboxID: sandboxID,
+		Key:       request.NamespacedName,
 	}
 
 	// try to find out if any of the containers have been started yet
@@ -233,7 +233,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		if pod.DeletionTimestamp != nil {
 			return reconcile.Result{}, nil
 		}
-
+		if sandboxID == "" || !started {
+			return reconcile.Result{Requeue: true}, nil
+		}
 		if started {
 			// if the metadata extractor is missing the PID or nspath, we need to try again
 			// we need it for starting the PU. However, only require this if we are not in host network mode.
