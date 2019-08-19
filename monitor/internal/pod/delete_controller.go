@@ -143,7 +143,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 	// the sandbox getting killed or all the containers restarting due a crash or kill.
 
 	// Now destroy the PU only if the following
-	// 1. Simple case if the pod UID don't match then go ahead and destory the PU.
+	// 1. Simple case if the pod UID don't match then go ahead and destroy the PU.
 	// 2. When the pod UID match then do the following:
 	//		2.a Get the current SandboxID from the pod.
 	// 		2.b Get the sandboxID from the map.
