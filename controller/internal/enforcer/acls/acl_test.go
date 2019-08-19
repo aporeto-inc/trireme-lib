@@ -4,8 +4,9 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/policy"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
@@ -219,104 +220,4 @@ func TestObservedLookup(t *testing.T) {
 			So(r.PolicyID, ShouldEqual, "preReportedPolicyID")
 		})
 	})
-}
-
-func TestACLAddRule(t *testing.T) {
-	type fields struct {
-		sortedPrefixLens []int
-		prefixLenMap     map[int]*prefixRules
-	}
-	type args struct {
-		rule policy.IPRule
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "Add TCP rule",
-			fields: fields{
-				sortedPrefixLens: make([]int, 0),
-				prefixLenMap:     make(map[int]*prefixRules),
-			},
-			args: args{
-				rule: policy.IPRule{
-					Address:  "172.0.0.0/8",
-					Port:     "400:500",
-					Protocol: "tcp",
-					Policy: &policy.FlowPolicy{
-						Action:   policy.Accept,
-						PolicyID: "tcp172/8"},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Add UDP rule",
-			fields: fields{
-				sortedPrefixLens: make([]int, 0),
-				prefixLenMap:     make(map[int]*prefixRules),
-			},
-			args: args{
-				rule: policy.IPRule{
-					Address:  "172.0.0.0/8",
-					Port:     "400:500",
-					Protocol: "udp",
-					Policy: &policy.FlowPolicy{
-						Action:   policy.Accept,
-						PolicyID: "tcp172/8"},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Add UDP rule with invalid ip address",
-			fields: fields{
-				sortedPrefixLens: make([]int, 0),
-				prefixLenMap:     make(map[int]*prefixRules),
-			},
-			args: args{
-				rule: policy.IPRule{
-					Address:  "172.0.0.0.0/8",
-					Port:     "400:500",
-					Protocol: "udp",
-					Policy: &policy.FlowPolicy{
-						Action:   policy.Accept,
-						PolicyID: "tcp172/8"},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Add ICMP rule-Invalid",
-			fields: fields{
-				sortedPrefixLens: make([]int, 0),
-				prefixLenMap:     make(map[int]*prefixRules),
-			},
-			args: args{
-				rule: policy.IPRule{
-					Address:  "172.0.0.0/8",
-					Port:     "400:500",
-					Protocol: "icmp",
-					Policy: &policy.FlowPolicy{
-						Action:   policy.Accept,
-						PolicyID: "tcp172/8"},
-				},
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &acl{
-				sortedPrefixLens: tt.fields.sortedPrefixLens,
-				prefixLenMap:     tt.fields.prefixLenMap,
-			}
-			if err := a.addRule(tt.args.rule); (err != nil) != tt.wantErr {
-				t.Errorf("acl.addRule() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
 }

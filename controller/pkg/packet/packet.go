@@ -50,7 +50,7 @@ func init() {
 // New returns a pointer to Packet structure built from the
 // provided bytes buffer which is expected to contain valid TCP/IP
 // packet bytes.
-func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) {
+func New(context uint64, bytes []byte, mark string, lengthValidate bool) (packet *Packet, err error) {
 
 	var p Packet
 
@@ -86,7 +86,7 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
-	if p.IPTotalLength != uint16(len(p.Buffer)) {
+	if lengthValidate && p.IPTotalLength != uint16(len(p.Buffer)) {
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]
 		} else {

@@ -109,7 +109,7 @@ func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()
 
-	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token)
+	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token, constants.CompressionTypeNone)
 	if err != nil {
 		fmt.Println("CompackPKI creation failed with:", err)
 	}
@@ -143,7 +143,7 @@ func filterQ() *fqconfig.FilterQueue {
 func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervisorPayload {
 	var initSupPayload rpcwrapper.InitSupervisorPayload
 
-	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
+	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32", "172.0.0.0/8", "10.0.0.0/8"}
 	initSupPayload.CaptureMethod = ctype
 
 	return initSupPayload
@@ -234,6 +234,12 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 	}
 
 	return initPayload
+}
+
+func initTestSetTargetPayload() rpcwrapper.SetTargetNetworks {
+	var payload rpcwrapper.SetTargetNetworks
+	payload.TargetNetworks = []string{"128.0.0.0/1"}
+	return payload
 }
 
 func initTestUnEnfPayload() rpcwrapper.UnEnforcePayload {
@@ -465,12 +471,12 @@ func TestInitSupervisor(t *testing.T) {
 					return nil, nil
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error for no IPset support", func() {
-					So(err, ShouldResemble, errors.New("ipsets not supported yet"))
+					So(err, ShouldResemble, errors.New("Unsupported method"))
 				})
 			})
 
@@ -520,7 +526,7 @@ func TestInitSupervisor(t *testing.T) {
 					return nil, nil
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -554,8 +560,8 @@ func TestInitSupervisor(t *testing.T) {
 					return nil, nil
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
-				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{})
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{}, nil)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -651,8 +657,8 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 					return nil, nil
 				}
 
-				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
+				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
@@ -857,7 +863,7 @@ func TestEnforce(t *testing.T) {
 					return nil, nil
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
@@ -965,7 +971,7 @@ func TestUnEnforce(t *testing.T) {
 					return nil, nil
 				}
 
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
+				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
@@ -1072,9 +1078,9 @@ func TestUnSupervise(t *testing.T) {
 					return nil, nil
 				}
 
-				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc")
+				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
 
 				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
 

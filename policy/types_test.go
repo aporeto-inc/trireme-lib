@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"reflect"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -58,80 +57,4 @@ func TestEncodeDecodePrefix(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestClone(t *testing.T) {
-	type args struct {
-		proto string
-	}
-	tests := []struct {
-		name string
-		l    IPRuleList
-		args args
-		want IPRuleList
-	}{
-		{
-			name: "Test Cloning a TCP IP rules",
-			l: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "tcp",
-					Port:     "80",
-				},
-			},
-			args: args{
-				proto: "tcp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "tcp",
-					Port:     "80",
-				},
-			},
-		},
-		{
-			name: "Test Cloning a udp IP rules",
-			l: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "udp",
-					Port:     "80",
-				},
-			},
-			args: args{
-				proto: "udp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "udp",
-					Port:     "80",
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.l.Clone(tt.args.proto); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("IPRuleList.Clone() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

@@ -53,7 +53,7 @@ func NewSecrets(s PublicSecrets) (Secrets, error) {
 		return NewPKISecrets(t.Key, t.Certificate, t.CA, nil)
 	case PKICompactType:
 		t := s.(*CompactPKIPublicSecrets)
-		return NewCompactPKIWithTokenCA(t.Key, t.Certificate, t.CA, t.TokenCAs, t.Token)
+		return NewCompactPKIWithTokenCA(t.Key, t.Certificate, t.CA, t.TokenCAs, t.Token, t.Compressed)
 	case PSKType:
 		t := s.(*PSKPublicSecrets)
 		return NewPSKSecrets(t.SharedKey), nil

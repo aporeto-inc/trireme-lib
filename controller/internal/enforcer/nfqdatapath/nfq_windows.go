@@ -4,7 +4,6 @@ package nfqdatapath
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,7 +12,6 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/windatapath"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-
 	"go.uber.org/zap"
 )
 
@@ -23,8 +21,8 @@ import "C"
 
 const (
 	//networkFilter = "inbound and ip.SrcAddr=10.128.128.128 and ip.Protocol!=17"
-	networkFilter = "inbound and ip.Protocol!=17 and ip.SrcAddr!=130.211.159.253"
-	appFilter     = "outbound and ip.Protocol!=17 and ip.DstAddr!=130.211.159.253"
+	networkFilter = "inbound and ip.Protocol!=17 and ip.SrcAddr!=172.31.8.191 and tcp.DstPort!=3389"
+	appFilter     = "outbound and ip.Protocol!=17 and ip.DstAddr!=172.31.17.191 tcp.SrcPort!=3389"
 	//appFilter     = "outbound and ip.DstAddr=10.128.128.128 and ip.Protocol!=17"
 )
 
@@ -128,11 +126,11 @@ func (d *Datapath) processApplicationPacketsFromWinDivert(datapathhdl uintptr, w
 	// writeLen := uint(len(data))
 	// err := windivertHdl.WinDivertSend(datapathhdl, data, recvAddr, &writeLen)
 	// zap.L().Error("Application Send Error", zap.Error(err))
-	netPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(int(100)))
+	netPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(int(100)), true)
 
 	if err != nil {
-		fmt.Println(hex.Dump(data))
-		fmt.Println("Error", err)
+		//fmt.Println(hex.Dump(data))
+		//fmt.Println("Error", err)
 		//netPacket.Print(packet.PacketFailureCreate)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processApplicationTCPPackets(netPacket)
@@ -173,7 +171,7 @@ func (d *Datapath) processNetworkPacketsFromWindivert(datapathhdl uintptr, windi
 	// err := windivertHdl.WinDivertSend(datapathhdl, data, recvAddr, &writeLen)
 	// zap.L().Error("Network Send Error", zap.Error(err))
 	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(int(100)))
+	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(int(100)), true)
 
 	if err != nil {
 		if netPacket == nil {

@@ -6,21 +6,23 @@ package processmon
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
 	"go.uber.org/zap"
 
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 )
@@ -54,9 +56,16 @@ type processMon struct {
 	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
 	// logLevel is the level of logs for remote command.
-	logLevel       string
-	logFormat      string
-	compressedTags bool
+	logLevel  string
+	logFormat string
+	// collector is the event collector to report failures.
+	collector collector.EventCollector
+	// compressedTags instructs the remotes to use compressed tags.
+	compressedTags constants.CompressionType
+	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
+	runtimeErrorChannel chan *policy.RuntimeError
+
+	sync.Mutex
 }
 
 // processInfo stores per process information
@@ -64,6 +73,7 @@ type processInfo struct {
 	contextID string
 	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
+	sync.Mutex
 }
 
 // exitStatus captures the exit status of a process
@@ -91,17 +101,13 @@ func contextID2SocketPath(contextID string) string {
 }
 
 // processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string, exited chan int) {
-
+func processIOReader(fd io.Reader, contextID string) {
 	reader := bufio.NewReader(fd)
-
 	for {
 		str, err := reader.ReadString('\n')
 		if err != nil {
-			exited <- 1
 			return
 		}
-
 		fmt.Print("[" + contextID + "]:" + str)
 	}
 }
@@ -124,7 +130,6 @@ func newProcessMon(netns, remoteEnforcerPath, remoteEnforcerName string) Process
 
 // GetProcessManagerHdl returns a process manager handle.
 func GetProcessManagerHdl() ProcessManager {
-
 	return launcher
 }
 
@@ -132,19 +137,41 @@ func GetProcessManagerHdl() ProcessManager {
 func (p *processMon) collectChildExitStatus() {
 
 	for {
+		select {
+		case es := <-p.childExitStatus:
+			if es.exitStatus == nil {
+				continue
+			}
+			data, err := p.activeProcesses.Get(es.contextID)
+			if err == nil {
+				zap.L().Error("Remote enforcer exited, but container is running",
+					zap.String("nativeContextID", es.contextID),
+					zap.Int("pid", es.process),
+					zap.Error(es.exitStatus),
+				)
+				procInfo, ok := data.(*processInfo)
+				if ok {
+					procInfo.RPCHdl.DestroyRPCClient(es.contextID)
+				}
+				if p.runtimeErrorChannel != nil {
+					p.runtimeErrorChannel <- &policy.RuntimeError{
+						ContextID: es.contextID,
+						Error:     fmt.Errorf("Remote killed:%s", es.exitStatus),
+					}
+				}
+				continue
+			}
+			zap.L().Debug("Remote enforcer exited normally",
+				zap.String("nativeContextID", es.contextID),
+				zap.Int("pid", es.process),
+			)
 
-		es := <-p.childExitStatus
-		zap.L().Debug("Remote enforcer exited",
-			zap.String("nativeContextID", es.contextID),
-			zap.Int("pid", es.process),
-			zap.Error(es.exitStatus),
-		)
+		}
 	}
 }
 
 // SetLogParameters setups args that should be propagated to child processes
-func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
-
+func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
 	p.logLevel = logLevel
@@ -152,22 +179,38 @@ func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel str
 	p.compressedTags = compressedTags
 }
 
+func (p *processMon) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
+	p.runtimeErrorChannel = e
+}
+
 // KillProcess sends a rpc to the process to exit failing which it will kill the process
 func (p *processMon) KillProcess(contextID string) {
-
+	p.Lock()
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		zap.L().Debug("Process already killed or never launched")
+		zap.L().Error("Process already killed or never launched")
+		p.Unlock()
 		return
 	}
-
+	if err := p.activeProcesses.Remove(contextID); err != nil {
+		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
+	}
 	procInfo, ok := s.(*processInfo)
 	if !ok {
+		p.Unlock()
 		return
 	}
+	p.Unlock()
+
+	procInfo.Lock()
+	defer procInfo.Unlock()
 
 	req := &rpcwrapper.Request{}
 	resp := &rpcwrapper.Response{}
+	if procInfo.process == nil {
+		zap.L().Error("KillProcess failed - process is nil")
+		return
+	}
 	req.Payload = procInfo.process.Pid
 
 	c := make(chan error, 1)
@@ -181,7 +224,6 @@ func (p *processMon) KillProcess(contextID string) {
 			zap.L().Debug("Failed to stop gracefully",
 				zap.String("Remote error", err.Error()))
 		}
-
 		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Debug("Process is already dead",
 				zap.String("Kill error", err.Error()))
@@ -195,41 +237,29 @@ func (p *processMon) KillProcess(contextID string) {
 	}
 
 	procInfo.RPCHdl.DestroyRPCClient(contextID)
-	if err := os.Remove(filepath.Join(p.netNSPath, contextID)); err != nil {
-		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
-	}
-
-	if err := p.activeProcesses.Remove(contextID); err != nil {
-		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
-	}
 }
 
 // pollStdOutAndErr polls std out and err
 func (p *processMon) pollStdOutAndErr(
 	cmd *exec.Cmd,
-	exited chan int,
 	contextID string,
-) (initializedCount int, err error) {
+) (err error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return initializedCount, err
+		return err
 	}
-
-	initializedCount++
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return initializedCount, err
+		return err
 	}
 
-	initializedCount++
-
 	// Stdout/err processing
-	go processIOReader(stdout, contextID, exited)
-	go processIOReader(stderr, contextID, exited)
+	go processIOReader(stdout, contextID)
+	go processIOReader(stderr, contextID)
 
-	return initializedCount, nil
+	return nil
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
@@ -267,8 +297,8 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvLogFormat + "=" + p.logFormat,
 	}
 
-	if p.compressedTags {
-		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+constants.EnvCompressedTagsEnable)
+	if p.compressedTags != constants.CompressionTypeNone {
+		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
 	}
 
 	if p.logToConsole {
@@ -298,9 +328,24 @@ func (p *processMon) LaunchProcess(
 	procMountPoint string,
 ) error {
 
+	// Locking here to get the procesinfo to avoid race conditions
+	// where multiple LaunchProcess happen for the same context.
+	p.Lock()
 	if _, err := p.activeProcesses.Get(contextID); err == nil {
+		p.Unlock()
 		return nil
 	}
+
+	procInfo := &processInfo{
+		contextID: contextID,
+		RPCHdl:    rpchdl,
+	}
+	p.activeProcesses.AddOrUpdate(contextID, procInfo)
+	p.Unlock()
+
+	// We will lock the procInfo here, so a kill will have to wait and avoid any race.
+	procInfo.Lock()
+	defer procInfo.Unlock()
 
 	// We check if the NetNsPath was given as parameter.
 	// If it was we will use it. Otherwise we will determine it based on the PID.
@@ -320,7 +365,7 @@ func (p *processMon) LaunchProcess(
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return errors.New("refused to launch a remote enforcer in host namespace")
+		return fmt.Errorf("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
@@ -343,12 +388,8 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
-	exited := make(chan int, 2)
-	waitForExitCount := 0
-	if p.logToConsole {
-		if waitForExitCount, err = p.pollStdOutAndErr(cmd, exited, contextID); err != nil {
-			return err
-		}
+	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
+		return err
 	}
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
@@ -375,10 +416,13 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
+	procInfo.process = cmd.Process
+
+	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+		return fmt.Errorf("failed to established rpc channel: %s", err)
+	}
+
 	go func() {
-		for i := 0; i < waitForExitCount; i++ {
-			<-exited
-		}
 		status := cmd.Wait()
 		p.childExitStatus <- exitStatus{
 			process:    cmd.Process.Pid,
@@ -386,15 +430,6 @@ func (p *processMon) LaunchProcess(
 			exitStatus: status,
 		}
 	}()
-
-	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
-		return err
-	}
-
-	p.activeProcesses.AddOrUpdate(contextID, &processInfo{
-		contextID: contextID,
-		process:   cmd.Process,
-		RPCHdl:    rpchdl})
 
 	return nil
 }

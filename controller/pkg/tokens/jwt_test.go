@@ -99,7 +99,7 @@ func TestConstructorNewJWT(t *testing.T) {
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
-		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
+		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                 ")
 		So(jwtConfig.ValidityPeriod.Seconds(), ShouldEqual, validity.Seconds())
 		So(jwtConfig.signMethod, ShouldEqual, jwt.SigningMethodHS256)
 	})
@@ -112,7 +112,7 @@ func TestConstructorNewJWT(t *testing.T) {
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
-		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
+		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                 ")
 		So(jwtConfig.ValidityPeriod.Seconds(), ShouldEqual, validity.Seconds())
 		So(jwtConfig.signMethod, ShouldEqual, jwt.SigningMethodES256)
 	})
@@ -125,7 +125,7 @@ func TestConstructorNewJWT(t *testing.T) {
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
-		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
+		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                 ")
 		So(jwtConfig.ValidityPeriod.Seconds(), ShouldEqual, validity.Seconds())
 		So(jwtConfig.signMethod, ShouldEqual, jwt.SigningMethodNone)
 	})

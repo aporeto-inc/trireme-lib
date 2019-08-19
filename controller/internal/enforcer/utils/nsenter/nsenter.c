@@ -9,6 +9,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
 #define STRBUF_SIZE     128
 void nsexec(void) {
 
@@ -48,10 +50,11 @@ void nsexec(void) {
   }
 
   // Set namespace
-  int retval = setns(fd,0);
+  int retval = syscall(308,fd,0);
   snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval);
   setenv("TRIREME_ENV_NSENTER_LOGS",msg,1);
   if(retval < 0){
     setenv("APORET_ENV_NSENTER_ERROR_STATE",strerror(errno),1);
   }
+  
 }

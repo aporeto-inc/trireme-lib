@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aporeto-inc/oxy/forward"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/vulcand/oxy/forward"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -27,8 +28,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type statsContextKeyType string
+
 const (
 	defaultValidity = 60 * time.Second
+	statsContextKey = statsContextKeyType("statsContext")
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -49,11 +53,13 @@ type Config struct {
 	verifier           *servicetokens.Verifier
 	collector          collector.EventCollector
 	puContext          string
+	localIPs           map[string]struct{}
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
-	serviceMapCache    cache.DataStore
 	dependentAPICache  cache.DataStore
 	jwtCache           cache.DataStore
+	portMapping        map[int]int
+	portCache          map[int]string
 	applicationProxy   bool
 	mark               int
 	server             *http.Server
@@ -68,12 +74,13 @@ func NewHTTPProxy(
 	puContext string,
 	puFromIDCache cache.DataStore,
 	caPool *x509.CertPool,
-	serviceMap cache.DataStore,
 	authProcessorCache cache.DataStore,
 	dependentAPICache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
+	portCache map[int]string,
+	portMapping map[int]int,
 ) *Config {
 
 	return &Config{
@@ -82,12 +89,14 @@ func NewHTTPProxy(
 		puContext:          puContext,
 		ca:                 caPool,
 		authProcessorCache: authProcessorCache,
-		serviceMapCache:    serviceMap,
 		dependentAPICache:  dependentAPICache,
 		applicationProxy:   applicationProxy,
 		mark:               mark,
 		secrets:            secrets,
 		verifier:           servicetokens.NewVerifier(secrets, nil),
+		portCache:          portCache,
+		portMapping:        portMapping,
+		localIPs:           connproc.GetInterfaces(),
 	}
 }
 
@@ -108,8 +117,39 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
 			ClientAuth:     tls.RequestClientCert,
+			NextProtos:     []string{"h2"},
+			CipherSuites:   []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
 		}
 		l = tls.NewListener(l, config)
+	}
+
+	reportStats := func(ctx context.Context) {
+		if statsRecord := ctx.Value(statsContextKey); statsRecord != nil {
+			if r, ok := statsRecord.(*collector.FlowRecord); ok {
+				r.Action = policy.Reject
+				r.DropReason = collector.UnableToDial
+				r.PolicyID = "default"
+				p.collector.CollectFlowEvent(r)
+			}
+		}
+	}
+
+	dialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
+		if err != nil {
+			reportStats(ctx)
+			return nil, err
+		}
+		targetPort, ok := p.portMapping[raddr.Port]
+		if ok {
+			raddr.Port = targetPort
+		}
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(ctx)
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
+		}
+		return conn, nil
 	}
 
 	// Create an encrypted downstream transport. We will mark the downstream connection
@@ -118,47 +158,41 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				return nil, err
-			}
-			tlsConn := tls.Client(conn, &tls.Config{
-				ServerName:         getServerName(addr),
-				RootCAs:            p.ca,
-				InsecureSkipVerify: false,
-			})
-			return tlsConn, nil
-		},
+		DialContext:         dialerWithContext,
+		MaxIdleConnsPerHost: 2000,
+		MaxIdleConns:        2000,
 	}
 
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to dial remote: %s", err)
-			}
-			return conn, nil
-		},
+		DialContext:         dialerWithContext,
+		MaxIdleConns:        2000,
+		MaxIdleConnsPerHost: 2000,
+	}
+
+	netDial := func(network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot resolve address")
+		}
+		return markedconn.DialMarkedTCP(network, nil, raddr, p.mark)
 	}
 
 	// Create the proxies dowards the network and the application.
 	var err error
-	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport))
+	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport),
+		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
+		forward.WebSocketNetDial(netDial),
+		forward.BufferPool(NewPool()),
+	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
 
-	p.fwd, err = forward.New(forward.RoundTripper(transport))
+	p.fwd, err = forward.New(
+		forward.RoundTripper(transport),
+		forward.BufferPool(NewPool()),
+	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize unencrypted transport: %s", err)
 	}
@@ -205,15 +239,14 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
-
 		if p.cert != nil {
 			return p.cert, nil
 		}
-		return nil, fmt.Errorf("no cert available")
+		return nil, fmt.Errorf("no cert available - cert is nil")
 	}
 }
 
-func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *auth.Processor, string, error) {
+func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, string, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -222,16 +255,10 @@ func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request) 
 	}
 	puContext := pu.(*pucontext.PUContext)
 
-	data, err := p.serviceMapCache.Get(p.puContext)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
-		return nil, nil, "", err
-	}
-
-	serviceID, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
+	serviceID, ok := p.portCache[port]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown destination %s", r.Host), http.StatusForbidden)
-		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown destination")
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
+		return nil, nil, "", fmt.Errorf("service not found")
 	}
 
 	authorizer, err := p.authProcessorCache.Get(p.puContext)
@@ -271,7 +298,6 @@ func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
-
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	puContext, apiCache, err := p.retrieveApplicationContext(w, r)
@@ -294,12 +320,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		Source: &collector.EndPoint{
 			Type: collector.EnpointTypePU,
 			ID:   puContext.ManagementID(),
+			IP:   "0.0.0.0/0",
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 		ServiceID:   apiCache.ID,
 		Tags:        puContext.Annotations(),
+		Count:       1,
 	}
 
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
@@ -358,7 +386,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the new target URL based on the Host parameter that we had.
-	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	r.URL, err = url.ParseRequestURI("https://" + r.Host)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
@@ -369,12 +397,12 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
 	r.Header.Add("X-APORETO-AUTH", token)
 
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
 	// Forward the request.
-	p.fwdTLS.ServeHTTP(w, r)
+	p.fwdTLS.ServeHTTP(w, r.WithContext(contextWithStats))
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
-
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
@@ -401,12 +429,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
+		Count:       1,
 	}
 
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r)
+	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
@@ -422,8 +451,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
+	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
 	record.PolicyID = aclPolicy.PolicyID
+	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
 		record.DropReason = collector.PolicyDrop
@@ -478,6 +508,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
+	} else {
+		if aclPolicy.Action.Accepted() {
+			aporetoClaims = append(aporetoClaims, aclPolicy.Labels...)
+		}
 	}
 
 	// We can now validate the API authorization. This is the final step
@@ -502,8 +536,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create the target URI and forward the request.
-	r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+	// Create the target URI. Websocket Gorilla proxy takes it from the URL. For normal
+	// connections we don't want that.
+	if forward.IsWebsocketRequest(r) {
+		r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+	} else {
+		r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	}
+
 	if err != nil {
 		record.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
@@ -518,7 +558,22 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Destination.IP = originalDestination.IP.String()
 	record.Destination.Port = uint16(originalDestination.Port)
 
-	p.fwd.ServeHTTP(w, r)
+	// Treat the remote proxy scenario where the destination IPs are in a remote
+	// host. Check of network rules that allow this transfer and report the corresponding
+	// flows.
+	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
+		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+		if err != nil || action.Action.Rejected() {
+			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			return
+		}
+		if action.Action.Accepted() {
+			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+		}
+	}
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
+	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
@@ -581,14 +636,6 @@ func appendDefaultPort(address string) string {
 	return address
 }
 
-func getServerName(addr string) string {
-	parts := strings.Split(addr, ":")
-	if len(parts) == 2 {
-		return parts[0]
-	}
-	return addr
-}
-
 // userCredentials will find all the user credentials in the http request.
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.
@@ -608,4 +655,30 @@ func userCredentials(r *http.Request) (string, []*x509.Certificate) {
 	authorization = strings.TrimPrefix(authorization, "Bearer ")
 
 	return authorization, certs
+}
+
+func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
+	return &collector.FlowRecord{
+		ContextID: record.ContextID,
+		Destination: &collector.EndPoint{
+			URI:        record.Destination.URI,
+			HTTPMethod: record.Destination.HTTPMethod,
+			Type:       collector.EndPointTypeExternalIP,
+			Port:       record.Destination.Port,
+			IP:         record.Destination.IP,
+			ID:         action.ServiceID,
+		},
+		Source: &collector.EndPoint{
+			Type: record.Destination.Type,
+			ID:   record.Destination.ID,
+			IP:   "0.0.0.0",
+		},
+		Action:      action.Action,
+		L4Protocol:  record.L4Protocol,
+		ServiceType: record.ServiceType,
+		ServiceID:   record.ServiceID,
+		Tags:        record.Tags,
+		PolicyID:    action.PolicyID,
+		Count:       1,
+	}
 }

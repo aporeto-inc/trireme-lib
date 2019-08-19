@@ -10,6 +10,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -40,28 +41,37 @@ type Enforcer interface {
 
 	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
+
+	SetTargetNetworks(networks []string) error
 }
 
 // enforcer holds all the active implementations of the enforcer
 type enforcer struct {
 	proxy     *applicationproxy.AppProxy
 	transport *nfqdatapath.Datapath
+	secrets   *secretsproxy.SecretsProxy
 }
 
 // Run implements the run interfaces and runs the individual data paths
 func (e *enforcer) Run(ctx context.Context) error {
 
-	if e.proxy != nil {
-		if err := e.proxy.Run(ctx); err != nil {
-			return err
-		}
-	}
+	// if e.proxy != nil {
+	// 	if err := e.proxy.Run(ctx); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	if e.transport != nil {
 		if err := e.transport.Run(ctx); err != nil {
 			return err
 		}
 	}
+
+	// if e.secrets != nil {
+	// 	if err := e.secrets.Run(ctx); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 }
@@ -71,13 +81,19 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in nfq: %s", err.Error())
+			return fmt.Errorf("Failed to enforce in nfq: %s", err)
 		}
 	}
 
 	if e.proxy != nil {
 		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in proxy: %s", err.Error())
+			return fmt.Errorf("Failed to enforce in proxy: %s", err)
+		}
+	}
+
+	if e.secrets != nil {
+		if err := e.secrets.Enforce(context.Background(), contextID, puInfo); err != nil {
+			return fmt.Errorf("Failed to enforce in secrets proxy: %s", err)
 		}
 	}
 
@@ -87,7 +103,7 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce implements the Unenforce interface by sending the event to all the enforcers.
 func (e *enforcer) Unenforce(contextID string) error {
 
-	var perr, nerr error
+	var perr, nerr, serr error
 	if e.proxy != nil {
 		if perr = e.proxy.Unenforce(context.Background(), contextID); perr != nil {
 			zap.L().Error("Failed to unenforce contextID in proxy",
@@ -106,11 +122,24 @@ func (e *enforcer) Unenforce(contextID string) error {
 		}
 	}
 
-	if perr != nil || nerr != nil {
+	if e.secrets != nil {
+		if serr = e.secrets.Unenforce(contextID); nerr != nil {
+			zap.L().Error("Failed to unenforce contextID in transport",
+				zap.String("ContextID", contextID),
+				zap.Error(nerr),
+			)
+		}
+	}
+
+	if perr != nil || nerr != nil || serr != nil {
 		return fmt.Errorf("Failed to unenforce %s %s", perr, nerr)
 	}
 
 	return nil
+}
+
+func (e *enforcer) SetTargetNetworks(networks []string) error {
+	return e.transport.SetTargetNetworks(networks)
 }
 
 // Updatesecrets updates the secrets of the enforcers
@@ -123,6 +152,12 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 
 	if e.transport != nil {
 		if err := e.transport.UpdateSecrets(secrets); err != nil {
+			return err
+		}
+	}
+
+	if e.secrets != nil {
+		if err := e.secrets.UpdateSecrets(secrets); err != nil {
 			return err
 		}
 	}
@@ -153,6 +188,7 @@ func New(
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
+	targetNetworks []string,
 ) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -176,16 +212,18 @@ func New(
 		packetLogs,
 		tokenAccessor,
 		puFromContextID,
+		targetNetworks,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
-	if err != nil {
-		return nil, err
-	}
+	// tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &enforcer{
-		proxy:     tcpProxy,
+		proxy:     nil,
 		transport: transport,
+		secrets:   nil, //secretsproxy.NewSecretsProxy(),
 	}, nil
 }
 
@@ -197,6 +235,7 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
+	targetNetworks []string,
 ) Enforcer {
 	return nfqdatapath.NewWithDefaults(
 		serverID,
@@ -205,5 +244,6 @@ func NewWithDefaults(
 		secrets,
 		mode,
 		procMountPoint,
+		targetNetworks,
 	)
 }

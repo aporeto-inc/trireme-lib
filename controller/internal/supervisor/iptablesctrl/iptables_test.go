@@ -9,7 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/provider"
+	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -79,10 +79,11 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{})
@@ -117,10 +118,11 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},
@@ -148,10 +150,11 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},
@@ -187,10 +190,11 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},
@@ -321,10 +325,11 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},

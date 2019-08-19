@@ -4,13 +4,17 @@ import "go.aporeto.io/trireme-lib/policy"
 
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
-	T *policy.TagStore
+	T *policy.TagStore `json:",omitempty"`
 	// RMT is the nonce of the remote that has to be signed in the JWT
-	RMT []byte
+	RMT []byte `json:",omitempty"`
 	// LCL is the nonce of the local node that has to be signed
-	LCL []byte
+	LCL []byte `json:",omitempty"`
 	// EK is the ephemeral EC key for encryption
-	EK []byte
+	EK []byte `json:",omitempty"`
+	// C is the compressed tags in one string
+	C string `json:",omitempty"`
+	// ID is the source PU ID
+	ID string `json:",omitempty"`
 }
 
 // TokenEngine is the interface to the different implementations of tokens
@@ -31,7 +35,7 @@ type TokenEngine interface {
 
 const (
 	// MaxServerName must be of UUID size maximum
-	MaxServerName = 36
+	MaxServerName = 24
 	// NonceLength is the length of the Nonce to be used in the secrets
 	NonceLength = 16
 )

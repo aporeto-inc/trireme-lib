@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	aclprovider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -218,4 +219,18 @@ func (m *MockImplementor) CleanUp() error {
 // nolint
 func (mr *MockImplementorMockRecorder) CleanUp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockImplementor)(nil).CleanUp))
+}
+
+// ACLProvider mocks base method
+// nolint
+func (m *MockImplementor) ACLProvider() aclprovider.IptablesProvider {
+	ret := m.ctrl.Call(m, "ACLProvider")
+	ret0, _ := ret[0].(aclprovider.IptablesProvider)
+	return ret0
+}
+
+// ACLProvider indicates an expected call of ACLProvider
+// nolint
+func (mr *MockImplementorMockRecorder) ACLProvider() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACLProvider", reflect.TypeOf((*MockImplementor)(nil).ACLProvider))
 }

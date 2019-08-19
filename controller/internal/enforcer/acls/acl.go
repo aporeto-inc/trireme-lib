@@ -38,7 +38,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 
 	var subnet, mask uint32
 
-	if strings.ToLower(rule.Protocol) != "tcp" && strings.ToLower(rule.Protocol) != "udp" {
+	if strings.ToLower(rule.Protocol) != "tcp" {
 		return nil
 	}
 

@@ -2,7 +2,11 @@
 
 package processmon
 
-import "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+import (
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/policy"
+)
 
 type process struct {
 }
@@ -18,8 +22,12 @@ func (p *process) LaunchProcess(contextID string, refPid int, refNsPath string, 
 }
 
 // SetLogParameters unimplemented pass log parameters for the launched process
-func (p *process) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
+func (p *process) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
 	return
+}
+
+// SetRuntimeErrorChannel
+func (p *process) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
 }
 
 // GetProcessManagerHdl returns a handle to processmanager

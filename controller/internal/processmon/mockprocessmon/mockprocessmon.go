@@ -8,7 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	constants "go.aporeto.io/trireme-lib/controller/constants"
 	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockProcessManager is a mock of ProcessManager interface
@@ -66,12 +68,24 @@ func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNs
 
 // SetLogParameters mocks base method
 // nolint
-func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logLevel, logFormat string) {
-	m.ctrl.Call(m, "SetLogParameters", logToConsole, logWithID, logLevel, logFormat)
+func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logLevel, logFormat string, compressedTags constants.CompressionType) {
+	m.ctrl.Call(m, "SetLogParameters", logToConsole, logWithID, logLevel, logFormat, compressedTags)
 }
 
 // SetLogParameters indicates an expected call of SetLogParameters
 // nolint
-func (mr *MockProcessManagerMockRecorder) SetLogParameters(logToConsole, logWithID, logLevel, logFormat interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogParameters", reflect.TypeOf((*MockProcessManager)(nil).SetLogParameters), logToConsole, logWithID, logLevel, logFormat)
+func (mr *MockProcessManagerMockRecorder) SetLogParameters(logToConsole, logWithID, logLevel, logFormat, compressedTags interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogParameters", reflect.TypeOf((*MockProcessManager)(nil).SetLogParameters), logToConsole, logWithID, logLevel, logFormat, compressedTags)
+}
+
+// SetRuntimeErrorChannel mocks base method
+// nolint
+func (m *MockProcessManager) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
+	m.ctrl.Call(m, "SetRuntimeErrorChannel", e)
+}
+
+// SetRuntimeErrorChannel indicates an expected call of SetRuntimeErrorChannel
+// nolint
+func (mr *MockProcessManagerMockRecorder) SetRuntimeErrorChannel(e interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRuntimeErrorChannel", reflect.TypeOf((*MockProcessManager)(nil).SetRuntimeErrorChannel), e)
 }

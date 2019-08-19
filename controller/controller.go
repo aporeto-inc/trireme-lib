@@ -143,6 +143,14 @@ func (t *trireme) UpdateConfiguration(networks []string) error {
 		}
 	}
 
+	for _, e := range t.enforcers {
+		err := e.SetTargetNetworks(networks)
+		if err != nil {
+			zap.L().Error("Failed to update target networks in supervisor")
+			failure = true
+		}
+	}
+
 	if failure {
 		return fmt.Errorf("Configuration update failed")
 	}

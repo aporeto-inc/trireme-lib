@@ -15,7 +15,7 @@ import (
 )
 
 // SetLogParameters sets up environment to be passed to the remote trireme instances.
-func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
+func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
 
 	h := processmon.GetProcessManagerHdl()
 	if h == nil {
@@ -26,7 +26,7 @@ func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat s
 }
 
 // GetLogParameters retrieves log parameters for Remote Enforcer.
-func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTags bool) {
+func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion constants.CompressionType) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
@@ -43,8 +43,13 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 
 	logID = os.Getenv(constants.EnvLogID)
 
-	if console := os.Getenv(constants.EnvCompressedTags); console == constants.EnvCompressedTagsEnable {
-		compressedTags = true
+	compressedTagsVersion = constants.CompressionTypeNone
+	if console := os.Getenv(constants.EnvCompressedTags); console != string(constants.CompressionTypeNone) {
+		if console == string(constants.CompressionTypeV1) {
+			compressedTagsVersion = constants.CompressionTypeV1
+		} else if console == string(constants.CompressionTypeV2) {
+			compressedTagsVersion = constants.CompressionTypeV2
+		}
 	}
 	return
 }

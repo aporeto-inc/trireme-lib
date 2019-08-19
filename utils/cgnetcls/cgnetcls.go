@@ -20,10 +20,9 @@ import (
 	"go.uber.org/zap"
 )
 
-//Initialize only ince
-func init() {
-	mountCgroupController()
-}
+var (
+	mounted = false
+)
 
 // Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 // To add a new process to this cgroup we need to write to the cgroup file
@@ -209,11 +208,10 @@ func (s *netCls) ListAllCgroups(path string) []string {
 	return names
 }
 
-func mountCgroupController() {
+func mountCgroupController() error {
 	mounts, err := ioutil.ReadFile("/proc/mounts")
-
 	if err != nil {
-		zap.L().Fatal(err.Error())
+		return fmt.Errorf("Failed to read /proc/mount: %s", err)
 	}
 
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
@@ -226,30 +224,28 @@ func mountCgroupController() {
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
 				netCls = true
-				return
+				return nil
 			}
 		}
 
 	}
 
 	if len(cgroupMount) == 0 {
-		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
-		return
+		return fmt.Errorf("Failed to get mount points: %s", err)
 	}
 
 	if !netCls {
 		basePath = cgroupMount + "/net_cls"
 
 		if err := os.MkdirAll(basePath, 0700); err != nil {
-			zap.L().Fatal(err.Error())
+			return fmt.Errorf("Fail to create net_cls directory: %s", err)
 		}
 
 		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
-			zap.L().Fatal(err.Error())
+			return fmt.Errorf("Fail to mount net_cls group: %s", err)
 		}
-
-		return
 	}
+	return nil
 }
 
 // CgroupMemberCount -- Returns the cound of the number of processes in a cgroup
@@ -279,6 +275,13 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls {
+	if !mounted {
+		mounted = true
+		if err := mountCgroupController(); err != nil {
+			zap.L().Error("Unable to mount net_cls controller - Linux process isolation not possible",
+				zap.Error(err))
+		}
+	}
 	binpath, _ := osext.Executable()
 	controller := &netCls{
 		markchan:         make(chan uint64),

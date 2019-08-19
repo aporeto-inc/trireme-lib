@@ -140,6 +140,15 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 				return fmt.Errorf("unable to add ip %d to target ports ipset: %s", i, err)
 			}
 		}
+		if exposedService.PublicNetworkInfo != nil {
+			min, max := exposedService.PublicNetworkInfo.Ports.Range()
+			for i := int(min); i <= int(max); i++ {
+				if err := srvTargetSet.Add(strconv.Itoa(i), 0); err != nil {
+					zap.L().Error("Failed to VIP for public network", zap.Error(err))
+					return fmt.Errorf("Failed to program VIP: %s", err)
+				}
+			}
+		}
 	}
 	return nil
 }
