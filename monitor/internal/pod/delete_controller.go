@@ -169,14 +169,16 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 
 	// now the 2nd case, when pod UID match
 	if string(pod.UID) == delObj.podUID {
-		zap.L().Info("Delete-controller: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
+		zap.L().Debug("Delete-controller: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
 		// 2a get the current sandboxID
 		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
-			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 			return
 		}
 		// update the map with the sandboxID
+		// here we update the map only if the sandboxID has not been extracted.
+		// The extraction of the sandboxID if  missed by the main controller then we will update the map below.
 		if delObj.sandboxID == "" {
 			delObj = DeleteObject{podUID: podUID, sandboxID: currentSandboxID, podName: req}
 			m[podUID] = delObj
