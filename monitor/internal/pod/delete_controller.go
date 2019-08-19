@@ -193,7 +193,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		zap.L().Debug("Delete controller:", zap.String("the sandboxID, curr:", currentSandboxID), zap.String(" old sandboxID: ", oldSandboxID))
 		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
 		if oldSandboxID != currentSandboxID {
-			zap.L().Warn("Pod SandboxID differ. Trying to destroy PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("currentSandboxID", string(currentSandboxID)), zap.String("oldSandboxID", string(oldSandboxID)))
+			zap.L().Warn("Pod SandboxID differ. Trying to destroy PU", zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
 				podUID,

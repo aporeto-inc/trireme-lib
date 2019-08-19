@@ -214,9 +214,12 @@ func TestController(t *testing.T) {
 		netclsProgrammer := func(context.Context, *corev1.Pod, policy.RuntimeReader) error {
 			return nil
 		}
+
 		sandboxExtractor := func(context.Context, *corev1.Pod) (string, error) {
 			return "", nil
 		}
+
+		sandboxID := "test"
 		// we will only send all delete events in this test, we are not going to handle them
 		deleteCh := make(chan DeleteEvent, 1000)
 		deleteReconcileCh := make(chan struct{}, 1000)
@@ -344,7 +347,7 @@ func TestController(t *testing.T) {
 				return policy.NewPURuntime("default/pendingAndStarted", 42, "", nil, nil, common.ContainerPU, nil), nil
 			}
 			r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-				return "test", nil
+				return sandboxID, nil
 			}
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventStart, gomock.Any()).Return(nil).Times(1)
@@ -373,7 +376,7 @@ func TestController(t *testing.T) {
 					return policy.NewPURuntimeWithDefaults(), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-					return "test", nil
+					return sandboxID, nil
 				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "running", Namespace: "default"}})
 				So(err, ShouldNotBeNil)
@@ -384,7 +387,7 @@ func TestController(t *testing.T) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-					return "test", nil
+					return sandboxID, nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(failure).Times(1)
@@ -396,7 +399,7 @@ func TestController(t *testing.T) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-					return "test", nil
+					return sandboxID, nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(policy.ErrPUAlreadyActivated("default/running", nil)).Times(1)
@@ -408,7 +411,7 @@ func TestController(t *testing.T) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-					return "test", nil
+					return sandboxID, nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(nil).Times(1)
@@ -446,7 +449,7 @@ func TestController(t *testing.T) {
 					return failure
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
-					return "test", nil
+					return sandboxID, nil
 				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "runningHostNetwork", Namespace: "default"}})
 				So(err, ShouldNotBeNil)
