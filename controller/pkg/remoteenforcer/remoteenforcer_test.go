@@ -15,6 +15,7 @@ import (
 	"github.com/mitchellh/hashstructure"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
@@ -268,6 +269,7 @@ func TestInitEnforcer(t *testing.T) {
 			externalIPCacheTimeout time.Duration,
 			packetLogs bool,
 			cfg *runtime.Configuration,
+			tokenIssuer common.ServiceTokenIssuer,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -366,6 +368,7 @@ func TestInitEnforcer(t *testing.T) {
 					externalIPCacheTimeout time.Duration,
 					packetLogs bool,
 					cfg *runtime.Configuration,
+					tokenIssuer common.ServiceTokenIssuer,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}

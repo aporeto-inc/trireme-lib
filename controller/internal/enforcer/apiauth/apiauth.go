@@ -91,7 +91,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 		d.External = true
 
 		// Get the corresponding scopes
-		found, rule := serviceData.APICache.FindRule(r.Method, r.URL.Path)
+		found, rule := serviceData.APICache.FindRule(r.Method, r.RequestURI)
 		if !found {
 			return d, &AuthError{
 				status:  http.StatusForbidden,
