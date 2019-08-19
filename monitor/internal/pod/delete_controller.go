@@ -39,7 +39,7 @@ type DeleteController struct {
 
 // DeleteObject is the obj used to store in the event map.
 type DeleteObject struct {
-	nativeID  string
+	podUID    string
 	sandboxID string
 	podName   client.ObjectKey
 }
@@ -79,10 +79,10 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 	for {
 		select {
 		case ev := <-c.deleteCh:
-			obj := DeleteObject{nativeID: ev.NativeID, sandboxID: ev.SandboxID, podName: ev.Key}
+			obj := DeleteObject{podUID: ev.PodUID, sandboxID: ev.SandboxID, podName: ev.NamespaceName}
 			// here don't update the map, insert only if not present.
-			if _, ok := m[ev.NativeID]; !ok {
-				m[ev.NativeID] = obj
+			if _, ok := m[ev.PodUID]; !ok {
+				m[ev.PodUID] = obj
 			}
 		case <-c.reconcileCh:
 			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
@@ -97,17 +97,17 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
 func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
-	for nativeID, req := range m {
-		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, nativeID, req.podName, sandboxExtractor, eventCh)
+	for podUID, req := range m {
+		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, nativeID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	//var err error
 	var ok bool
 	var delObj DeleteObject
-	if delObj, ok = m[nativeID]; !ok {
-		zap.L().Warn("deleteController: nativeID not found in delete controller map", zap.String("nativeID", nativeID))
+	if delObj, ok = m[podUID]; !ok {
+		zap.L().Warn("deleteController: nativeID not found in delete controller map", zap.String("nativeID", podUID))
 		return
 	}
 	ctx, cancel := context.WithTimeout(backgroundCtx, itemProcessTimeout)
@@ -119,19 +119,19 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			// so just send a destroy event
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
-				nativeID,
+				podUID,
 				common.EventDestroy,
 				policy.NewPURuntimeWithDefaults(),
 			); err != nil {
 				// we don't really care, we just warn
-				zap.L().Warn("failed to handle destroy event", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
+				zap.L().Warn("failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 			}
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
-			delete(m, nativeID)
+			delete(m, podUID)
 		} else {
 			// we don't really care, we just warn
-			zap.L().Warn("failed to get pod from Kubernetes API", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
+			zap.L().Warn("failed to get pod from Kubernetes API", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
 		return
 	}
@@ -149,37 +149,37 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 	// 		2.c If the sandBoxID differ then send the destroy event for the old(map) sandBoxID.
 
 	// 1st case, simple if the pod UID don't match then just call the destroy PU event and delete the map entry with the old key.
-	if string(pod.UID) != delObj.nativeID {
+	if string(pod.UID) != delObj.podUID {
 
-		zap.L().Warn("Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+		zap.L().Warn("Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 		if err := pc.Policy.HandlePUEvent(
 			ctx,
-			nativeID,
+			podUID,
 			common.EventDestroy,
 			policy.NewPURuntimeWithDefaults(),
 		); err != nil {
 			// we don't really care, we just warn
-			zap.L().Warn("failed to handle destroy event", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
+			zap.L().Warn("failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
 		// we only fire events away, we don't really care about the error anyway
 		// it is up to the policy engine to make sense of that
-		delete(m, nativeID)
+		delete(m, podUID)
 		return
 	}
 
 	// now the 2nd case, when pod UID match
-	if string(pod.UID) == delObj.nativeID {
+	if string(pod.UID) == delObj.podUID {
 		zap.L().Info("Delete-controller: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
 		// 2a get the current sandboxID
 		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
-			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 			return
 		}
 		// update the map with the sandboxID
 		if delObj.sandboxID == "" {
-			delObj = DeleteObject{nativeID: nativeID, sandboxID: currentSandboxID, podName: req}
-			m[nativeID] = delObj
+			delObj = DeleteObject{podUID: podUID, sandboxID: currentSandboxID, podName: req}
+			m[podUID] = delObj
 		}
 		// 2b get the pod/old sandboxID
 		oldSandboxID := delObj.sandboxID
@@ -187,19 +187,19 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		zap.L().Debug("Delete controller:", zap.String("the sandboxID, curr:", currentSandboxID), zap.String(" old sandboxID: ", oldSandboxID))
 		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
 		if oldSandboxID != currentSandboxID {
-			zap.L().Warn("Pod SandboxID differ. Trying to destroy PU", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.String("currentSandboxID", string(currentSandboxID)), zap.String("oldSandboxID", string(oldSandboxID)))
+			zap.L().Warn("Pod SandboxID differ. Trying to destroy PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("currentSandboxID", string(currentSandboxID)), zap.String("oldSandboxID", string(oldSandboxID)))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
-				nativeID,
+				podUID,
 				common.EventDestroy,
 				policy.NewPURuntimeWithDefaults(),
 			); err != nil {
 				// we don't really care, we just warn
-				zap.L().Warn("failed to handle destroy event", zap.String("puID", nativeID), zap.String("namespacedName", req.String()), zap.Error(err))
+				zap.L().Warn("failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 			}
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
-			delete(m, nativeID)
+			delete(m, podUID)
 			zap.L().Debug("delete controller: PU destroyed, now send event for the pod-controller to reconcile", zap.String(" podName: ", req.String()))
 			// below we send event to the main pod-controller to reconcile again and to create a PU if it is not created yet.
 			eventCh <- event.GenericEvent{

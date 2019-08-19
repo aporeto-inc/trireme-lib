@@ -3,7 +3,6 @@ package podmonitor
 import (
 	"context"
 	errs "errors"
-	"fmt"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -103,9 +102,9 @@ var _ reconcile.Reconciler = &ReconcilePod{}
 // them for real deletion in the Kubernetes API. Once an object is gone, we will
 // send down destroy events to trireme.
 type DeleteEvent struct {
-	NativeID  string
-	SandboxID string
-	Key       client.ObjectKey
+	PodUID        string
+	SandboxID     string
+	NamespaceName client.ObjectKey
 }
 
 // ReconcilePod reconciles a Pod object
@@ -145,7 +144,6 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// Otherwise, we retry.
 		return reconcile.Result{}, err
 	}
-	fmt.Println("\n\n Extract the sandboxID only if pod running, current phase is:", pod.Status.Phase, " name: ", nn)
 
 	sandboxID, err = r.sandboxExtractor(ctx, pod)
 	if err != nil {
@@ -164,9 +162,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	// if we reconcile though and the pod exists, we definitely know though
 	// that it must go away at some point, so always register it with the delete controller
 	r.deleteCh <- DeleteEvent{
-		NativeID:  puID,
-		SandboxID: sandboxID,
-		Key:       request.NamespacedName,
+		PodUID:        puID,
+		SandboxID:     sandboxID,
+		NamespaceName: request.NamespacedName,
 	}
 
 	// try to find out if any of the containers have been started yet
