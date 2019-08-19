@@ -135,6 +135,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		}
 		return
 	}
+
 	// the edge case: a pod with the same namespaced name came up and we have missed a delete event
 	// this means that this pod belongs to a different PU and must live, therefore we try to delete the old one
 
@@ -171,6 +172,9 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 	if string(pod.UID) == delObj.podUID {
 		zap.L().Debug("Delete-controller: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
 		// 2a get the current sandboxID
+		if sandboxExtractor == nil {
+			return
+		}
 		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
 			zap.L().Error("Delete controller, cannot extract the SandboxID, return", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
