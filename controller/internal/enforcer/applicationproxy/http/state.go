@@ -71,15 +71,15 @@ func newNetworkConnectionState(nativeID string, userID string, r *apiauth.Reques
 		tags = d.PUContext.Annotations()
 		serviceID = d.ServiceID
 	} else {
-		mgmtID = "default"
-		namespace = "default"
+		mgmtID = collector.DefaultEndPoint
+		namespace = collector.DefaultEndPoint
 		tags = policy.NewTagStore()
-		serviceID = "default "
+		serviceID = collector.DefaultEndPoint
 	}
 
 	sourceType := collector.EndPointTypeExternalIP
 	sourceID := collector.DefaultEndPoint
-	networkPolicyID := "default"
+	networkPolicyID := collector.DefaultEndPoint
 	action := policy.Reject
 
 	if d != nil {

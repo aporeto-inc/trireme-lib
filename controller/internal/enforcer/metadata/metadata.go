@@ -10,7 +10,6 @@ import (
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -18,7 +17,6 @@ import (
 type Client struct {
 	puContext   string
 	registry    *serviceregistry.Registry
-	secrets     secrets.Secrets
 	tokenIssuer common.ServiceTokenIssuer
 	certPEM     []byte
 	keyPEM      []byte

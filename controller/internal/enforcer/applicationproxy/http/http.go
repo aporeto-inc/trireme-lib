@@ -22,7 +22,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -30,7 +29,6 @@ import (
 type statsContextKeyType string
 
 const (
-	defaultValidity = 60 * time.Second
 	statsContextKey = statsContextKeyType("statsContext")
 
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
@@ -182,7 +180,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if r, ok := state.(*connectionState); ok {
 				r.stats.Action = policy.Reject
 				r.stats.DropReason = collector.UnableToDial
-				r.stats.PolicyID = "default"
+				r.stats.PolicyID = collector.DefaultEndPoint
 				p.collector.CollectFlowEvent(r.stats)
 			}
 		}
@@ -372,20 +370,6 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregistry.PortContext, error) {
-
-	return p.registry.RetrieveExposedServiceContext(originalIP.IP, originalIP.Port, "")
-}
-
-func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *urisearch.APICache, error) {
-
-	sctx, serviceData, err := p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("Unable to discover service data: %s", err)
-	}
-	return sctx, serviceData.APICache, nil
-}
-
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
@@ -558,7 +542,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
-	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
+	if r.Header.Get(common.MetadataValue) != common.MetadataKey {
 		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
@@ -576,7 +560,7 @@ func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error
 }
 
 func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, error) {
-	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
+	if r.Header.Get(common.MetadataValue) != common.MetadataKey {
 		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
@@ -589,7 +573,7 @@ func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, 
 }
 
 func (p *Config) keyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
-	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
+	if r.Header.Get(common.MetadataValue) != common.MetadataKey {
 		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
@@ -618,13 +602,13 @@ func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error
 
 func (p *Config) tokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 
-	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
+	if r.Header.Get(common.MetadataValue) != common.MetadataKey {
 		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
 	audience := r.URL.Query().Get("audience")
-	validityString := r.URL.Query().Get("validitity")
+	validityString := r.URL.Query().Get("validity")
 
 	validity := time.Minute * 60
 	var err error
@@ -743,40 +727,28 @@ func (p *Config) awsRole() (string, string, error) {
 	return awsRole, plc.ManagementID, nil
 }
 
-func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
-	return &collector.FlowRecord{
-		ContextID: record.ContextID,
-		Destination: &collector.EndPoint{
-			URI:        record.Destination.URI,
-			HTTPMethod: record.Destination.HTTPMethod,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       record.Destination.Port,
-			IP:         record.Destination.IP,
-			ID:         action.ServiceID,
-		},
-		Source: &collector.EndPoint{
-			Type: record.Destination.Type,
-			ID:   record.Destination.ID,
-			IP:   "0.0.0.0",
-		},
-		Action:      action.Action,
-		L4Protocol:  record.L4Protocol,
-		ServiceType: record.ServiceType,
-		ServiceID:   record.ServiceID,
-		Tags:        record.Tags,
-		PolicyID:    action.PolicyID,
-		Count:       1,
-	}
-}
-
-func processHeaders(r *http.Request) (string, string) {
-	token := r.Header.Get("X-APORETO-AUTH")
-	if token != "" {
-		r.Header.Del("X-APORETO-AUTH")
-	}
-	key := r.Header.Get("X-APORETO-KEY")
-	if key != "" {
-		r.Header.Del("X-APORETO-KEY")
-	}
-	return token, key
-}
+// func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
+// 	return &collector.FlowRecord{
+// 		ContextID: record.ContextID,
+// 		Destination: &collector.EndPoint{
+// 			URI:        record.Destination.URI,
+// 			HTTPMethod: record.Destination.HTTPMethod,
+// 			Type:       collector.EndPointTypeExternalIP,
+// 			Port:       record.Destination.Port,
+// 			IP:         record.Destination.IP,
+// 			ID:         action.ServiceID,
+// 		},
+// 		Source: &collector.EndPoint{
+// 			Type: record.Destination.Type,
+// 			ID:   record.Destination.ID,
+// 			IP:   "0.0.0.0",
+// 		},
+// 		Action:      action.Action,
+// 		L4Protocol:  record.L4Protocol,
+// 		ServiceType: record.ServiceType,
+// 		ServiceID:   record.ServiceID,
+// 		Tags:        record.Tags,
+// 		PolicyID:    action.PolicyID,
+// 		Count:       1,
+// 	}
+// }

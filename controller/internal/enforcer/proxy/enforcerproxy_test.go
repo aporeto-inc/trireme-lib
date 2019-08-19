@@ -137,6 +137,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		&runtime.Configuration{TCPTargetNetworks: []string{"0.0.0.0/0"}},
 		make(chan *policy.RuntimeError),
 		&env.RemoteParameters{},
+		nil,
 	)
 	return policyEnf
 }

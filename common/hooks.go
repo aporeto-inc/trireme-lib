@@ -17,3 +17,9 @@ const (
 
 	AWSRolePrefix = "@awsrole="
 )
+
+// Metadata API constants
+const (
+	MetadataKey   = "X-Aporeto-Metadata"
+	MetadataValue = "secrets"
+)

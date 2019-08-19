@@ -91,7 +91,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) *collector.PacketReport {
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) (*collector.PacketReport, error) {
 
 	report := &collector.PacketReport{}
 
@@ -103,7 +103,8 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 		report.PacketID, _ = strconv.Atoi(ipPacket.ID())
 
 	} else {
-		zap.L().Debug("Payload Not Valid", zap.Error(err))
+		zap.L().Debug("payload not valid", zap.Error(err))
+		return nil, err
 	}
 
 	if buf.Protocol == packet.IPProtocolTCP || buf.Protocol == packet.IPProtocolUDP {
@@ -113,11 +114,16 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 	if buf.Protocol == packet.IPProtocolTCP {
 		report.TCPFlags = int(ipPacket.GetTCPFlags())
 	}
+	report.Protocol = int(buf.Protocol)
 	report.DestinationIP = buf.DstIP.String()
 	report.SourceIP = buf.SrcIP.String()
 	report.TriremePacket = false
 	report.DropReason = collector.PacketDrop
 
+	if buf.Payload == nil {
+		report.Payload = []byte{}
+		return report, nil
+	}
 	if len(buf.Payload) <= 64 {
 		report.Payload = make([]byte, len(buf.Payload))
 		copy(report.Payload, buf.Payload)
@@ -126,7 +132,8 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 		report.Payload = make([]byte, 64)
 		copy(report.Payload, buf.Payload[0:64])
 	}
-	return report
+
+	return report, nil
 }
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
@@ -147,8 +154,8 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	if encodedAction == "10" {
-		packetReport = a.recordDroppedPacket(buf, pu)
-		return nil, packetReport, nil
+		packetReport, err = a.recordDroppedPacket(buf, pu)
+		return nil, packetReport, err
 	}
 
 	action, _, err := policy.EncodedStringToAction(encodedAction)

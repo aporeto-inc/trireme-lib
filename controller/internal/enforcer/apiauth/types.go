@@ -53,7 +53,7 @@ type NetworkAuthResponse struct {
 	Action     policy.ActionType
 	DropReason string
 
-	// Redirect infromation that should be used by the responder.
+	// Redirect information that should be used by the responder.
 	Redirect    bool
 	RedirectURI string
 	Cookie      *http.Cookie
