@@ -149,12 +149,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	sandboxID, err = r.sandboxExtractor(ctx, pod)
 	if err != nil {
-		zap.L().Info("Pod recocile: Cannot extract the Sandboc for ", zap.String("podname: ", nn))
-		//return reconcile.Result{}, err
-	} // aelse {
-	// 	fmt.Println("\n\n *** success got the sandboxID: ", puID)
-	// }
-	// fmt.Println("\n\n **** puID is :", puID)
+		// Do nothing if we can't find the sandboxID
+		zap.L().Info("Pod recocile: Cannot extract the SandboxID for ", zap.String("podname: ", nn))
+	}
 	puID = string(pod.GetUID())
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
@@ -233,6 +230,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		if pod.DeletionTimestamp != nil {
 			return reconcile.Result{}, nil
 		}
+		// If the pod hasn't started or if there is no sandbox present, requeue.
 		if sandboxID == "" || !started {
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -309,6 +307,20 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// every HandlePUEvent call gets done in this context
 		handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 		defer handlePUCancel()
+
+		if err := r.handler.Policy.HandlePUEvent(
+			handlePUCtx,
+			puID,
+			common.EventUpdate,
+			puRuntime,
+		); err != nil {
+			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+			// return reconcile.Result{}, err
+		} else {
+			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		}
+
 		if err := r.handler.Policy.HandlePUEvent(
 			handlePUCtx,
 			puID,
