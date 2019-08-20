@@ -436,7 +436,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
-	zap.L().Info("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
