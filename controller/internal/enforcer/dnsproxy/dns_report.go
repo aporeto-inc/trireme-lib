@@ -52,12 +52,13 @@ func (p *Proxy) reportDNSRequests(chreport chan dnsReport) {
 					sendReport <- r
 				}(r)
 			}
-
 		case r := <-sendReport:
 			p.sendToCollector(r, dnsReports[r]-1)
 			delete(dnsReports, r)
 		case r := <-deleteReport:
-			delete(dnsReports, r)
+			if dnsReports[r] == 1 {
+				delete(dnsReports, r)
+			}
 		}
 	}
 }

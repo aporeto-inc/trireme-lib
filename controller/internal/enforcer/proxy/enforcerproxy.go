@@ -397,7 +397,7 @@ func (r *StatsServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	}
 
 	payload := req.Payload.(rpcwrapper.DNSReportPayload)
-	zap.L().Debug("Posting Remote counters")
+	zap.L().Debug("Posting DNS requests")
 	r.collector.CollectDNSRequests(payload.Report)
 	return nil
 }

@@ -183,6 +183,11 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		resp.Status = "CounterClient" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
+
+	if err = s.dnsReportClient.Run(s.ctx); err != nil {
+		resp.Status = "DNSReportClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
 	resp.Status = ""
 
 	return nil

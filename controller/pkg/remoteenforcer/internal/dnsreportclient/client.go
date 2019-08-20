@@ -76,7 +76,7 @@ func (d *dnsreportsClient) sendRequest(dnsreport *collector.DNSRequestReport) {
 		&request,
 		&rpcwrapper.Response{},
 	); err != nil {
-		zap.L().Error("RPC failure in sending statistics: Unable to send flows")
+		zap.L().Error("RPC failure in sending dns reports", zap.Error(err))
 	}
 }
 
