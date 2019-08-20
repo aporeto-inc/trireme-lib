@@ -2,12 +2,15 @@ package apiauth
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	triremecommon "go.aporeto.io/trireme-lib/common"
@@ -15,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/mockusertokens"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
@@ -28,7 +32,7 @@ const (
 	appLabel        = "app=web"
 )
 
-func newBaseApplicationServices(id string, ipAddr string, exposedPortValue, publicPortValue, privatePortValue uint16, external bool) *policy.ApplicationService {
+func newBaseApplicationServices(ctrl *gomock.Controller, id string, ipAddr string, exposedPortValue, publicPortValue, privatePortValue uint16, external bool) *policy.ApplicationService {
 
 	_, exposedIP, err := net.ParseCIDR(ipAddr)
 	So(err, ShouldBeNil)
@@ -86,16 +90,19 @@ func newBaseApplicationServices(id string, ipAddr string, exposedPortValue, publ
 				Public: false,
 			},
 		},
+		UserAuthorizationType:    policy.UserAuthorizationOIDC,
+		UserAuthorizationHandler: mockusertokens.NewMockVerifier(ctrl),
 	}
 }
 
-func newAPIAuthProcessor(contextID string) (*serviceregistry.Registry, *pucontext.PUContext, secrets.Secrets) {
+func newAPIAuthProcessor(contextID string, ctrl *gomock.Controller) (*serviceregistry.Registry, *pucontext.PUContext, secrets.Secrets) {
 
-	baseService := newBaseApplicationServices("base", "10.1.1.0/24", uint16(80), uint16(443), uint16(80), false)
-	externalService := newBaseApplicationServices("external", "45.0.0.0/8", uint16(80), uint16(443), uint16(80), true)
+	baseService := newBaseApplicationServices(ctrl, "base", "10.1.1.0/24", uint16(80), uint16(443), uint16(80), false)
+	externalService := newBaseApplicationServices(ctrl, "external", "45.0.0.0/8", uint16(80), uint16(443), uint16(80), true)
+	externalBadService := newBaseApplicationServices(ctrl, "external", "100.0.0.0/8", uint16(80), uint16(443), uint16(80), true)
 
 	exposedServices := policy.ApplicationServicesList{baseService}
-	dependentServices := policy.ApplicationServicesList{baseService, externalService}
+	dependentServices := policy.ApplicationServicesList{baseService, externalService, externalBadService}
 
 	networkACLs := policy.IPRuleList{
 		{
@@ -133,11 +140,25 @@ func newAPIAuthProcessor(contextID string) (*serviceregistry.Registry, *pucontex
 		},
 	}
 
+	applicationACLs := policy.IPRuleList{
+		{
+			Addresses: []string{"100.0.0.0/8"},
+			Ports:     []string{"80"},
+			Protocols: []string{"6"},
+			Policy: &policy.FlowPolicy{
+				Action:    policy.Reject,
+				PolicyID:  rejectPolicyID,
+				ServiceID: rejectServiceID,
+				Labels:    []string{"service=external"},
+			},
+		},
+	}
+
 	plc := policy.NewPUPolicy(
 		contextID,
 		namespace,
 		policy.Police,
-		policy.IPRuleList{},
+		applicationACLs,
 		networkACLs,
 		policy.DNSRuleList{},
 		policy.TagSelectorList{},
@@ -196,7 +217,8 @@ func newAPIAuthProcessor(contextID string) (*serviceregistry.Registry, *pucontex
 
 func Test_New(t *testing.T) {
 	Convey("When I create a new processor it should be correctly propulated", t, func() {
-		r, _, s := newAPIAuthProcessor("test")
+		ctrl := gomock.NewController(t)
+		r, _, s := newAPIAuthProcessor("test", ctrl)
 		p := New("test", r, s)
 
 		So(p.puContext, ShouldEqual, "test")
@@ -207,7 +229,8 @@ func Test_New(t *testing.T) {
 
 func Test_ApplicationRequest(t *testing.T) {
 	Convey("Given a valid authorization processor", t, func() {
-		serviceRegistry, pctx, s := newAPIAuthProcessor("test")
+		ctrl := gomock.NewController(t)
+		serviceRegistry, pctx, s := newAPIAuthProcessor("test", ctrl)
 		p := New("test", serviceRegistry, s)
 
 		Convey("Given a request without context, it should error", func() {
@@ -364,6 +387,31 @@ func Test_ApplicationRequest(t *testing.T) {
 			So(ok, ShouldBeTrue)
 			So(authErr.Status(), ShouldEqual, http.StatusForbidden)
 		})
+
+		Convey("Given a request for a an external service dropped by network rules it should be rejected", func() {
+			u, _ := url.Parse("http://www.foo.com/random") // nolint
+			r := &Request{
+				SourceAddress: &net.TCPAddr{
+					IP:   net.ParseIP("10.1.1.1"),
+					Port: 1000,
+				},
+				OriginalDestination: &net.TCPAddr{
+					IP:   net.ParseIP("100.1.1.1"),
+					Port: 80,
+				},
+				Method:     "GET",
+				URL:        u,
+				RequestURI: "/public",
+				Header:     http.Header{},
+				Cookie:     nil,
+				TLS:        nil,
+			}
+			_, err := p.ApplicationRequest(r)
+			So(err, ShouldNotBeNil)
+			authErr, ok := err.(*AuthError)
+			So(ok, ShouldBeTrue)
+			So(authErr.Status(), ShouldEqual, http.StatusNetworkAuthenticationRequired)
+		})
 	})
 }
 
@@ -372,7 +420,8 @@ func Test_NetworkRequest(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		serviceRegistry, pctx, s := newAPIAuthProcessor("test")
+		ctrl := gomock.NewController(t)
+		serviceRegistry, pctx, s := newAPIAuthProcessor("test", ctrl)
 		p := New("test", serviceRegistry, s)
 
 		Convey("Requests for bad context should return errors", func() {
@@ -691,6 +740,139 @@ func Test_NetworkRequest(t *testing.T) {
 			So(response.NetworkPolicyID, ShouldEqual, policyID)
 			So(response.NetworkServiceID, ShouldEqual, serviceID)
 			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+		})
+	})
+}
+
+func Test_UserCredentials(t *testing.T) {
+
+	Convey("Given a valid authorizer", t, func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		ctrl := gomock.NewController(t)
+		serviceRegistry, _, s := newAPIAuthProcessor("test", ctrl)
+		p := New("test", serviceRegistry, s)
+		So(p, ShouldNotBeNil)
+
+		portContext, err := serviceRegistry.RetrieveExposedServiceContext(net.ParseIP("10.1.1.1"), 80, "")
+		So(err, ShouldBeNil)
+		So(portContext, ShouldNotBeNil)
+
+		verifier, ok := portContext.Service.UserAuthorizationHandler.(*mockusertokens.MockVerifier)
+		So(ok, ShouldBeTrue)
+
+		Convey("When the request is not TLS, there is no user data", func() {
+			u, _ := url.Parse("http://www.foo.com/admin")
+			d := &NetworkAuthResponse{}
+			r := &Request{
+				SourceAddress: &net.TCPAddr{
+					IP:   net.ParseIP("45.1.1.1"),
+					Port: 1000,
+				},
+				OriginalDestination: &net.TCPAddr{
+					IP:   net.ParseIP("10.1.1.1"),
+					Port: 80,
+				},
+				Method:     "GET",
+				URL:        u,
+				RequestURI: "/admin",
+				Header:     http.Header{},
+				Cookie:     nil,
+				TLS:        nil,
+			}
+			userCredentials(ctx, portContext, r, d)
+			So(len(d.UserAttributes), ShouldEqual, 0)
+		})
+
+		Convey("When the request is TLS and a user is identified, the claims are correct", func() {
+			u, _ := url.Parse("http://www.foo.com/admin")
+			d := &NetworkAuthResponse{}
+
+			r := &Request{
+				SourceAddress: &net.TCPAddr{
+					IP:   net.ParseIP("45.1.1.1"),
+					Port: 1000,
+				},
+				OriginalDestination: &net.TCPAddr{
+					IP:   net.ParseIP("10.1.1.1"),
+					Port: 80,
+				},
+				Method:     "GET",
+				URL:        u,
+				RequestURI: "/admin",
+				Header:     http.Header{},
+				Cookie:     nil,
+				TLS:        &tls.ConnectionState{},
+			}
+			verifier.EXPECT().Validate(ctx, gomock.Any()).Return([]string{"user=flash"}, false, "", nil)
+			userCredentials(ctx, portContext, r, d)
+			So(len(d.UserAttributes), ShouldEqual, 1)
+			So(d.UserAttributes[0], ShouldEqual, "user=flash")
+			So(d.SourceType, ShouldEqual, collector.EndpointTypeClaims)
+			So(d.Redirect, ShouldBeFalse)
+		})
+
+		Convey("When the request is TLS and user authorization fails with a redirect, the redirect should be set", func() {
+			u, _ := url.Parse("http://www.foo.com/admin")
+			d := &NetworkAuthResponse{}
+
+			h := http.Header{}
+			h.Add("Authorization", "Bearer MockJWTToken")
+			r := &Request{
+				SourceAddress: &net.TCPAddr{
+					IP:   net.ParseIP("45.1.1.1"),
+					Port: 1000,
+				},
+				OriginalDestination: &net.TCPAddr{
+					IP:   net.ParseIP("10.1.1.1"),
+					Port: 80,
+				},
+				Method:     "GET",
+				URL:        u,
+				RequestURI: "/admin",
+				Header:     http.Header{},
+				Cookie:     nil,
+				TLS:        &tls.ConnectionState{},
+			}
+			verifier.EXPECT().Validate(ctx, gomock.Any()).Return(nil, true, "MockJWTToken", fmt.Errorf("auth failed"))
+			userCredentials(ctx, portContext, r, d)
+			So(len(d.UserAttributes), ShouldEqual, 0)
+			So(d.Redirect, ShouldBeTrue)
+		})
+
+		Convey("When the request is TLS and user authorization succeds with a refresh token, the cookie must be set", func() {
+			u, _ := url.Parse("http://www.foo.com/admin")
+			d := &NetworkAuthResponse{}
+
+			h := http.Header{}
+			h.Add("Authorization", "Bearer MockJWTToken")
+			r := &Request{
+				SourceAddress: &net.TCPAddr{
+					IP:   net.ParseIP("45.1.1.1"),
+					Port: 1000,
+				},
+				OriginalDestination: &net.TCPAddr{
+					IP:   net.ParseIP("10.1.1.1"),
+					Port: 80,
+				},
+				Method:     "GET",
+				URL:        u,
+				RequestURI: "/admin",
+				Header:     http.Header{},
+				Cookie:     nil,
+				TLS:        &tls.ConnectionState{},
+			}
+			verifier.EXPECT().Validate(ctx, gomock.Any()).Return(nil, true, "NewToken", fmt.Errorf("auth failed"))
+			userCredentials(ctx, portContext, r, d)
+			So(len(d.UserAttributes), ShouldEqual, 0)
+			So(d.Redirect, ShouldBeTrue)
+			So(d.Cookie, ShouldNotBeNil)
+			So(d.Cookie.Name, ShouldEqual, "X-APORETO-AUTH")
+			So(d.Cookie.Value, ShouldEqual, "NewToken")
+			So(d.Cookie.HttpOnly, ShouldBeTrue)
+			So(d.Cookie.Secure, ShouldBeTrue)
+			So(d.Cookie.Path, ShouldEqual, "/")
 		})
 	})
 }
