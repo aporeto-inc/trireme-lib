@@ -313,7 +313,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		)
 
 		return d, &AuthError{
-			message: fmt.Sprintf("Unauthorized access to %s", r.URL),
+			message: fmt.Sprintf("Unauthorized access to %s: Incoming claims %+v", r.URL, allClaims),
 			status:  http.StatusUnauthorized,
 		}
 	}

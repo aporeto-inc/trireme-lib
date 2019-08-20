@@ -476,6 +476,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(state.stats)
 
 	if err != nil {
+		zap.L().Error("Authorization error",
+			zap.Reflect("Error", err),
+			zap.String("URI", r.RequestURI),
+			zap.String("Host", r.Host),
+		)
 		authError, ok := err.(*apiauth.AuthError)
 		if !ok {
 			http.Error(w, "Internal type error", http.StatusInternalServerError)
