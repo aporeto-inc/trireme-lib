@@ -95,8 +95,9 @@ func newBaseApplicationServices(ctrl *gomock.Controller, id string, ipAddr strin
 	}
 }
 
-func newAPIAuthProcessor(contextID string, ctrl *gomock.Controller) (*serviceregistry.Registry, *pucontext.PUContext, secrets.Secrets) {
+func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *pucontext.PUContext, secrets.Secrets) {
 
+	contextID := "test"
 	baseService := newBaseApplicationServices(ctrl, "base", "10.1.1.0/24", uint16(80), uint16(443), uint16(80), false)
 	externalService := newBaseApplicationServices(ctrl, "external", "45.0.0.0/8", uint16(80), uint16(443), uint16(80), true)
 	externalBadService := newBaseApplicationServices(ctrl, "external", "100.0.0.0/8", uint16(80), uint16(443), uint16(80), true)
@@ -218,7 +219,7 @@ func newAPIAuthProcessor(contextID string, ctrl *gomock.Controller) (*servicereg
 func Test_New(t *testing.T) {
 	Convey("When I create a new processor it should be correctly propulated", t, func() {
 		ctrl := gomock.NewController(t)
-		r, _, s := newAPIAuthProcessor("test", ctrl)
+		r, _, s := newAPIAuthProcessor(ctrl)
 		p := New("test", r, s)
 
 		So(p.puContext, ShouldEqual, "test")
@@ -230,7 +231,7 @@ func Test_New(t *testing.T) {
 func Test_ApplicationRequest(t *testing.T) {
 	Convey("Given a valid authorization processor", t, func() {
 		ctrl := gomock.NewController(t)
-		serviceRegistry, pctx, s := newAPIAuthProcessor("test", ctrl)
+		serviceRegistry, pctx, s := newAPIAuthProcessor(ctrl)
 		p := New("test", serviceRegistry, s)
 
 		Convey("Given a request without context, it should error", func() {
@@ -421,7 +422,7 @@ func Test_NetworkRequest(t *testing.T) {
 		defer cancel()
 
 		ctrl := gomock.NewController(t)
-		serviceRegistry, pctx, s := newAPIAuthProcessor("test", ctrl)
+		serviceRegistry, pctx, s := newAPIAuthProcessor(ctrl)
 		p := New("test", serviceRegistry, s)
 
 		Convey("Requests for bad context should return errors", func() {
@@ -751,7 +752,7 @@ func Test_UserCredentials(t *testing.T) {
 		defer cancel()
 
 		ctrl := gomock.NewController(t)
-		serviceRegistry, _, s := newAPIAuthProcessor("test", ctrl)
+		serviceRegistry, _, s := newAPIAuthProcessor(ctrl)
 		p := New("test", serviceRegistry, s)
 		So(p, ShouldNotBeNil)
 
@@ -841,7 +842,7 @@ func Test_UserCredentials(t *testing.T) {
 			So(d.Redirect, ShouldBeTrue)
 		})
 
-		Convey("When the request is TLS and user authorization succeds with a refresh token, the cookie must be set", func() {
+		Convey("When the request is TLS and user authorization succeeds with a refresh token, the cookie must be set", func() {
 			u, _ := url.Parse("http://www.foo.com/admin")
 			d := &NetworkAuthResponse{}
 
