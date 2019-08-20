@@ -15,7 +15,7 @@ import (
 
 const (
 	counterContextID       = "UNUSED"
-	counterRPCCommand      = "ProxyRCPServer.PostCounterEvent"
+	counterRPCCommand      = "ProxyRPCServer.PostCounterEvent"
 	defaultCounterInterval = 10000 * time.Millisecond
 )
 
