@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient/mockdnsreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -217,13 +218,14 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 		debugClient := mockdebugclient.NewMockDebugClient(ctrl)
 		collector := mockstatscollector.NewMockCollector(ctrl)
 		counterclient := mockcounterclient.NewMockCounterClient(ctrl)
+		dnsreportclient := mockdnsreportclient.NewMockDNSReportClient(ctrl)
 		Convey("When I try to create new server with no env set", func() {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient, zap.Config{})
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient, dnsreportclient, zap.Config{})
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -254,6 +256,7 @@ func TestInitEnforcer(t *testing.T) {
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
 		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
 		mockCounterClient := mockcounterclient.NewMockCounterClient(ctrl)
+		mockDNSReportClient := mockdnsreportclient.NewMockDNSReportClient(ctrl)
 		// Mock the global functions.
 		createEnforcer = func(
 			mutualAuthorization bool,
@@ -295,7 +298,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, zap.Config{})
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, mockDNSReportClient, zap.Config{})
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {

@@ -27,7 +27,7 @@ type dnsreportsClient struct {
 	stop             chan bool
 }
 
-// NewStatsClient initializes a new stats client
+// NewDNSReportClient initializes a new dns report client
 func NewDNSReportClient(cr statscollector.Collector) (DNSReportClient, error) {
 
 	dc := &dnsreportsClient{
@@ -49,7 +49,6 @@ func NewDNSReportClient(cr statscollector.Collector) (DNSReportClient, error) {
 	return dc, nil
 }
 
-// sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
 func (d *dnsreportsClient) sendStats(ctx context.Context) {
 
 	for {

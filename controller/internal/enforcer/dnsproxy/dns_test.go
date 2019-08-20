@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/magiconair/properties/assert"
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -75,8 +76,9 @@ func TestDNS(t *testing.T) {
 
 	puIDcache.AddOrUpdate("pu1", pu)
 	conntrack := &flowClientDummy{}
+	collector := &collector.DefaultCollector{}
 
-	proxy := New(puIDcache, conntrack)
+	proxy := New(puIDcache, conntrack, collector)
 
 	err := proxy.StartDNSServer("pu1", "53001")
 	assert.Equal(t, err == nil, true, "start dns server")
