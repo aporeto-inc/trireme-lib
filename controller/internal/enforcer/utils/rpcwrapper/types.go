@@ -99,7 +99,7 @@ type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
 }
 
-// DNSReportPayload representes the payload for dns reporting.
+// DNSReportPayload represents the payload for dns reporting.
 type DNSReportPayload struct {
 	Report *collector.DNSRequestReport
 }
