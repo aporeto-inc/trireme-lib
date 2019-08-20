@@ -3,6 +3,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"syscall"
@@ -38,17 +39,18 @@ type winIpSet struct {
 }
 
 var (
-	driverDll      = syscall.NewLazyDLL("Frontman.dll")
-	newIpSetProc   = driverDll.NewProc("IpsetProvider_NewIpset")
-	getIpSetProc   = driverDll.NewProc("IpsetProvider_GetIpset")
-	destroyAllProc = driverDll.NewProc("IpsetProvider_DestroyAll")
-	listIpSetsProc = driverDll.NewProc("IpsetProvider_ListIPSets")
-	addProc        = driverDll.NewProc("Ipset_Add")
-	addOptionProc  = driverDll.NewProc("Ipset_AddOption")
-	deleteProc     = driverDll.NewProc("Ipset_Delete")
-	destroyProc    = driverDll.NewProc("Ipset_Destory")
-	flushProc      = driverDll.NewProc("Ipset_Flush")
-	testProc       = driverDll.NewProc("Ipset_Test")
+	driverDll        = syscall.NewLazyDLL("Frontman.dll")
+	newIpSetProc     = driverDll.NewProc("IpsetProvider_NewIpset")
+	getIpSetProc     = driverDll.NewProc("IpsetProvider_GetIpset")
+	destroyAllProc   = driverDll.NewProc("IpsetProvider_DestroyAll")
+	listIpSetsProc   = driverDll.NewProc("IpsetProvider_ListIPSets")
+	addProc          = driverDll.NewProc("Ipset_Add")
+	addOptionProc    = driverDll.NewProc("Ipset_AddOption")
+	deleteProc       = driverDll.NewProc("Ipset_Delete")
+	destroyProc      = driverDll.NewProc("Ipset_Destroy")
+	flushProc        = driverDll.NewProc("Ipset_Flush")
+	testProc         = driverDll.NewProc("Ipset_Test")
+	frontManOpenProc = driverDll.NewProc("FrontmanOpenShared")
 )
 
 const IpsetInsufficientBuffer = uint32(0x55550004)
@@ -59,8 +61,12 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 	if !isDllEvenHere() {
 		return &winIpSet{}, nil
 	}
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get driver handle: %v", err)
+	}
 	var ipsetId uint32
-	dllRet, _, err := newIpSetProc.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
+	dllRet, _, err := newIpSetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(ipsetType))), uintptr(unsafe.Pointer(&ipsetId)))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", newIpSetProc.Name, dllRet, err)
@@ -74,8 +80,12 @@ func (i *ipsetProvider) GetIpset(name string) Ipset {
 	if !isDllEvenHere() {
 		return &winIpSet{}
 	}
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return nil //, fmt.Errorf("failed to get driver handle: %v", err)
+	}
 	var ipsetId uint32
-	dllRet, _, err := getIpSetProc.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
+	dllRet, _, err := getIpSetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(&ipsetId)))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return &winIpSet{} //, fmt.Errorf("%s failed (ret=%d err=%v)", getIpSetProc.Name, dllRet, err)
@@ -88,7 +98,11 @@ func (i *ipsetProvider) DestroyAll(prefix string) error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := destroyAllProc.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(prefix))))
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := destroyAllProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(prefix))))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", destroyAllProc.Name, dllRet, err)
 	}
@@ -99,9 +113,13 @@ func (i *ipsetProvider) ListIPSets() ([]string, error) {
 	if !isDllEvenHere() {
 		return []string{}, nil
 	}
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get driver handle: %v", err)
+	}
 	// first query for needed buffer size
 	var bytesNeeded, ignore uint32
-	_, _, err := listIpSetsProc.Call(0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	_, _, err = listIpSetsProc.Call(driverHandle, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
 	if err != syscall.Errno(IpsetInsufficientBuffer) {
 		return nil, fmt.Errorf("%s failed: %v", listIpSetsProc.Name, err)
 	}
@@ -113,7 +131,7 @@ func (i *ipsetProvider) ListIPSets() ([]string, error) {
 	}
 	// then allocate buffer for wide string and call again
 	buf := make([]uint16, bytesNeeded/2)
-	dllRet, _, err := listIpSetsProc.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	dllRet, _, err := listIpSetsProc.Call(driverHandle, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", listIpSetsProc.Name, dllRet, err)
 	}
@@ -131,7 +149,11 @@ func (w *winIpSet) Add(entry string, timeout int) error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := addProc.Call(uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := addProc.Call(driverHandle, uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
 		uintptr(timeout))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", addProc.Name, dllRet, err)
@@ -143,7 +165,11 @@ func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := addOptionProc.Call(uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := addOptionProc.Call(driverHandle, uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(option))), uintptr(timeout))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", addOptionProc.Name, dllRet, err)
@@ -155,7 +181,11 @@ func (w *winIpSet) Del(entry string) error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := deleteProc.Call(uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := deleteProc.Call(driverHandle, uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", deleteProc.Name, dllRet, err)
 	}
@@ -166,7 +196,11 @@ func (w *winIpSet) Destroy() error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := destroyProc.Call(uintptr(w.id))
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := destroyProc.Call(driverHandle, uintptr(w.id))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", destroyProc.Name, dllRet, err)
 	}
@@ -177,7 +211,11 @@ func (w *winIpSet) Flush() error {
 	if !isDllEvenHere() {
 		return nil
 	}
-	dllRet, _, err := flushProc.Call(uintptr(w.id))
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := flushProc.Call(driverHandle, uintptr(w.id))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", flushProc.Name, dllRet, err)
 	}
@@ -188,11 +226,26 @@ func (w *winIpSet) Test(entry string) (bool, error) {
 	if !isDllEvenHere() {
 		return false, nil
 	}
-	dllRet, _, err := testProc.Call(uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
+	driverHandle, err := getDriverHandle()
+	if err != nil {
+		return false, fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	dllRet, _, err := testProc.Call(driverHandle, uintptr(w.id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return false, fmt.Errorf("%s failed (ret=%d err=%v)", testProc.Name, dllRet, err)
 	}
 	return true, nil
+}
+
+func getDriverHandle() (uintptr, error) {
+	driverHandle, _, err := frontManOpenProc.Call()
+	if err != syscall.Errno(0) {
+		return 0, err
+	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return 0, errors.New("got INVALID_HANDLE_VALUE")
+	}
+	return driverHandle, nil
 }
 
 // TODO(windows): temporary function until driver/dll are integrated
