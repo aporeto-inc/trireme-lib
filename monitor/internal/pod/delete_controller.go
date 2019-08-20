@@ -177,7 +177,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		}
 		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
-			zap.L().Error("DeleteController: cannot extract the SandboxID, return", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+			zap.L().Debug("DeleteController: cannot extract the SandboxID, return", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 			return
 		}
 		// update the map with the sandboxID

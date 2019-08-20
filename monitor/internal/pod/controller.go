@@ -148,7 +148,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	sandboxID, err = r.sandboxExtractor(ctx, pod)
 	if err != nil {
 		// Do nothing if we can't find the sandboxID
-		zap.L().Debug("Pod recocile: Cannot extract the SandboxID for ", zap.String("podname: ", nn))
+		zap.L().Debug("Pod reconcile: Cannot extract the SandboxID for ", zap.String("podname: ", nn))
 	}
 	puID = string(pod.GetUID())
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
