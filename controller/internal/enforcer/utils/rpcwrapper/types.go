@@ -99,6 +99,10 @@ type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
 }
 
+type DNSReportPayload struct {
+	Report *collector.DNSRequestReport
+}
+
 // CounterReportPayload is the counter report from remote enforcer
 type CounterReportPayload struct {
 	CounterReports []*collector.CounterReport

@@ -319,7 +319,7 @@ func NewWithDefaults(
 	}
 	e.conntrack = conntrackClient
 
-	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient)
+	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector)
 
 	return e
 }
@@ -574,7 +574,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 	}
 
 	if d.dnsProxy == nil {
-		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack)
+		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector)
 	}
 
 	d.startApplicationInterceptor(ctx)

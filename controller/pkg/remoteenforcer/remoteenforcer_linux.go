@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -56,6 +57,7 @@ func newRemoteEnforcer(
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 	counterClient counterclient.CounterClient,
+	dnsReportClient dnsreportclient.DNSReportClient,
 	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 
@@ -85,24 +87,32 @@ func newRemoteEnforcer(
 			return nil, err
 		}
 	}
+
+	if dnsReportClient == nil {
+		dnsReportClient, err = dnsreportclient.NewDNSReportClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
 	return &RemoteEnforcer{
-		collector:      collector,
-		service:        service,
-		rpcSecret:      secret,
-		rpcHandle:      rpcHandle,
-		procMountPoint: procMountPoint,
-		statsClient:    statsClient,
-		debugClient:    debugClient,
-		counterClient:  counterClient,
-		ctx:            ctx,
-		cancel:         cancel,
-		exit:           make(chan bool),
-		zapConfig:      zapConfig,
+		collector:       collector,
+		service:         service,
+		rpcSecret:       secret,
+		rpcHandle:       rpcHandle,
+		procMountPoint:  procMountPoint,
+		statsClient:     statsClient,
+		debugClient:     debugClient,
+		counterClient:   counterClient,
+		dnsReportClient: dnsReportClient,
+		ctx:             ctx,
+		cancel:          cancel,
+		exit:            make(chan bool),
+		zapConfig:       zapConfig,
 	}, nil
 }
 
@@ -553,7 +563,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, zapConfig)
 	if err != nil {
 		return err
 	}

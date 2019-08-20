@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
@@ -20,7 +21,9 @@ import (
 type Proxy struct {
 	puFromID          cache.DataStore
 	conntrack         flowtracking.FlowClient
+	collector         collector.EventCollector
 	contextIDToServer map[string]*dns.Server
+	chreports         chan dnsReport
 	sync.RWMutex
 }
 
@@ -92,8 +95,20 @@ func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, erro
 }
 
 func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	var err error
 	lAddr := w.LocalAddr().(*net.UDPAddr)
 	rAddr := w.RemoteAddr().(*net.UDPAddr)
+	var puCtx *pucontext.PUContext
+
+	defer func() {
+		if puCtx != nil {
+			var errStr string
+			if err != nil {
+				errStr = err.Error()
+			}
+			s.reportDNSLookup(r.Question[0].Name, puCtx, rAddr.IP, errStr)
+		}
+	}()
 
 	origIP, origPort, _, err := s.conntrack.GetOriginalDest(net.ParseIP("127.0.0.1"), rAddr.IP, uint16(lAddr.Port), uint16(rAddr.Port), 17)
 	if err != nil {
@@ -113,21 +128,21 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	puCtx := data.(*pucontext.PUContext)
-	ps, err := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
-	if err == nil {
+	puCtx = data.(*pucontext.PUContext)
+	ps, err1 := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
+	if err1 == nil {
 		for _, p := range ps {
-			if err := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
+			if err1 := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
 				Protocols: p.Protocols,
 				Policy:    p.Policy,
-			}}); err != nil {
-				zap.L().Error("Adding IP rule returned error", zap.Error(err))
+			}}); err1 != nil {
+				zap.L().Error("Adding IP rule returned error", zap.Error(err1))
 			}
 		}
 	}
 
-	if err := w.WriteMsg(dnsReply); err != nil {
+	if err = w.WriteMsg(dnsReply); err != nil {
 		zap.L().Error("Writing dns response back to the client returned error", zap.Error(err))
 	}
 }
@@ -172,6 +187,9 @@ func (p *Proxy) ShutdownDNS(contextID string) {
 }
 
 // New creates an instance of the dns proxy
-func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient) *Proxy {
-	return &Proxy{puFromID: puFromID, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
+func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector) *Proxy {
+	ch := make(chan dnsReport)
+	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
+	go p.reportDNSRequests(ch)
+	return p
 }

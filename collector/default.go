@@ -35,6 +35,9 @@ func (d *DefaultCollector) CollectPacketEvent(report *PacketReport) {}
 // CollectCounterEvent collect counters from the datapath
 func (d *DefaultCollector) CollectCounterEvent(report *CounterReport) {}
 
+// CollectDNSRequests collect counters from the datapath
+func (d *DefaultCollector) CollectDNSRequests(report *DNSRequestReport) {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()
