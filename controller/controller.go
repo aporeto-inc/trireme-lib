@@ -109,6 +109,7 @@ func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPol
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
+	zap.L().Error("REC", zap.Reflect("MAP", t.puTypeToEnforcerType))
 	return t.doHandleCreate(puID, policy, runtime)
 }
 

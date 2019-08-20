@@ -10,6 +10,7 @@ import (
 	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
 	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
 	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
+	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -33,6 +34,9 @@ type PodMonitorOption func(*podmonitor.Config)
 
 // LinuxMonitorOption is provided using functional arguments.
 type LinuxMonitorOption func(*linuxmonitor.Config)
+
+// WindowsMonitorOption is provided using functional arguments
+type WindowsMonitorOption func(*windowsmonitor.Config)
 
 // SubOptionMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
 func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor) LinuxMonitorOption {
@@ -60,6 +64,31 @@ func optionMonitorLinux(
 	}
 }
 
+// OptionMonitorWindows provides a way to add a linux monitor and related configuration to be used with New().
+func OptionMonitorWindows(
+	opts ...WindowsMonitorOption,
+) Options {
+	return optionMonitorWindows(true, opts...)
+}
+
+// optionMonitorWindows provides a way to add a linux monitor and related configuration to be used with New().
+func optionMonitorWindows(host bool,
+	opts ...WindowsMonitorOption,
+) Options {
+	wc := windowsmonitor.DefaultConfig(true)
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(wc)
+	}
+	return func(cfg *config.MonitorConfig) {
+		if host {
+			cfg.Monitors[config.LinuxHost] = wc
+		} else {
+			cfg.Monitors[config.Windows] = wc
+		}
+	}
+}
+
 // OptionMonitorLinuxHost provides a way to add a linux host monitor and related configuration to be used with New().
 func OptionMonitorLinuxHost(
 	opts ...LinuxMonitorOption,
@@ -72,6 +101,12 @@ func OptionMonitorLinuxProcess(
 	opts ...LinuxMonitorOption,
 ) Options {
 	return optionMonitorLinux(false, opts...)
+}
+
+func SubOptionWindowsHostMode(host bool) WindowsMonitorOption {
+	return func(cfg *windowsmonitor.Config) {
+		cfg.Host = host
+	}
 }
 
 // SubOptionMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.

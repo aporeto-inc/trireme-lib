@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.uber.org/zap"
 )
 
 type dialContextFunc func(ctx context.Context, network, address string) (net.Conn, error)
@@ -31,7 +32,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 	if err := json.NewEncoder(b).Encode(event); err != nil {
 		return fmt.Errorf("Unable to encode message: %s", err)
 	}
-
+	zap.L().Debug("Posting request")
 	resp, err := httpc.Post("http://unix", "application/json", b)
 	if err != nil {
 		return err

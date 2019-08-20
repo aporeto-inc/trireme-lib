@@ -52,6 +52,7 @@ func (e *EventServer) Run(ctx context.Context) error {
 	}
 
 	listener, err := e.makePipe()
+
 	if err != nil {
 		return err
 	}
@@ -85,10 +86,10 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateUser(r, event); err != nil {
+	/* if err := validateUser(r, event); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid user to pid mapping found: %s", err), http.StatusForbidden)
 		return
-	}
+	} */
 
 	if err := validateEvent(event); err != nil {
 		http.Error(w, fmt.Sprintf("Bad request: %s", err), http.StatusBadRequest)

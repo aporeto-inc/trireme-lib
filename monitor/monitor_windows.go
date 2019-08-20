@@ -22,7 +22,16 @@ type monitors struct {
 }
 
 // Run starts the monitor.
-func (m *monitors) Run(ctx context.Context) error {
+func (m *monitors) Run(ctx context.Context) (err error) {
+	if err = m.server.Run(ctx); err != nil {
+		return err
+	}
+
+	for _, v := range m.monitors {
+		if err = v.Run(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -67,14 +76,23 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 	}
 
 	for k, v := range c.Monitors {
+		zap.L().Error("Key", zap.Reflect("kev", k))
 		switch k {
 		case config.Windows:
 			mon := windowsmonitor.New()
 			mon.SetupHandlers(c.Common)
+			zap.L().Error("Hwew")
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Windows: %s", err.Error())
 			}
 			m.monitors[config.Windows] = mon
+		case config.LinuxHost:
+			mon := windowsmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Host: %s", err.Error())
+			}
+			m.monitors[config.LinuxHost] = mon
 			/* default:
 			return nil, nil //fmt.Errorf("Unsupported type %d", k) */
 		}

@@ -19,6 +19,7 @@ type windowsProcessor struct {
 	regStop           *regexp.Regexp
 	metadataExtractor extractors.EventMetadataExtractor
 	config            *config.ProcessorConfig
+	host              bool
 }
 
 // Start processes PU start events

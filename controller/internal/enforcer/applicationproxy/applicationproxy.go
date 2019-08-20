@@ -132,9 +132,10 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// Create the network listener and cache it so that we can terminate it later.
 	l, err := p.createNetworkListener(ctx, ":"+puInfo.Policy.ServicesListeningPort())
 	if err != nil {
+		zap.L().Error("Failed to create network listener", zap.Error(err))
 		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
-
+	zap.L().Error("LIS", zap.Reflect("LISTEN", l))
 	// Create a new client entry and start the servers.
 	client := &clientData{
 		netserver: map[common.ListenerType]ServerInterface{},
