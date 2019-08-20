@@ -267,6 +267,13 @@ func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtrac
 	}
 }
 
+// SubOptionMonitorSandboxExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorSandboxExtractor(extractor extractors.PodSandboxExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.SandboxExtractor = extractor
+	}
+}
+
 // SubOptionMonitorPodNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
 func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
