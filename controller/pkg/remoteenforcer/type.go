@@ -40,5 +40,5 @@ type RemoteEnforcer struct {
 	exit           chan bool
 	zapConfig      zap.Config
 	logLevel       constants.LogLevel
-	tokenIssuer    *tokenissuer.Client
+	tokenIssuer    tokenissuer.TokenClient
 }

@@ -18,6 +18,7 @@ import (
 // request tokens.
 type TokenClient interface {
 	Run(ctx context.Context) error
+	Issue(ctx context.Context, contextID string, stype common.ServiceTokenType, audience string, validity time.Duration) (string, error)
 }
 
 const (

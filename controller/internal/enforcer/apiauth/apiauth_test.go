@@ -68,7 +68,7 @@ func newBaseApplicationServices(id string, ipAddr string, exposedPortValue, publ
 				URIs:    []string{"/admin"},
 				Methods: []string{"GET"},
 				ClaimMatchingRules: [][]string{
-					[]string{appLabel},
+					{appLabel},
 				},
 				Public: false,
 			},
@@ -81,7 +81,7 @@ func newBaseApplicationServices(id string, ipAddr string, exposedPortValue, publ
 				URIs:    []string{"/forbidden"},
 				Methods: []string{"GET"},
 				ClaimMatchingRules: [][]string{
-					[]string{"Nobody"},
+					{"Nobody"},
 				},
 				Public: false,
 			},

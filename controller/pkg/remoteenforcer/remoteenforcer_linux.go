@@ -570,7 +570,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, zapConfig)
 	if err != nil {
 		return err
 	}

@@ -257,7 +257,7 @@ func TestInitEnforcer(t *testing.T) {
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
 		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
 		mockCounterClient := mockcounterclient.NewMockCounterClient(ctrl)
-		tokenclient := mocktokenclient.NewMockTokenClient(ctrl)
+		mockTokenClient := mocktokenclient.NewMockTokenClient(ctrl)
 
 		// Mock the global functions.
 		createEnforcer = func(
@@ -301,7 +301,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, tokenclient, zap.Config{})
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, mockTokenClient, zap.Config{})
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
@@ -535,6 +535,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
 				mockCounterClient.EXPECT().Run(server.ctx).Return(nil)
+				mockTokenClient.EXPECT().Run(server.ctx).Return(nil)
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should not get error", func() {

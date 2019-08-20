@@ -7,8 +7,10 @@ package mocktokenclient
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
 )
 
 // MockTokenClient is a mock of TokenClient interface
@@ -50,4 +52,19 @@ func (m *MockTokenClient) Run(ctx context.Context) error {
 // nolint
 func (mr *MockTokenClientMockRecorder) Run(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockTokenClient)(nil).Run), ctx)
+}
+
+// Issue mocks base method
+// nolint
+func (m *MockTokenClient) Issue(ctx context.Context, contextID string, stype common.ServiceTokenType, audience string, validity time.Duration) (string, error) {
+	ret := m.ctrl.Call(m, "Issue", ctx, contextID, stype, audience, validity)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Issue indicates an expected call of Issue
+// nolint
+func (mr *MockTokenClientMockRecorder) Issue(ctx, contextID, stype, audience, validity interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Issue", reflect.TypeOf((*MockTokenClient)(nil).Issue), ctx, contextID, stype, audience, validity)
 }
