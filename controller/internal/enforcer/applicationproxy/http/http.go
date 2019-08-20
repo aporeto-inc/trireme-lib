@@ -475,30 +475,33 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	state := newNetworkConnectionState(p.puContext, userID, request, response)
 	defer p.collector.CollectFlowEvent(state.stats)
 
-	authError, ok := err.(*apiauth.AuthError)
-	if !ok {
-		http.Error(w, "Internal type error", http.StatusInternalServerError)
-	}
+	if err != nil {
+		authError, ok := err.(*apiauth.AuthError)
+		if !ok {
+			http.Error(w, "Internal type error", http.StatusInternalServerError)
+			return
+		}
 
-	if authError != nil {
 		if response == nil {
+			// Basic errors are captured here.
 			http.Error(w, authError.Message(), authError.Status())
 			return
 		}
 
 		if !response.Redirect {
+			// If there is no redirect, we also return an error.
 			http.Error(w, authError.Message(), authError.Status())
 			return
 		}
 
-		// Redirect logic. Populate information here.
+		// Redirect logic. Populate information here. This is forcing a
+		// redirect rather than an error.
 		if response.Cookie != nil {
 			http.SetCookie(w, response.Cookie)
 		}
-
 		w.Header().Add("Location", response.RedirectURI)
-
 		http.Error(w, response.Data, authError.Status())
+
 		return
 	}
 

@@ -175,7 +175,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 	if strings.HasPrefix(r.RequestURI, TriremeOIDCCallbackURI) {
 		callbackResponse, err := pctx.Authorizer.Callback(ctx, r.URL)
 		if err == nil {
-			d.Action = policy.Accept
+			d.Action = policy.Accept | policy.Encrypt
 			d.Redirect = true
 			d.RedirectURI = callbackResponse.OriginURL
 			d.Cookie = callbackResponse.Cookie
@@ -318,6 +318,10 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		}
 	}
 
+	d.Action = policy.Accept
+	if r.TLS != nil {
+		d.Action = d.Action | policy.Encrypt
+	}
 	// We update the request headers with the claims and pass back
 	// the information.
 	pctx.Authorizer.UpdateRequestHeaders(r.Header, d.UserAttributes)
