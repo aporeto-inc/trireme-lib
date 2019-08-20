@@ -460,7 +460,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		TLS:                 r.TLS,
 	}
 
-	response, authError := p.auth.NetworkRequest(r.Context(), request)
+	response, err := p.auth.NetworkRequest(r.Context(), request)
 
 	var userID string
 	if response != nil && len(response.UserAttributes) > 0 {
@@ -474,6 +474,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	state := newNetworkConnectionState(p.puContext, userID, request, response)
 	defer p.collector.CollectFlowEvent(state.stats)
+
+	authError, ok := err.(*apiauth.AuthError)
+	if !ok {
+		http.Error(w, "Internal type error", http.StatusInternalServerError)
+	}
 
 	if authError != nil {
 		if response == nil {

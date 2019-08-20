@@ -57,6 +57,7 @@ func newRemoteEnforcer(
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 	counterClient counterclient.CounterClient,
+	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 
@@ -87,9 +88,11 @@ func newRemoteEnforcer(
 		}
 	}
 
-	t, err := tokenissuer.NewClient()
-	if err != nil {
-		return nil, err
+	if tokenIssuer == nil {
+		tokenIssuer, err = tokenissuer.NewClient()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
@@ -110,7 +113,7 @@ func newRemoteEnforcer(
 		cancel:         cancel,
 		exit:           make(chan bool),
 		zapConfig:      zapConfig,
-		tokenIssuer:    t,
+		tokenIssuer:    tokenIssuer,
 	}, nil
 }
 

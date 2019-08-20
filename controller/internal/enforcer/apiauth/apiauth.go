@@ -91,7 +91,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 		d.External = true
 
 		// Get the corresponding scopes
-		found, rule := serviceData.APICache.FindRule(r.Method, r.RequestURI)
+		found, rule := serviceData.APICache.FindRule(r.Method, r.URL.Path)
 		if !found {
 			return d, &AuthError{
 				status:  http.StatusForbidden,
@@ -144,7 +144,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 
 // NetworkRequest authorizes a network request and either accepts the request
 // or potentially issues a redirect.
-func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAuthResponse, *AuthError) {
+func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAuthResponse, error) {
 
 	// First retrieve the context and policy for this request. Network
 	// requests are indexed based on the original destination and port.
@@ -313,7 +313,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		)
 
 		return d, &AuthError{
-			message: fmt.Sprintf("Unauthorized Access to %s", r.URL),
+			message: fmt.Sprintf("Unauthorized access to %s", r.URL),
 			status:  http.StatusUnauthorized,
 		}
 	}

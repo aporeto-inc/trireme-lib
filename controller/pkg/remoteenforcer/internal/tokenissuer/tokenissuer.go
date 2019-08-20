@@ -14,6 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// TokenClient interface provides a start function. the client is used to
+// request tokens.
+type TokenClient interface {
+	Run(ctx context.Context) error
+}
+
 const (
 	tokenIssuerContextID = "UNUSED"
 	retrieveTokenCommand = "ProxyRPCServer.RetrieveToken"
