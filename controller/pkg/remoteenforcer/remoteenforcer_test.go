@@ -27,7 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient/mockdnsreportclient"
+	mockdnsreportclient "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient/mockdnsreport"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
