@@ -19,7 +19,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		return
 	}
 
-	ip, port := c.GetOriginalDestination()
+	//ip, port := c.GetOriginalDestination()
 	remoteAddr := c.RemoteAddr()
 	if remoteAddr == nil {
 		zap.L().Error("Connection remote address cannot be found. Abort")
@@ -33,25 +33,9 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	var listenerType common.ListenerType
 	if local {
-		_, serviceData, err := m.registry.RetrieveServiceDataByIDAndNetwork(m.puID, ip, port, "")
-		if err != nil {
-			zap.L().Error("Cannot discover target service",
-				zap.String("ContextID", m.puID),
-				zap.String("ip", ip.String()),
-				zap.Int("port", port),
-				zap.Error(err),
-			)
-			return
-		}
-		listenerType = serviceData.ServiceType
+		listenerType = common.TCPNetwork
 	} else {
-		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
-		if err != nil {
-			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
-			return
-		}
-
-		listenerType = pctx.Type
+		listenerType = common.TCPApplication
 	}
 
 	m.RLock()
