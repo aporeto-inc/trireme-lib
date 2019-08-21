@@ -52,6 +52,15 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 	return
 }
 
+// RemoveIPFromCache removes the entries indexed with (ip, mask). This is an idempotent operation
+// and thus does not returns an error
+func (c *ACLCache) RemoveIPMask(ip net.IP, mask uint32) {
+
+	c.reject.removeIPMask(ip, mask)
+	c.accept.removeIPMask(ip, mask)
+	c.observe.removeIPMask(ip, mask)
+}
+
 // GetMatchingAction gets the matching action
 func (c *ACLCache) GetMatchingAction(ip net.IP, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 

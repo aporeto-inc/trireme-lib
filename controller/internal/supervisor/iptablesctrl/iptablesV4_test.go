@@ -440,6 +440,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -525,6 +526,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -610,6 +612,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},

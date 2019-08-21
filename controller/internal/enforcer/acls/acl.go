@@ -56,6 +56,10 @@ func (a *acl) addToCache(ip net.IP, mask int, port string, policy *policy.FlowPo
 	return nil
 }
 
+func (a *acl) removeIPMask(ip net.IP, mask int) {
+	a.cache.Put(ip, mask, nil)
+}
+
 func (a *acl) matchRule(ip net.IP, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 	report = preReport
 
