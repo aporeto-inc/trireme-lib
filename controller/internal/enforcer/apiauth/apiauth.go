@@ -38,8 +38,7 @@ func New(contextID string, r *serviceregistry.Registry, s secrets.Secrets) *Proc
 	return &Processor{
 		puContext: contextID,
 		registry:  r,
-
-		secrets: s,
+		secrets:   s,
 	}
 }
 
@@ -313,7 +312,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		)
 
 		return d, &AuthError{
-			message: fmt.Sprintf("Unauthorized access to %+v: Incoming claims %+v: URL path: %s", r.URL, allClaims, r.URL.Path),
+			message: fmt.Sprintf("Unauthorized Access to %s", r.URL),
 			status:  http.StatusUnauthorized,
 		}
 	}
