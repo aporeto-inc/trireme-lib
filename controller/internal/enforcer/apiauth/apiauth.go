@@ -306,14 +306,14 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 			}
 		}
 
-		zap.L().Warn("No match found for the request or authorization Error",
+		zap.L().Error("No match found for the request or authorization Error",
 			zap.String("Request", r.Method+" "+r.RequestURI),
 			zap.Strings("User Attributes", d.UserAttributes),
 			zap.Strings("Aporeto Claims", aporetoClaims),
 		)
 
 		return d, &AuthError{
-			message: fmt.Sprintf("Unauthorized access to %s: Incoming claims %+v", r.URL, allClaims),
+			message: fmt.Sprintf("Unauthorized access to %+v: Incoming claims %+v: URL path: %s", r.URL, allClaims, r.URL.Path),
 			status:  http.StatusUnauthorized,
 		}
 	}

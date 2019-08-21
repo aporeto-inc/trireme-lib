@@ -556,7 +556,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("unauthorized request for policy"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -574,7 +574,7 @@ func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error
 
 func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("unauthorized request for certificate"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -587,7 +587,7 @@ func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, 
 
 func (p *Config) keyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("unauthorized request for private key"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -616,7 +616,7 @@ func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error
 func (p *Config) tokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized access"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("unauthorized request for token"), http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 

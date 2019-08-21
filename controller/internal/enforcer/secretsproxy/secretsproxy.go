@@ -155,7 +155,7 @@ func (s *SecretsProxy) apiProcessor(w http.ResponseWriter, r *http.Request) {
 	// Search the API cache for matching rules.
 	found, _ := apiCache.FindAndMatchScope(r.Method, r.RequestURI, scopes)
 	if !found {
-		httpError(w, fmt.Errorf("Unauthorized service"), "Unauthorized access", http.StatusUnauthorized)
+		httpError(w, fmt.Errorf("Unauthorized service"), "Unauthorized secrets access", http.StatusUnauthorized)
 		return
 	}
 
