@@ -266,7 +266,7 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 		return iptRule
 	}
 
-	if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
+	if err := i.programExtensionsRules(contextID, rule, chain, proto, ipMatchDirection, nfLogGroup); err != nil {
 		zap.L().Warn("unable to program extension rules",
 			zap.Error(err),
 		)
@@ -308,28 +308,64 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 }
 
 // programExtensionsRules programs iptable rules for the given extensions
-func (i *iptables) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
+func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chain, proto, ipMatchDirection, nfLogGroup string) error {
 
 	rulesspec := []string{
 		"-p", proto,
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 	}
 
 	for _, ext := range rule.extensions {
+		if rule.policy.Action&policy.Log > 0 {
+			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
+				return fmt.Errorf("unable to program nflog extension: %v", err)
+			}
+		}
+
 		args, err := shellwords.Parse(ext)
 		if err != nil {
 			return fmt.Errorf("unable to parse extension %s: %v", ext, err)
 		}
 
-		rulesspec = append(rulesspec, args...)
-
-		if err := i.impl.Append(appPacketIPTableContext, chain, rulesspec...); err != nil {
+		extRulesSpec := append(rulesspec, args...)
+		if err := i.impl.Append(appPacketIPTableContext, chain, extRulesSpec...); err != nil {
 			return fmt.Errorf("unable to program extension rules: %v", err)
 		}
 	}
 
 	return nil
+}
+
+// WARNING: The extension should always contain the action at the end else,
+// the function returns error.
+func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, rulesspec []string, ext string, chain, nfLogGroup string) error {
+
+	parts := strings.SplitN(ext, " -j ", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid extension format: %s", ext)
+	}
+	filter, target := parts[0], parts[1]
+
+	if filter == "" || target == "" {
+		return fmt.Errorf("filter or target is empty: %s", ext)
+	}
+
+	filterArgs, err := shellwords.Parse(filter)
+	if err != nil {
+		return fmt.Errorf("unable to parse extension %s: %v", ext, err)
+	}
+
+	action := "3"
+	if target == "DROP" {
+		action = "6"
+	}
+
+	defaultNflogSuffix := []string{"-m", "state", "--state", "NEW",
+		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefixAction(contextID, action)}
+	filterArgs = append(filterArgs, defaultNflogSuffix...)
+
+	nflogRulesspec := append(rulesspec, filterArgs...)
+	return i.impl.Append(appPacketIPTableContext, chain, nflogRulesspec...)
 }
 
 // sortACLsInBuckets will process all the rules and add them in a list of buckets

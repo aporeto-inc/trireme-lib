@@ -65,6 +65,20 @@ func (mr *MockCgroupnetclsMockRecorder) AssignMark(cgroupname, mark interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignMark), cgroupname, mark)
 }
 
+// AssignRootMark mocks base method
+// nolint
+func (m *MockCgroupnetcls) AssignRootMark(mark uint64) error {
+	ret := m.ctrl.Call(m, "AssignRootMark", mark)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssignRootMark indicates an expected call of AssignRootMark
+// nolint
+func (mr *MockCgroupnetclsMockRecorder) AssignRootMark(mark interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignRootMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignRootMark), mark)
+}
+
 // AddProcess mocks base method
 // nolint
 func (m *MockCgroupnetcls) AddProcess(cgroupname string, pid int) error {
