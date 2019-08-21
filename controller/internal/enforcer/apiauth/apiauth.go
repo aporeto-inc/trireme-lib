@@ -305,7 +305,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 			}
 		}
 
-		zap.L().Error("No match found for the request or authorization Error",
+		zap.L().Debug("No match found for the request or authorization Error",
 			zap.String("Request", r.Method+" "+r.RequestURI),
 			zap.Strings("User Attributes", d.UserAttributes),
 			zap.Strings("Aporeto Claims", aporetoClaims),
