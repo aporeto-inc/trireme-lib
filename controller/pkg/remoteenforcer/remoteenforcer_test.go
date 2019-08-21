@@ -507,6 +507,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
 				mockCounterClient.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
+				mockDNSReportClient.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().CleanUp()
 				mockEnf.EXPECT().CleanUp()
 
