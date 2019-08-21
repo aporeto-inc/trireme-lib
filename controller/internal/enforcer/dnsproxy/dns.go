@@ -60,7 +60,7 @@ func listenUDP(network, addr string) (net.PacketConn, error) {
 	return lc.ListenPacket(context.Background(), network, addr)
 }
 
-func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, error) {
+func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, uint32, error) {
 	var ips []string
 	c := new(dns.Client)
 	c.Dialer = &net.Dialer{
@@ -76,22 +76,30 @@ func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, erro
 
 	in, _, err := c.Exchange(r, net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
+
+	var ttl uint32
 
 	for _, ans := range in.Answer {
 		if ans.Header().Rrtype == dns.TypeA {
 			t, _ := ans.(*dns.A)
 			ips = append(ips, t.A.String())
+			if ans.Header().Ttl > ttl {
+				ttl = ans.Header().Ttl
+			}
 		}
 
 		if ans.Header().Rrtype == dns.TypeAAAA {
 			t, _ := ans.(*dns.AAAA)
 			ips = append(ips, t.AAAA.String())
+			if ans.Header().Ttl > ttl {
+				ttl = ans.Header().Ttl
+			}
 		}
 	}
 
-	return in, ips, nil
+	return in, ips, ttl, nil
 }
 
 func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -122,7 +130,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	dnsReply, ips, err := forwardDNSReq(r, origIP, origPort)
+	dnsReply, ips, ttl, err := forwardDNSReq(r, origIP, origPort)
 	if err != nil {
 		zap.L().Debug("Forwarded dns request returned error", zap.Error(err))
 		return
@@ -145,6 +153,28 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	if err = w.WriteMsg(dnsReply); err != nil {
 		zap.L().Error("Writing dns response back to the client returned error", zap.Error(err))
 	}
+
+	go func() {
+		time.Sleep(time.Duration(ttl) * time.Second)
+
+		data, err := s.puFromID.Get(s.contextID)
+		if err != nil {
+			return
+		}
+
+		puCtx = data.(*pucontext.PUContext)
+
+		for _, stringip := range ips {
+			ip := net.ParseIP(stringip)
+			var mask int
+			if ip.To4() == nil {
+				mask = 128
+			} else {
+				mask = 32
+			}
+			puCtx.RemoveApplicationACL(ip, mask)
+		}
+	}()
 }
 
 // StartDNSServer starts the dns server on the port provided for contextID

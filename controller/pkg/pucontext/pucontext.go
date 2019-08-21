@@ -230,7 +230,7 @@ func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
 func (p *PUContext) RemoveApplicationACL(addr net.IP, mask int) {
 	defer p.Unlock()
 	p.Lock()
-	return p.ApplicationACLs.RemoveIPMask(addr, mask)
+	p.ApplicationACLs.RemoveIPMask(addr, mask)
 }
 
 // UpdateNetworkACLs updates the network ACL policy
