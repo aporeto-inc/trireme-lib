@@ -63,6 +63,39 @@ func createCustomResolver() *net.Resolver {
 	return r
 }
 
+// DNSCollector implements a default collector infrastructure to syslog
+type DNSCollector struct{}
+
+// NewDNSCollector returns a default implementation of an EventCollector
+func NewDNSCollector() collector.EventCollector {
+	return &DNSCollector{}
+}
+
+// CollectFlowEvent is part of the EventCollector interface.
+func (d *DNSCollector) CollectFlowEvent(record *collector.FlowRecord) {}
+
+// CollectContainerEvent is part of the EventCollector interface.
+func (d *DNSCollector) CollectContainerEvent(record *collector.ContainerRecord) {}
+
+// CollectUserEvent is part of the EventCollector interface.
+func (d *DNSCollector) CollectUserEvent(record *collector.UserRecord) {}
+
+// CollectTraceEvent collects iptables trace events
+func (d *DNSCollector) CollectTraceEvent(records []string) {}
+
+// CollectPacketEvent collects packet events from the datapath
+func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
+
+// CollectCounterEvent collect counters from the datapath
+func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
+
+var r *collector.DNSRequestReport
+
+// CollectDNSRequests collect counters from the datapath
+func (d *DNSCollector) CollectDNSRequests(report *collector.DNSRequestReport) {
+	r = report
+}
+
 func TestDNS(t *testing.T) {
 	puIDcache := cache.NewCache("puFromContextID")
 
@@ -76,7 +109,7 @@ func TestDNS(t *testing.T) {
 
 	puIDcache.AddOrUpdate("pu1", pu)
 	conntrack := &flowClientDummy{}
-	collector := &collector.DefaultCollector{}
+	collector := &DNSCollector{}
 
 	proxy := New(puIDcache, conntrack, collector)
 
@@ -85,9 +118,14 @@ func TestDNS(t *testing.T) {
 
 	resolver := createCustomResolver()
 	ctx := context.Background()
+	waitTimeBeforeReport = 3 * time.Second
+	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
 	resolver.LookupIPAddr(ctx, "www.google.com") //nolint
 
 	assert.Equal(t, err == nil, true, "err should be nil")
 
+	time.Sleep(5 * time.Second)
+	assert.Equal(t, r.NameLookup == "www.google.com.", true, "lookup should be www.google.com")
+	assert.Equal(t, r.Count >= 2 && r.Count <= 10, true, "count should be 2")
 	proxy.ShutdownDNS("pu1")
 }

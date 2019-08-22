@@ -8,6 +8,10 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 )
 
+var (
+	waitTimeBeforeReport = 30 * time.Second
+)
+
 type dnsReport struct {
 	contextID  string
 	nameLookup string
@@ -43,12 +47,12 @@ func (p *Proxy) reportDNSRequests(chreport chan dnsReport) {
 				// dispatch immediately
 				p.sendToCollector(r, 1)
 				go func(r dnsReport) {
-					<-time.After(30 * time.Second)
+					<-time.After(waitTimeBeforeReport)
 					deleteReport <- r
 				}(r)
 			case 2:
 				go func(r dnsReport) {
-					<-time.After(30 * time.Second)
+					<-time.After(waitTimeBeforeReport)
 					sendReport <- r
 				}(r)
 			}
