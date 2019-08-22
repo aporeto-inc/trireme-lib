@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/collector"
+	tcommon "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	httpproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -52,12 +53,20 @@ type AppProxy struct {
 
 	registry *serviceregistry.Registry
 
-	clients cache.DataStore
+	clients     cache.DataStore
+	tokenIssuer tcommon.ServiceTokenIssuer
 	sync.RWMutex
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
+func NewAppProxy(
+	tp tokenaccessor.TokenAccessor,
+	c collector.EventCollector,
+	puFromID cache.DataStore,
+	certificate *tls.Certificate,
+	s secrets.Secrets,
+	t tcommon.ServiceTokenIssuer,
+) (*AppProxy, error) {
 
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
@@ -77,6 +86,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		clients:       cache.NewCache("clients"),
 		systemCAPool:  systemPool,
 		registry:      serviceregistry.NewServiceRegistry(),
+		tokenIssuer:   t,
 	}, nil
 }
 
@@ -254,7 +264,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype common
 	// Start the corresponding proxy
 	switch ltype {
 	case common.HTTPApplication, common.HTTPSApplication, common.HTTPNetwork, common.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.collector, puID, caPool, appproxy, proxyMarkInt, p.secrets, p.registry)
+		c := httpproxy.NewHTTPProxy(p.collector, puID, caPool, appproxy, proxyMarkInt, p.secrets, p.registry, p.tokenIssuer)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, puID, p.registry, p.cert, caPool)

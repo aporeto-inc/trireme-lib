@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
@@ -227,6 +228,7 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	cfg *runtime.Configuration,
+	tokenIssuer common.ServiceTokenIssuer,
 ) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -253,7 +255,7 @@ func New(
 		cfg,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
+	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ import (
 
 const (
 	counterContextID       = "UNUSED"
-	counterRPCCommand      = "StatsServer.PostCounterEvent"
+	counterRPCCommand      = "ProxyRPCServer.PostCounterEvent"
 	defaultCounterInterval = 10000 * time.Millisecond
 )
 
@@ -70,14 +70,14 @@ func (c *counterClient) sendCounterReports(ctx context.Context) {
 			records := c.collector.GetAllCounterReports()
 			if len(records) > 0 {
 				if err := c.sendData(records); err != nil {
-					zap.L().Debug("Unable to send counter report", zap.Error(err))
+					zap.L().Error("Unable to send counter report", zap.Error(err))
 				}
 			}
 		case <-ctx.Done():
 			records := c.collector.GetAllCounterReports()
 			if len(records) > 0 {
 				if err := c.sendData(records); err != nil {
-					zap.L().Debug("Unable to send counter report", zap.Error(err))
+					zap.L().Error("Unable to send counter report", zap.Error(err))
 				}
 			}
 			return
