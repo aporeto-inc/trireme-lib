@@ -66,11 +66,6 @@ func createCustomResolver() *net.Resolver {
 // DNSCollector implements a default collector infrastructure to syslog
 type DNSCollector struct{}
 
-// NewDNSCollector returns a default implementation of an EventCollector
-func NewDNSCollector() collector.EventCollector {
-	return &DNSCollector{}
-}
-
 // CollectFlowEvent is part of the EventCollector interface.
 func (d *DNSCollector) CollectFlowEvent(record *collector.FlowRecord) {}
 

@@ -933,7 +933,6 @@ func Test_EnableIPTablesPacketTracing(t *testing.T) {
 
 				Convey("Then I should not get an error ", func() {
 					So(err, ShouldBeNil)
-					v
 				})
 			})
 		})
