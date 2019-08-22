@@ -3,6 +3,7 @@ package dnsproxy
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,10 +86,13 @@ func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
 func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 
 var r collector.DNSRequestReport
+var l sync.Mutex
 
 // CollectDNSRequests collect counters from the datapath
 func (d *DNSCollector) CollectDNSRequests(report *collector.DNSRequestReport) {
+	l.Lock()
 	r = *report
+	l.Unlock()
 }
 
 func TestDNS(t *testing.T) {
@@ -120,7 +124,9 @@ func TestDNS(t *testing.T) {
 	assert.Equal(t, err == nil, true, "err should be nil")
 
 	time.Sleep(5 * time.Second)
+	l.Lock()
 	assert.Equal(t, r.NameLookup == "www.google.com.", true, "lookup should be www.google.com")
 	assert.Equal(t, r.Count >= 2 && r.Count <= 10, true, "count should be 2")
+	l.Unlock()
 	proxy.ShutdownDNS("pu1")
 }
