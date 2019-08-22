@@ -84,11 +84,11 @@ func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
 // CollectCounterEvent collect counters from the datapath
 func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 
-var r *collector.DNSRequestReport
+var r collector.DNSRequestReport
 
 // CollectDNSRequests collect counters from the datapath
 func (d *DNSCollector) CollectDNSRequests(report *collector.DNSRequestReport) {
-	r = report
+	r = *report
 }
 
 func TestDNS(t *testing.T) {
