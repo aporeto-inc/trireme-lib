@@ -5,6 +5,8 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
@@ -33,6 +35,7 @@ func newRemoteEnforcer(
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 	counterClient counterclient.CounterClient,
+	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
 	return nil, nil

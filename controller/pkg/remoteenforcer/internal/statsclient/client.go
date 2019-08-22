@@ -17,7 +17,7 @@ const (
 	defaultStatsIntervalMiliseconds = 1000
 	defaultUserRetention            = 10
 	statsContextID                  = "UNUSED"
-	statsRPCCommand                 = "StatsServer.GetStats"
+	statsRPCCommand                 = "ProxyRPCServer.PostStats"
 )
 
 // statsClient  This is the struct for storing state for the rpc client

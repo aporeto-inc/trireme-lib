@@ -5,7 +5,7 @@ import (
 	"crypto"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net/url"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
@@ -130,7 +130,7 @@ func (j *PKIJWTVerifier) VerifierType() common.JWTType {
 }
 
 // Callback is called by an IDP. Not implemented here. No central authorizer for the tokens.
-func (j *PKIJWTVerifier) Callback(r *http.Request) (string, string, int, error) {
+func (j *PKIJWTVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
 	return "", "", 0, nil
 }
 

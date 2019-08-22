@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.uber.org/zap"
 )
@@ -39,4 +40,5 @@ type RemoteEnforcer struct {
 	exit           chan bool
 	zapConfig      zap.Config
 	logLevel       constants.LogLevel
+	tokenIssuer    tokenissuer.TokenClient
 }

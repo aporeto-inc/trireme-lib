@@ -16,11 +16,12 @@ import (
 	"github.com/aporeto-inc/oxy/forward"
 	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -28,7 +29,6 @@ import (
 type statsContextKeyType string
 
 const (
-	defaultValidity = 60 * time.Second
 	statsContextKey = statsContextKeyType("statsContext")
 
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
@@ -43,6 +43,8 @@ type JWTClaims struct {
 	Scopes   []string
 	Profile  []string
 }
+
+type hookFunc func(w http.ResponseWriter, r *http.Request) (bool, error)
 
 // Config maintains state for proxies connections from listen to backend.
 type Config struct {
@@ -61,6 +63,10 @@ type Config struct {
 	fwd              *forward.Forwarder
 	fwdTLS           *forward.Forwarder
 	tlsClientConfig  *tls.Config
+	auth             *apiauth.Processor
+	metadata         *metadata.Client
+	tokenIssuer      common.ServiceTokenIssuer
+	hooks            map[string]hookFunc
 	sync.RWMutex
 }
 
@@ -73,9 +79,10 @@ func NewHTTPProxy(
 	mark int,
 	secrets secrets.Secrets,
 	registry *serviceregistry.Registry,
+	tokenIssuer common.ServiceTokenIssuer,
 ) *Config {
 
-	return &Config{
+	h := &Config{
 		collector:        c,
 		puContext:        puContext,
 		ca:               caPool,
@@ -87,7 +94,24 @@ func NewHTTPProxy(
 		tlsClientConfig: &tls.Config{
 			RootCAs: caPool,
 		},
+		auth:        apiauth.New(puContext, registry, secrets),
+		metadata:    metadata.NewClient(puContext, registry, tokenIssuer),
+		tokenIssuer: tokenIssuer,
 	}
+
+	hooks := map[string]hookFunc{
+		common.MetadataHookPolicy:      h.policyHook,
+		common.MetadataHookHealth:      h.healthHook,
+		common.MetadataHookCertificate: h.certificateHook,
+		common.MetadataHookKey:         h.keyHook,
+		common.MetadataHookToken:       h.tokenHook,
+		common.AWSHookInfo:             h.awsInfoHook,
+		common.AWSHookRole:             h.awsTokenHook,
+	}
+
+	h.hooks = hooks
+
+	return h
 }
 
 // clientTLSConfiguration calculates the right certificates and requests to the clients.
@@ -156,7 +180,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if r, ok := state.(*connectionState); ok {
 				r.stats.Action = policy.Reject
 				r.stats.DropReason = collector.UnableToDial
-				r.stats.PolicyID = "default"
+				r.stats.PolicyID = collector.DefaultEndPoint
 				p.collector.CollectFlowEvent(r.stats)
 			}
 		}
@@ -312,6 +336,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.certPEM = certPEM
 	p.keyPEM = keyPEM
 	p.tlsClientConfig.RootCAs = caPool
+	p.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
@@ -345,95 +370,55 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregistry.PortContext, error) {
-
-	return p.registry.RetrieveExposedServiceContext(originalIP.IP, originalIP.Port, "")
-}
-
-func (p *Config) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *urisearch.APICache, error) {
-
-	sctx, serviceData, err := p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("Unable to discover service data: %s", err)
-	}
-	return sctx, serviceData.APICache, nil
-}
-
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
-	sctx, apiCache, err := p.retrieveApplicationContext(originalDestination)
+
+	// Authorize the request by calling the authorizer library.
+	authRequest := &apiauth.Request{
+		OriginalDestination: originalDestination,
+		Method:              r.Method,
+		URL:                 r.URL,
+		RequestURI:          r.RequestURI,
+	}
+
+	resp, err := p.auth.ApplicationRequest(authRequest)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Unknown service"), http.StatusBadGateway)
-		zap.L().Error("Cannot identify application context", zap.Error(err))
-		return
-	}
-
-	state := newAppConnectionState(p.puContext, apiCache.ID, sctx.PUContext, r, originalDestination)
-
-	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP, uint16(originalDestination.Port))
-	state.stats.PolicyID = netaction.PolicyID
-	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
-		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
-		p.collector.CollectFlowEvent(state.stats)
-		return
-	}
-
-	// For external services we validate policy at the ingress. Note, that the
-	// certificate distribution service is considered as external and must
-	// be defined as external.
-	if apiCache.External {
-		// Get the corresponding scopes
-		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
-		if !found {
+		if resp.PUContext != nil {
+			state := newAppConnectionState(p.puContext, r, authRequest, resp)
+			state.stats.Action = resp.Action
+			state.stats.PolicyID = resp.NetworkPolicyID
 			p.collector.CollectFlowEvent(state.stats)
-			zap.L().Error("Unknown  or unauthorized service - no policy found", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
-			return
 		}
-		// If it is a secrets request we process it and move on. No need to
-		// validate policy.
-		isSecrets, err := p.isSecretsRequest(w, r, sctx)
-		if err != nil {
-			zap.L().Debug("Metadata request without proper HTTP headers", zap.String("URI", r.RequestURI))
-			http.Error(w, fmt.Sprintf("uknown service"), http.StatusUnprocessableEntity)
-			return
-		}
-		if isSecrets {
-			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
-			return
-		}
-		if !rule.Public {
-			// Validate the policy based on the scopes of the PU.
-			// TODO: Add user scopes
-			if !apiCache.MatchClaims(rule.ClaimMatchingRules, append(sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes()...)) {
-				p.collector.CollectFlowEvent(state.stats)
-				zap.L().Error("Unknown  or unauthorized service", zap.Error(err))
-				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+		http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
+		return
+	}
+
+	state := newAppConnectionState(p.puContext, r, authRequest, resp)
+	if resp.External {
+		defer p.collector.CollectFlowEvent(state.stats)
+	}
+
+	if resp.HookMethod != "" {
+		if hook, ok := p.hooks[resp.HookMethod]; ok {
+			if isHook, err := hook(w, r); err != nil || isHook {
 				return
 			}
+		} else {
+			http.Error(w, "Invalid hook configuration", http.StatusInternalServerError)
+			return
 		}
-		state.stats.Action = policy.Accept | policy.Encrypt
-		p.collector.CollectFlowEvent(state.stats)
 	}
 
-	token, err := servicetokens.CreateAndSign(
-		p.server.Addr,
-		sctx.PUContext.Identity().Tags,
-		sctx.PUContext.Scopes(),
-		sctx.PUContext.ManagementID(),
-		defaultValidity,
-		p.secrets.EncodingKey(),
-	)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - cannot create token"), http.StatusForbidden)
-		return
+	httpScheme := "http://"
+	if resp.TLSListener {
+		httpScheme = "https://"
 	}
 
 	// Create the new target URL based on the Host parameter that we had.
-	r.URL, err = url.ParseRequestURI("https://" + r.Host)
+	r.URL, err = url.ParseRequestURI(httpScheme + r.Host)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
@@ -442,7 +427,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	// Add the headers with the authorization parameters and public key. The other side
 	// must validate our public key.
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
-	r.Header.Add("X-APORETO-AUTH", token)
+	r.Header.Add("X-APORETO-AUTH", resp.Token)
 
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	// Forward the request.
@@ -450,6 +435,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
+
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
@@ -461,114 +447,72 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve the context and policy
-	pctx, err := p.retrieveNetworkContext(originalDestination)
-	if err != nil {
-		zap.L().Error("Internal server error - cannot determine destination policy", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unknown service"), http.StatusInternalServerError)
-		return
+	requestCookie, _ := r.Cookie("X-APORETO-AUTH") // nolint errcheck
+
+	request := &apiauth.Request{
+		OriginalDestination: originalDestination,
+		SourceAddress:       sourceAddress,
+		Header:              r.Header,
+		URL:                 r.URL,
+		Method:              r.Method,
+		RequestURI:          r.RequestURI,
+		Cookie:              requestCookie,
+		TLS:                 r.TLS,
 	}
 
-	// Create basic state information and associated record statistics.
-	state := newNetworkConnectionState(p.puContext, pctx, r, sourceAddress, originalDestination)
+	response, err := p.auth.NetworkRequest(r.Context(), request)
+
+	var userID string
+	if response != nil && len(response.UserAttributes) > 0 {
+		userData := &collector.UserRecord{
+			Namespace: response.Namespace,
+			Claims:    response.UserAttributes,
+		}
+		p.collector.CollectUserEvent(userData)
+		userID = userData.ID
+	}
+
+	state := newNetworkConnectionState(p.puContext, userID, request, response)
 	defer p.collector.CollectFlowEvent(state.stats)
 
-	// Process callbacks without any other policy check.
-	if strings.HasPrefix(r.RequestURI, TriremeOIDCCallbackURI) {
-		pctx.Authorizer.Callback(w, r)
-		state.stats.Action = policy.Accept
-		return
-	}
-
-	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(sourceAddress.IP, uint16(originalDestination.Port))
-	state.stats.PolicyID = aclPolicy.PolicyID
-	state.stats.Source.ID = aclPolicy.ServiceID
-	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
-		http.Error(w, fmt.Sprintf("Access denied by network policy - Rejected"), http.StatusNetworkAuthenticationRequired)
-		state.stats.DropReason = collector.PolicyDrop
-		return
-	}
-
-	// Retrieve the headers with the key and auth parameters. If the parameters do not
-	// exist, we will end up with empty values, but processing can continue. The authorizer
-	// will validate if they are needed or not.
-	token, key := processHeaders(r)
-
-	// Calculate the user attributes. User attributes can be derived either from a
-	// token or from a certificate. The authorizer library will parse them. We don't
-	// care if there are no user credentials. It might be a request from a PU,
-	// or it might be a request to a public interface. Only if the service mandates
-	// user credentials, we get the redirect directive.
-	userAttributes, redirect := userCredentials(pctx, r, p.collector, state)
-
-	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
-	// is mepty the DecodeAporetoClaims method will return no error.
-	sourceID, aporetoClaims, err := pctx.Authorizer.DecodeAporetoClaims(token, key)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid Authorization Token: %s", err), http.StatusForbidden)
-		state.stats.DropReason = collector.PolicyDrop
+		zap.L().Debug("Authorization error",
+			zap.Reflect("Error", err),
+			zap.String("URI", r.RequestURI),
+			zap.String("Host", r.Host),
+		)
+		authError, ok := err.(*apiauth.AuthError)
+		if !ok {
+			http.Error(w, "Internal type error", http.StatusInternalServerError)
+			return
+		}
+
+		if response == nil {
+			// Basic errors are captured here.
+			http.Error(w, authError.Message(), authError.Status())
+			return
+		}
+
+		if !response.Redirect {
+			// If there is no redirect, we also return an error.
+			http.Error(w, authError.Message(), authError.Status())
+			return
+		}
+
+		// Redirect logic. Populate information here. This is forcing a
+		// redirect rather than an error.
+		if response.Cookie != nil {
+			http.SetCookie(w, response.Cookie)
+		}
+		w.Header().Add("Location", response.RedirectURI)
+		http.Error(w, response.Data, authError.Status())
+
 		return
-	}
-	if len(aporetoClaims) > 0 {
-		state.stats.Source.ID = sourceID
-		state.stats.Source.Type = collector.EnpointTypePU
-	}
-
-	// We need to verify network policy, before validating the API policy. If a network
-	// policy has given us an accept because of IP address based ACLs we proceed anyway.
-	// This is rather convoluted, but a user might choose to implement network
-	// policies with ACLs only, and we have to cover this case.
-	if noNetAccessPolicy != nil {
-		if len(aporetoClaims) > 0 {
-			_, netPolicyAction := pctx.PUContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
-			state.stats.PolicyID = netPolicyAction.PolicyID
-			if netPolicyAction.Action.Rejected() {
-				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
-				state.stats.DropReason = collector.PolicyDrop
-				return
-			}
-		} else {
-			http.Error(w, fmt.Sprintf("Access denied by network policy - no policy found"), http.StatusNetworkAuthenticationRequired)
-			return
-		}
-	} else {
-		if aclPolicy.Action.Accepted() {
-			aporetoClaims = append(aporetoClaims, aclPolicy.Labels...)
-		}
-	}
-
-	// We can now validate the API authorization. This is the final step
-	// before forwarding.
-	allClaims := append(aporetoClaims, userAttributes...)
-	accept, public := pctx.Authorizer.Check(r.Method, r.URL.Path, allClaims)
-	if !accept {
-		if !public {
-			state.stats.DropReason = collector.PolicyDrop
-			if state.stats.Source.Type != collector.EnpointTypePU {
-				if redirect {
-					w.Header().Add("Location", pctx.Authorizer.RedirectURI(r.URL.String()))
-					http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
-					return
-				} else if len(pctx.Service.UserRedirectOnAuthorizationFail) > 0 {
-					w.Header().Add("Location", pctx.Service.UserRedirectOnAuthorizationFail+"?failure_message=authorization")
-					http.Error(w, "Authorization failed", http.StatusTemporaryRedirect)
-					return
-				}
-			}
-			http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
-			zap.L().Warn("No match found for the request or authorization Error",
-				zap.String("Request", r.Method+" "+r.RequestURI),
-				zap.Strings("User Attributes", userAttributes),
-				zap.Strings("Aporeto Claims", aporetoClaims),
-			)
-			return
-		}
 	}
 
 	// Select as http or https for communication with listening service.
 	httpPrefix := "http://"
-	if pctx.Service.PrivateTLSListener {
+	if response.TLSListener {
 		httpPrefix = "https://"
 	}
 
@@ -586,155 +530,238 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the request headers with the user attributes as defined by the mappings
-	pctx.Authorizer.UpdateRequestHeaders(r, userAttributes)
+	r.Header = response.Header
 
 	// Update the statistics and forward the request. We always encrypt downstream
 	state.stats.Action = policy.Accept | policy.Encrypt
-	state.stats.Destination.IP = originalDestination.IP.String()
-	state.stats.Destination.Port = uint16(originalDestination.Port)
 
-	// Treat the remote proxy scenario where the destination IPs are in a remote
-	// host. Check of network rules that allow this transfer and report the corresponding
-	// flows.
-	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
-		_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP, uint16(originalDestination.Port))
-		if err != nil || action.Action.Rejected() {
-			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
-			http.Error(w, fmt.Sprintf("Access denied by network policy to downstream IP: %s", originalDestination.IP.String()), http.StatusNetworkAuthenticationRequired)
-			return
-		}
-		if action.Action.Accepted() {
-			defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
-		}
-	}
+	// // Treat the remote proxy scenario where the destination IPs are in a remote
+	// // host. Check of network rules that allow this transfer and report the corresponding
+	// // flows.
+	// if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
+	// 	_, action, err := pctx.PUContext.ApplicationACLPolicyFromAddr(originalDestination.IP, uint16(originalDestination.Port))
+	// 	if err != nil || action.Action.Rejected() {
+	// 		defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
+	// 		http.Error(w, fmt.Sprintf("Access denied by network policy to downstream IP: %s", originalDestination.IP.String()), http.StatusNetworkAuthenticationRequired)
+	// 		return
+	// 	}
+	// 	if action.Action.Accepted() {
+	// 		defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
+	// 	}
+	// }
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
-func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request, sctx *serviceregistry.ServiceContext) (bool, error) {
-
-	if r.Host != "169.254.254.1" {
-		return false, nil
+func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
+		http.Error(w, fmt.Sprintf("unauthorized request for policy"), http.StatusForbidden)
+		return true, fmt.Errorf("unauthorized")
 	}
 
-	if r.Header.Get("X-Aporeto-Metadata") != "secrets" {
-		return false, fmt.Errorf("unauthorized")
+	data, _, err := p.metadata.GetCurrentPolicy()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to retrieve current policy"), http.StatusInternalServerError)
+		return true, err
 	}
-
-	switch r.RequestURI {
-	case "/certificate":
-		if _, err := w.Write([]byte(p.certPEM)); err != nil {
-			zap.L().Error("Unable to write response")
-		}
-	case "/key":
-		if _, err := w.Write([]byte(p.keyPEM)); err != nil {
-			zap.L().Error("Unable to write response")
-		}
-	case "/health":
-		plc := sctx.PU.Policy.ToPublicPolicy()
-		plc.ServicesCertificate = ""
-		plc.ServicesPrivateKey = ""
-		data, err := json.Marshal(plc)
-		if err != nil {
-			data = []byte("Internal Server Error")
-		}
-		if _, err := w.Write(data); err != nil {
-			zap.L().Error("Unable to write response to health API")
-		}
-
-	default:
-		http.Error(w, fmt.Sprintf("Unknown"), http.StatusBadRequest)
+	if _, err := w.Write(data); err != nil {
+		zap.L().Error("Unable to write policy response")
 	}
 
 	return true, nil
 }
 
-// userCredentials will find all the user credentials in the http request.
-// TODO: In addition to looking at the headers, we need to look at the parameters
-// in case authorization is provided there.
-// It will return the userAttributes and a boolean instructing whether a redirect
-// must be performed. If no user credentials are found, it will allow processing
-// to proceed. It might be a
-func userCredentials(pctx *serviceregistry.PortContext, r *http.Request, c collector.EventCollector, state *connectionState) ([]string, bool) {
-	if r.TLS == nil {
-		return []string{}, false
+func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
+		http.Error(w, fmt.Sprintf("unauthorized request for certificate"), http.StatusForbidden)
+		return true, fmt.Errorf("unauthorized")
 	}
-	userCerts := r.TLS.PeerCertificates
 
-	var userToken string
-	authToken := r.Header.Get("Authorization")
-	if len(authToken) < 7 {
-		cookie, err := r.Cookie("X-APORETO-AUTH")
-		if err == nil {
-			userToken = cookie.Value
+	if _, err := w.Write(p.metadata.GetCertificate()); err != nil {
+		zap.L().Error("Unable to write response")
+	}
+
+	return true, nil
+}
+
+func (p *Config) keyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
+		http.Error(w, fmt.Sprintf("unauthorized request for private key"), http.StatusForbidden)
+		return true, fmt.Errorf("unauthorized")
+	}
+
+	if _, err := w.Write(p.metadata.GetPrivateKey()); err != nil {
+		zap.L().Error("Unable to write response")
+	}
+
+	return true, nil
+}
+
+func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	// Health hook will only return ok if the current policy is already populated.
+	plc, _, err := p.metadata.GetCurrentPolicy()
+	if err != nil || plc == nil {
+		http.Error(w, fmt.Sprintf("Unable to retrieve current policy"), http.StatusInternalServerError)
+		return true, err
+	}
+
+	if _, err := w.Write([]byte("OK\n")); err != nil {
+		zap.L().Error("Unable to write response to health API")
+	}
+	return true, nil
+}
+
+func (p *Config) tokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
+		http.Error(w, fmt.Sprintf("unauthorized request for token"), http.StatusForbidden)
+		return true, fmt.Errorf("unauthorized")
+	}
+
+	audience := r.URL.Query().Get("audience")
+	validityString := r.URL.Query().Get("validity")
+
+	validity := time.Minute * 60
+	var err error
+	if validityString != "" {
+		validity, err = time.ParseDuration(validityString)
+		if err != nil {
+			http.Error(w, "Invalid validity time requested. Please use notation of number+unit. Example: `10m`", http.StatusUnprocessableEntity)
+			return true, nil
 		}
-	} else {
-		userToken = strings.TrimPrefix(authToken, "Bearer ")
 	}
 
-	userAttributes, redirect, refreshedToken, err := pctx.Authorizer.DecodeUserClaims(pctx.Service.ID, userToken, userCerts, r)
-	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{
-			Namespace: pctx.PUContext.ManagementNamespace(),
-			Claims:    userAttributes}
-		c.CollectUserEvent(userRecord)
-		state.stats.Source.UserID = userRecord.ID
-		state.stats.Source.Type = collector.EndpointTypeClaims
-	}
-	if err != nil && len(userAttributes) > 0 {
-		zap.L().Warn("Partially failed to extract and decode user claims", zap.Error(err))
-	} else if err != nil {
-		zap.L().Error("Failed to decode user claims", zap.Error(err))
+	token, err := p.tokenIssuer.Issue(r.Context(), p.puContext, common.ServiceTokenTypeOAUTH, audience, validity)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to issue token: %s", err), http.StatusBadRequest)
+		return true, nil
 	}
 
-	if refreshedToken != userToken {
-		state.cookie = &http.Cookie{
-			Name:     "X-APORETO-AUTH",
-			Value:    refreshedToken,
-			HttpOnly: true,
-			Secure:   true,
-			Path:     "/",
+	if _, err := w.Write([]byte(token)); err != nil {
+		zap.L().Error("Unable to write response on token API")
+	}
+	return true, nil
+}
+
+func (p *Config) awsInfoHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	awsRole, id, err := p.awsRole()
+	if err != nil {
+		return true, err
+	}
+
+	type info struct {
+		Code               string    `json:"Code,omitempty"`
+		LastUpdated        time.Time `json:"LastUpdated,omitempty"`
+		InstanceProfileArn string    `json:"InstanceProfileArn,omitempty"`
+		InstanceProfileID  string    `json:"InstanceProfileId,omitempty"`
+	}
+
+	out := &info{
+		Code:               "Success",
+		LastUpdated:        time.Now(),
+		InstanceProfileArn: awsRole,
+		InstanceProfileID:  id,
+	}
+
+	data, err := json.MarshalIndent(out, " ", " ")
+	if err != nil {
+		return true, fmt.Errorf("error in marshall of info: %s", err)
+	}
+
+	if _, err = w.Write(data); err != nil {
+		return true, fmt.Errorf("unable to write data response: %s", err)
+	}
+
+	return true, nil
+}
+
+func (p *Config) awsTokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	awsRole, id, err := p.awsRole()
+	if err != nil {
+		return true, err
+	}
+
+	awsRoleParts := strings.Split(awsRole, "/")
+	if len(awsRoleParts) == 0 {
+		http.Error(w, fmt.Sprintf("invalid role: %s", err), http.StatusNotFound)
+		return true, fmt.Errorf("invalid role: %s", awsRole)
+	}
+
+	awsRoleName := awsRoleParts[len(awsRoleParts)-1]
+
+	if strings.HasSuffix(r.RequestURI, "security-credentials/") {
+		if _, err := w.Write([]byte(awsRoleName)); err != nil {
+			return true, err
+		}
+		return true, nil
+	}
+
+	if !strings.HasSuffix(r.RequestURI, "security-credentials/"+awsRoleName) {
+		http.Error(w, fmt.Sprintf("not found"), http.StatusNotFound)
+		return true, fmt.Errorf("not found")
+	}
+
+	token, err := p.tokenIssuer.Issue(r.Context(), id, common.ServiceTokenTypeAWS, awsRole, time.Hour)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to issue token: %s", err), http.StatusBadRequest)
+		return true, nil
+	}
+
+	if _, err := w.Write([]byte(token)); err != nil {
+		zap.L().Error("Unable to write response on token API")
+	}
+	return true, nil
+}
+
+func (p *Config) awsRole() (string, string, error) {
+	_, plc, err := p.metadata.GetCurrentPolicy()
+	if err != nil {
+		return "", "", err
+	}
+
+	awsRole := ""
+	for _, scope := range plc.Scopes {
+		if strings.HasPrefix(scope, common.AWSRoleARNPrefix) {
+			if awsRole != "" && awsRole != scope[len(common.AWSRolePrefix):] {
+				return "", "", fmt.Errorf("overlapping roles detected")
+			}
+			awsRole = scope[len(common.AWSRolePrefix):]
 		}
 	}
 
-	return userAttributes, redirect
+	if awsRole == "" {
+		return "", "", fmt.Errorf("role not found")
+	}
+
+	return awsRole, plc.ManagementID, nil
 }
 
-func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
-	return &collector.FlowRecord{
-		ContextID: record.ContextID,
-		Destination: &collector.EndPoint{
-			URI:        record.Destination.URI,
-			HTTPMethod: record.Destination.HTTPMethod,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       record.Destination.Port,
-			IP:         record.Destination.IP,
-			ID:         action.ServiceID,
-		},
-		Source: &collector.EndPoint{
-			Type: record.Destination.Type,
-			ID:   record.Destination.ID,
-			IP:   "0.0.0.0",
-		},
-		Action:      action.Action,
-		L4Protocol:  record.L4Protocol,
-		ServiceType: record.ServiceType,
-		ServiceID:   record.ServiceID,
-		Tags:        record.Tags,
-		PolicyID:    action.PolicyID,
-		Count:       1,
-	}
-}
-
-func processHeaders(r *http.Request) (string, string) {
-	token := r.Header.Get("X-APORETO-AUTH")
-	if token != "" {
-		r.Header.Del("X-APORETO-AUTH")
-	}
-	key := r.Header.Get("X-APORETO-KEY")
-	if key != "" {
-		r.Header.Del("X-APORETO-KEY")
-	}
-	return token, key
-}
+// func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
+// 	return &collector.FlowRecord{
+// 		ContextID: record.ContextID,
+// 		Destination: &collector.EndPoint{
+// 			URI:        record.Destination.URI,
+// 			HTTPMethod: record.Destination.HTTPMethod,
+// 			Type:       collector.EndPointTypeExternalIP,
+// 			Port:       record.Destination.Port,
+// 			IP:         record.Destination.IP,
+// 			ID:         action.ServiceID,
+// 		},
+// 		Source: &collector.EndPoint{
+// 			Type: record.Destination.Type,
+// 			ID:   record.Destination.ID,
+// 			IP:   "0.0.0.0",
+// 		},
+// 		Action:      action.Action,
+// 		L4Protocol:  record.L4Protocol,
+// 		ServiceType: record.ServiceType,
+// 		ServiceID:   record.ServiceID,
+// 		Tags:        record.Tags,
+// 		PolicyID:    action.PolicyID,
+// 		Count:       1,
+// 	}
+// }
