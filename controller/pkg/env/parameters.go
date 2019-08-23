@@ -1,7 +1,6 @@
 package env
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
@@ -27,7 +26,6 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 	if logLevel == "" {
 		logLevel = "info"
 	}
-	//kubernetesEnabled := os.Getenv(constants.)
 	logFormat = os.Getenv(constants.EnvLogFormat)
 	if logLevel == "" {
 		logFormat = "json"
@@ -48,6 +46,5 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 		}
 	}
 	kubernetesEnabled, _ = strconv.ParseBool(os.Getenv(constants.EnvKubernetesEnabled))
-	fmt.Println("\n\n Getting the parameters, k8senabled : ", kubernetesEnabled)
 	return
 }

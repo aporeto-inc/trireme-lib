@@ -254,7 +254,7 @@ func newTrireme(c *config) TriremeController {
 		locks:                sync.Map{},
 		enablingTrace:        make(chan *traceTrigger, 10),
 	}
-	fmt.Println("\n the config for k8s is :", t.config.remoteParameters.KubernetesEnabled)
+
 	zap.L().Debug("Creating Enforcers")
 	if err = t.newEnforcers(); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
