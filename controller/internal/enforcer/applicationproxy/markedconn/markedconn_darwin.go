@@ -1,4 +1,4 @@
-// +build darwin windows
+// +build darwin
 
 package markedconn
 
@@ -12,7 +12,7 @@ import (
 )
 
 // DialMarkedWithContext dials a TCP connection and associates a mark. Propagates the context.
-func DialMarkedWithContext(ctx context.Context, network string, addr string, mark int) (net.Conn, error) {
+func DialMarkedWithContext(ctx context.Context, network string, addr string, nativeData *NativeData, mark int) (net.Conn, error) {
 	d := net.Dialer{}
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -57,6 +57,10 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
 }
 
+func (p *ProxiedConnection) GetNativeData() *NativeData {
+	return nil
+}
+
 // ProxiedListener is a proxied listener that uses proxied connections.
 type ProxiedListener struct {
 	netListener net.Listener
@@ -69,6 +73,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &ProxiedConnection{nc, net.IP{}, 0, nil}, nil
 }
 
