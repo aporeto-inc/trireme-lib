@@ -43,6 +43,7 @@ type trireme struct {
 // New returns a trireme interface implementation based on configuration provided.
 func New(serverID string, mode constants.ModeType, opts ...Option) TriremeController {
 
+	fmt.Println("\n\n *** creating new trireme controller *** \n\n ")
 	c := &config{
 		serverID:               serverID,
 		collector:              collector.NewDefaultCollector(),

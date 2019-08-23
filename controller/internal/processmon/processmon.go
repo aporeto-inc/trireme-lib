@@ -66,6 +66,8 @@ type RemoteMonitor struct {
 	runtimeErrorChannel chan *policy.RuntimeError
 	// rpc is the rpc client to communicate with the remotes.
 	rpc rpcwrapper.RPCClient
+	// kubernetesEnabled flag tells if we are running in kubernetes.
+	kubernetesEnabled bool
 
 	sync.Mutex
 }
@@ -99,6 +101,7 @@ func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeErr
 		logWithID:                   p.LogWithID,
 		logLevel:                    p.LogLevel,
 		logFormat:                   p.LogFormat,
+		kubernetesEnabled:           p.KubernetesEnabled,
 		compressedTags:              p.CompressedTags,
 		runtimeErrorChannel:         c,
 		rpc:                         r,
@@ -386,6 +389,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 	refPid int,
 	refNSPath string,
 ) []string {
+	kubernetesEnabled := strconv.FormatBool(p.kubernetesEnabled)
 
 	newEnvVars := []string{
 		constants.EnvMountPoint + "=" + procMountPoint,
@@ -397,6 +401,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
+		constants.EnvKubernetesEnabled + "=" + kubernetesEnabled,
 	}
 
 	if p.compressedTags != claimsheader.CompressionTypeNone {

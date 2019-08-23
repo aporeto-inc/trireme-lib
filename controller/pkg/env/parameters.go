@@ -1,7 +1,9 @@
 package env
 
 import (
+	"fmt"
 	"os"
+	"strconv"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -10,21 +12,22 @@ import (
 // RemoteParameters holds all configuration objects that must be passed
 // during the initialization of the monitor.
 type RemoteParameters struct {
-	LogToConsole   bool
-	LogWithID      bool
-	LogLevel       string
-	LogFormat      string
-	CompressedTags claimsheader.CompressionType
+	LogToConsole      bool
+	LogWithID         bool
+	LogLevel          string
+	LogFormat         string
+	CompressedTags    claimsheader.CompressionType
+	KubernetesEnabled bool
 }
 
 // GetParameters retrieves log parameters for Remote Enforcer.
-func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType) {
+func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType, kubernetesEnabled bool) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
 		logLevel = "info"
 	}
-
+	//kubernetesEnabled := os.Getenv(constants.)
 	logFormat = os.Getenv(constants.EnvLogFormat)
 	if logLevel == "" {
 		logFormat = "json"
@@ -44,6 +47,7 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 			compressedTagsVersion = claimsheader.CompressionTypeV2
 		}
 	}
-
+	kubernetesEnabled, _ = strconv.ParseBool(os.Getenv(constants.EnvKubernetesEnabled))
+	fmt.Println("\n\n Getting the parameters, k8senabled : ", kubernetesEnabled)
 	return
 }

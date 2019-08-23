@@ -50,6 +50,7 @@ type ProxyInfo struct {
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
+	fmt.Println("\n\n ** Launching the remote for pod: ", puInfo.Runtime.Name(), "*** \n\n ")
 	initEnforcer, err := s.prochdl.LaunchRemoteEnforcer(
 		contextID,
 		puInfo.Runtime.Pid(),
@@ -61,7 +62,6 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return err
 	}
-
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID),
 		zap.Reflect("Policy Object", puInfo))
 
@@ -310,7 +310,7 @@ func NewProxyEnforcer(
 	remoteParameters *env.RemoteParameters,
 	tokenIssuer common.ServiceTokenIssuer,
 ) enforcer.Enforcer {
-
+	fmt.Println("\n\n new proxy in enforcer: \n\n ****** \n\n, remote parameters are : ", remoteParameters.KubernetesEnabled)
 	statsServersecret, err := crypto.GenerateRandomString(32)
 	if err != nil {
 		// There is a very small chance of this happening we will log an error here.
