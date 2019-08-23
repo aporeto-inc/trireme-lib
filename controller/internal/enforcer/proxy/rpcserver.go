@@ -69,7 +69,7 @@ func (r *ProxyRPCServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapp
 }
 
 // DNSReports is called from the remote to post dns requests
-func (r ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		return errors.New("message sender cannot be verified")
 	}
