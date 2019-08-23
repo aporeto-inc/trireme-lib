@@ -3,6 +3,7 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type tokenAccessor struct {
 // New creates a new instance of TokenAccessor interface
 func New(serverID string, validity time.Duration, secret secrets.Secrets) (TokenAccessor, error) {
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
+	tokenEngine, err := tokens.NewBinaryJWT(validity, serverID, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret
 
 	t.Lock()
 	defer t.Unlock()
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
+	tokenEngine, err := tokens.NewBinaryJWT(validity, serverID, secret)
 	if err != nil {
 		return err
 	}
@@ -99,8 +100,9 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T:  context.Identity(),
-		EK: auth.LocalServiceContext,
+		LCL: auth.LocalContext,
+		T:   context.Identity(),
+		EK:  auth.LocalServiceContext,
 	}
 
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader()); err != nil {
@@ -118,6 +120,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity(),
+		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
 	}
@@ -136,6 +139,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	// Validate the certificate and parse the token
 	claims, nonce, cert, err := t.getToken().Decode(false, data, auth.RemotePublicKey)
 	if err != nil {
+		fmt.Println("Error", err)
 		return nil, err
 	}
 

@@ -288,28 +288,6 @@ func TestRamdomize(t *testing.T) {
 	})
 }
 
-func TestRetrieveNonce(t *testing.T) {
-	Convey("Given a token engine and a good token", t, func() {
-		_, scrts, err := createCompactPKISecrets()
-		So(err, ShouldBeNil)
-
-		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-		nonce := []byte("0124567890123456")
-		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-		So(err, ShouldBeNil)
-		Convey("When I try to get the nonce of the token, I should get the right value", func() {
-			tokenNonce, err := jwtConfig.RetrieveNonce(token)
-			So(err, ShouldBeNil)
-			So(tokenNonce, ShouldResemble, nonce)
-		})
-
-		Convey("When I try to get the nonce of bad token, I should get an error", func() {
-			_, err := jwtConfig.RetrieveNonce(token[:2])
-			So(err, ShouldNotBeNil)
-		})
-	})
-}
-
 type PublicKeys struct {
 	X *big.Int
 	Y *big.Int

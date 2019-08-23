@@ -10,6 +10,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/ugorji/go/codec"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -108,12 +109,13 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	if !isAck {
 
 		zap.L().Debug("claims", zap.Reflect("all", allclaims), zap.String("type", string(c.compressionType)))
-
+		fmt.Println("Comression type", c.compressionType)
 		// Handling compression here. If we need to use compression, we will copy
 		// the claims to the C claim and remove all the other fields.
 		if c.compressionType != claimsheader.CompressionTypeNone {
 			tags := allclaims.T
 			allclaims.T = nil
+			fmt.Println("What is in tags", tags.Tags)
 			for _, t := range tags.Tags {
 				if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
 					claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
@@ -122,7 +124,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 				}
 			}
 
-			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
+			zap.L().Info("claims (post)", zap.Reflect("all", allclaims))
 		}
 	}
 
@@ -130,6 +132,47 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	claimsHeader.SetCompressionType(c.compressionType)
 	claimsHeader.SetDatapathVersion(c.datapathVersion)
 	claims.H = claimsHeader.ToBytes()
+
+	// ******
+	pkey, _, err := c.secrets.KeyAndClaims(c.secrets.TransmittedKey())
+	if err != nil {
+		fmt.Println("Failed this method as well", err)
+	}
+
+	rawtoken := jwt.NewWithClaims(c.signMethod, allclaims)
+	sstr, err := rawtoken.SigningString()
+	if err != nil {
+		fmt.Println("Failed to get the signature", err)
+	}
+
+	sig, err := rawtoken.Method.Sign(sstr, c.secrets.EncodingKey())
+	if err != nil {
+		fmt.Println("Cannot create signature")
+	}
+
+	type MsgToken struct {
+		J *JWTClaims
+		P *ecdsa.PublicKey
+		S string
+	}
+
+	m := &MsgToken{
+		J: allclaims,
+		P: pkey.(*ecdsa.PublicKey),
+		S: sig,
+	}
+
+	fmt.Printf("Final token looks like: %+v \n %+v\n %+v\n %+v\n", *m, allclaims, pkey, allclaims.ConnectionClaims)
+
+	b := make([]byte, 0, 1400)
+	var h codec.Handle = new(codec.MsgpackHandle)
+	enc := codec.NewEncoderBytes(&b, h)
+	eerr := enc.Encode(m)
+	if eerr != nil {
+		fmt.Println("Error in msgpack")
+	}
+	fmt.Println("Length of data is ", len(b))
+	// ******
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
@@ -292,19 +335,6 @@ func (c *JWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 	copy(token[noncePosition:], nonce)
 
 	return nil
-}
-
-// RetrieveNonce returns the nonce of a token. It copies the value
-func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
-
-	if len(token) < tokenPosition {
-		return []byte{}, errors.New("invalid token")
-	}
-
-	nonce := make([]byte, NonceLength)
-	copy(nonce, token[noncePosition:tokenPosition])
-
-	return nonce, nil
 }
 
 func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {

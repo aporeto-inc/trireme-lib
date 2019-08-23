@@ -33,9 +33,6 @@ type TokenEngine interface {
 	// even when the token is cached. There should be space in the token already.
 	// Returns an error if there is no space
 	Randomize([]byte, []byte) (err error)
-	// RetrieveNonce retrieves the nonce from the token only. Returns the nonce
-	// or an error if the nonce cannot be decoded
-	RetrieveNonce([]byte) ([]byte, error)
 }
 
 const (
