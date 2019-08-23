@@ -128,11 +128,11 @@ func (i *ipsetProvider) ListIPSets() ([]string, error) {
 	// first query for needed buffer size
 	var bytesNeeded, ignore uint32
 	_, _, err = listIpSetsProc.Call(driverHandle, IpsetProviderTypeExclusions, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	if err == syscall.Errno(0) && bytesNeeded == 0 {
+		return []string{}, nil
+	}
 	if err != syscall.Errno(IpsetErrorInsufficientBuffer) {
 		return nil, fmt.Errorf("%s failed: %v", listIpSetsProc.Name, err)
-	}
-	if bytesNeeded == 0 {
-		return []string{}, nil
 	}
 	if bytesNeeded%2 != 0 {
 		return nil, fmt.Errorf("%s failed: odd result (%d)", listIpSetsProc.Name, bytesNeeded)
@@ -158,6 +158,10 @@ func (w *winIpSet) Add(entry string, timeout int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return nil
+	}
 	dllRet, _, err := addProc.Call(driverHandle, uintptr(w.dllType), w.handle,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))), uintptr(timeout))
 	if err != syscall.Errno(0) || dllRet == 0 {
@@ -170,6 +174,10 @@ func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
 	driverHandle, err := getDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return nil
 	}
 	dllRet, _, err := addOptionProc.Call(driverHandle, uintptr(w.dllType), w.handle,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
@@ -185,6 +193,10 @@ func (w *winIpSet) Del(entry string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return nil
+	}
 	dllRet, _, err := deleteProc.Call(driverHandle, uintptr(w.dllType), w.handle,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
 	if err != syscall.Errno(0) || dllRet == 0 {
@@ -198,6 +210,10 @@ func (w *winIpSet) Destroy() error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return nil
+	}
 	dllRet, _, err := destroyProc.Call(driverHandle, uintptr(w.dllType), w.handle)
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", destroyProc.Name, dllRet, err)
@@ -210,6 +226,10 @@ func (w *winIpSet) Flush() error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return nil
+	}
 	dllRet, _, err := flushProc.Call(driverHandle, uintptr(w.dllType), w.handle)
 	if err != syscall.Errno(0) || dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", flushProc.Name, dllRet, err)
@@ -221,6 +241,10 @@ func (w *winIpSet) Test(entry string) (bool, error) {
 	driverHandle, err := getDriverHandle()
 	if err != nil {
 		return false, fmt.Errorf("failed to get driver handle: %v", err)
+	}
+	if w.dllType == 0 {
+		// type not handled by driver
+		return false, nil
 	}
 	dllRet, _, err := testProc.Call(driverHandle, uintptr(w.dllType), w.handle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
 	if err != syscall.Errno(0) || dllRet == 0 {
