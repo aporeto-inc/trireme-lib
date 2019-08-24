@@ -67,8 +67,8 @@ const (
 	// EnvCompressedTags stores whether we should be using compressed tags.
 	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
 
-	// EnvKubernetesEnabled tells us if we are running in kubernetes
-	EnvKubernetesEnabled = "TRIREME_ENV_KUBERNETES_ENABLED"
+	// EnvDisableLog tells us if we are running in kubernetes
+	EnvDisableLog = "TRIREME_ENV_DISABLE_LOG"
 )
 
 // ModeType defines the mode of the enforcement and supervisor.
