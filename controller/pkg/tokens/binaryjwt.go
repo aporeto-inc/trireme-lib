@@ -121,7 +121,12 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 		return nil, fmt.Errorf("unable to encode message: %s", err)
 	}
 
-	sig, err := c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+	var sig []byte
+	if isAck {
+		sig, err = hash(buf)
+	} else {
+		sig, err = c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -226,8 +231,19 @@ func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface
 	}
 
 	// Validate the token.
-	if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+	if !isAck {
+		if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+		}
+	} else {
+		ps, err := hash(token)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+		}
+		if bytes.Compare(ps, sig) != 0 {
+			fmt.Println("Faield")
+			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+		}
 	}
 
 	if !isAck {
@@ -332,17 +348,16 @@ func (c *BinaryJWTConfig) verify(hash []byte, sig []byte, key *ecdsa.PublicKey) 
 	return fmt.Errorf("invalid signature")
 }
 
-func hash(t *BinaryJWTClaims) ([]byte, error) {
-	var buf bytes.Buffer
+var (
+	badsecret = []byte("1234567890123456")
+)
 
-	if err := binary.Write(&buf, binary.BigEndian, t); err != nil {
-		return nil, err
-	}
+func hash(buf []byte) ([]byte, error) {
 
 	hasher := crypto.SHA256.New()
-	if _, err := hasher.Write(buf.Bytes()); err != nil {
+	if _, err := hasher.Write(buf); err != nil {
 		return nil, fmt.Errorf("unable to hash data structure: %s", err)
 	}
 
-	return hasher.Sum(nil), nil
+	return hasher.Sum(badsecret), nil
 }
