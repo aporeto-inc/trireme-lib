@@ -139,6 +139,10 @@ func (m *MultiplexedListener) Close() {
 func (m *MultiplexedListener) Serve(ctx context.Context) error {
 
 	defer func() {
+		err := m.onStopListening()
+		if err != nil {
+			zap.L().Error(fmt.Sprintf("onStopListening error: %v", err))
+		}
 		close(m.done)
 		m.wg.Wait()
 
@@ -153,6 +157,11 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 			}
 		}
 	}()
+
+	err := m.onStartListening()
+	if err != nil {
+		zap.L().Error(fmt.Sprintf("onStartListening error: %v", err))
+	}
 
 	for {
 		select {
