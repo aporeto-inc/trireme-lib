@@ -18,17 +18,9 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
-
-// BinaryJWTClaims captures all the custom  clains
-type BinaryJWTClaims struct {
-	jwt.StandardClaims
-	*ConnectionClaims
-	SignerKey []byte `json:",omitempty"`
-}
 
 // BinaryJWTConfig configures the JWT token generator with the standard parameters. One
 // configuration is assigned to each server
@@ -82,7 +74,7 @@ func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*Bi
 		Issuer:               issuer,
 		signMethod:           signMethod,
 		secrets:              s,
-		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
+		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*2000),
 		compressionType:      compressionType,
 		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
 		datapathVersion:      claimsheader.DatapathVersion1,
@@ -94,12 +86,7 @@ func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*Bi
 func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
 	// Combine the application claims with the standard claims
-	allclaims := &BinaryJWTClaims{
-		ConnectionClaims: claims,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
-		},
-	}
+	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
 
 	if !isAck {
 		allclaims.SignerKey = c.secrets.TransmittedKey()
@@ -108,11 +95,11 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 		// the claims to the C claim and remove all the other fields.
 		tags := allclaims.T
 		allclaims.T = nil
-		for _, t := range tags.Tags {
+		for _, t := range tags {
 			if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
-				claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
+				allclaims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
 			} else {
-				claims.C = t
+				allclaims.C = t
 			}
 		}
 		zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
@@ -123,11 +110,11 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 	// Set the appropriate claims header
 	claimsHeader.SetCompressionType(c.compressionType)
 	claimsHeader.SetDatapathVersion(c.datapathVersion)
-	claims.H = claimsHeader.ToBytes()
+	allclaims.H = claimsHeader.ToBytes()
 
 	// Encode and sign the token
 	buf := make([]byte, 0, 1400)
-	var h codec.Handle = new(codec.MsgpackHandle)
+	var h codec.Handle = new(codec.CborHandle)
 	enc := codec.NewEncoderBytes(&buf, h)
 
 	if err = enc.Encode(allclaims); err != nil {
@@ -200,7 +187,7 @@ func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface
 
 	// Decode the token into a structure.
 	jwtClaims := &BinaryJWTClaims{}
-	var h codec.Handle = new(codec.MsgpackHandle)
+	var h codec.Handle = new(codec.CborHandle)
 	dec := codec.NewDecoderBytes(token, h)
 	if err := dec.Decode(jwtClaims); err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to decode incoming token: %s", err)
@@ -220,8 +207,8 @@ func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface
 	}
 
 	// Validate the header.
-	if jwtClaims.ConnectionClaims.H != nil {
-		if err := c.verifyClaimsHeader(jwtClaims.ConnectionClaims.H.ToClaimsHeader()); err != nil {
+	if jwtClaims.H != nil {
+		if err := c.verifyClaimsHeader(jwtClaims.H.ToClaimsHeader()); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -248,13 +235,13 @@ func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface
 		// Handling of compressed tags in a backward compatible manner. If there are claims
 		// arriving in the compressed field then we append them to the tags.
 
-		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
+		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ID}
 
 		if certClaims != nil {
 			tags = append(tags, certClaims...)
 		}
 
-		compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
+		compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.C)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid claims")
 		}
@@ -267,14 +254,15 @@ func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface
 			tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
 		}
 
-		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
+		jwtClaims.T = tags
 
 		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
 	}
 
-	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
+	connClaims := ConvertToJWTClaims(jwtClaims).ConnectionClaims
+	c.tokenCache.AddOrUpdate(string(token), connClaims)
 
-	return jwtClaims.ConnectionClaims, nonce, publicKey, nil
+	return connClaims, nonce, publicKey, nil
 }
 
 // Randomize adds a nonce to an existing token. Returns the nonce

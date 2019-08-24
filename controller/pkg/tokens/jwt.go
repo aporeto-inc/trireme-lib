@@ -10,7 +10,6 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/ugorji/go/codec"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -23,12 +22,6 @@ var (
 	noncePosition = 2
 	tokenPosition = 2 + NonceLength
 )
-
-// JWTClaims captures all the custom  clains
-type JWTClaims struct {
-	*ConnectionClaims
-	jwt.StandardClaims
-}
 
 // JWTConfig configures the JWT token generator with the standard parameters. One
 // configuration is assigned to each server
@@ -49,6 +42,12 @@ type JWTConfig struct {
 	compressionTagLength int
 	// datapathVersion is the current version of the datapath
 	datapathVersion claimsheader.DatapathVersion
+}
+
+// JWTClaims captures all the custom  clains
+type JWTClaims struct {
+	*ConnectionClaims
+	jwt.StandardClaims
 }
 
 // NewJWT creates a new JWT token processor
@@ -132,47 +131,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	claimsHeader.SetCompressionType(c.compressionType)
 	claimsHeader.SetDatapathVersion(c.datapathVersion)
 	claims.H = claimsHeader.ToBytes()
-
-	// ******
-	pkey, _, err := c.secrets.KeyAndClaims(c.secrets.TransmittedKey())
-	if err != nil {
-		fmt.Println("Failed this method as well", err)
-	}
-
-	rawtoken := jwt.NewWithClaims(c.signMethod, allclaims)
-	sstr, err := rawtoken.SigningString()
-	if err != nil {
-		fmt.Println("Failed to get the signature", err)
-	}
-
-	sig, err := rawtoken.Method.Sign(sstr, c.secrets.EncodingKey())
-	if err != nil {
-		fmt.Println("Cannot create signature")
-	}
-
-	type MsgToken struct {
-		J *JWTClaims
-		P *ecdsa.PublicKey
-		S string
-	}
-
-	m := &MsgToken{
-		J: allclaims,
-		P: pkey.(*ecdsa.PublicKey),
-		S: sig,
-	}
-
-	fmt.Printf("Final token looks like: %+v \n %+v\n %+v\n %+v\n", *m, allclaims, pkey, allclaims.ConnectionClaims)
-
-	b := make([]byte, 0, 1400)
-	var h codec.Handle = new(codec.MsgpackHandle)
-	enc := codec.NewEncoderBytes(&b, h)
-	eerr := enc.Encode(m)
-	if eerr != nil {
-		fmt.Println("Error in msgpack")
-	}
-	fmt.Println("Length of data is ", len(b))
-	// ******
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())

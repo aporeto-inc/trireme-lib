@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"errors"
+	"time"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
@@ -72,7 +73,7 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		privateKey:    key,
 		publicKey:     cert,
 		txKey:         txKey,
-		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, -1),
+		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, 5*time.Minute),
 	}
 
 	return p, nil
