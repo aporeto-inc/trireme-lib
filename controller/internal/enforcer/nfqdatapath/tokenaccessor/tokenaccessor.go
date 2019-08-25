@@ -102,11 +102,10 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		LCL:      auth.LocalContext,
-		EK:       auth.LocalServiceContext,
-		T:        context.Identity(),
-		ID:       context.ManagementID(),
-		RemoteID: auth.RemoteContextID,
+		LCL: auth.LocalContext,
+		EK:  auth.LocalServiceContext,
+		T:   context.Identity(),
+		ID:  context.ManagementID(),
 	}
 
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader()); err != nil {
