@@ -13,27 +13,27 @@ import (
 
 const (
 	// ----- content types ----
-	codecSelferCcUTF82735 = 1
-	codecSelferCcRAW2735  = 255
+	codecSelferCcUTF89592 = 1
+	codecSelferCcRAW9592  = 255
 	// ----- value types used ----
-	codecSelferValueTypeArray2735     = 10
-	codecSelferValueTypeMap2735       = 9
-	codecSelferValueTypeString2735    = 6
-	codecSelferValueTypeInt2735       = 2
-	codecSelferValueTypeUint2735      = 3
-	codecSelferValueTypeFloat2735     = 4
-	codecSelferValueTypeNil2735       = 1
-	codecSelferBitsize2735            = uint8(32 << (^uint(0) >> 63))
-	codecSelferDecContainerLenNil2735 = -2147483648
+	codecSelferValueTypeArray9592     = 10
+	codecSelferValueTypeMap9592       = 9
+	codecSelferValueTypeString9592    = 6
+	codecSelferValueTypeInt9592       = 2
+	codecSelferValueTypeUint9592      = 3
+	codecSelferValueTypeFloat9592     = 4
+	codecSelferValueTypeNil9592       = 1
+	codecSelferBitsize9592            = uint8(32 << (^uint(0) >> 63))
+	codecSelferDecContainerLenNil9592 = -2147483648
 )
 
 var (
-	errCodecSelferOnlyMapOrArrayEncodeToStruct2735 = errors.New(`only encoded map or array can be decoded into a struct`)
+	errCodecSelferOnlyMapOrArrayEncodeToStruct9592 = errors.New(`only encoded map or array can be decoded into a struct`)
 )
 
-type codecSelfer2735 struct{}
+type codecSelfer9592 struct{}
 
-func codecSelfer2735False() bool { return false }
+func codecSelfer9592False() bool { return false }
 
 func init() {
 	if codec1978.GenVersion != 16 {
@@ -44,7 +44,7 @@ func init() {
 }
 
 func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
-	var h codecSelfer2735
+	var h codecSelfer9592
 	z, r := codec1978.GenHelperEncoder(e)
 	_, _, _ = h, z, r
 	if x == nil {
@@ -251,32 +251,32 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 }
 
 func (x *BinaryJWTClaims) CodecDecodeSelf(d *codec1978.Decoder) {
-	var h codecSelfer2735
+	var h codecSelfer9592
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
 	yyct2 := r.ContainerType()
-	if yyct2 == codecSelferValueTypeNil2735 {
+	if yyct2 == codecSelferValueTypeNil9592 {
 		*(x) = BinaryJWTClaims{}
-	} else if yyct2 == codecSelferValueTypeMap2735 {
+	} else if yyct2 == codecSelferValueTypeMap9592 {
 		yyl2 := z.DecReadMapStart()
 		if yyl2 == 0 {
 		} else {
 			x.codecDecodeSelfFromMap(yyl2, d)
 		}
 		z.DecReadMapEnd()
-	} else if yyct2 == codecSelferValueTypeArray2735 {
+	} else if yyct2 == codecSelferValueTypeArray9592 {
 		yyl2 := z.DecReadArrayStart()
 		if yyl2 != 0 {
 			x.codecDecodeSelfFromArray(yyl2, d)
 		}
 		z.DecReadArrayEnd()
 	} else {
-		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct2735)
+		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct9592)
 	}
 }
 
 func (x *BinaryJWTClaims) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
-	var h codecSelfer2735
+	var h codecSelfer9592
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
 	var yyhl3 bool = l >= 0
@@ -317,7 +317,7 @@ func (x *BinaryJWTClaims) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 }
 
 func (x *BinaryJWTClaims) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
-	var h codecSelfer2735
+	var h codecSelfer9592
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
 	var yyj17 int

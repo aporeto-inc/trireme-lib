@@ -1,4 +1,4 @@
-package httpproxy
+package bufferpool
 
 import (
 	"sync"
@@ -11,11 +11,11 @@ type BufferPool struct {
 }
 
 // NewPool creates a new BufferPool.
-func NewPool() *BufferPool {
+func NewPool(size int) *BufferPool {
 	return &BufferPool{
 		s: sync.Pool{
 			New: func() interface{} {
-				return make([]byte, 32*1024)
+				return make([]byte, size)
 			},
 		},
 	}

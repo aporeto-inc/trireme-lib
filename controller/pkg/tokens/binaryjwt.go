@@ -125,7 +125,6 @@ func (c *BinaryJWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
 	// Combine the application claims with the standard claims
 	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
-
 	allclaims.SignerKey = c.secrets.TransmittedKey()
 
 	compressTags(allclaims)
@@ -135,9 +134,28 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 		return nil, err
 	}
 
-	sig, err := c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+	// Create the hash and use this for the signature.
+	h, err := hash(buf, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to sign header on ack packet: %s", err)
+	}
+
+	var sig []byte
+	if len(claims.RemoteID) == 0 {
+		// fmt.Println("Signing normally for ", allclaims.ID)
+		sig, err = c.sign(h, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+	} else {
+		s, err := c.sharedKeys.Get(claims.RemoteID)
+		if err != nil {
+			// fmt.Println("I expected to have the remote and I don't")
+			return nil, fmt.Errorf("I must have the remote at this point")
+		}
+		// fmt.Printf("Creating shared secrect of %s for %s\n", claims.RemoteID, claims.ID)
+		//processing a SynAck packet and we alreayd have the secret.
+		sig, err = hash(h, s.(*sharedSecret).key)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Set the appropriate claims header
@@ -215,18 +233,59 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (clai
 		return cachedClaims.(*ConnectionClaims), nonce, publicKey, nil
 	}
 
-	// If the token is not in the cache, we validate the token with the
-	// provided and validated public key.
-	if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+	// Create the hash and use this for the signature.
+	h, err := hash(token, nil)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to sign header on ack packet: %s", err)
 	}
 
-	// We create a new symetric key if we don't already have one.
-	// TODO : here we need to setup the right expiration as this is derived from
-	// the expiration time.
-	if _, err := c.sharedKeys.Get(binaryClaims.ID); err != nil {
-		sharedKey, err := symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
-		if err == nil {
+	if len(binaryClaims.RMT) > 0 {
+		// fmt.Println("Trying SynAck with shared secret of ", binaryClaims.ID)
+		var key []byte
+
+		// Try to find the remote shared key in the cache.
+		k, err := c.sharedKeys.Get(binaryClaims.ID)
+		if err != nil {
+			// fmt.Println("Calculagint symetric key for", binaryClaims.ID)
+			// If it is not there, calculate it from the public key and store it in the cache.
+			key, err = symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("unable to create DH key: %s", err)
+			}
+			// Add it in the cache
+			c.sharedKeys.AddOrUpdate(binaryClaims.ID, &sharedSecret{
+				key:  key,
+				tags: publicKeyClaims,
+			})
+		} else {
+			// fmt.Println("Using pre-shared key to decode for", binaryClaims.ID)
+			key = k.(*sharedSecret).key
+		}
+		ps, err := hash(h, key)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to hash toke in synack: %s", err)
+		}
+		if bytes.Compare(ps, sig) != 0 {
+			return nil, nil, nil, fmt.Errorf("unable to verify token with shared secret: they don't match %d %d ", len(ps), len(sig))
+		}
+	} else {
+		// fmt.Println("Processing Syn packet", binaryClaims.ID)
+		// If the token is not in the cache, we validate the token with the
+		// provided and validated public key.
+		if err := c.verify(h, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+		}
+
+		// We create a new symetric key if we don't already have one.
+		// TODO : here we need to setup the right expiration as this is derived from
+		// the expiration time.
+		if _, err := c.sharedKeys.Get(binaryClaims.ID); err != nil {
+			sharedKey, err := symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+			if err != nil {
+				// fmt.Println("unable to create symetric key for ", binaryClaims.ID)
+				return nil, nil, nil, fmt.Errorf("unable to create symetric key:%s", err)
+			}
+			// fmt.Println("Caching synack key with ID", binaryClaims.ID)
 			c.sharedKeys.AddOrUpdate(binaryClaims.ID, &sharedSecret{
 				key:  sharedKey,
 				tags: publicKeyClaims,
