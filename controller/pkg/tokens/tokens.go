@@ -18,6 +18,8 @@ type ConnectionClaims struct {
 	C string `json:",omitempty"`
 	// ID is the source PU ID
 	ID string `json:",omitempty"`
+	// RemoteID is the ID of the remote if known.
+	RemoteID string `json:",omitempty"`
 	// H is the claims header
 	H claimsheader.HeaderBytes `json:",omitempty"`
 }

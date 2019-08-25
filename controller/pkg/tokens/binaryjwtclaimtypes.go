@@ -4,7 +4,6 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -21,10 +20,9 @@ type BinaryJWTClaims struct {
 	C string `codec:",omitempty"`
 	// ID is the source PU ID
 	ID string `codec:",omitempty"`
-	// H is the claims header
-	H claimsheader.HeaderBytes `codec:",omitempty"`
 	// Expiration time
-	ExpiresAt int64  `codec:",omitempty"`
+	ExpiresAt int64 `codec:",omitempty"`
+	// SignerKey
 	SignerKey []byte `codec:",omitempty"`
 }
 
@@ -38,7 +36,6 @@ func ConvertToJWTClaims(b *BinaryJWTClaims) *JWTClaims {
 			EK:  b.EK,
 			C:   b.C,
 			ID:  b.ID,
-			H:   b.H,
 		},
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: b.ExpiresAt,
@@ -54,7 +51,6 @@ func ConvertToBinaryClaims(j *ConnectionClaims, validity time.Duration) *BinaryJ
 		EK:        j.EK,
 		C:         j.C,
 		ID:        j.ID,
-		H:         j.H,
 		ExpiresAt: time.Now().Add(validity).Unix(),
 	}
 	if j.T != nil {

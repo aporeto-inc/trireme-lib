@@ -46,7 +46,7 @@ func (t *tokenAccessor) getToken() tokens.TokenEngine {
 	return t.tokens
 }
 
-// SetToken updates sthe stored token in the struct
+// SetToken updates the stored token in the struct
 func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error {
 
 	t.Lock()
@@ -73,8 +73,10 @@ func (t *tokenAccessor) GetTokenServerID() string {
 func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
-		LCL: auth.LocalContext,
-		RMT: auth.RemoteContext,
+		ID:       context.ManagementID(),
+		LCL:      auth.LocalContext,
+		RMT:      auth.RemoteContext,
+		RemoteID: auth.RemoteContextID,
 	}
 
 	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader())
@@ -101,8 +103,9 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
-		T:   context.Identity(),
 		EK:  auth.LocalServiceContext,
+		T:   context.Identity(),
+		ID:  context.ManagementID(),
 	}
 
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader()); err != nil {

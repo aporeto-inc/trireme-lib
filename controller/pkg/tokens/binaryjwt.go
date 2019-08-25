@@ -4,23 +4,61 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/ugorji/go/codec"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
+
+// Format of Binary Tokens
+//    0             1              2               3               4
+//  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  |     D     |CT|E| Encoding |    R (reserved)                   |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  | Signature Position           |    nonce                       |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  |   ...                                                         |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  |   token                                                       |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  |   ...                                                         |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  | Signature                                                     |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  |   ...                                                         |
+//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//  D  [0:6]   - Datapath version
+//  CT [6:8]   - Compressed tag type
+//  E  [8:9]   - Encryption enabled
+//  C  [9:12]  - Codec selector
+//  R  [12:32] - Reserved
+//  L  [32:48] - Token Length
+//  Token bytes (equal to token length)
+//  Signature bytes
+
+const (
+	binaryNoncePosition = 6
+	binaryTokenPosition = 6 + 16
+	lengthPosition      = 4
+	headerLength        = 4
+	nonceLength         = 16
+)
+
+type sharedSecret struct {
+	key  []byte
+	tags []string
+}
 
 // BinaryJWTConfig configures the JWT token generator with the standard parameters. One
 // configuration is assigned to each server
@@ -29,151 +67,24 @@ type BinaryJWTConfig struct {
 	ValidityPeriod time.Duration
 	// Issuer is the server that issues the JWT
 	Issuer string
-	// signMethod is the method used to sign the JWT
-	signMethod jwt.SigningMethod
 	// secrets is the secrets used for signing and verifying the JWT
 	secrets secrets.Secrets
 	// cache test
 	tokenCache cache.DataStore
-	// compressionType determines of compression should be used when creating tokens
-	compressionType claimsheader.CompressionType
-	// compressionTagLength is the length of tags based on compressionType
-	compressionTagLength int
-	// datapathVersion is the current version of the datapath
-	datapathVersion claimsheader.DatapathVersion
+	// sharedKeys is a cache of pre-shared keys.
+	sharedKeys cache.DataStore
 }
 
 // NewBinaryJWT creates a new JWT token processor
 func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*BinaryJWTConfig, error) {
 
-	if len(issuer) > MaxServerName {
-		return nil, fmt.Errorf("server id should be max %d chars. got %s", MaxServerName, issuer)
-	}
-
-	for i := len(issuer); i < MaxServerName; i++ {
-		issuer = issuer + " "
-	}
-
-	var signMethod jwt.SigningMethod
-	compressionType := claimsheader.CompressionTypeNone
-
-	if s == nil {
-		return nil, errors.New("secrets can not be nil")
-	}
-
-	switch s.Type() {
-	case secrets.PKICompactType:
-		signMethod = jwt.SigningMethodES256
-		compressionType = s.(*secrets.CompactPKI).Compressed
-	default:
-		signMethod = jwt.SigningMethodNone
-	}
-
 	return &BinaryJWTConfig{
-		ValidityPeriod:       validity,
-		Issuer:               issuer,
-		signMethod:           signMethod,
-		secrets:              s,
-		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*2000),
-		compressionType:      compressionType,
-		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
-		datapathVersion:      claimsheader.DatapathVersion1,
+		ValidityPeriod: validity,
+		Issuer:         issuer,
+		secrets:        s,
+		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*2000),
+		sharedKeys:     cache.NewCacheWithExpiration("SharedKeysCache", time.Minute*5),
 	}, nil
-}
-
-// CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
-// key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
-
-	// Combine the application claims with the standard claims
-	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
-
-	if !isAck {
-		allclaims.SignerKey = c.secrets.TransmittedKey()
-
-		// Handling compression here. If we need to use compression, we will copy
-		// the claims to the C claim and remove all the other fields.
-		tags := allclaims.T
-		allclaims.T = nil
-		for _, t := range tags {
-			if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
-				allclaims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
-			} else {
-				allclaims.C = t
-			}
-		}
-		zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
-	} else {
-		nonce = nil
-	}
-
-	// Set the appropriate claims header
-	claimsHeader.SetCompressionType(c.compressionType)
-	claimsHeader.SetDatapathVersion(c.datapathVersion)
-	allclaims.H = claimsHeader.ToBytes()
-
-	// Encode and sign the token
-	buf := make([]byte, 0, 1400)
-	var h codec.Handle = new(codec.CborHandle)
-	enc := codec.NewEncoderBytes(&buf, h)
-
-	if err = enc.Encode(allclaims); err != nil {
-		return nil, fmt.Errorf("unable to encode message: %s", err)
-	}
-
-	var sig []byte
-	if isAck {
-		sig, err = hash(buf)
-	} else {
-		sig, err = c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Pack and return the token.
-	return packToken(nonce, buf, sig), nil
-
-}
-
-func packToken(nonce, buf, sig []byte) []byte {
-
-	// Token is the concatenation of
-	// [Position of Signature] [nonce] [token] [signature]
-	token := make([]byte, len(buf)+len(nonce)+len(sig)+2)
-
-	binary.BigEndian.PutUint16(token[0:2], uint16(len(nonce)+len(buf)+2))
-	if len(nonce) > 0 {
-		copy(token[2:], nonce)
-	}
-	copy(token[2+len(nonce):], buf)
-	copy(token[2+len(nonce)+len(buf):], sig)
-
-	return token
-}
-
-// unpackToken returns nonce, token, signature or error if something fails
-func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, error) {
-
-	// We must have enough data to read the length.
-	if len(data) < 2 {
-		return nil, nil, nil, fmt.Errorf("not enough data")
-	}
-	sigPosition := int(binary.BigEndian.Uint16(data[0:2]))
-
-	// The token must be long enough to have at least 1 byte of signature.
-	if len(data) < sigPosition+1 {
-		return nil, nil, nil, fmt.Errorf("no signature in the token")
-	}
-
-	var nonce []byte
-	if !isAck {
-		nonce = data[2 : 2+NonceLength]
-	}
-
-	token := data[2+len(nonce) : sigPosition]
-	sig := data[sigPosition:]
-	return nonce, token, sig, nil
 }
 
 // Decode  takes as argument the JWT token and the certificate of the issuer.
@@ -181,124 +92,211 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, error) {
 // the JWT if the certificate is trusted
 func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
-	var ackCert interface{}
-	var certClaims []string
-
-	// Unpack the token first.
-	nonce, token, sig, err := unpackToken(isAck, data)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to unpack token: %s", err)
+	if isAck {
+		return c.decodeAck(data, previousCert)
 	}
 
-	// Decode the token into a structure.
-	jwtClaims := &BinaryJWTClaims{}
-	var h codec.Handle = new(codec.CborHandle)
-	dec := codec.NewDecoderBytes(token, h)
-	if err := dec.Decode(jwtClaims); err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to decode incoming token: %s", err)
+	return c.decodeSyn(data, previousCert)
+}
+
+// CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
+// key. It also randomizes the source nonce of the token. It returns back the token and the private key.
+func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
+
+	if isAck {
+		return c.createAckToken(claims, nonce, header)
 	}
 
-	// If it is not an Ack packet, parse it for the signing key.
-	if !isAck {
-		ackCert, certClaims, err = c.secrets.KeyAndClaims(jwtClaims.SignerKey)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to identify signer key: %s", err)
-		}
-	}
-
-	// Look it up in the cache. If we have already validated it, return immediately.
-	if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
-		return cachedClaims.(*ConnectionClaims), nonce, ackCert, nil
-	}
-
-	// Validate the header.
-	if jwtClaims.H != nil {
-		if err := c.verifyClaimsHeader(jwtClaims.H.ToClaimsHeader()); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
-	// Figure out which key to use.
-	if ackCert == nil && previousCert == nil {
-		return nil, nil, nil, fmt.Errorf("public key not available")
-	}
-
-	if ackCert != nil {
-		publicKey = ackCert.(*ecdsa.PublicKey)
-	}
-	if previousCert != nil {
-		publicKey = previousCert.(*ecdsa.PublicKey)
-	}
-
-	// Validate the token.
-	if !isAck {
-		if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
-		}
-	} else {
-		ps, err := hash(token)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
-		}
-		if bytes.Compare(ps, sig) != 0 {
-			fmt.Println("Faield")
-			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
-		}
-	}
-
-	if !isAck {
-
-		// Handling of compressed tags in a backward compatible manner. If there are claims
-		// arriving in the compressed field then we append them to the tags.
-
-		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ID}
-
-		if certClaims != nil {
-			tags = append(tags, certClaims...)
-		}
-
-		compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.C)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("invalid claims")
-		}
-
-		if len(compressedClaims)%c.compressionTagLength != 0 {
-			return nil, nil, nil, fmt.Errorf("invalid claims length. compression mismatch %d/%d", len(compressedClaims), c.compressionTagLength)
-		}
-
-		for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
-			tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
-		}
-
-		jwtClaims.T = tags
-
-		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
-	}
-
-	connClaims := ConvertToJWTClaims(jwtClaims).ConnectionClaims
-	c.tokenCache.AddOrUpdate(string(token), connClaims)
-
-	return connClaims, nonce, publicKey, nil
+	return c.createSynToken(claims, nonce, header)
 }
 
 // Randomize adds a nonce to an existing token. Returns the nonce
 func (c *BinaryJWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 
-	if len(token) < 2+NonceLength {
+	if len(token) < 6+NonceLength {
 		return fmt.Errorf("token is too small")
 	}
 
-	copy(token[2:], nonce)
+	copy(token[6:], nonce)
 
 	return nil
 }
 
-func (c *BinaryJWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {
+func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
+	// Combine the application claims with the standard claims
+	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
 
-	switch {
-	case claimsHeader.CompressionType() != c.compressionType:
+	allclaims.SignerKey = c.secrets.TransmittedKey()
+
+	compressTags(allclaims)
+
+	buf, err := encode(allclaims)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the appropriate claims header
+	header.SetCompressionType(claimsheader.CompressionTypeV1)
+	header.SetDatapathVersion(claimsheader.DatapathVersion1)
+
+	// Pack and return the token.
+	return packToken(header.ToBytes(), nonce, buf, sig), nil
+}
+
+func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
+
+	// Combine the application claims with the standard claims
+	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
+
+	// We don't want to send any nonce on the wire. Make it nil.
+	nonce = nil
+
+	// Encode the buffer
+	buf, err := encode(allclaims)
+	if err != nil {
+		return nil, fmt.Errorf("unable to encode claims: %s", err)
+	}
+
+	// Find hte pre-shared key for the Ack packet.
+	s, err := c.sharedKeys.Get(claims.RemoteID)
+	if err != nil {
+		return nil, fmt.Errorf("shared key not found")
+	}
+
+	// Create the hash and use this as the signature.
+	sig, err := hash(buf, s.(*sharedSecret).key)
+	if err != nil {
+		return nil, fmt.Errorf("unable to sign header on ack packet: %s", err)
+	}
+
+	// Set the appropriate claims header
+	header.SetCompressionType(claimsheader.CompressionTypeV1)
+	header.SetDatapathVersion(claimsheader.DatapathVersion1)
+
+	// Pack and return the token.
+	return packToken(header.ToBytes(), nonce, buf, sig), nil
+}
+
+func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+
+	// Unpack the token first.
+	header, nonce, token, sig, err := unpackToken(false, data)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to unpack token: %s", err)
+	}
+
+	// Validate the header.
+	if err := c.verifyClaimsHeader(claimsheader.HeaderBytes(header).ToClaimsHeader()); err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Decode the claims to a data structure.
+	binaryClaims, err := decode(token)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Derive the transmitter public key and associated claims. This will also
+	// validate that the transmitter key is valid or provide it from a cache.
+	publicKey, publicKeyClaims, err := c.secrets.KeyAndClaims(binaryClaims.SignerKey)
+	if err != nil || publicKey == nil {
+		return nil, nil, nil, fmt.Errorf("unable to identify signer key: %s", err)
+	}
+
+	// Since we know that the signature is valid, we check if the token is already in
+	// the cache and accept it. We do that after the verification, in case the
+	// public key has expired and we still have it in the cache.
+	if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
+		return cachedClaims.(*ConnectionClaims), nonce, publicKey, nil
+	}
+
+	// If the token is not in the cache, we validate the token with the
+	// provided and validated public key.
+	if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+	}
+
+	// We create a new symetric key if we don't already have one.
+	// TODO : here we need to setup the right expiration as this is derived from
+	// the expiration time.
+	if _, err := c.sharedKeys.Get(binaryClaims.ID); err != nil {
+		sharedKey, err := symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+		if err == nil {
+			c.sharedKeys.AddOrUpdate(binaryClaims.ID, &sharedSecret{
+				key:  sharedKey,
+				tags: publicKeyClaims,
+			})
+		}
+	}
+
+	// Uncommpress the tags and add the public key claims to the tags that
+	// we return.
+	uncompressTags(binaryClaims, publicKeyClaims)
+
+	connClaims := ConvertToJWTClaims(binaryClaims).ConnectionClaims
+
+	// Cache the token and the token string and the claims and return the
+	// connection claims.
+	c.tokenCache.AddOrUpdate(string(token), connClaims)
+
+	return connClaims, nonce, publicKey, nil
+
+}
+
+func (c *BinaryJWTConfig) decodeAck(data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+
+	// Unpack the token first.
+	header, nonce, token, sig, err := unpackToken(true, data)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to unpack token: %s", err)
+	}
+
+	// Validate the header.
+	if err := c.verifyClaimsHeader(claimsheader.HeaderBytes(header).ToClaimsHeader()); err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Decode the claims to a data structure.
+	binaryClaims, err := decode(token)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Find the shared key. This must already be in the cache and pre-calculated,
+	// since we have seen the syn and syn ack packets.
+	k, err := c.sharedKeys.Get(binaryClaims.ID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to find shared secret")
+	}
+	key := k.(*sharedSecret).key
+
+	// Calculate the signature on the token and compare it with the incoming
+	// signature. Since this is simple symetric hashing this is simple.
+	ps, err := hash(token, key)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+	}
+	if bytes.Compare(ps, sig) != 0 {
+		return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
+	}
+
+	connClaims := ConvertToJWTClaims(binaryClaims).ConnectionClaims
+
+	return connClaims, nonce, nil, nil
+}
+
+func (c *BinaryJWTConfig) verifyClaimsHeader(h *claimsheader.ClaimsHeader) error {
+
+	if h.CompressionType() != claimsheader.CompressionTypeV1 {
 		return newErrToken(errCompressedTagMismatch)
-	case claimsHeader.DatapathVersion() != c.datapathVersion:
+	}
+
+	if h.DatapathVersion() != claimsheader.DatapathVersion1 {
 		return newErrToken(errDatapathVersionMismatch)
 	}
 
@@ -348,16 +346,159 @@ func (c *BinaryJWTConfig) verify(hash []byte, sig []byte, key *ecdsa.PublicKey) 
 	return fmt.Errorf("invalid signature")
 }
 
-var (
-	badsecret = []byte("1234567890123456")
-)
+func encode(c *BinaryJWTClaims) ([]byte, error) {
+	// Encode and sign the token
+	buf := make([]byte, 0, 1400)
+	var h codec.Handle = new(codec.CborHandle)
+	enc := codec.NewEncoderBytes(&buf, h)
 
-func hash(buf []byte) ([]byte, error) {
+	if err := enc.Encode(c); err != nil {
+		return nil, fmt.Errorf("unable to encode message: %s", err)
+	}
+
+	return buf, nil
+}
+
+func decode(buf []byte) (*BinaryJWTClaims, error) {
+	// Decode the token into a structure.
+	binaryClaims := &BinaryJWTClaims{}
+	var h codec.Handle = new(codec.CborHandle)
+
+	dec := codec.NewDecoderBytes(buf, h)
+	if err := dec.Decode(binaryClaims); err != nil {
+		return nil, fmt.Errorf("decoding failed: %s", err)
+	}
+
+	return binaryClaims, nil
+}
+
+func packToken(header, nonce, token, sig []byte) []byte {
+
+	if len(nonce) > nonceLength {
+		panic("invalid nonce length ")
+	}
+
+	if len(header) != headerLength {
+		panic("invalid header")
+	}
+
+	binaryTokenPosition := binaryNoncePosition + len(nonce)
+	sigPosition := binaryTokenPosition + len(token)
+
+	// Token is the concatenation of
+	// [Position of Signature] [nonce] [token] [signature]
+	data := make([]byte, sigPosition+len(sig))
+
+	// Header bytes
+	copy(data[0:headerLength], header)
+
+	// Length of token
+	binary.BigEndian.PutUint16(data[lengthPosition:], uint16(sigPosition))
+
+	// nonce not required for ack packets
+	if len(nonce) > 0 {
+		copy(data[binaryNoncePosition:], nonce)
+	}
+
+	// token
+	copy(data[binaryTokenPosition:], token)
+
+	// signature
+	copy(data[sigPosition:], sig)
+
+	return data
+}
+
+// unpackToken returns nonce, token, signature or error if something fails
+func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error) {
+
+	// We must have enough data to read the length.
+	if len(data) < binaryNoncePosition {
+		return nil, nil, nil, nil, fmt.Errorf("not enough data")
+	}
+
+	header := data[:lengthPosition]
+
+	sigPosition := int(binary.BigEndian.Uint16(data[lengthPosition : lengthPosition+2]))
+
+	// The token must be long enough to have at least 1 byte of signature.
+	if len(data) < sigPosition+1 {
+		return nil, nil, nil, nil, fmt.Errorf("no signature in the token")
+	}
+
+	var nonce []byte
+	if !isAck {
+		nonce = data[binaryNoncePosition : binaryNoncePosition+nonceLength]
+	}
+
+	// Only if nonce is found do we need to advance. So, use the
+	// actual length of the nonce and not just a constant here.
+	token := data[binaryNoncePosition+len(nonce) : sigPosition]
+
+	sig := data[sigPosition:]
+
+	return header, nonce, token, sig, nil
+}
+
+func hash(buf []byte, key []byte) ([]byte, error) {
 
 	hasher := crypto.SHA256.New()
 	if _, err := hasher.Write(buf); err != nil {
 		return nil, fmt.Errorf("unable to hash data structure: %s", err)
 	}
 
-	return hasher.Sum(badsecret), nil
+	return hasher.Sum(key), nil
+}
+
+// symetricKey returns a symetric key for encryption
+func symetricKey(privateKey interface{}, publicKey interface{}, remotePublic interface{}) ([]byte, error) {
+
+	c := elliptic.P256()
+
+	x, _ := c.ScalarMult(remotePublic.(*ecdsa.PublicKey).X, remotePublic.(*ecdsa.PublicKey).Y, privateKey.(*ecdsa.PrivateKey).D.Bytes())
+
+	var endLength = 32 - len(x.Bytes())
+	skey := make([]byte, endLength)
+	skey = append(skey, x.Bytes()...)
+
+	return skey, nil
+}
+
+func compressTags(claims *BinaryJWTClaims) {
+	// Handling compression here. If we need to use compression, we will copy
+	// the claims to the C claim and remove all the other fields.
+	tags := claims.T
+	claims.T = nil
+	for _, t := range tags {
+		if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
+			claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
+		} else {
+			claims.C = t
+		}
+	}
+}
+
+func uncompressTags(binaryClaims *BinaryJWTClaims, publicKeyClaims []string) error {
+	tags := []string{enforcerconstants.TransmitterLabel + "=" + binaryClaims.ID}
+
+	if publicKeyClaims != nil {
+		tags = append(tags, publicKeyClaims...)
+	}
+
+	compressedClaims, err := base64.StdEncoding.DecodeString(binaryClaims.C)
+	if err != nil {
+		return fmt.Errorf("invalid claims: %s %s", err, binaryClaims.C)
+	}
+
+	if len(compressedClaims)%claimsheader.CompressedTagLengthV1 != 0 {
+		return fmt.Errorf("invalid claims length. compression mismatch %d/%d", len(compressedClaims), claimsheader.CompressedTagLengthV1)
+	}
+
+	for i := 0; i < len(compressedClaims); i = i + claimsheader.CompressedTagLengthV1 {
+		tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+claimsheader.CompressedTagLengthV1]))
+	}
+
+	binaryClaims.T = tags
+
+	return nil
 }

@@ -82,7 +82,7 @@ func (p *tokenManager) Verify(token []byte) (*DatapathKey, error) {
 	}
 
 	claims := &verifierClaims{}
-	var JWTToken *jwt.Token
+	var t *jwt.Token
 	var err error
 	for _, pk := range p.publicKeys {
 
@@ -90,10 +90,10 @@ func (p *tokenManager) Verify(token []byte) (*DatapathKey, error) {
 			continue
 		}
 
-		JWTToken, err = jwt.ParseWithClaims(tokenString, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
+		t, err = jwt.ParseWithClaims(tokenString, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
 			return pk, nil
 		})
-		if err != nil || !JWTToken.Valid {
+		if err != nil || !t.Valid {
 			continue
 		}
 
