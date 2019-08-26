@@ -217,7 +217,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		refNSPath,
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
-	fmt.Println(" \n\n *** ABHI: The env for the remote enforcer are: ", cmd.Env, "\n\n\n ")
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
 		if err1 := os.Remove(contextFile); err1 != nil {
