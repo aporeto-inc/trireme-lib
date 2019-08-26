@@ -206,7 +206,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		certBytes := data[tokenPosition+tokenLength+1:]
 
-		ackCert, certClaims, err = c.secrets.KeyAndClaims(certBytes)
+		ackCert, certClaims, _, err = c.secrets.KeyAndClaims(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}

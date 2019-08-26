@@ -94,8 +94,7 @@ func init() {
 func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	var initEnfPayload rpcwrapper.InitRequestPayload
 
-	dur, _ := time.ParseDuration("8760h0m0s")
-	initEnfPayload.Validity = dur
+	initEnfPayload.Validity = time.Minute * 10
 	initEnfPayload.MutualAuth = true
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()

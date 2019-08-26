@@ -95,12 +95,12 @@ func (p *CompactPKI) PublicKey() interface{} {
 }
 
 //KeyAndClaims returns both the key and any attributes associated with the public key.
-func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
+func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error) {
 	kc, err := p.verifier.Verify(pkey)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, time.Unix(0, 0), err
 	}
-	return kc.PublicKey, kc.Tags, nil
+	return kc.PublicKey, kc.Tags, kc.Expiration, nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI

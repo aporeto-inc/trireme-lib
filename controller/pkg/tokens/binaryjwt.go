@@ -18,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 // Format of Binary Tokens
@@ -82,7 +83,7 @@ func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*Bi
 		ValidityPeriod: validity,
 		Issuer:         issuer,
 		secrets:        s,
-		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*2000),
+		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", validity),
 		sharedKeys:     cache.NewCacheWithExpiration("SharedKeysCache", time.Minute*5),
 	}, nil
 }
@@ -202,7 +203,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (clai
 	// Derive the transmitter public key and associated claims. This will also
 	// validate that the transmitter key is valid or provide it from a cache.
 	// Once it succeeds we know that the public key that was provide is correct.
-	publicKey, publicKeyClaims, err := c.secrets.KeyAndClaims(binaryClaims.SignerKey)
+	publicKey, publicKeyClaims, expTime, err := c.secrets.KeyAndClaims(binaryClaims.SignerKey)
 	if err != nil || publicKey == nil {
 		return nil, nil, nil, fmt.Errorf("unable to identify signer key: %s", err)
 	}
@@ -224,13 +225,24 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (clai
 	// of the remote.
 	if len(binaryClaims.RMT) > 0 {
 
-		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims)
+		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unable to derive shared key: %s", err)
 		}
 
 		if err := c.verifyWithSharedKey(token, key, sig); err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to verify token with shared key: %s", err)
+			// We need to be cautious here. There is a chance that the remote public key
+			// has changed. In this case, we will re-calculate the shared key and try
+			// again. We don't have the option of doing that for Ack packets, but at least
+			// we can do it here.
+			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("unable to verify token or create new key: %s", err)
+			}
+
+			if err = c.verifyWithSharedKey(token, key, sig); err != nil {
+				return nil, nil, nil, fmt.Errorf("unable to verify token with any key: %s", err)
+			}
 		}
 	} else {
 		// If the token is not in the cache, we validate the token with the
@@ -241,19 +253,11 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (clai
 		}
 
 		// We create a new symetric key if we don't already have one.
-		// TODO : here we need to setup the right expiration as this is derived from
-		// the expiration time.
 		if _, err := c.sharedKeys.Get(binaryClaims.ID); err != nil {
-			sharedKey, err := symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+			_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
 			if err != nil {
-				// fmt.Println("unable to create symetric key for ", binaryClaims.ID)
 				return nil, nil, nil, fmt.Errorf("unable to create symetric key:%s", err)
 			}
-			// fmt.Println("Caching synack key with ID", binaryClaims.ID)
-			c.sharedKeys.AddOrUpdate(binaryClaims.ID, &sharedSecret{
-				key:  sharedKey,
-				tags: publicKeyClaims,
-			})
 		}
 	}
 
@@ -383,7 +387,7 @@ func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, erro
 
 	s, err := c.sharedKeys.Get(id)
 	if err != nil {
-		// fmt.Println("I expected to have the remote and I don't")
+
 		return nil, fmt.Errorf("shared secret not found")
 	}
 
@@ -396,10 +400,12 @@ func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, erro
 }
 
 func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte) error {
+
 	ps, err := hash(buf, key)
 	if err != nil {
 		return fmt.Errorf("unable to hash toke in synack: %s", err)
 	}
+
 	if bytes.Compare(ps, sig) != 0 {
 		return fmt.Errorf("unable to verify token with shared secret: they don't match %d %d ", len(ps), len(sig))
 	}
@@ -407,28 +413,45 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 	return nil
 }
 
-func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string) ([]byte, error) {
+func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
 	var key []byte
 
 	// We try to find the remote in the cache
 	k, err := c.sharedKeys.Get(id)
 	if err != nil {
-		// fmt.Println("Calculagint symetric key for", id )
-		// If it is not there, calculate it from the public key and store it in the cache.
-		key, err = symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+		// We don't have it in the cache. Let's create a new shared key.
+		key, err = c.newSharedKey(id, publicKey, publicKeyClaims, expTime)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create DH key: %s", err)
+			return nil, err
 		}
-		// Add it in the cache
-		c.sharedKeys.AddOrUpdate(id, &sharedSecret{
-			key:  key,
-			tags: publicKeyClaims,
-		})
 	} else {
-		// fmt.Println("Using pre-shared key to decode for", binaryClaims.ID)
+		// Key is already found in the cache.
 		key = k.(*sharedSecret).key
 	}
 
+	return key, nil
+}
+
+func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
+
+	// If it is not there, calculate it from the public key and store it in the cache.
+	key, err := symetricKey(c.secrets.EncodingKey(), c.secrets.EncodingKey().(*ecdsa.PrivateKey).Public(), publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create DH key: %s", err)
+	}
+	// Add it in the cache
+	c.sharedKeys.AddOrUpdate(id, &sharedSecret{
+		key:  key,
+		tags: publicKeyClaims,
+	})
+
+	// if the token expires before our default validity, update the timer
+	// so that we expire it no longer than its validity.
+	if time.Now().Add(c.ValidityPeriod).After(expTime) {
+		if err := c.sharedKeys.SetTimeOut(id, expTime.Sub(time.Now())); err != nil {
+			zap.L().Warn("Failed to update cache validity for token", zap.Error(err))
+		}
+	}
 	return key, nil
 }
 
