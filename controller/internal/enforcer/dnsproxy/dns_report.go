@@ -68,6 +68,7 @@ func (p *Proxy) reportDNSRequests(chreport chan dnsReport) {
 }
 
 func (p *Proxy) reportDNSLookup(name string, pucontext *pucontext.PUContext, srcIP net.IP, err string) {
+	return
 	p.chreports <- dnsReport{
 		contextID:  pucontext.ID(),
 		nameLookup: name,
