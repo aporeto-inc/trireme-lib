@@ -11,16 +11,16 @@ import (
 // RemoteParameters holds all configuration objects that must be passed
 // during the initialization of the monitor.
 type RemoteParameters struct {
-	LogToConsole   bool
-	LogWithID      bool
-	LogLevel       string
-	LogFormat      string
-	CompressedTags claimsheader.CompressionType
-	DisableLog     bool
+	LogToConsole    bool
+	LogWithID       bool
+	LogLevel        string
+	LogFormat       string
+	CompressedTags  claimsheader.CompressionType
+	DisableLogWrite bool
 }
 
 // GetParameters retrieves log parameters for Remote Enforcer.
-func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType, disableLog bool) {
+func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType, DisableLogWrite bool) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
@@ -45,6 +45,6 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 			compressedTagsVersion = claimsheader.CompressionTypeV2
 		}
 	}
-	disableLog, _ = strconv.ParseBool(os.Getenv(constants.EnvDisableLog))
+	DisableLogWrite, _ = strconv.ParseBool(os.Getenv(constants.EnvDisableLogWrite))
 	return
 }
