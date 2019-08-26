@@ -305,12 +305,13 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP, uint16(downPort))
-	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized by Application ACLs")
+	isEncrypted, externalnetwork, err := p.CheckExternalNetwork(puContext, downIP, downPort, flowproperties, true)
+	if err != nil {
+		return false, err
 	}
-
+	if externalnetwork {
+		return false, nil
+	}
 	for {
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
@@ -400,11 +401,13 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
-	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		flowProperties.SourceType = collector.EndPointTypeExternalIP
-		p.reportRejectedFlow(flowProperties, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized by Network ACLs")
+	//networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
+	isEncrypted, externalnetwork, err := p.CheckExternalNetwork(puContext, upConn.RemoteAddr().(*net.TCPAddr).IP, backendport, flowProperties, false)
+	if err != nil {
+		return false, err
+	}
+	if externalnetwork {
+		return false, nil
 	}
 
 	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
