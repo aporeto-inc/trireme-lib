@@ -306,9 +306,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	var value interface{}
 	var err error
-	report := &collector.PacketReport{
-		Payload: make([]byte, 64),
-	}
+	report := &collector.PacketReport{}
 
 	if msg.tcpConn == nil {
 		if d.puFromIP == nil {
@@ -359,6 +357,10 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	report.Mark = msg.Mark
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
+	// Memory allocation must be done only if we are sure we transmitting
+	// the report. Leads to unecessary memory operations otherwise
+	// that affect performance
+	report.Payload = make([]byte, 64)
 	buf := msg.p.GetBuffer(0)
 	if len(buf) > 64 {
 		copy(report.Payload, msg.p.GetBuffer(0)[0:64])

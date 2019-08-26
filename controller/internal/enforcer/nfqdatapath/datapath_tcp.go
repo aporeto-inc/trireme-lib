@@ -28,7 +28,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),
 		)
-
 		defer zap.L().Debug("Finished Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.GetTCPFlags())),

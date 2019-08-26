@@ -359,7 +359,7 @@ func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceCont
 	p.Lock()
 
 	p.synToken = token
-	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+	p.synExpiration = time.Now().Add(time.Minute * 1)
 	p.synServiceContext = serviceContext
 
 	p.Unlock()
