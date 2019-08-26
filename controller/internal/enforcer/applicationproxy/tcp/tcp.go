@@ -282,23 +282,6 @@ func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Co
 
 }
 
-// CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
-// We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
-
-	// If the backend is not a local IP it means that we are a client.
-	if p.isLocal(upConn) {
-		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
-	}
-
-	isEncrypted, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
-	if err != nil {
-		return false, err
-	}
-
-	return isEncrypted, nil
-}
-
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downConn net.Conn) (bool, error) {
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
