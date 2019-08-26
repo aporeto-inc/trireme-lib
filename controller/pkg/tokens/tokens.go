@@ -7,7 +7,7 @@ import (
 
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
-	T *policy.TagStore `codec:",omitempty"`
+	T *policy.TagStore `json:",omitempty"`
 	// RMT is the nonce of the remote that has to be signed in the JWT
 	RMT []byte `json:",omitempty"`
 	// LCL is the nonce of the local node that has to be signed
