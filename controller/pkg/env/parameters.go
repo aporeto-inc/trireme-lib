@@ -45,6 +45,7 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 			compressedTagsVersion = claimsheader.CompressionTypeV2
 		}
 	}
+	// here we skip the error handling because the env is passed from the main enforcerd, so it has to be either true or false.
 	DisableLogWrite, _ = strconv.ParseBool(os.Getenv(constants.EnvDisableLogWrite))
 	return
 }
