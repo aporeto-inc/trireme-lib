@@ -1,4 +1,4 @@
-// +build linux !windows
+// +build linux windows
 
 package iptablesctrl
 
@@ -127,13 +127,13 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) *iptables {
 
 	return &iptables{
-		impl:                  impl,
-		fqc:                   fqc,
-		mode:                  mode,
-		ipset:                 ips,
-		isLegacyKernel:        buildflags.IsLegacyKernel(),
-		conntrackCmd:          flushUDPConntrack,
-		cfg:                   nil,
+		impl:           impl,
+		fqc:            fqc,
+		mode:           mode,
+		ipset:          ips,
+		isLegacyKernel: buildflags.IsLegacyKernel(),
+		conntrackCmd:   flushUDPConntrack,
+		cfg:            nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 		serviceIDToIPsets:     map[string]*ipsetInfo{},
 		puToServiceIDs:        map[string][]string{},

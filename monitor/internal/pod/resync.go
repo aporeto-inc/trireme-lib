@@ -1,4 +1,5 @@
-// +build linux
+// +build linux !windows
+
 package podmonitor
 
 import (

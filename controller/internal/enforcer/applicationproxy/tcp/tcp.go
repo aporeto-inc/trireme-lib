@@ -125,9 +125,11 @@ func (p *Proxy) ShutDown() error {
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
-	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
+	upConnP := upConn.(*markedconn.ProxiedConnection)
+	ip, port := upConnP.GetOriginalDestination()
+	nativeData := upConnP.GetNativeData()
 
-	downConn, err := p.downConnection(ctx, ip, port)
+	downConn, err := p.downConnection(ctx, ip, port, nativeData)
 	if err != nil {
 
 		flowproperties := &proxyFlowProperties{
@@ -271,14 +273,14 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Conn, error) {
+func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, nativeData *markedconn.NativeData) (net.Conn, error) {
 
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
 	}
 
-	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, proxyMarkInt)
 
 }
 

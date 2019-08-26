@@ -11,22 +11,10 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.uber.org/zap"
 )
 
-// Client is an api client structure.
-type Client struct {
-	addr *net.UnixAddr
-}
-
-// NewClient creates a new client.
-func NewClient(path string) (*Client, error) {
-	addr, err := net.ResolveUnixAddr("unix", path)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %s", err)
-	}
-
-	return &Client{addr: addr}, nil
-}
+type dialContextFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
 // SendRequest sends a request to the remote.
 // TODO: Add retries
@@ -34,9 +22,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 
 	httpc := http.Client{
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.DialUnix("unix", nil, c.addr)
-			},
+			DialContext:     c.getDialContext(),
 			MaxIdleConns:    10,
 			IdleConnTimeout: 10 * time.Second,
 		},
@@ -46,7 +32,7 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 	if err := json.NewEncoder(b).Encode(event); err != nil {
 		return fmt.Errorf("Unable to encode message: %s", err)
 	}
-
+	zap.L().Debug("Posting request")
 	resp, err := httpc.Post("http://unix", "application/json", b)
 	if err != nil {
 		return err

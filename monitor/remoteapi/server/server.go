@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,11 +26,9 @@ type EventServer struct {
 // NewEventServer creates a new event server
 func NewEventServer(address string, registerer registerer.Registerer) (*EventServer, error) {
 
-	// Cleanup the socket first.
-	if _, err := os.Stat(address); err == nil {
-		if err := os.Remove(address); err != nil {
-			return nil, fmt.Errorf("Cannot create clean up socket: %s", err)
-		}
+	err := cleanupPipe(address)
+	if err != nil {
+		return nil, err
 	}
 
 	return &EventServer{
@@ -54,20 +51,11 @@ func (e *EventServer) Run(ctx context.Context) error {
 		Handler: e,
 	}
 
-	// Start a custom listener
-	addr, _ := net.ResolveUnixAddr("unix", e.socketPath)
-	nl, err := net.ListenUnix("unix", addr)
+	listener, err := e.makePipe()
+
 	if err != nil {
-		return fmt.Errorf("Unable to start API server: %s", err)
+		return err
 	}
-
-	// We make the socket accesible to all users of the system.
-	// TODO: create a trireme group for this
-	if err := os.Chmod(addr.String(), 0766); err != nil {
-		return fmt.Errorf("Cannot make the socket accessible to all users: %s", err)
-	}
-
-	listener := &UIDListener{nl}
 
 	// Start serving HTTP requests in the background
 	go e.server.Serve(listener) // nolint
@@ -75,7 +63,7 @@ func (e *EventServer) Run(ctx context.Context) error {
 	// Listen for context cancellation to close the socket.
 	go func() {
 		<-ctx.Done()
-		nl.Close() // nolint
+		listener.Close() // nolint
 	}()
 
 	return nil
@@ -98,10 +86,10 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateUser(r, event); err != nil {
+	/* if err := validateUser(r, event); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid user to pid mapping found: %s", err), http.StatusForbidden)
 		return
-	}
+	} */
 
 	if err := validateEvent(event); err != nil {
 		http.Error(w, fmt.Sprintf("Bad request: %s", err), http.StatusBadRequest)
