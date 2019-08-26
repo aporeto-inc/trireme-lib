@@ -108,13 +108,13 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	if !isAck {
 
 		zap.L().Debug("claims", zap.Reflect("all", allclaims), zap.String("type", string(c.compressionType)))
-		fmt.Println("Comression type", c.compressionType)
+
 		// Handling compression here. If we need to use compression, we will copy
 		// the claims to the C claim and remove all the other fields.
 		if c.compressionType != claimsheader.CompressionTypeNone {
 			tags := allclaims.T
 			allclaims.T = nil
-			fmt.Println("What is in tags", tags.Tags)
+
 			for _, t := range tags.Tags {
 				if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
 					claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
@@ -123,7 +123,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 				}
 			}
 
-			zap.L().Info("claims (post)", zap.Reflect("all", allclaims))
+			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
 		}
 	}
 

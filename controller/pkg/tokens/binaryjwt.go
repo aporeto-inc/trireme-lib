@@ -235,6 +235,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, previousCert interface{}) (clai
 			// has changed. In this case, we will re-calculate the shared key and try
 			// again. We don't have the option of doing that for Ack packets, but at least
 			// we can do it here.
+			zap.L().Warn("Replacing shared key. First attempt failed", zap.Error(err))
 			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("unable to verify token or create new key: %s", err)
@@ -458,7 +459,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 func encode(c *BinaryJWTClaims) ([]byte, error) {
 	// Encode and sign the token
 	buf := make([]byte, 0, 1400)
-	var h codec.Handle = new(codec.CborHandle)
+	var h codec.Handle = new(codec.MsgpackHandle)
 	enc := codec.NewEncoderBytes(&buf, h)
 
 	if err := enc.Encode(c); err != nil {
@@ -471,7 +472,7 @@ func encode(c *BinaryJWTClaims) ([]byte, error) {
 func decode(buf []byte) (*BinaryJWTClaims, error) {
 	// Decode the token into a structure.
 	binaryClaims := &BinaryJWTClaims{}
-	var h codec.Handle = new(codec.CborHandle)
+	var h codec.Handle = new(codec.MsgpackHandle)
 
 	dec := codec.NewDecoderBytes(buf, h)
 	if err := dec.Decode(binaryClaims); err != nil {
