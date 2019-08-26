@@ -2,6 +2,7 @@ package env
 
 import (
 	"os"
+	"strconv"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -10,21 +11,21 @@ import (
 // RemoteParameters holds all configuration objects that must be passed
 // during the initialization of the monitor.
 type RemoteParameters struct {
-	LogToConsole   bool
-	LogWithID      bool
-	LogLevel       string
-	LogFormat      string
-	CompressedTags claimsheader.CompressionType
+	LogToConsole    bool
+	LogWithID       bool
+	LogLevel        string
+	LogFormat       string
+	CompressedTags  claimsheader.CompressionType
+	DisableLogWrite bool
 }
 
 // GetParameters retrieves log parameters for Remote Enforcer.
-func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType) {
+func GetParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion claimsheader.CompressionType, DisableLogWrite bool) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
 		logLevel = "info"
 	}
-
 	logFormat = os.Getenv(constants.EnvLogFormat)
 	if logLevel == "" {
 		logFormat = "json"
@@ -44,6 +45,7 @@ func GetParameters() (logToConsole bool, logID string, logLevel string, logForma
 			compressedTagsVersion = claimsheader.CompressionTypeV2
 		}
 	}
-
+	// here we skip the error handling because the env is passed from the main enforcerd, so it has to be either true or false.
+	DisableLogWrite, _ = strconv.ParseBool(os.Getenv(constants.EnvDisableLogWrite))
 	return
 }
