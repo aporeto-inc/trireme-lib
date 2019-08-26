@@ -189,9 +189,10 @@ type Packet struct {
 	// Mark is the nfqueue Mark
 	Mark string
 
-	ipHdr  iphdr
-	tcpHdr tcphdr
-	udpHdr udphdr
+	ipHdr      iphdr
+	tcpHdr     tcphdr
+	udpHdr     udphdr
+	l4flowhash string
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata

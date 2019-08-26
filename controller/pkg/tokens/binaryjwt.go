@@ -459,7 +459,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 func encode(c *BinaryJWTClaims) ([]byte, error) {
 	// Encode and sign the token
 	buf := make([]byte, 0, 1400)
-	var h codec.Handle = new(codec.MsgpackHandle)
+	var h codec.Handle = new(codec.CborHandle)
 	enc := codec.NewEncoderBytes(&buf, h)
 
 	if err := enc.Encode(c); err != nil {
@@ -472,7 +472,7 @@ func encode(c *BinaryJWTClaims) ([]byte, error) {
 func decode(buf []byte) (*BinaryJWTClaims, error) {
 	// Decode the token into a structure.
 	binaryClaims := &BinaryJWTClaims{}
-	var h codec.Handle = new(codec.MsgpackHandle)
+	var h codec.Handle = new(codec.CborHandle)
 
 	dec := codec.NewDecoderBytes(buf, h)
 	if err := dec.Decode(binaryClaims); err != nil {
