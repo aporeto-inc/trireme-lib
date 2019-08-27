@@ -369,7 +369,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	report.PacketID, _ = strconv.Atoi(msg.p.ID())
 	report.TriremePacket = true
 	// Memory allocation must be done only if we are sure we transmitting
-	// the report. Leads to unecessary memory operations otherwise
+	// the report. Leads to unnecessary memory operations otherwise
 	// that affect performance
 	report.Payload = make([]byte, 64)
 	buf := msg.p.GetBuffer(0)

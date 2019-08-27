@@ -413,7 +413,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// somewhere. In this case, we drop the payload and send our authorization data.
 		// The TCP stack will try again.
 		if !tcpPacket.IsEmptyTCPPayload() {
-			tcpPacket.TCPDataDetach(0)
+			if err := tcpPacket.TCPDataDetach(0); err != nil {
+				return fmt.Errorf("unable to detach data from packet: %s", err)
+			}
 		}
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every

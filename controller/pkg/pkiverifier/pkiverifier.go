@@ -115,7 +115,7 @@ func (p *tokenManager) Verify(token []byte) (*DatapathKey, error) {
 		// if the token expires before our default validity, update the timer
 		// so that we expire it no longer than its validity.
 		if time.Now().Add(p.validity).After(expTime) {
-			if err := p.keycache.SetTimeOut(tokenString, expTime.Sub(time.Now())); err != nil {
+			if err := p.keycache.SetTimeOut(tokenString, time.Until(expTime)); err != nil {
 				zap.L().Warn("Failed to update cache validity for token", zap.Error(err))
 			}
 		}
