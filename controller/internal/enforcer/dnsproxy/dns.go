@@ -162,7 +162,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			return
 		}
 
-		puCtx = data.(*pucontext.PUContext)
+		puCtx := data.(*pucontext.PUContext)
 
 		for _, stringip := range ips {
 			ip := net.ParseIP(stringip)
