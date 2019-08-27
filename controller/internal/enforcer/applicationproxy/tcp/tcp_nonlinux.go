@@ -44,6 +44,7 @@ func (p *Proxy) CheckExternalNetwork(puContext *pucontext.PUContext, IP net.IP, 
 		return false, false, fmt.Errorf("Unauthorized by Application ACLs")
 	}
 	if noNetAccessPolicy == nil && networkPolicy.Action.Accepted() {
+		p.reportAcceptedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, networkReport, networkPolicy)
 		return false, true, nil
 	}
 	return false, false, nil

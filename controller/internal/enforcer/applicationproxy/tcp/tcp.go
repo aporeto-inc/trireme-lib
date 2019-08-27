@@ -518,6 +518,14 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 
 func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
+	if sourceID == destID {
+		report = &policy.FlowPolicy{
+			Action:   policy.Accept,
+			PolicyID: "default",
+		}
+		packet = report
+	}
+
 	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
 }
 
