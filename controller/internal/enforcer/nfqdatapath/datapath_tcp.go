@@ -407,7 +407,14 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 	// Only process the first Ack of a connection. This means that we have received
 	// as SynAck packet and we can now process the ACK.
-	if conn.GetState() == connection.TCPSynAckReceived && tcpPacket.IsEmptyTCPPayload() {
+	if conn.GetState() == connection.TCPSynAckReceived {
+
+		// Special case. We are handling an AP packet with data, but the ACK has been lost
+		// somewhere. In this case, we drop the payload and send our authorization data.
+		// The TCP stack will try again.
+		if !tcpPacket.IsEmptyTCPPayload() {
+			tcpPacket.TCPDataDetach(0)
+		}
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
@@ -424,33 +431,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		}
 
 		conn.SetState(connection.TCPAckSend)
-
-		// // If its not a service connection, we release it to the kernel. Subsequent
-		// // packets after the first data packet, that might be already in the queue
-		// // will be transmitted through the kernel directly. Service connections are
-		// // delegated to the service module
-
-		if !conn.ServiceConnection && tcpPacket.SourceAddress().String() != tcpPacket.DestinationAddress().String() &&
-			!(tcpPacket.SourceAddress().IsLoopback() && tcpPacket.DestinationAddress().IsLoopback()) {
-			go func() {
-				if err := d.conntrack.UpdateApplicationFlowMark(
-					tcpPacket.SourceAddress(),
-					tcpPacket.DestinationAddress(),
-					tcpPacket.IPProto(),
-					tcpPacket.SourcePort(),
-					tcpPacket.DestPort(),
-					constants.DefaultConnMark,
-				); err != nil {
-					zap.L().Error("Failed to update conntrack table for flow after ack packet",
-						zap.String("context", string(conn.Auth.LocalContext)),
-						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-						zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-						zap.Error(err),
-					)
-				}
-				context.PuContextError(pucontext.ErrConnectionsProcessed, "") // nolint
-			}()
-		}
 
 		return nil
 	}
@@ -518,27 +498,27 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	// state. We will not release the caches though to deal with re-transmissions.
 	// We will let the caches expire.
 	if conn.GetState() == connection.TCPAckSend {
-		// if !conn.ServiceConnection && tcpPacket.SourceAddress().String() != tcpPacket.DestinationAddress().String() &&
-		// 	!(tcpPacket.SourceAddress().IsLoopback() && tcpPacket.DestinationAddress().IsLoopback()) {
-		// 	go func() {
-		// 		if err := d.conntrack.UpdateApplicationFlowMark(
-		// 			tcpPacket.SourceAddress(),
-		// 			tcpPacket.DestinationAddress(),
-		// 			tcpPacket.IPProto(),
-		// 			tcpPacket.SourcePort(),
-		// 			tcpPacket.DestPort(),
-		// 			constants.DefaultConnMark,
-		// 		); err != nil {
-		// 			zap.L().Error("Failed to update conntrack table for flow after ack packet",
-		// 				zap.String("context", string(conn.Auth.LocalContext)),
-		// 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-		// 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-		// 				zap.Error(err),
-		// 			)
-		// 		}
-		// 		context.PuContextError(pucontext.ErrConnectionsProcessed, "") // nolint
-		// 	}()
-		// }
+		if !conn.ServiceConnection && tcpPacket.SourceAddress().String() != tcpPacket.DestinationAddress().String() &&
+			!(tcpPacket.SourceAddress().IsLoopback() && tcpPacket.DestinationAddress().IsLoopback()) {
+			go func() {
+				if err := d.conntrack.UpdateApplicationFlowMark(
+					tcpPacket.SourceAddress(),
+					tcpPacket.DestinationAddress(),
+					tcpPacket.IPProto(),
+					tcpPacket.SourcePort(),
+					tcpPacket.DestPort(),
+					constants.DefaultConnMark,
+				); err != nil {
+					zap.L().Error("Failed to update conntrack table for flow after ack packet",
+						// zap.String("context", string(conn.Auth.LocalContext)),
+						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+						// zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+						zap.Error(err),
+					)
+				}
+				context.PuContextError(pucontext.ErrConnectionsProcessed, "") // nolint
+			}()
+		}
 		conn.SetState(connection.TCPData)
 		return nil
 	}
@@ -710,13 +690,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// back into the picture.
 	if conn.GetState() != connection.TCPSynSend {
 		// Revert the connmarks - dealing with retransmissions
-		if cerr := d.conntrack.UpdateNetworkFlowMark(
-			tcpPacket.SourceAddress(),
+		if cerr := d.conntrack.UpdateApplicationFlowMark(
 			tcpPacket.DestinationAddress(),
+			tcpPacket.SourceAddress(),
 			tcpPacket.IPProto(),
-			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			0,
+			tcpPacket.SourcePort(),
+			uint32(1), // We cannot put it back to zero. We need something other value.
 		); cerr != nil {
 			zap.L().Error("Failed to update conntrack table for flow after synack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -801,6 +781,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// conntrack
 	d.netReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+
 	return pkt, claims, nil
 }
 
@@ -861,8 +842,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-			// TODO: this needs to be converted to a rejected packet messages. It doesn't mean rejected flow. Disabling.
-			// d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidHeader, nil, nil)
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrAckTCPNoTCPAuthOption, fmt.Sprintf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
 		}
 
@@ -894,8 +873,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		conn.SetState(connection.TCPData)
 
-		go func() {
-			if !conn.ServiceConnection {
+		if !conn.ServiceConnection {
+			go func() {
 				if err := d.conntrack.UpdateNetworkFlowMark(
 					tcpPacket.SourceAddress(),
 					tcpPacket.DestinationAddress(),
@@ -907,8 +886,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 					zap.L().Error("Failed to update conntrack table after ack packet",
 						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()))
 				}
-			}
-		}()
+			}()
+		}
 
 		// Accept the packet
 		return nil, nil, nil
