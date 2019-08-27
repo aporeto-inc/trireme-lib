@@ -72,5 +72,5 @@ func (w *WindowsMonitor) SetupConfig(registerer registerer.Registerer, cfg inter
 
 // Resync instructs the monitor to do a resync.
 func (w *WindowsMonitor) Resync(ctx context.Context) error {
-	return nil
+	return w.proc.Resync(ctx, nil)
 }

@@ -95,7 +95,28 @@ func (w *windowsProcessor) Pause(ctx context.Context, eventInfo *common.EventInf
 }
 
 // Resync resyncs all PUs handled by this processor
-func (w *windowsProcessor) Resync(ctx context.Context, EventInfo *common.EventInfo) error {
+func (w *windowsProcessor) Resync(ctx context.Context, eventInfo *common.EventInfo) error {
+	if eventInfo != nil {
+		// If its a host service then use pu from eventInfo
+		if eventInfo.HostService {
+			runtime, err := w.metadataExtractor(eventInfo)
+			if err != nil {
+				return err
+			}
+			nativeID, err := w.generateContextID(eventInfo)
+			if err != nil {
+				return err
+			}
+			if err = w.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
+				return fmt.Errorf("Unable to start PU: %s", err)
+			}
+			return nil
+		}
+	}
+
+	// TODO(windows): handle resync of windows process PU later?
+	zap.L().Warn("Resync not handled")
+
 	return nil
 }
 
