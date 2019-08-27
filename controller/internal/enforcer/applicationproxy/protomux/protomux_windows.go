@@ -3,7 +3,6 @@
 package protomux
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -23,11 +22,8 @@ var (
 
 func getDriverHandle() (uintptr, error) {
 	driverHandle, _, err := frontManOpenProc.Call()
-	if err != syscall.Errno(0) {
-		return 0, err
-	}
 	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return 0, errors.New("got INVALID_HANDLE_VALUE")
+		return 0, fmt.Errorf("got INVALID_HANDLE_VALUE: %v", err)
 	}
 	return driverHandle, nil
 }
@@ -91,11 +87,8 @@ func (m *MultiplexedListener) onStartListening() error {
 		return err
 	}
 	dllRet, _, errDll := proxyStartProc.Call(driverHandle, uintptr(port), 0)
-	if errDll != syscall.Errno(0) {
-		return fmt.Errorf("%s failed: %v", proxyStartProc.Name, errDll)
-	}
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (ret=%d)", proxyStartProc.Name, dllRet)
+		return fmt.Errorf("%s failed (ret=%d, err=%v)", proxyStartProc.Name, dllRet, errDll)
 	}
 
 	zap.L().Debug(fmt.Sprintf("Windows proxy driver started, forwarding to port %d", port))
@@ -109,11 +102,8 @@ func (m *MultiplexedListener) onStopListening() error {
 		return err
 	}
 	dllRet, _, errDll := proxyStopProc.Call(driverHandle)
-	if errDll != syscall.Errno(0) {
-		return fmt.Errorf("%s failed: %v", proxyStopProc.Name, errDll)
-	}
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (ret=%d)", proxyStopProc.Name, dllRet)
+		return fmt.Errorf("%s failed (ret=%d, err=%v)", proxyStopProc.Name, dllRet, errDll)
 	}
 
 	zap.L().Debug("Windows proxy driver stopped")

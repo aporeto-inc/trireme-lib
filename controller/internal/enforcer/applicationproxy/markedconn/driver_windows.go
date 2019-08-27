@@ -3,7 +3,7 @@
 package markedconn
 
 import (
-	"errors"
+	"fmt"
 	"syscall"
 	"unsafe"
 )
@@ -25,11 +25,8 @@ var (
 
 func getDriverHandle() (uintptr, error) {
 	driverHandle, _, err := frontManOpenProc.Call()
-	if err != syscall.Errno(0) {
-		return 0, err
-	}
 	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return 0, errors.New("got INVALID_HANDLE_VALUE")
+		return 0, fmt.Errorf("got INVALID_HANDLE_VALUE: %v", err)
 	}
 	return driverHandle, nil
 }

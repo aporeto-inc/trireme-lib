@@ -18,10 +18,8 @@ func makeDialer(mark int, nativeData *NativeData) net.Dialer {
 
 				// call FrontmanApplyDestHandle to update WFP redirect data before the connect() call on the new socket
 				dllRet, _, err := applyDestHandleProc.Call(fd, nativeData.handle)
-				if err != syscall.Errno(0) {
+				if dllRet == 0 {
 					zap.L().Error(fmt.Sprintf("%s failed: %v", applyDestHandleProc.Name, err))
-				} else if dllRet == 0 {
-					zap.L().Error(fmt.Sprintf("%s failed", applyDestHandleProc.Name))
 				}
 			})
 		},

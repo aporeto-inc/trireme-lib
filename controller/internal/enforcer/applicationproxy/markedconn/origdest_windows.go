@@ -5,7 +5,6 @@ package markedconn
 import (
 	"fmt"
 	"net"
-	"syscall"
 	"unsafe"
 
 	"go.uber.org/zap"
@@ -32,20 +31,16 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Native
 
 	freeFunc := func(fd uintptr) {
 		dllRet, _, errDll := freeDestHandleProc.Call(fd)
-		if errDll != syscall.Errno(0) {
-			zap.L().Error(fmt.Sprintf("%s failed to free handle: %v", freeDestHandleProc.Name, errDll))
-		} else if dllRet == 0 {
-			zap.L().Error(fmt.Sprintf("%s failed", freeDestHandleProc.Name))
+		if dllRet == 0 {
+			zap.L().Error(fmt.Sprintf("%s failed: %v", freeDestHandleProc.Name, errDll))
 		}
 	}
 
 	ctrlFunc := func(fd uintptr) {
 		var destInfo frontmanDestInfo
 		dllRet, _, errDll := getDestInfoProc.Call(driverHandle, fd, uintptr(unsafe.Pointer(&destInfo)))
-		if errDll != syscall.Errno(0) {
-			err = errDll
-		} else if dllRet == 0 {
-			err = fmt.Errorf("%s failed (ret=%d)", getDestInfoProc.Name, dllRet)
+		if dllRet == 0 {
+			err = fmt.Errorf("%s failed (ret=%d, err=%v)", getDestInfoProc.Name, dllRet, errDll)
 		} else {
 			destHandle = destInfo.destHandle
 			port = int(destInfo.port)
