@@ -1,3 +1,5 @@
+// +build linux
+
 package serviceregistry
 
 import (
@@ -108,6 +110,21 @@ func (r *Registry) Register(
 	r.indexByName[puID] = sctx
 
 	return sctx, nil
+}
+
+// buildExposedServices builds the caches for the exposed services. It assumes that an authorization
+func (r *Registry) updateExposedServices(sctx *ServiceContext, secrets secrets.Secrets) error {
+
+	for _, service := range sctx.PU.Policy.ExposedServices() {
+		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
+			continue
+		}
+		if err := r.updateExposedPortAssociations(sctx, service, secrets); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Unregister unregisters a pu from the registry.
@@ -241,21 +258,6 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 			true,
 		); err != nil {
 			return fmt.Errorf("Possible port overlap with public services: %s", err)
-		}
-	}
-
-	return nil
-}
-
-// buildExposedServices builds the caches for the exposed services. It assumes that an authorization
-func (r *Registry) updateExposedServices(sctx *ServiceContext, secrets secrets.Secrets) error {
-
-	for _, service := range sctx.PU.Policy.ExposedServices() {
-		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
-			continue
-		}
-		if err := r.updateExposedPortAssociations(sctx, service, secrets); err != nil {
-			return err
 		}
 	}
 
