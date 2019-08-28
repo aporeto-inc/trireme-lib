@@ -434,11 +434,8 @@ func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publ
 
 func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
 
-	// If it is not there, calculate it from the public key and store it in the cache.
-	key, err := symetricKey(c.secrets.EncodingKey(), publicKey)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create DH key: %s", err)
-	}
+	key := symetricKey(c.secrets.EncodingKey(), publicKey)
+
 	// Add it in the cache
 	c.sharedKeys.AddOrUpdate(id, &sharedSecret{
 		key:  key,
@@ -561,7 +558,7 @@ func hash(buf []byte, key []byte) ([]byte, error) {
 }
 
 // symetricKey returns a symetric key for encryption
-func symetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
+func symetricKey(privateKey interface{}, remotePublic interface{}) []byte {
 
 	c := elliptic.P256()
 
@@ -571,7 +568,7 @@ func symetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, erro
 	skey := make([]byte, endLength)
 	skey = append(skey, x.Bytes()...)
 
-	return skey, nil
+	return skey
 }
 
 func compressTags(claims *BinaryJWTClaims) {

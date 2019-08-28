@@ -136,7 +136,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -147,7 +147,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -202,7 +202,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -213,7 +213,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -321,7 +321,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -332,7 +332,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -681,14 +681,14 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 		},
@@ -731,7 +731,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0",
@@ -739,7 +739,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
