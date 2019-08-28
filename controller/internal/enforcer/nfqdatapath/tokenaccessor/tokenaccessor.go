@@ -21,12 +21,20 @@ type tokenAccessor struct {
 	tokens   tokens.TokenEngine
 	serverID string
 	validity time.Duration
+	binary   bool
 }
 
 // New creates a new instance of TokenAccessor interface
-func New(serverID string, validity time.Duration, secret secrets.Secrets) (TokenAccessor, error) {
+func New(serverID string, validity time.Duration, secret secrets.Secrets, binary bool) (TokenAccessor, error) {
 
-	tokenEngine, err := tokens.NewBinaryJWT(validity, serverID, secret)
+	var tokenEngine tokens.TokenEngine
+	var err error
+
+	if binary {
+		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
+	} else {
+		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +43,7 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets) (Token
 		tokens:   tokenEngine,
 		serverID: serverID,
 		validity: validity,
+		binary:   binary,
 	}, nil
 }
 
@@ -51,11 +60,22 @@ func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret
 
 	t.Lock()
 	defer t.Unlock()
-	tokenEngine, err := tokens.NewBinaryJWT(validity, serverID, secret)
-	if err != nil {
-		return err
+
+	var tokenEngine tokens.TokenEngine
+	var err error
+
+	if t.binary {
+		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
+	} else {
+		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
 	}
+
+	if err != nil {
+		panic("unable to update token engine")
+	}
+
 	t.tokens = tokenEngine
+
 	return nil
 }
 

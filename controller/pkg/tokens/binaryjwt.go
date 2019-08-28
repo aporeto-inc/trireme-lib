@@ -298,7 +298,7 @@ func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonc
 	// since we have seen the syn and syn ack packets.
 	k, err := c.sharedKeys.Get(binaryClaims.ID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to find shared secret")
+		return nil, nil, nil, fmt.Errorf("unable to find shared secret for ID: %s", binaryClaims.ID)
 	}
 	key := k.(*sharedSecret).key
 
@@ -452,6 +452,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 			zap.L().Warn("Failed to update cache validity for token", zap.Error(err))
 		}
 	}
+
 	return key, nil
 }
 
