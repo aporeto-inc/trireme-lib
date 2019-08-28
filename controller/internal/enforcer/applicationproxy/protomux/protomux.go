@@ -170,7 +170,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		case <-m.shutdown:
 			return nil
 		default:
-			zap.L().Error("M.Root", zap.Reflect("LIS", m.root))
+
 			c, err := m.root.Accept()
 			if err != nil {
 				return err
