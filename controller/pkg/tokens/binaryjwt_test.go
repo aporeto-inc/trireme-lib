@@ -26,7 +26,7 @@ var (
 		ID:  "pu1",
 		T:   createUncompressedTags("pu1"),
 		CT:  createCompressedTagArray(),
-		LCL: []byte(pu1nonce),
+		LCL: pu1nonce,
 	}
 
 	pu2Claims = ConnectionClaims{
