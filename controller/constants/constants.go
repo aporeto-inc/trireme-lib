@@ -82,6 +82,10 @@ const (
 	LocalServer
 	// Sidecar indicates the controller to be in sidecar mode
 	Sidecar
+	// LocalEnvoyAuthorizer indicates to use a local envoyproxy as enforcer/authorizer
+	LocalEnvoyAuthorizer
+	// RemoteContainerEnvoyAuthorizer indicates to use the envoyproxy enforcer/authorizer for containers
+	RemoteContainerEnvoyAuthorizer
 )
 
 // LogLevel corresponds to log level of any logger. eg: zap.

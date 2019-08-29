@@ -8,6 +8,16 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
+// EnforcerType defines which enforcer type should be selected
+type EnforcerType int
+
+const (
+	// EnforcerMapping lets the default enforcer configuration deal with it
+	EnforcerMapping EnforcerType = iota
+	// EnvoyAuthorizerEnforcer specifically asks for running an envoy enforcer/authorizer
+	EnvoyAuthorizerEnforcer
+)
+
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
 
@@ -52,6 +62,8 @@ type PUPolicy struct {
 	servicesCA string
 	// scopes are the processing unit granted scopes
 	scopes []string
+	// enforcerType is the enforcer type that is supposed to get used for this PU
+	enforcerType EnforcerType
 
 	sync.Mutex
 }
@@ -85,6 +97,7 @@ func NewPUPolicy(
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
 	scopes []string,
+	enforcerType EnforcerType,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -139,12 +152,13 @@ func NewPUPolicy(
 		exposedServices:       exposedServices,
 		dependentServices:     dependentServices,
 		scopes:                scopes,
+		enforcerType:          enforcerType,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{}, EnforcerMapping)
 }
 
 // Clone returns a copy of the policy
@@ -168,6 +182,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.exposedServices,
 		p.dependentServices,
 		p.scopes,
+		p.enforcerType,
 	)
 
 	return np
@@ -360,6 +375,14 @@ func (p *PUPolicy) Scopes() []string {
 	return p.scopes
 }
 
+// EnforcerType returns the enforcer type of the policy.
+func (p *PUPolicy) EnforcerType() EnforcerType {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.enforcerType
+}
+
 // ToPublicPolicy converts the object to a marshallable object.
 func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 	p.Lock()
@@ -384,6 +407,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		ServicesCA:            p.servicesCA,
 		ServicesCertificate:   p.servicesCertificate,
 		ServicesPrivateKey:    p.servicesPrivateKey,
+		EnforcerType:          p.enforcerType,
 	}
 }
 
@@ -408,6 +432,7 @@ type PUPolicyPublic struct {
 	ServicesPrivateKey    string                  `json:"servicesPrivateKey,omitempty"`
 	ServicesCA            string                  `json:"servicesCA,omitempty"`
 	Scopes                []string                `json:"scopes,omitempty"`
+	EnforcerType          EnforcerType            `json:"enforcerTypes,omitempty"`
 }
 
 // ToPrivatePolicy converts the object to a private object.
@@ -441,6 +466,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 		exposedServices:       exposedServices,
 		dependentServices:     p.DependentServices,
 		scopes:                p.Scopes,
+		enforcerType:          p.EnforcerType,
 		servicesCA:            p.ServicesCA,
 		servicesCertificate:   p.ServicesCertificate,
 		servicesPrivateKey:    p.ServicesPrivateKey,

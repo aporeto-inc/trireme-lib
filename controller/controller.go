@@ -338,3 +338,31 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 	}
 
 }
+
+func (t *trireme) modeTypeFromPolicy(policyInfo *policy.PUPolicy, runtime *policy.PURuntime) constants.ModeType {
+	switch policyInfo.EnforcerType() {
+	case policy.EnforcerMapping:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	case policy.EnvoyAuthorizerEnforcer:
+		switch runtime.PUType() {
+		case common.KubernetesPU:
+			fallthrough
+		case common.ContainerPU:
+			return constants.RemoteContainerEnvoyAuthorizer
+		case common.UIDLoginPU:
+			fallthrough
+		case common.HostPU:
+			fallthrough
+		case common.HostNetworkPU:
+			fallthrough
+		case common.SSHSessionPU:
+			fallthrough
+		case common.LinuxProcessPU:
+			return constants.LocalEnvoyAuthorizer
+		default:
+			return t.puTypeToEnforcerType[runtime.PUType()]
+		}
+	default:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
+}
