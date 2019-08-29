@@ -558,4 +558,7 @@ func pruneTags(claims *BinaryJWTClaims) {
 func uncompressTags(binaryClaims *BinaryJWTClaims, publicKeyClaims []string) {
 
 	binaryClaims.T = append(binaryClaims.CT, enforcerconstants.TransmitterLabel+"="+binaryClaims.ID)
+	if len(publicKeyClaims) > 0 {
+		binaryClaims.T = append(binaryClaims.T, publicKeyClaims...)
+	}
 }

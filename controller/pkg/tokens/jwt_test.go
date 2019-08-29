@@ -80,14 +80,14 @@ IG7Nv+YlTVp5qA==
 -----END CERTIFICATE-----`
 )
 
-func createCompactPKISecrets(tags ...string) (*x509.Certificate, secrets.Secrets, error) {
+func createCompactPKISecrets() (*x509.Certificate, secrets.Secrets, error) {
 	txtKey, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	issuer := pkiverifier.NewPKIIssuer(txtKey)
-	txtToken, err := issuer.CreateTokenFromCertificate(cert, tags)
+	txtToken, err := issuer.CreateTokenFromCertificate(cert, []string{})
 	if err != nil {
 		return nil, nil, err
 	}

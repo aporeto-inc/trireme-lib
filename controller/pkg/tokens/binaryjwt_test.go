@@ -20,11 +20,6 @@ import (
 )
 
 var (
-	btags = policy.NewTagStoreFromMap(map[string]string{
-		"label1": "value1",
-		"label2": "value2",
-	})
-
 	pu1nonce  = []byte("0123456789012345")
 	pu2nonce  = []byte("0987654321098765")
 	pu1Claims = ConnectionClaims{
@@ -38,15 +33,15 @@ var (
 		ID:       "pu2",
 		T:        createUncompressedTags("pu2"),
 		CT:       createCompressedTagArray(),
-		LCL:      []byte(pu2nonce),
-		RMT:      []byte(pu1nonce),
+		LCL:      pu2nonce,
+		RMT:      pu1nonce,
 		RemoteID: "pu1",
 	}
 
 	pu1AckClaims = ConnectionClaims{
 		ID:       "pu1",
-		RMT:      []byte(pu2nonce),
-		LCL:      []byte(pu1nonce),
+		RMT:      pu2nonce,
+		LCL:      pu1nonce,
 		EK:       []byte{},
 		RemoteID: "pu2",
 	}
