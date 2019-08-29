@@ -378,7 +378,6 @@ func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, erro
 
 	s, err := c.sharedKeys.Get(id)
 	if err != nil {
-
 		return nil, fmt.Errorf("shared secret not found")
 	}
 
@@ -464,14 +463,6 @@ func decode(buf []byte) (*BinaryJWTClaims, error) {
 }
 
 func packToken(header, nonce, token, sig []byte) []byte {
-
-	if len(nonce) > nonceLength {
-		panic("invalid nonce length ")
-	}
-
-	if len(header) != headerLength {
-		panic("invalid header")
-	}
 
 	binaryTokenPosition := binaryNoncePosition + len(nonce)
 	sigPosition := binaryTokenPosition + len(token)

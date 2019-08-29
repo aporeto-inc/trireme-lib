@@ -354,6 +354,13 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// We can also clean up the state since we are not going to see any more
 	// packets from this connection.
 	if conn.GetState() == connection.TCPData && !conn.ServiceConnection {
+		err1 := d.netOrigConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
+		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4FlowHash())
+
+		if err1 != nil || err2 != nil {
+			zap.L().Debug("Failed to remove cache entries")
+		}
+
 		if err := d.conntrack.UpdateApplicationFlowMark(
 			tcpPacket.SourceAddress(),
 			tcpPacket.DestinationAddress(),
@@ -368,13 +375,6 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 				zap.Error(err),
 			)
-		}
-
-		err1 := d.netOrigConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
-		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4FlowHash())
-
-		if err1 != nil || err2 != nil {
-			zap.L().Debug("Failed to remove cache entries")
 		}
 
 		return nil

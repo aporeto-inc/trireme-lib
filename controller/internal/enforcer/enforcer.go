@@ -232,7 +232,7 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 ) (Enforcer, error) {
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, true)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, false)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
