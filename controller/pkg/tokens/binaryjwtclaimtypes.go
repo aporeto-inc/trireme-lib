@@ -9,7 +9,10 @@ import (
 
 // BinaryJWTClaims captures all the custom  clains
 type BinaryJWTClaims struct {
+	// Tags
 	T []string `codec:",omitempty"`
+	// Compressed tags
+	CT []string `codec:",omitempty"`
 	// RMT is the nonce of the remote that has to be signed in the JWT
 	RMT []byte `codec:",omitempty"`
 	// LCL is the nonce of the local node that has to be signed
@@ -31,10 +34,10 @@ func ConvertToJWTClaims(b *BinaryJWTClaims) *JWTClaims {
 	return &JWTClaims{
 		ConnectionClaims: &ConnectionClaims{
 			T:   policy.NewTagStoreFromSlice(b.T),
+			CT:  policy.NewTagStoreFromSlice(b.CT),
 			RMT: b.RMT,
 			LCL: b.LCL,
 			EK:  b.EK,
-			C:   b.C,
 			ID:  b.ID,
 		},
 		StandardClaims: jwt.StandardClaims{
@@ -49,12 +52,14 @@ func ConvertToBinaryClaims(j *ConnectionClaims, validity time.Duration) *BinaryJ
 		RMT:       j.RMT,
 		LCL:       j.LCL,
 		EK:        j.EK,
-		C:         j.C,
 		ID:        j.ID,
 		ExpiresAt: time.Now().Add(validity).Unix(),
 	}
 	if j.T != nil {
 		b.T = j.T.Tags
+	}
+	if j.CT != nil {
+		b.CT = j.CT.Tags
 	}
 
 	return b

@@ -15,7 +15,7 @@ type ConnectionClaims struct {
 	// EK is the ephemeral EC key for encryption
 	EK []byte `json:",omitempty"`
 	// C is the compressed tags in one string
-	C string `json:",omitempty"`
+	CT *policy.TagStore `json:",omitempty"`
 	// ID is the source PU ID
 	ID string `json:",omitempty"`
 	// RemoteID is the ID of the remote if known.

@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math/big"
@@ -135,7 +134,7 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 
 	// This is the hack of backward compatibility that has to be
 	// removed.
-	compressTags(allclaims)
+	pruneTags(allclaims)
 
 	// Encode the claims in a buffer.
 	buf, err := encode(allclaims)
@@ -252,9 +251,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 
 	// Uncommpress the tags and add the public key claims to the tags that
 	// we return.
-	if err := uncompressTags(binaryClaims, publicKeyClaims); err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to uncomrpress tags: %s", err)
-	}
+	uncompressTags(binaryClaims, publicKeyClaims)
 
 	connClaims := ConvertToJWTClaims(binaryClaims).ConnectionClaims
 
@@ -546,41 +543,19 @@ func symetricKey(privateKey interface{}, remotePublic interface{}) []byte {
 	return skey
 }
 
-func compressTags(claims *BinaryJWTClaims) {
+func pruneTags(claims *BinaryJWTClaims) {
 	// Handling compression here. If we need to use compression, we will copy
 	// the claims to the C claim and remove all the other fields.
-	tags := claims.T
-	claims.T = nil
-	for _, t := range tags {
+	for _, t := range claims.T {
 		if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
 			claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
-		} else {
-			claims.C = t
+			break
 		}
 	}
+	claims.T = nil
 }
 
-func uncompressTags(binaryClaims *BinaryJWTClaims, publicKeyClaims []string) error {
-	tags := []string{enforcerconstants.TransmitterLabel + "=" + binaryClaims.ID}
+func uncompressTags(binaryClaims *BinaryJWTClaims, publicKeyClaims []string) {
 
-	if publicKeyClaims != nil {
-		tags = append(tags, publicKeyClaims...)
-	}
-
-	compressedClaims, err := base64.StdEncoding.DecodeString(binaryClaims.C)
-	if err != nil {
-		return fmt.Errorf("invalid claims: %s %s", err, binaryClaims.C)
-	}
-
-	if len(compressedClaims)%claimsheader.CompressedTagLengthV1 != 0 {
-		return fmt.Errorf("invalid claims length. compression mismatch %d/%d", len(compressedClaims), claimsheader.CompressedTagLengthV1)
-	}
-
-	for i := 0; i < len(compressedClaims); i = i + claimsheader.CompressedTagLengthV1 {
-		tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+claimsheader.CompressedTagLengthV1]))
-	}
-
-	binaryClaims.T = tags
-
-	return nil
+	binaryClaims.T = append(binaryClaims.CT, enforcerconstants.TransmitterLabel+"="+binaryClaims.ID)
 }

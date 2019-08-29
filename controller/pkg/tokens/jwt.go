@@ -2,20 +2,16 @@ package tokens
 
 import (
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 var (
@@ -103,28 +99,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	// For backward compatibility, keep the issuer in Ack packets.
 	if isAck {
 		allclaims.Issuer = c.Issuer
-	}
-
-	if !isAck {
-
-		zap.L().Debug("claims", zap.Reflect("all", allclaims), zap.String("type", string(c.compressionType)))
-
-		// Handling compression here. If we need to use compression, we will copy
-		// the claims to the C claim and remove all the other fields.
-		if c.compressionType != claimsheader.CompressionTypeNone {
-			tags := allclaims.T
-			allclaims.T = nil
-
-			for _, t := range tags.Tags {
-				if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
-					claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
-				} else {
-					claims.C = t
-				}
-			}
-
-			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
-		}
 	}
 
 	// Set the appropriate claims header
@@ -236,40 +210,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		return nil, nil, nil, errors.New("invalid token")
 	}
 
-	if !isAck {
-
-		// Handling of compressed tags in a backward compatible manner. If there are claims
-		// arriving in the compressed field then we append them to the tags.
-
-		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
-		if jwtClaims.ConnectionClaims.T != nil {
-			tags = jwtClaims.ConnectionClaims.T.Tags
-		}
-
-		if certClaims != nil {
-			tags = append(tags, certClaims...)
-		}
-
-		// Handle compressed tags
-		if c.compressionTagLength != 0 && len(jwtClaims.ConnectionClaims.C) > 0 {
-
-			compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("invalid claims")
-			}
-
-			if len(compressedClaims)%c.compressionTagLength != 0 {
-				return nil, nil, nil, fmt.Errorf("invalid claims length. compression mismatch %d/%d", len(compressedClaims), c.compressionTagLength)
-			}
-
-			for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
-				tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
-			}
-		}
-
-		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
-
-		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
+	if !isAck && certClaims != nil {
+		jwtClaims.ConnectionClaims.T.Merge(policy.NewTagStoreFromSlice(certClaims))
 	}
 
 	if jwtClaims.ConnectionClaims.H != nil {

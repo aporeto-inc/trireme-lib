@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	"go.uber.org/zap"
 )
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
@@ -31,8 +32,10 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets, binary
 	var err error
 
 	if binary {
+		zap.L().Info("Enabling Trireme Datapath v2.0")
 		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
 	} else {
+		zap.L().Info("Enabling Trireme Datapath v1.0")
 		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
 	}
 	if err != nil {
@@ -125,6 +128,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		LCL: auth.LocalContext,
 		EK:  auth.LocalServiceContext,
 		T:   context.Identity(),
+		CT:  context.CompressedTags(),
 		ID:  context.ManagementID(),
 	}
 
@@ -143,6 +147,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 	claims := &tokens.ConnectionClaims{
 		T:        context.Identity(),
+		CT:       context.CompressedTags(),
 		LCL:      auth.LocalContext,
 		RMT:      auth.RemoteContext,
 		EK:       auth.LocalServiceContext,
