@@ -191,6 +191,7 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 		IPs:              policy.ExtendedMap{"bridge": "172.17.0.2"},
 		Identity:         initIdentity(idString),
 		Annotations:      initAnnotations(anoString),
+		CompressedTags:   policy.NewTagStore(),
 		TransmitterRules: initTrans(),
 	}
 
@@ -273,6 +274,7 @@ func TestInitEnforcer(t *testing.T) {
 			packetLogs bool,
 			cfg *runtime.Configuration,
 			tokenIssuer common.ServiceTokenIssuer,
+			binaryTokens bool,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -372,6 +374,7 @@ func TestInitEnforcer(t *testing.T) {
 					packetLogs bool,
 					cfg *runtime.Configuration,
 					tokenIssuer common.ServiceTokenIssuer,
+					binaryTokens bool,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}

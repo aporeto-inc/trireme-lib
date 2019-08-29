@@ -1,15 +1,8 @@
 package tokens
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/gob"
-	"math/big"
-	"strconv"
 	"testing"
 	"time"
 
@@ -283,106 +276,6 @@ func TestRamdomize(t *testing.T) {
 		Convey("I should an error if the token is short ", func() {
 			err := jwtConfig.Randomize(token[:noncePosition+NonceLength-1], nonce)
 			So(err, ShouldNotBeNil)
-		})
-
-	})
-}
-
-type PublicKeys struct {
-	X *big.Int
-	Y *big.Int
-}
-
-func Test_TokenLengths(t *testing.T) {
-	Convey("Given a JWT valid engine with a valid Compact PKI key ", t, func() {
-		_, scrts, err := createCompactPKISecrets(base64.StdEncoding.EncodeToString(make([]byte, 12)))
-		So(err, ShouldBeNil)
-
-		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-
-		nonce := []byte("1234567890123456")
-		Convey("When I try with 64 4-byte tags, the max length must not be exceeded", func() {
-
-			var compressedTags string
-			b := make([]byte, 4)
-			total := []byte{}
-			for i := 0; i < 64; i++ {
-				_, err := rand.Read(b)
-				So(err, ShouldBeNil)
-				total = append(total, b...)
-			}
-			compressedTags = base64.StdEncoding.EncodeToString(total)
-
-			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-			So(err, ShouldBeNil)
-
-			publickey := &PublicKeys{
-				X: privatekey.PublicKey.X,
-				Y: privatekey.PublicKey.Y,
-			}
-
-			var data bytes.Buffer
-
-			enc := gob.NewEncoder(&data)
-			err = enc.Encode(publickey)
-			So(err, ShouldBeNil)
-			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
-			Convey(msg, func() {})
-
-			claims := &ConnectionClaims{
-				ID:  "5c5baa93d5f54a3019bede4e",
-				RMT: []byte(rmt),
-				LCL: []byte(lcl),
-				EK:  data.Bytes(),
-				C:   compressedTags,
-				H:   make([]byte, 4),
-			}
-
-			token, err := jwtConfig.CreateAndSign(false, claims, nonce, claimsheader.NewClaimsHeader())
-			So(err, ShouldBeNil)
-			So(len(token), ShouldBeLessThan, 1420)
-		})
-
-		Convey("When I try with 20 12-byte tags, the max length must not be exceeded", func() {
-
-			var compressedTags string
-			b := make([]byte, 12)
-			total := []byte{}
-			for i := 0; i < 20; i++ {
-				_, err := rand.Read(b)
-				So(err, ShouldBeNil)
-				total = append(total, b...)
-			}
-			compressedTags = base64.StdEncoding.EncodeToString(total)
-
-			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-			So(err, ShouldBeNil)
-
-			publickey := &PublicKeys{
-				X: privatekey.PublicKey.X,
-				Y: privatekey.PublicKey.Y,
-			}
-
-			var data bytes.Buffer
-
-			enc := gob.NewEncoder(&data)
-			err = enc.Encode(publickey)
-			So(err, ShouldBeNil)
-			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
-			Convey(msg, func() {})
-
-			claims := &ConnectionClaims{
-				ID:  "5c5baa93d5f54a3019bede4e",
-				RMT: []byte(rmt),
-				LCL: []byte(lcl),
-				EK:  data.Bytes(),
-				C:   compressedTags,
-				H:   make([]byte, 4),
-			}
-
-			token, err := jwtConfig.CreateAndSign(false, claims, nonce, claimsheader.NewClaimsHeader())
-			So(err, ShouldBeNil)
-			So(len(token), ShouldBeLessThan, 1420)
 		})
 
 	})

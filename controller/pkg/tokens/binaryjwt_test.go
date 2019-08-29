@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/gob"
+	"math/big"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -30,12 +30,14 @@ var (
 	pu1Claims = ConnectionClaims{
 		ID:  "pu1",
 		T:   createUncompressedTags("pu1"),
+		CT:  createCompressedTagArray(),
 		LCL: []byte(pu1nonce),
 	}
 
 	pu2Claims = ConnectionClaims{
 		ID:       "pu2",
 		T:        createUncompressedTags("pu2"),
+		CT:       createCompressedTagArray(),
 		LCL:      []byte(pu2nonce),
 		RMT:      []byte(pu1nonce),
 		RemoteID: "pu1",
@@ -57,22 +59,20 @@ var (
 
 func createUncompressedTags(pu string) *policy.TagStore {
 	tags := []string{
-		"AporetoContextID=" + pu,
-		createCompressedTagArray([]string{
-			"vpdCmPoRCx7k",
-			"8wLk0bOXS9w0",
-			"GUmf49pmErzC",
-			"7J+9IX0dRGog",
-			"3BQgvLnKvSUj",
-		}),
+		enforcerconstants.TransmitterLabel + "=" + pu,
 	}
 
 	return policy.NewTagStoreFromSlice(tags)
 }
 
-func createCompressedTagArray(tagSlice []string) string {
-
-	return base64.StdEncoding.EncodeToString([]byte(strings.Join(tagSlice, "")))
+func createCompressedTagArray() *policy.TagStore {
+	return policy.NewTagStoreFromSlice([]string{
+		"vpdCmPoRCx7k",
+		"8wLk0bOXS9w0",
+		"GUmf49pmErzC",
+		"7J+9IX0dRGog",
+		"3BQgvLnKvSUj",
+	})
 }
 
 func Test_NewBinaryJWT(t *testing.T) {
@@ -179,6 +179,11 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 	})
 }
 
+type PublicKeys struct {
+	X *big.Int
+	Y *big.Int
+}
+
 func Test_BinaryTokenLengths(t *testing.T) {
 	Convey("Given a JWT valid engine with a valid Compact PKI key ", t, func() {
 		_, scrts, err := createCompactPKISecrets()
@@ -188,16 +193,6 @@ func Test_BinaryTokenLengths(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("When I try with 64 12-byte tags, the max length must not be exceeded", func() {
-
-			var compressedTags string
-			b := make([]byte, 12)
-			total := []byte{}
-			for i := 0; i < 45; i++ {
-				_, err := rand.Read(b)
-				So(err, ShouldBeNil)
-				total = append(total, b...)
-			}
-			compressedTags = base64.StdEncoding.EncodeToString(total)
 
 			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 			So(err, ShouldBeNil)
@@ -215,12 +210,68 @@ func Test_BinaryTokenLengths(t *testing.T) {
 			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
 			Convey(msg, func() {})
 
+			var compressedTags []string
+			b := make([]byte, 12)
+			for i := 0; i < 56; i++ {
+				_, err := rand.Read(b)
+				So(err, ShouldBeNil)
+				compressedTags = append(compressedTags, string(b))
+			}
+
 			claims := &ConnectionClaims{
 				ID:  "5c5baa93d5f54a3019bede4e",
 				RMT: []byte(rmt),
 				LCL: []byte(lcl),
 				EK:  data.Bytes(),
-				C:   compressedTags,
+				CT:  policy.NewTagStoreFromSlice(compressedTags),
+			}
+
+			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader())
+			So(err, ShouldBeNil)
+			So(len(token), ShouldBeLessThan, 1420)
+		})
+
+	})
+
+	Convey("Given a JWT valid engine with a valid Compact PKI key ", t, func() {
+		_, scrts, err := createCompactPKISecrets()
+		So(err, ShouldBeNil)
+
+		t, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		So(err, ShouldBeNil)
+
+		Convey("When I try with 64 12-byte tags, the max length must not be exceeded", func() {
+
+			privatekey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			So(err, ShouldBeNil)
+
+			publickey := &PublicKeys{
+				X: privatekey.PublicKey.X,
+				Y: privatekey.PublicKey.Y,
+			}
+
+			var data bytes.Buffer
+
+			enc := gob.NewEncoder(&data)
+			err = enc.Encode(publickey)
+			So(err, ShouldBeNil)
+			msg := "Length of bytes " + strconv.Itoa(len(data.Bytes()))
+			Convey(msg, func() {})
+
+			var compressedTags []string
+			b := make([]byte, 8)
+			for i := 0; i < 80; i++ {
+				_, err := rand.Read(b)
+				So(err, ShouldBeNil)
+				compressedTags = append(compressedTags, string(b))
+			}
+
+			claims := &ConnectionClaims{
+				ID:  "5c5baa93d5f54a3019bede4e",
+				RMT: []byte(rmt),
+				LCL: []byte(lcl),
+				EK:  data.Bytes(),
+				CT:  policy.NewTagStoreFromSlice(compressedTags),
 			}
 
 			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader())

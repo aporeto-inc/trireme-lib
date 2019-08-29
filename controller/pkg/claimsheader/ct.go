@@ -19,7 +19,7 @@ const (
 	CompressedTagLengthV1 int = 12
 
 	// CompressedTagLengthV2 is version 2 length of tags
-	CompressedTagLengthV2 int = 4
+	CompressedTagLengthV2 int = 8
 )
 
 // toMask returns the mask based on the type
