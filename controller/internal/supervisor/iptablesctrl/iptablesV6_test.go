@@ -291,8 +291,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -807,8 +807,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",

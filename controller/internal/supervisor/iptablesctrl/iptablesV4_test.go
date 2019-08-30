@@ -24,8 +24,10 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	ipv4Impl := &ipv4{ipt: iptv4}
 	ipv6Impl := &ipv6{ipt: iptv6, ipv6Disabled: false}
 
-	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
-	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
+	fq := fqconfig.NewFilterQueueWithDefaults()
+	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
@@ -674,8 +676,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -1709,8 +1711,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
-			"-p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
