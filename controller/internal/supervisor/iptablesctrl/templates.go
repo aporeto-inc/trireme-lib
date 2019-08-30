@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"text/template"
@@ -101,6 +102,7 @@ type ACLInfo struct {
 	SrvIPSet     string
 	ProxyPort    string
 	DNSProxyPort string
+	DNSServerIP  string
 	CgroupMark   string
 	ProxyMark    string
 	ProxySetName string
@@ -140,12 +142,32 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	var err error
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
+	ipFilter := i.impl.IPFilter()
 
 	if contextID != "" {
 		appChain, netChain, err = chainName(contextID, version)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	parseDNSServerIP := func() string {
+		for _, ipString := range i.fqc.DNSServerAddress {
+			if ip := net.ParseIP(ipString); ip != nil {
+				if ipFilter(ip) {
+					return ipString
+				} else {
+					continue
+				}
+			}
+			// parseCIDR
+			if ip, _, err := net.ParseCIDR(ipString); err == nil {
+				if ipFilter(ip) {
+					return ipString
+				}
+			}
+		}
+		return ""
 	}
 
 	var tcpPorts, udpPorts string
@@ -242,6 +264,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		SrvIPSet:     srvSetName,
 		ProxyPort:    servicePort,
 		DNSProxyPort: dnsProxyPort,
+		DNSServerIP:  parseDNSServerIP(),
 		CgroupMark:   mark,
 		ProxyMark:    proxyMark,
 		ProxySetName: proxySetName,

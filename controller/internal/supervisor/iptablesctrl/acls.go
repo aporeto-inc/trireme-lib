@@ -54,6 +54,7 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 			cfg.NetSection,
 			cfg.PUType,
 			cfg.DNSProxyPort,
+			cfg.DNSServerIP,
 		)
 	}
 
@@ -87,7 +88,7 @@ func (i *iptables) uidChainRules(cfg *ACLInfo) [][]string {
 	}
 
 	if i.isLegacyKernel {
-		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark, cfg.DNSProxyPort)...)
+		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark, cfg.DNSProxyPort, cfg.DNSServerIP)...)
 	}
 	return append(rules, i.proxyRules(cfg)...)
 }
@@ -114,8 +115,8 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 		"isCgroupSet": func() bool {
 			return cfg.CgroupMark != ""
 		},
-		"isDNSProxyPort": func() bool {
-			return cfg.DNSProxyPort != ""
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
 		},
 	}).Parse(proxyChainTemplate))
 
