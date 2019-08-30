@@ -156,9 +156,9 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 			if ip := net.ParseIP(ipString); ip != nil {
 				if ipFilter(ip) {
 					return ipString
-				} else {
-					continue
 				}
+
+				continue
 			}
 			// parseCIDR
 			if ip, _, err := net.ParseCIDR(ipString); err == nil {
