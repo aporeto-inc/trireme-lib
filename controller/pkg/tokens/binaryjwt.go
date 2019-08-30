@@ -221,6 +221,8 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 	// of the remote.
 	if len(binaryClaims.RMT) > 0 {
 
+		binaryClaims.RMT = nil
+
 		key := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
 
 		if err := c.verifyWithSharedKey(token, key, sig); err != nil {
@@ -456,6 +458,10 @@ func decode(buf []byte) (*BinaryJWTClaims, error) {
 		return nil, fmt.Errorf("decoding failed: %s", err)
 	}
 
+	if binaryClaims.ExpiresAt < time.Now().Unix() {
+		return nil, fmt.Errorf("token is expired since: %s", time.Unix(binaryClaims.ExpiresAt, 0))
+	}
+
 	return binaryClaims, nil
 }
 
@@ -507,7 +513,8 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error
 
 	var nonce []byte
 	if !isAck {
-		nonce = data[binaryNoncePosition : binaryNoncePosition+nonceLength]
+		nonce = make([]byte, 16)
+		copy(nonce, data[binaryNoncePosition:binaryNoncePosition+nonceLength])
 	}
 
 	// Only if nonce is found do we need to advance. So, use the

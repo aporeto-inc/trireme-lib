@@ -13,27 +13,27 @@ import (
 
 const (
 	// ----- content types ----
-	codecSelferCcUTF88162 = 1
-	codecSelferCcRAW8162  = 255
+	codecSelferCcUTF86151 = 1
+	codecSelferCcRAW6151  = 255
 	// ----- value types used ----
-	codecSelferValueTypeArray8162     = 10
-	codecSelferValueTypeMap8162       = 9
-	codecSelferValueTypeString8162    = 6
-	codecSelferValueTypeInt8162       = 2
-	codecSelferValueTypeUint8162      = 3
-	codecSelferValueTypeFloat8162     = 4
-	codecSelferValueTypeNil8162       = 1
-	codecSelferBitsize8162            = uint8(32 << (^uint(0) >> 63))
-	codecSelferDecContainerLenNil8162 = -2147483648
+	codecSelferValueTypeArray6151     = 10
+	codecSelferValueTypeMap6151       = 9
+	codecSelferValueTypeString6151    = 6
+	codecSelferValueTypeInt6151       = 2
+	codecSelferValueTypeUint6151      = 3
+	codecSelferValueTypeFloat6151     = 4
+	codecSelferValueTypeNil6151       = 1
+	codecSelferBitsize6151            = uint8(32 << (^uint(0) >> 63))
+	codecSelferDecContainerLenNil6151 = -2147483648
 )
 
 var (
-	errCodecSelferOnlyMapOrArrayEncodeToStruct8162 = errors.New(`only encoded map or array can be decoded into a struct`)
+	errCodecSelferOnlyMapOrArrayEncodeToStruct6151 = errors.New(`only encoded map or array can be decoded into a struct`)
 )
 
-type codecSelfer8162 struct{}
+type codecSelfer6151 struct{}
 
-func codecSelfer8162False() bool { return false }
+func codecSelfer6151False() bool { return false }
 
 func init() {
 	if codec1978.GenVersion != 16 {
@@ -44,7 +44,7 @@ func init() {
 }
 
 func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
-	var h codecSelfer8162
+	var h codecSelfer6151
 	z, r := codec1978.GenHelperEncoder(e)
 	_, _, _ = h, z, r
 	if x == nil {
@@ -54,20 +54,19 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 		yy2arr2 := z.EncBasicHandle().StructToArray
 		_, _ = yysep2, yy2arr2
 		const yyr2 bool = false // struct tag has 'toArray'
-		var yyq2 = [9]bool{     // should field at this index be written?
+		var yyq2 = [8]bool{     // should field at this index be written?
 			len(x.T) != 0,         // T
 			len(x.CT) != 0,        // CT
 			len(x.RMT) != 0,       // RMT
 			len(x.LCL) != 0,       // LCL
 			len(x.EK) != 0,        // EK
-			x.C != "",             // C
 			x.ID != "",            // ID
 			x.ExpiresAt != 0,      // ExpiresAt
 			len(x.SignerKey) != 0, // SignerKey
 		}
 		_ = yyq2
 		if yyr2 || yy2arr2 {
-			z.EncWriteArrayStart(9)
+			z.EncWriteArrayStart(8)
 			z.EncWriteArrayElem()
 			if yyq2[0] {
 				if x.T == nil {
@@ -120,24 +119,18 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 			}
 			z.EncWriteArrayElem()
 			if yyq2[5] {
-				r.EncodeString(string(x.C))
-			} else {
-				r.EncodeString("")
-			}
-			z.EncWriteArrayElem()
-			if yyq2[6] {
 				r.EncodeString(string(x.ID))
 			} else {
 				r.EncodeString("")
 			}
 			z.EncWriteArrayElem()
-			if yyq2[7] {
+			if yyq2[6] {
 				r.EncodeInt(int64(x.ExpiresAt))
 			} else {
 				r.EncodeInt(0)
 			}
 			z.EncWriteArrayElem()
-			if yyq2[8] {
+			if yyq2[7] {
 				if x.SignerKey == nil {
 					r.EncodeNil()
 				} else {
@@ -229,16 +222,6 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 			if yyq2[5] {
 				z.EncWriteMapElemKey()
 				if z.IsJSONHandle() {
-					z.WriteStr("\"C\"")
-				} else {
-					r.EncodeString(`C`)
-				}
-				z.EncWriteMapElemValue()
-				r.EncodeString(string(x.C))
-			}
-			if yyq2[6] {
-				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
 					z.WriteStr("\"ID\"")
 				} else {
 					r.EncodeString(`ID`)
@@ -246,7 +229,7 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 				z.EncWriteMapElemValue()
 				r.EncodeString(string(x.ID))
 			}
-			if yyq2[7] {
+			if yyq2[6] {
 				z.EncWriteMapElemKey()
 				if z.IsJSONHandle() {
 					z.WriteStr("\"ExpiresAt\"")
@@ -256,7 +239,7 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 				z.EncWriteMapElemValue()
 				r.EncodeInt(int64(x.ExpiresAt))
 			}
-			if yyq2[8] {
+			if yyq2[7] {
 				z.EncWriteMapElemKey()
 				if z.IsJSONHandle() {
 					z.WriteStr("\"SignerKey\"")
@@ -276,32 +259,32 @@ func (x *BinaryJWTClaims) CodecEncodeSelf(e *codec1978.Encoder) {
 }
 
 func (x *BinaryJWTClaims) CodecDecodeSelf(d *codec1978.Decoder) {
-	var h codecSelfer8162
+	var h codecSelfer6151
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
 	yyct2 := r.ContainerType()
-	if yyct2 == codecSelferValueTypeNil8162 {
+	if yyct2 == codecSelferValueTypeNil6151 {
 		*(x) = BinaryJWTClaims{}
-	} else if yyct2 == codecSelferValueTypeMap8162 {
+	} else if yyct2 == codecSelferValueTypeMap6151 {
 		yyl2 := z.DecReadMapStart()
 		if yyl2 == 0 {
 		} else {
 			x.codecDecodeSelfFromMap(yyl2, d)
 		}
 		z.DecReadMapEnd()
-	} else if yyct2 == codecSelferValueTypeArray8162 {
+	} else if yyct2 == codecSelferValueTypeArray6151 {
 		yyl2 := z.DecReadArrayStart()
 		if yyl2 != 0 {
 			x.codecDecodeSelfFromArray(yyl2, d)
 		}
 		z.DecReadArrayEnd()
 	} else {
-		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct8162)
+		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct6151)
 	}
 }
 
 func (x *BinaryJWTClaims) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
-	var h codecSelfer8162
+	var h codecSelfer6151
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
 	var yyhl3 bool = l >= 0
@@ -329,8 +312,6 @@ func (x *BinaryJWTClaims) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 			x.LCL = r.DecodeBytes(([]byte)(x.LCL), false)
 		case "EK":
 			x.EK = r.DecodeBytes(([]byte)(x.EK), false)
-		case "C":
-			x.C = (string)(string(r.DecodeStringAsBytes()))
 		case "ID":
 			x.ID = (string)(string(r.DecodeStringAsBytes()))
 		case "ExpiresAt":
@@ -344,131 +325,119 @@ func (x *BinaryJWTClaims) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 }
 
 func (x *BinaryJWTClaims) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
-	var h codecSelfer8162
+	var h codecSelfer6151
 	z, r := codec1978.GenHelperDecoder(d)
 	_, _, _ = h, z, r
-	var yyj19 int
-	var yyb19 bool
-	var yyhl19 bool = l >= 0
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	var yyj18 int
+	var yyb18 bool
+	var yyhl18 bool = l >= 0
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	z.F.DecSliceStringX(&x.T, d)
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	z.F.DecSliceStringX(&x.CT, d)
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.RMT = r.DecodeBytes(([]byte)(x.RMT), false)
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.LCL = r.DecodeBytes(([]byte)(x.LCL), false)
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.EK = r.DecodeBytes(([]byte)(x.EK), false)
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
-		z.DecReadArrayEnd()
-		return
-	}
-	z.DecReadArrayElem()
-	x.C = (string)(string(r.DecodeStringAsBytes()))
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
-	} else {
-		yyb19 = z.DecCheckBreak()
-	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.ID = (string)(string(r.DecodeStringAsBytes()))
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.ExpiresAt = (int64)(r.DecodeInt64())
-	yyj19++
-	if yyhl19 {
-		yyb19 = yyj19 > l
+	yyj18++
+	if yyhl18 {
+		yyb18 = yyj18 > l
 	} else {
-		yyb19 = z.DecCheckBreak()
+		yyb18 = z.DecCheckBreak()
 	}
-	if yyb19 {
+	if yyb18 {
 		z.DecReadArrayEnd()
 		return
 	}
 	z.DecReadArrayElem()
 	x.SignerKey = r.DecodeBytes(([]byte)(x.SignerKey), false)
 	for {
-		yyj19++
-		if yyhl19 {
-			yyb19 = yyj19 > l
+		yyj18++
+		if yyhl18 {
+			yyb18 = yyj18 > l
 		} else {
-			yyb19 = z.DecCheckBreak()
+			yyb18 = z.DecCheckBreak()
 		}
-		if yyb19 {
+		if yyb18 {
 			break
 		}
 		z.DecReadArrayElem()
-		z.DecStructFieldNotFound(yyj19-1, "")
+		z.DecStructFieldNotFound(yyj18-1, "")
 	}
 }

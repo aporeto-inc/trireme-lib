@@ -3,7 +3,6 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -97,7 +96,6 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 
 	claims := &tokens.ConnectionClaims{
 		ID:       context.ManagementID(),
-		LCL:      auth.LocalContext,
 		RMT:      auth.RemoteContext,
 		RemoteID: auth.RemoteContextID,
 	}
@@ -169,7 +167,6 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	// Validate the certificate and parse the token
 	claims, nonce, cert, err := t.getToken().Decode(false, data, auth.RemotePublicKey)
 	if err != nil {
-		fmt.Println("Error", err)
 		return nil, err
 	}
 
@@ -209,11 +206,11 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 
 	// Compare the incoming random context with the stored context
 	// FIX THIS WE KNOW THE ISSUE
-	// matchLocal := bytes.Compare(claims.RMT, auth.LocalContext)
-	// matchRemote := bytes.Compare(claims.LCL, auth.RemoteContext)
-	// if matchLocal != 0 || matchRemote != 0 {
-	// 	return nil, errors.New("failed to match context in ack packet")
-	// }
+
+	// matchRemote := bytes.Equal(claims.LCL, auth.RemoteContext)
+	if !bytes.Equal(claims.RMT, auth.LocalContext) {
+		return nil, errors.New("failed to match context in ack packet")
+	}
 
 	return claims, nil
 }

@@ -19,8 +19,6 @@ type BinaryJWTClaims struct {
 	LCL []byte `codec:",omitempty"`
 	// EK is the ephemeral EC key for encryption
 	EK []byte `codec:",omitempty"`
-	// C is the compressed tags in one string
-	C string `codec:",omitempty"`
 	// ID is the source PU ID
 	ID string `codec:",omitempty"`
 	// Expiration time

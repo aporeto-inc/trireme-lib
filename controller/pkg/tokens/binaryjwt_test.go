@@ -155,7 +155,7 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(saClaims, ShouldNotBeNil)
 				So(saClaims.LCL, ShouldResemble, pu2Claims.LCL)
-				So(saClaims.RMT, ShouldResemble, pu2Claims.RMT)
+				So(saClaims.RMT, ShouldBeNil)
 				So(saClaims.ID, ShouldResemble, pu2Claims.ID)
 
 				Convey("When I send the final Ack packet it should also be decoded with the shared key", func() {

@@ -334,8 +334,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	conn.SetState(connection.TCPSynSend)
 
 	// Poplate the caches to track the connection
-	hash := tcpPacket.L4FlowHash()
-	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
+	d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 	// Attach the tags to the packet and accept the packet
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
