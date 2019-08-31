@@ -251,7 +251,10 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 		}
 
 		// We create a new symetric key if we don't already have one.
-		c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
+		}
 	}
 
 	// Uncommpress the tags and add the public key claims to the tags that

@@ -12,7 +12,7 @@ required = ["github.com/docker/distribution"]
   name = "github.com/docker/distribution"
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
-# Conntrack dependencies from forked branchs 
+# Conntrack dependencies from forked branches
 [[override]]
   name = "github.com/mdlayher/netlink"
   source = "https://github.com/aporeto-inc/netlink.git"
