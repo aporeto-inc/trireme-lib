@@ -548,8 +548,38 @@ func (i *iptables) setGlobalRules() error {
 	return nil
 }
 
-func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
+// removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
+// no errors if these things fail.
+func (i *iptables) removeGlobalHooksPre(cfg *ACLInfo) error {
+	rules := [][]string{
+		{
+			"nat",
+			"PREROUTING",
+			"-p", "tcp",
+			"-m", "addrtype",
+			"--dst-type", "LOCAL",
+			"-m", "set", "!", "--match-set", "TRI-Excluded", "src",
+			"-j", "TRI-Redir-Net",
+		},
+		{
+			"nat",
+			"OUTPUT",
+			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
+			"-j", "TRI-Redir-App",
+		},
+	}
 
+	for _, rule := range rules {
+		if err := i.impl.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
+		}
+	}
+	return nil
+}
+func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
+	// This func is a chance to remove rules that don't fit in your templates.
+	// This should ideally not be used
+	i.removeGlobalHooksPre(cfg)
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
