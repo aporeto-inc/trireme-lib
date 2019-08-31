@@ -223,15 +223,20 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 
 		binaryClaims.RMT = nil
 
-		key := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
+		}
 
 		if err := c.verifyWithSharedKey(token, key, sig); err != nil {
 			// We need to be cautious here. There is a chance that the remote public key
 			// has changed. In this case, we will re-calculate the shared key and try
 			// again. We don't have the option of doing that for Ack packets, but at least
 			// we can do it here.
-			zap.L().Warn("Replacing shared key. First attempt failed", zap.Error(err))
-			key = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
+			}
 
 			if err = c.verifyWithSharedKey(token, key, sig); err != nil {
 				return nil, nil, nil, fmt.Errorf("unable to verify token with any key: %s", err)
@@ -246,9 +251,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 		}
 
 		// We create a new symetric key if we don't already have one.
-		// if _, err := c.sharedKeys.Get(binaryClaims.ID); err != nil {
 		c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
-		// }
 	}
 
 	// Uncommpress the tags and add the public key claims to the tags that
@@ -402,7 +405,7 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 	return nil
 }
 
-func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) []byte {
+func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
 
 	// We try to find the remote in the cache
 	k, err := c.sharedKeys.Get(id)
@@ -411,12 +414,15 @@ func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publ
 		return c.newSharedKey(id, publicKey, publicKeyClaims, expTime)
 	}
 	// Key is already found in the cache.
-	return k.(*sharedSecret).key
+	return k.(*sharedSecret).key, nil
 }
 
-func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) []byte {
+func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
 
-	key := symetricKey(c.secrets.EncodingKey(), publicKey)
+	key, err := symetricKey(c.secrets.EncodingKey(), publicKey)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add it in the cache
 	c.sharedKeys.AddOrUpdate(id, &sharedSecret{
@@ -432,7 +438,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 		}
 	}
 
-	return key
+	return key, nil
 }
 
 func encode(c *BinaryJWTClaims) ([]byte, error) {
@@ -537,17 +543,13 @@ func hash(buf []byte, key []byte) ([]byte, error) {
 }
 
 // symetricKey returns a symetric key for encryption
-func symetricKey(privateKey interface{}, remotePublic interface{}) []byte {
+func symetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
 
 	c := elliptic.P256()
 
 	x, _ := c.ScalarMult(remotePublic.(*ecdsa.PublicKey).X, remotePublic.(*ecdsa.PublicKey).Y, privateKey.(*ecdsa.PrivateKey).D.Bytes())
 
-	var endLength = 32 - len(x.Bytes())
-	skey := make([]byte, endLength)
-	skey = append(skey, x.Bytes()...)
-
-	return skey
+	return hash(x.Bytes(), nil)
 }
 
 func pruneTags(claims *BinaryJWTClaims) {

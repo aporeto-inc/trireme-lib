@@ -511,9 +511,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					constants.DefaultConnMark,
 				); err != nil {
 					zap.L().Error("Failed to update conntrack table for flow after ack packet",
-						// zap.String("context", string(conn.Auth.LocalContext)),
 						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-						// zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 						zap.Error(err),
 					)
 				}
