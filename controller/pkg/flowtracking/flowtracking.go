@@ -19,7 +19,8 @@ type Client struct {
 // NewClient creates a new flow tracking client. s
 func NewClient(ctx context.Context) (*Client, error) {
 	c, err := conntrack.Dial(&netlink.Config{
-		DisableNSLockThread: true,
+		// Enable this when the netlink PR is merged.
+		// DisableNSLockThread: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("flow tracker is unable to dial netlink: %s", err)
