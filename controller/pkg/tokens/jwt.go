@@ -8,6 +8,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -210,8 +211,17 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		return nil, nil, nil, errors.New("invalid token")
 	}
 
-	if !isAck && certClaims != nil {
-		jwtClaims.ConnectionClaims.T.Merge(policy.NewTagStoreFromSlice(certClaims))
+	if !isAck {
+		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
+		if jwtClaims.ConnectionClaims.T != nil {
+			tags = jwtClaims.ConnectionClaims.T.Tags
+		}
+
+		if certClaims != nil {
+			tags = append(tags, certClaims...)
+		}
+
+		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 	}
 
 	if jwtClaims.ConnectionClaims.H != nil {
