@@ -91,7 +91,11 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
-		claims,
+		&ConnectionClaims{
+			T:   claims.T,
+			EK:  claims.EK,
+			RMT: claims.RMT,
+		},
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
 		},
@@ -100,6 +104,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	// For backward compatibility, keep the issuer in Ack packets.
 	if isAck {
 		allclaims.Issuer = c.Issuer
+		allclaims.LCL = claims.LCL
 	}
 
 	// Set the appropriate claims header
