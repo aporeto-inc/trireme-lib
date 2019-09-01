@@ -96,6 +96,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 
 	claims := &tokens.ConnectionClaims{
 		ID:       context.ManagementID(),
+		LCL:      auth.LocalContext,
 		RMT:      auth.RemoteContext,
 		RemoteID: auth.RemoteContextID,
 	}
