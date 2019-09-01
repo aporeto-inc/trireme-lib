@@ -204,10 +204,6 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 		return nil, err
 	}
 
-	// Compare the incoming random context with the stored context
-	// FIX THIS WE KNOW THE ISSUE
-
-	// matchRemote := bytes.Equal(claims.LCL, auth.RemoteContext)
 	if !bytes.Equal(claims.RMT, auth.LocalContext) {
 		return nil, errors.New("failed to match context in ack packet")
 	}
