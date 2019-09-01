@@ -772,9 +772,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	if pkt.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, report, pkt, true)
-		zap.L().Error("Why is that happening", zap.String("data", fmt.Sprintf("contextID %s Claims %s", context.ManagementID(), claims.T.String())))
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckRejected, fmt.Sprintf("contextID %s Claims %s", context.ManagementID(), claims.T.String()))
-
 	}
 
 	conn.SetState(connection.TCPSynAckReceived)

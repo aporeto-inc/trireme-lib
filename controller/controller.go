@@ -49,7 +49,7 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 		mode:                   mode,
 		fq:                     fqconfig.NewFilterQueueWithDefaults(),
 		mutualAuth:             true,
-		validity:               time.Minute * 1,
+		validity:               constants.DatapathTokenValidity,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
 		remoteParameters: &env.RemoteParameters{

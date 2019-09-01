@@ -122,7 +122,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
 	defaultExternalIPCacheTimeout := time.Second * 40
-	validity := time.Minute * 1
+	validity := constants.DatapathTokenValidity
 	policyEnf := NewProxyEnforcer(
 		mutualAuthorization,
 		fqConfig,

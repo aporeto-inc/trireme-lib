@@ -281,7 +281,7 @@ func NewWithDefaults(
 
 	defaultMutualAuthorization := false
 	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := time.Minute * 1
+	defaultValidity := constants.DatapathTokenValidity
 	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second

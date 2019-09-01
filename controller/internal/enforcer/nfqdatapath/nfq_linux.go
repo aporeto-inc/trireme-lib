@@ -93,7 +93,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	}
 
 	if processError != nil {
-		zap.L().Error("Dropping packet on network path",
+		zap.L().Debug("Dropping packet on network path",
 			zap.Error(processError),
 			zap.String("SourceIP", netPacket.SourceAddress().String()),
 			zap.String("DestiatnionIP", netPacket.DestinationAddress().String()),
@@ -182,7 +182,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
 	}
 	if processError != nil {
-		zap.L().Error("Dropping packet on app path",
+		zap.L().Debug("Dropping packet on app path",
 			zap.Error(processError),
 			zap.String("SourceIP", appPacket.SourceAddress().String()),
 			zap.String("DestiatnionIP", appPacket.DestinationAddress().String()),
