@@ -22,14 +22,6 @@ required = ["github.com/docker/distribution"]
   name = "github.com/ti-mo/conntrack"
   source = "https://github.com/aporeto-inc/conntrack.git"
   revision = "309d2d6a30782ae8f0c68f2dda0774966523e469"
-  
-#
-# The most significant dependency for the Kubernetes monitor: the controller-runtime
-# NOTE: change with care and always adjust the Kubernetes dependencies below
-#
-[[override]]
-  name = "sigs.k8s.io/controller-runtime"
-  version = "v0.1.10"
 
 #
 # Kubernetes dependencies
