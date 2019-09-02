@@ -6,6 +6,7 @@ type DatapathVersion int
 // DatapathVersion constants
 const (
 	DatapathVersion1 DatapathVersion = iota
+	DatapathVersion2
 )
 
 func (dv DatapathVersion) toMask() datapathVersionMask { // nolint

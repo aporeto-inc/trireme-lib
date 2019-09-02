@@ -18,6 +18,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/controller/pkg/bufferpool"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -259,7 +260,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		forward.RoundTripper(encryptedTransport),
 		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
 		forward.WebSocketNetDial(netDial),
-		forward.BufferPool(NewPool()),
+		forward.BufferPool(bufferpool.NewPool(32*1204)),
 		forward.ErrorHandler(TriremeHTTPErrHandler{}),
 	)
 	if err != nil {
@@ -270,7 +271,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		forward.RoundTripper(NewTriremeRoundTripper(transport)),
 		forward.WebsocketTLSClientConfig(&tls.Config{InsecureSkipVerify: true}),
 		forward.WebSocketNetDial(appDial),
-		forward.BufferPool(NewPool()),
+		forward.BufferPool(bufferpool.NewPool(32*1204)),
 		forward.ErrorHandler(TriremeHTTPErrHandler{}),
 	)
 	if err != nil {

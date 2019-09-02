@@ -228,9 +228,10 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	cfg *runtime.Configuration,
+	binaryTokens bool,
 ) (Enforcer, error) {
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
