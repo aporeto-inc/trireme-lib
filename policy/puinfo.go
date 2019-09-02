@@ -15,7 +15,7 @@ type PUInfo struct {
 
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID, namespace string, puType common.PUType) *PUInfo {
-	policy := NewPUPolicy(contextID, namespace, AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+	policy := NewPUPolicy(contextID, namespace, AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
 	runtime := NewPURuntime("", 0, "", nil, nil, puType, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }

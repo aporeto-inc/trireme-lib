@@ -40,7 +40,7 @@ const (
 	dockerPingTimeout = 2 * time.Second
 
 	// dockerRetryTimer is the time after which we will retry to bring docker up.
-	dockerRetryTimer = 10 * time.Second
+	dockerRetryTimer = 2 * time.Second
 
 	// dockerInitializationWait is the time after which we will retry to bring docker up.
 	dockerInitializationWait = 2 * dockerRetryTimer

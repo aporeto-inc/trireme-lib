@@ -43,6 +43,7 @@ type ProxyInfo struct {
 	collector              collector.EventCollector
 	cfg                    *runtime.Configuration
 	tokenIssuer            common.ServiceTokenIssuer
+	binaryTokens           bool
 
 	sync.RWMutex
 }
@@ -287,6 +288,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			PacketLogs:             s.packetLogs,
 			Secrets:                s.Secrets.PublicSecrets(),
 			Configuration:          s.cfg,
+			BinaryTokens:           s.binaryTokens,
 		},
 	}
 
@@ -309,6 +311,7 @@ func NewProxyEnforcer(
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
 	tokenIssuer common.ServiceTokenIssuer,
+	binaryTokens bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -337,5 +340,6 @@ func NewProxyEnforcer(
 		collector:              collector,
 		cfg:                    cfg,
 		tokenIssuer:            tokenIssuer,
+		binaryTokens:           binaryTokens,
 	}
 }
