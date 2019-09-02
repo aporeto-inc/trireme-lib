@@ -12,6 +12,21 @@ required = ["github.com/docker/distribution"]
   name = "github.com/docker/distribution"
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
+# Conntrack dependencies from forked branches
+[[override]]
+  name = "github.com/mdlayher/netlink"
+  source = "https://github.com/aporeto-inc/netlink.git"
+  revision = "7e948d4190d773b1315fb031a8ae83d8a302f7c9"
+  
+[[constraint]]
+  name = "github.com/ti-mo/conntrack"
+  source = "https://github.com/aporeto-inc/conntrack.git"
+  revision = "309d2d6a30782ae8f0c68f2dda0774966523e469"
+
+#
+# Kubernetes dependencies
+# NOTE: always match exactly to what controller-runtime uses
+#
 [[constraint]]
   name = "k8s.io/api"
   version = "kubernetes-1.13.1"

@@ -2,11 +2,9 @@ package tokens
 
 import (
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -15,19 +13,12 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 var (
 	noncePosition = 2
 	tokenPosition = 2 + NonceLength
 )
-
-// JWTClaims captures all the custom  clains
-type JWTClaims struct {
-	*ConnectionClaims
-	jwt.StandardClaims
-}
 
 // JWTConfig configures the JWT token generator with the standard parameters. One
 // configuration is assigned to each server
@@ -48,6 +39,12 @@ type JWTConfig struct {
 	compressionTagLength int
 	// datapathVersion is the current version of the datapath
 	datapathVersion claimsheader.DatapathVersion
+}
+
+// JWTClaims captures all the custom  clains
+type JWTClaims struct {
+	*ConnectionClaims
+	jwt.StandardClaims
 }
 
 // NewJWT creates a new JWT token processor
@@ -94,7 +91,11 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
-		claims,
+		&ConnectionClaims{
+			T:   claims.T,
+			EK:  claims.EK,
+			RMT: claims.RMT,
+		},
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
 		},
@@ -103,27 +104,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	// For backward compatibility, keep the issuer in Ack packets.
 	if isAck {
 		allclaims.Issuer = c.Issuer
-	}
-
-	if !isAck {
-
-		zap.L().Debug("claims", zap.Reflect("all", allclaims), zap.String("type", string(c.compressionType)))
-
-		// Handling compression here. If we need to use compression, we will copy
-		// the claims to the C claim and remove all the other fields.
-		if c.compressionType != claimsheader.CompressionTypeNone {
-			tags := allclaims.T
-			allclaims.T = nil
-			for _, t := range tags.Tags {
-				if strings.HasPrefix(t, enforcerconstants.TransmitterLabel) {
-					claims.ID = t[len(enforcerconstants.TransmitterLabel)+1:]
-				} else {
-					claims.C = t
-				}
-			}
-
-			zap.L().Debug("claims (post)", zap.Reflect("all", allclaims))
-		}
+		allclaims.LCL = claims.LCL
 	}
 
 	// Set the appropriate claims header
@@ -205,7 +186,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		certBytes := data[tokenPosition+tokenLength+1:]
 
-		ackCert, certClaims, err = c.secrets.KeyAndClaims(certBytes)
+		ackCert, certClaims, _, err = c.secrets.KeyAndClaims(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
@@ -236,10 +217,6 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 	}
 
 	if !isAck {
-
-		// Handling of compressed tags in a backward compatible manner. If there are claims
-		// arriving in the compressed field then we append them to the tags.
-
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
@@ -249,26 +226,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 			tags = append(tags, certClaims...)
 		}
 
-		// Handle compressed tags
-		if c.compressionTagLength != 0 && len(jwtClaims.ConnectionClaims.C) > 0 {
-
-			compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("invalid claims")
-			}
-
-			if len(compressedClaims)%c.compressionTagLength != 0 {
-				return nil, nil, nil, fmt.Errorf("invalid claims length. compression mismatch %d/%d", len(compressedClaims), c.compressionTagLength)
-			}
-
-			for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
-				tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
-			}
-		}
-
 		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
-
-		zap.L().Debug("claims (post)", zap.Reflect("jwt", jwtClaims))
 	}
 
 	if jwtClaims.ConnectionClaims.H != nil {
@@ -292,19 +250,6 @@ func (c *JWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 	copy(token[noncePosition:], nonce)
 
 	return nil
-}
-
-// RetrieveNonce returns the nonce of a token. It copies the value
-func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
-
-	if len(token) < tokenPosition {
-		return []byte{}, errors.New("invalid token")
-	}
-
-	nonce := make([]byte, NonceLength)
-	copy(nonce, token[noncePosition:tokenPosition])
-
-	return nonce, nil
 }
 
 func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) error {

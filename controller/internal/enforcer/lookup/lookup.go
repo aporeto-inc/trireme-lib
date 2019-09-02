@@ -1,6 +1,7 @@
 package lookup
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -146,22 +147,26 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 }
 
+var (
+	errInvalidTag = errors.New("tag must be k=v")
+)
+
 // Custom implementation for splitting strings. Gives significant performance
 // improvement. Do not allocate new strings
 func (m *PolicyDB) tagSplit(tag string, k *string, v *string) error {
 	l := len(tag)
 	if l < 3 {
-		return fmt.Errorf("Invalid tag: invalid length '%s'", tag)
+		return errInvalidTag
 	}
 
 	if tag[0] == '=' {
-		return fmt.Errorf("Invalid tag: missing key '%s'", tag)
+		return errInvalidTag
 	}
 
 	for i := 0; i < l; i++ {
 		if tag[i] == '=' {
 			if i+1 >= l {
-				return fmt.Errorf("Invalid tag: missing value '%s'", tag)
+				return errInvalidTag
 			}
 			*k = tag[:i]
 			*v = tag[i+1:]
@@ -169,7 +174,7 @@ func (m *PolicyDB) tagSplit(tag string, k *string, v *string) error {
 		}
 	}
 
-	return fmt.Errorf("Invalid tag: missing equal symbol '%s'", tag)
+	return errInvalidTag
 }
 
 // Search searches for a set of tags in the database to find a policy match

@@ -482,6 +482,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
 		payload.Configuration,
+		payload.BinaryTokens,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}

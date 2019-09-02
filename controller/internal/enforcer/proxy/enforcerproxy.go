@@ -42,6 +42,7 @@ type ProxyInfo struct {
 	ExternalIPCacheTimeout time.Duration
 	collector              collector.EventCollector
 	cfg                    *runtime.Configuration
+	binaryTokens           bool
 
 	sync.RWMutex
 }
@@ -284,6 +285,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			PacketLogs:             s.packetLogs,
 			Secrets:                s.Secrets.PublicSecrets(),
 			Configuration:          s.cfg,
+			BinaryTokens:           s.binaryTokens,
 		},
 	}
 
@@ -305,6 +307,7 @@ func NewProxyEnforcer(
 	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
+	binaryTokens bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -332,6 +335,7 @@ func NewProxyEnforcer(
 		packetLogs:             packetLogs,
 		collector:              collector,
 		cfg:                    cfg,
+		binaryTokens:           binaryTokens,
 	}
 }
 
