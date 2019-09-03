@@ -63,12 +63,11 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 }
 
 // addController adds a new Controller to mgr with r as the reconcile.Reconciler
-func addController(mgr manager.Manager, r *ReconcilePod, eventsCh <-chan event.GenericEvent) error {
+func addController(mgr manager.Manager, r *ReconcilePod, workers int, eventsCh <-chan event.GenericEvent) error {
 	// Create a new controller
 	c, err := controller.New("trireme-pod-controller", mgr, controller.Options{
-		Reconciler: r,
-		// TODO: should move into configuration
-		MaxConcurrentReconciles: 4,
+		Reconciler:              r,
+		MaxConcurrentReconciles: workers,
 	})
 	if err != nil {
 		return err
