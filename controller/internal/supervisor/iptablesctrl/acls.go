@@ -550,7 +550,7 @@ func (i *iptables) setGlobalRules() error {
 
 // removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
 // no errors if these things fail.
-func (i *iptables) removeGlobalHooksPre() error {
+func (i *iptables) removeGlobalHooksPre() {
 	rules := [][]string{
 		{
 			"nat",
@@ -574,7 +574,7 @@ func (i *iptables) removeGlobalHooksPre() error {
 			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
 		}
 	}
-	return nil
+	return
 }
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
