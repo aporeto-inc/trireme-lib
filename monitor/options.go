@@ -157,6 +157,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+
+	}
+}
+
+// SubOptionMonitorDockerDestroyStoppedContainers sets the option to destroy stopped containers.
+func SubOptionMonitorDockerDestroyStoppedContainers(f bool) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.DestroyStoppedContainers = f
 	}
 }
 
