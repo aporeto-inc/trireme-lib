@@ -30,6 +30,7 @@ type PodMonitor struct {
 	resetNetcls       extractors.ResetNetclsKubepods
 	sandboxExtractor  extractors.PodSandboxExtractor
 	enableHostPods    bool
+	workers           int
 	kubeCfg           *rest.Config
 	kubeClient        client.Client
 	eventsCh          chan event.GenericEvent
@@ -91,6 +92,9 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	if kubernetesconfig.SandboxExtractor == nil {
 		return fmt.Errorf("missing SandboxExtractor implementation")
 	}
+	if kubernetesconfig.Workers < 1 {
+		return fmt.Errorf("number of Kubernetes monitor workers must be at least 1")
+	}
 	// Setting up Kubernetes
 	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
@@ -99,6 +103,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
 	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
 	m.resetNetcls = kubernetesconfig.ResetNetcls
+	m.workers = kubernetesconfig.Workers
 
 	return nil
 }
@@ -138,7 +143,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 
 	// Create the main controller for the monitor
 	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
-	if err := addController(mgr, r, m.eventsCh); err != nil {
+	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
