@@ -574,7 +574,7 @@ func (i *iptables) removeGlobalHooksPre() {
 			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
 		}
 	}
-	return
+
 }
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
