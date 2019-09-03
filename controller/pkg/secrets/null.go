@@ -1,6 +1,10 @@
 package secrets
 
-import jwt "github.com/dgrijalva/jwt-go"
+import (
+	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+)
 
 // This is a NULL secrets implementation only for performance testing
 // ATTENTION *** ONLY FOR TESTING
@@ -36,8 +40,8 @@ func (p *NullPKI) PublicKey() interface{} {
 }
 
 //KeyAndClaims returns both the key and any attributes associated with the public key.
-func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, error) {
-	return jwt.UnsafeAllowNoneSignatureType, []string{}, nil
+func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error) {
+	return jwt.UnsafeAllowNoneSignatureType, []string{}, time.Now(), nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI

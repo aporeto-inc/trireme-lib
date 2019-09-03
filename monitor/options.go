@@ -157,6 +157,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+
+	}
+}
+
+// SubOptionMonitorDockerDestroyStoppedContainers sets the option to destroy stopped containers.
+func SubOptionMonitorDockerDestroyStoppedContainers(f bool) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.DestroyStoppedContainers = f
 	}
 }
 
@@ -257,6 +265,13 @@ func SubOptionMonitorPodNodename(nodename string) PodMonitorOption {
 func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
 		cfg.EnableHostPods = enableHostPods
+	}
+}
+
+// SubOptionMonitorPodWorkers provides a way to specify the maximum number of workers that are used in the controller.
+func SubOptionMonitorPodWorkers(workers int) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Workers = workers
 	}
 }
 

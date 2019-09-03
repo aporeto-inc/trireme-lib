@@ -281,14 +281,14 @@ func NewWithDefaults(
 
 	defaultMutualAuthorization := false
 	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := time.Hour * 8760
+	defaultValidity := constants.DatapathTokenValidity
 	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
 	defaultPacketLogs := false
 
-	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets, false)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
