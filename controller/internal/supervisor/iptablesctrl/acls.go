@@ -550,7 +550,7 @@ func (i *iptables) setGlobalRules() error {
 
 // removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
 // no errors if these things fail.
-func (i *iptables) removeGlobalHooksPre(cfg *ACLInfo) error {
+func (i *iptables) removeGlobalHooksPre() error {
 	rules := [][]string{
 		{
 			"nat",
@@ -579,7 +579,7 @@ func (i *iptables) removeGlobalHooksPre(cfg *ACLInfo) error {
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
 	// This should ideally not be used
-	i.removeGlobalHooksPre(cfg)
+	i.removeGlobalHooksPre()
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
