@@ -17,6 +17,13 @@ type Options struct {
 	SocketPath string
 }
 
+// SecretDiscoveryStream is the same as the sds.SecretDiscoveryService_StreamSecretsServer
+type SecretDiscoveryStream interface {
+	Send(*v2.DiscoveryResponse) error
+	Recv() (*v2.DiscoveryRequest, error)
+	grpc.ServerStream
+}
+
 // Server to talk with envoy.
 type Server struct {
 	sdsGrpcServer   *grpc.Server
@@ -72,13 +79,60 @@ func (s *Server) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServ
 	return nil
 }
 
+func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.DiscoveryRequest) {
+	defer close(discoveryReqCh)
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			fmt.Println("Connection terminated with err: ", err)
+			return
+		}
+		discoveryReqCh <- req
+	}
+}
+
 // StreamSecrets is the function invoked by the envoy in-order to pull the certs, this also sends the response back to the envoy.
 // It does the following:
-// 1. create a receiver thread to stream.
+// 1. create a receiver thread to stream the requests.
 // 2. parse the discovery request.
 // 3. track the request.
 // 4. call the Aporeto api to generate the secret
 func (s *Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	discoveryReqCh := make(chan *v2.DiscoveryRequest, 1)
+	go startStreaming(stream, discoveryReqCh)
+
+	for {
+		// wait for the receiver thread to stream the request and send it to us over here.
+		select {
+		case req, ok := <-discoveryReqCh:
+			// Now check the following:
+			// 1. Return if stream is closed.
+			// 2. Return if its invalid request.
+			if !ok {
+				fmt.Println("Receiver channel closed, which means the Receiver stream is closed")
+				return fmt.Errorf("Receiver closed the channel")
+			}
+			// if req.Node == nil {
+			// 	fmt.Println("unknow/invalid request from the envoy")
+			// 	return fmt.Errorf("unknow/invalid request from the envoy")
+			// }
+			// the node will be present only only in the 1st message according to the xds protocol
+			if req.Node != nil {
+				fmt.Println("the 1st request came from envoy: ", req.Node.Id, req.Node.Cluster)
+			}
+			// now according to the Istio pilot SDS secret config we have 2 configs, this configs are pushed to envoy through Istio.
+			// 1. SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
+			// 2. SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
+			// therefore from the above we receive 2 requests, 1 for default and 2 for the ROOTCA
+
+			// now check for the resourcename, it should atleast have one, else continue and stream the next request.
+			// according to the defination this could be empty.
+			if len(req.ResourceNames) == 0 {
+				continue
+			}
+
+		}
+	}
 	return nil
 }
 
