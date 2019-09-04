@@ -9,6 +9,7 @@ type Config struct { // nolint
 	Kubeconfig     string
 	Nodename       string
 	EnableHostPods bool
+	Workers        int
 
 	MetadataExtractor extractors.PodMetadataExtractor
 	NetclsProgrammer  extractors.PodNetclsProgrammer
@@ -26,6 +27,7 @@ func DefaultConfig() *Config {
 		EnableHostPods:    false,
 		Kubeconfig:        "",
 		Nodename:          "",
+		Workers:           4,
 	}
 }
 

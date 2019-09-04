@@ -229,9 +229,10 @@ func New(
 	packetLogs bool,
 	cfg *runtime.Configuration,
 	tokenIssuer common.ServiceTokenIssuer,
+	binaryTokens bool,
 ) (Enforcer, error) {
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}

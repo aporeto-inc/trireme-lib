@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aporeto-inc/conntrack"
 	"github.com/mdlayher/netlink"
-	"go.uber.org/zap"
+	"github.com/ti-mo/conntrack"
 )
 
 // FlowClient defines an interface that trireme uses to communicate with the conntrack
@@ -36,7 +35,10 @@ type Client struct {
 
 // NewClient creates a new flow tracking client. s
 func NewClient(ctx context.Context) (*Client, error) {
-	c, err := conntrack.Dial(&netlink.Config{})
+	c, err := conntrack.Dial(&netlink.Config{
+		// Enable this when the netlink PR is merged.
+		DisableNSLockThread: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("flow tracker is unable to dial netlink: %s", err)
 	}
@@ -68,13 +70,9 @@ func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstpor
 
 // GetOriginalDest gets the original destination ip, port and the mark on the packet
 func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
+
 	flow := conntrack.NewFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, 0)
 	origFlow, err := c.conn.Get(flow)
-
-	if err != nil {
-		zap.L().Error("")
-	}
-
 	return origFlow.TupleOrig.IP.DestinationAddress, origFlow.TupleOrig.Proto.DestinationPort, origFlow.Mark, err
 }
 

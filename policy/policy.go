@@ -30,6 +30,8 @@ type PUPolicy struct {
 	networkACLs IPRuleList
 	// identity is the set of key value pairs that must be send over the wire.
 	identity *TagStore
+	// compressedTags is the set of of compressed key/value pairs as binary values.
+	compressedTags *TagStore
 	// annotations are key/value pairs  that should be used for accounting reasons
 	annotations *TagStore
 	// transmitterRules is the set of rules that implement the label matching at the Transmitter
@@ -82,6 +84,7 @@ func NewPUPolicy(
 	rxtags TagSelectorList,
 	identity *TagStore,
 	annotations *TagStore,
+	compressedTags *TagStore,
 	ips ExtendedMap,
 	servicesListeningPort int,
 	dnsProxyPort int,
@@ -114,6 +117,10 @@ func NewPUPolicy(
 		annotations = NewTagStore()
 	}
 
+	if compressedTags == nil {
+		compressedTags = NewTagStore()
+	}
+
 	if ips == nil {
 		ips = ExtendedMap{}
 	}
@@ -136,6 +143,7 @@ func NewPUPolicy(
 		transmitterRules:      txtags,
 		receiverRules:         rxtags,
 		identity:              identity,
+		compressedTags:        compressedTags,
 		annotations:           annotations,
 		ips:                   ips,
 		servicesListeningPort: servicesListeningPort,
@@ -148,7 +156,7 @@ func NewPUPolicy(
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{})
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -167,6 +175,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.receiverRules.Copy(),
 		p.identity.Copy(),
 		p.annotations.Copy(),
+		p.compressedTags.Copy(),
 		p.ips.Copy(),
 		p.servicesListeningPort,
 		p.dnsProxyPort,
@@ -272,6 +281,14 @@ func (p *PUPolicy) Identity() *TagStore {
 	defer p.Unlock()
 
 	return p.identity.Copy()
+}
+
+// CompressedTags returns the compressed tags of the policy.
+func (p *PUPolicy) CompressedTags() *TagStore {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.compressedTags.Copy()
 }
 
 // Annotations returns a copy of the annotations
@@ -388,6 +405,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		TransmitterRules:      p.transmitterRules.Copy(),
 		ReceiverRules:         p.receiverRules.Copy(),
 		Annotations:           p.annotations.Copy(),
+		CompressedTags:        p.compressedTags.Copy(),
 		Identity:              p.identity.Copy(),
 		IPs:                   p.ips.Copy(),
 		ServicesListeningPort: p.servicesListeningPort,
@@ -412,6 +430,7 @@ type PUPolicyPublic struct {
 	DNSACLs               DNSRuleList             `json:"dnsACLs,omitempty"`
 	Identity              *TagStore               `json:"identity,omitempty"`
 	Annotations           *TagStore               `json:"annotations,omitempty"`
+	CompressedTags        *TagStore               `json:"compressedtags,omitempty"`
 	TransmitterRules      TagSelectorList         `json:"transmitterRules,omitempty"`
 	ReceiverRules         TagSelectorList         `json:"receiverRules,omitempty"`
 	IPs                   ExtendedMap             `json:"IPs,omitempty"`
@@ -450,6 +469,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 		transmitterRules:      p.TransmitterRules.Copy(),
 		receiverRules:         p.ReceiverRules.Copy(),
 		annotations:           p.Annotations.Copy(),
+		compressedTags:        p.CompressedTags.Copy(),
 		identity:              p.Identity.Copy(),
 		ips:                   p.IPs.Copy(),
 		servicesListeningPort: p.ServicesListeningPort,

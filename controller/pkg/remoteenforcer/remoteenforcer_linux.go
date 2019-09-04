@@ -516,6 +516,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		payload.PacketLogs,
 		payload.Configuration,
 		s.tokenIssuer,
+		payload.BinaryTokens,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}

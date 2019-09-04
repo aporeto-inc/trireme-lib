@@ -37,6 +37,7 @@ type PUContext struct {
 	managementNamespace string
 	identity            *policy.TagStore
 	annotations         *policy.TagStore
+	compressedTags      *policy.TagStore
 	txt                 *policies
 	rcv                 *policies
 	ApplicationACLs     *acls.ACLCache
@@ -83,6 +84,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		puType:              puInfo.Runtime.PUType(),
 		identity:            puInfo.Policy.Identity(),
 		annotations:         puInfo.Policy.Annotations(),
+		compressedTags:      puInfo.Policy.CompressedTags(),
 		externalIPCache:     cache.NewCacheWithExpiration("External IP Cache", timeout),
 		ApplicationACLs:     acls.NewACLCache(),
 		networkACLs:         acls.NewACLCache(),
@@ -191,6 +193,11 @@ func (p *PUContext) Annotations() *policy.TagStore {
 	return p.annotations
 }
 
+// CompressedTags returns the compressed tags.
+func (p *PUContext) CompressedTags() *policy.TagStore {
+	return p.compressedTags
+}
+
 // RetrieveCachedExternalFlowPolicy returns the policy for an external IP
 func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, error) {
 	return p.externalIPCache.Get(id)
@@ -286,7 +293,7 @@ func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceCont
 	p.Lock()
 
 	p.synToken = token
-	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+	p.synExpiration = time.Now().Add(constants.SynTokenCacheValiditity)
 	p.synServiceContext = serviceContext
 
 	p.Unlock()

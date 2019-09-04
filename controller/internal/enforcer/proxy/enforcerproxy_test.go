@@ -112,7 +112,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{})
+	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 
@@ -122,7 +122,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
 	defaultExternalIPCacheTimeout := time.Second * 40
-	validity := time.Hour * 8760
+	validity := constants.DatapathTokenValidity
 	policyEnf := NewProxyEnforcer(
 		mutualAuthorization,
 		fqConfig,
@@ -138,6 +138,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		make(chan *policy.RuntimeError),
 		&env.RemoteParameters{},
 		nil,
+		false,
 	)
 	return policyEnf
 }

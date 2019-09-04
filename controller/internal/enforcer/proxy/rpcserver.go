@@ -95,7 +95,6 @@ func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	fmt.Println("token request type", payload.ServiceTokenType)
 	token, err := r.tokenIssuer.Issue(ctx, payload.ContextID, payload.ServiceTokenType, payload.Audience, payload.Validity)
 	if err != nil {
 		resp.Status = "error"
