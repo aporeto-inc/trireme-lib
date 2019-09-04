@@ -613,9 +613,10 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetOptions(runtime.Options())
 
-	if err := d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime); err != nil {
+	if err := d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime); err != nil && !d.terminateStoppedContainers {
 		return err
 	}
+
 	if d.terminateStoppedContainers {
 		return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, runtime)
 	}
