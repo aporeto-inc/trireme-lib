@@ -1,6 +1,9 @@
 package secrets
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Secrets is an interface implementing secrets
 type Secrets interface {
@@ -14,7 +17,7 @@ type Secrets interface {
 	// on the wire.
 	TransmittedKey() []byte
 	// KeyAndClaims will verify the public key and return any claims that are part of the key.
-	KeyAndClaims(pkey []byte) (interface{}, []string, error)
+	KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error)
 	// AckSize calculates the size of the ACK packet based on the keys.
 	AckSize() uint32
 	// PublicSecrets returns the PEM formated secrets to be transmitted over the RPC interface.

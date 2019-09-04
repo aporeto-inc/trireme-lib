@@ -43,6 +43,7 @@ type config struct {
 	runtimeCfg             *runtime.Configuration
 	runtimeErrorChannel    chan *policy.RuntimeError
 	remoteParameters       *env.RemoteParameters
+	binaryTokens           bool
 }
 
 // Option is provided using functional arguments.
@@ -126,6 +127,13 @@ func OptionRemoteParameters(p *env.RemoteParameters) Option {
 	}
 }
 
+// OptionBinaryTokens enables the binary token datapath
+func OptionBinaryTokens(b bool) Option {
+	return func(cfg *config) {
+		cfg.binaryTokens = b
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -143,6 +151,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.runtimeCfg,
+			t.config.binaryTokens,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
@@ -165,6 +174,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.runtimeErrorChannel,
 			t.config.remoteParameters,
+			t.config.binaryTokens,
 		)
 	}
 
@@ -183,6 +193,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.runtimeCfg,
+			t.config.binaryTokens,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)

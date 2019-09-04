@@ -92,8 +92,7 @@ func init() {
 func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	var initEnfPayload rpcwrapper.InitRequestPayload
 
-	dur, _ := time.ParseDuration("8760h0m0s")
-	initEnfPayload.Validity = dur
+	initEnfPayload.Validity = constants.DatapathTokenValidity
 	initEnfPayload.MutualAuth = true
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()
@@ -190,6 +189,7 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 		IPs:              policy.ExtendedMap{"bridge": "172.17.0.2"},
 		Identity:         initIdentity(idString),
 		Annotations:      initAnnotations(anoString),
+		CompressedTags:   policy.NewTagStore(),
 		TransmitterRules: initTrans(),
 	}
 
@@ -268,6 +268,7 @@ func TestInitEnforcer(t *testing.T) {
 			externalIPCacheTimeout time.Duration,
 			packetLogs bool,
 			cfg *runtime.Configuration,
+			binaryTokens bool,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -366,6 +367,7 @@ func TestInitEnforcer(t *testing.T) {
 					externalIPCacheTimeout time.Duration,
 					packetLogs bool,
 					cfg *runtime.Configuration,
+					binaryTokens bool,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}
