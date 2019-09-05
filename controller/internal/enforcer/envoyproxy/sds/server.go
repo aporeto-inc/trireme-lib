@@ -41,7 +41,7 @@ func NewServer() Server {
 // 1. create grpc server.
 // 2. create a listener on the Unix Domain Socket.
 // 3.
-func (s *Server) CreateSdsService(options *Options) error { //nolint: unparam
+func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
 	fmt.Println("create  SDS server")
 	s.sdsGrpcServer = grpc.NewServer()
 
@@ -51,18 +51,29 @@ func (s *Server) CreateSdsService(options *Options) error { //nolint: unparam
 		return err
 	}
 	s.sdsGrpcListener = sdsGrpcListener
+	s.register(s.sdsGrpcServer)
 	return nil
 }
 
 // Run starts the sdsGrpcServer to serve
-func (s *Server) Run() {
+func (s Server) Run() {
 	go func() {
 		s.errCh <- s.sdsGrpcServer.Serve(s.sdsGrpcListener)
 	}()
 }
 
+// Stop stops all the listeners and the grpc servers.
+func (s Server) Stop() {
+	if s.sdsGrpcListener != nil {
+		s.sdsGrpcListener.Close()
+	}
+	if s.sdsGrpcServer != nil {
+		s.sdsGrpcServer.Stop()
+	}
+}
+
 // register adds the SDS handle to the grpc server
-func (s *Server) register(sdsGrpcServer *grpc.Server) {
+func (s Server) register(sdsGrpcServer *grpc.Server) {
 	fmt.Println("\n\n ** registering the secret discovery")
 	sds.RegisterSecretDiscoveryServiceServer(sdsGrpcServer, s)
 }
@@ -75,7 +86,7 @@ func (s *Server) register(sdsGrpcServer *grpc.Server) {
 // }
 
 // DeltaSecrets checks for the delta and sends the changes.
-func (s *Server) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
+func (s Server) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
 	return nil
 }
 
@@ -97,7 +108,7 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 // 2. parse the discovery request.
 // 3. track the request.
 // 4. call the Aporeto api to generate the secret
-func (s *Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	discoveryReqCh := make(chan *v2.DiscoveryRequest, 1)
 	go startStreaming(stream, discoveryReqCh)
 
@@ -133,13 +144,13 @@ func (s *Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSe
 
 		}
 	}
-	return nil
+
 }
 
 // FetchSecrets gets the discovery request and call the Aporeto backend to fetch the certs.
 // 1. parse the discovery request.
 // 2. track the request.
 // 3. call the Aporeto api to generate the secret
-func (s *Server) FetchSecrets(ctx context.Context, discReq *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
+func (s Server) FetchSecrets(ctx context.Context, discReq *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
 	return nil, nil
 }
