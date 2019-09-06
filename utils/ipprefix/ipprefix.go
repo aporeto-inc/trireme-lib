@@ -60,7 +60,12 @@ func (cache *ipcacheV4) Put(ip net.IP, mask int, val interface{}) {
 
 	m := cache.ipv4[mask]
 	// the following expression is ANDing the ip with the mask
-	m[binary.BigEndian.Uint32(ip)&binary.BigEndian.Uint32(net.CIDRMask(mask, 32))] = val
+	key := binary.BigEndian.Uint32(ip) & binary.BigEndian.Uint32(net.CIDRMask(mask, 32))
+	if val == nil {
+		delete(m, key)
+	} else {
+		m[key] = val
+	}
 }
 
 func (cache *ipcacheV4) Get(ip net.IP, mask int) (interface{}, bool) {
@@ -132,7 +137,12 @@ func (cache *ipcacheV6) Put(ip net.IP, mask int, val interface{}) {
 	// the following expression is ANDing the ip with the mask
 	var maskip [16]byte
 	copy(maskip[:], ip.Mask(net.CIDRMask(mask, 128)))
-	m[maskip] = val
+
+	if val == nil {
+		delete(m, maskip)
+	} else {
+		m[maskip] = val
+	}
 }
 
 func (cache *ipcacheV6) Get(ip net.IP, mask int) (interface{}, bool) {

@@ -24,8 +24,10 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	ipv4Impl := &ipv4{ipt: iptv4}
 	ipv6Impl := &ipv6{ipt: iptv6, ipv6Disabled: false}
 
-	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fqconfig.NewFilterQueueWithDefaults(), mode)
-	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fqconfig.NewFilterQueueWithDefaults(), mode)
+	fq := fqconfig.NewFilterQueueWithDefaults()
+	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
@@ -203,7 +205,9 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			ipl,
+			0,
 			0,
 			nil,
 			nil,
@@ -258,7 +262,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -269,7 +273,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -324,7 +328,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -335,7 +339,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -353,6 +357,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -361,6 +366,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
 		"TRI-Hst-Net": {},
@@ -408,7 +414,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -419,7 +425,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -437,6 +443,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -445,6 +452,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
 		"TRI-Hst-Net": {},
@@ -493,7 +501,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -504,7 +512,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -522,6 +530,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -530,6 +539,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
 		"TRI-Hst-Net": {},
@@ -578,7 +588,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -589,7 +599,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -607,6 +617,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -615,6 +626,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
 		"TRI-Hst-Net": {},
@@ -665,6 +677,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -698,7 +712,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -709,7 +723,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -727,6 +741,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -735,6 +750,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Hst-App": {},
 		"TRI-Hst-Net": {},
@@ -890,7 +906,9 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 					ipl,
+					0,
 					0,
 					nil,
 					nil,
@@ -978,7 +996,9 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						nil,
 						nil,
 						nil,
+						nil,
 						ipl,
+						0,
 						0,
 						nil,
 						nil,
@@ -1000,7 +1020,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", common.LinuxProcessPU)
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
 						So(err, ShouldBeNil)
@@ -1157,7 +1177,9 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 					ipl,
+					0,
 					0,
 					nil,
 					nil,
@@ -1333,7 +1355,9 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 					ipl,
+					0,
 					0,
 					nil,
 					nil,
@@ -1510,7 +1534,9 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 					ipl,
+					0,
 					0,
 					nil,
 					nil,
@@ -1576,14 +1602,14 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 		},
@@ -1626,7 +1652,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0",
@@ -1634,7 +1660,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
-			"-m connmark --mark 61166 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
 			"-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
@@ -1642,6 +1668,7 @@ var (
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
 		},
@@ -1650,6 +1677,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
 			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
@@ -1689,6 +1717,8 @@ var (
 		"TRI-Redir-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
+			"-d 0.0.0.0/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -1822,7 +1852,9 @@ func Test_OperationWithContainersV4(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 					ipl,
+					0,
 					0,
 					nil,
 					nil,
@@ -1855,7 +1887,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", "0", common.ContainerPU)
+					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", "0", "0", common.ContainerPU)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()

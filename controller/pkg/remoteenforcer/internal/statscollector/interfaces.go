@@ -12,6 +12,7 @@ type CollectorReader interface {
 	FlushUserCache()
 	GetAllDataPathPacketRecords() []*collector.PacketReport
 	GetAllCounterReports() []*collector.CounterReport
+	GetDNSReports() chan *collector.DNSRequestReport
 }
 
 // Collector interface implements

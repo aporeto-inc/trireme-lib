@@ -49,6 +49,7 @@ type DockerMonitor struct {
 	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
 	syncAtStart                bool
+	terminateStoppedContainers bool
 }
 
 // New returns a new docker monitor.
@@ -85,6 +86,8 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
+	d.terminateStoppedContainers = dockerConfig.DestroyStoppedContainers
+
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
@@ -147,7 +150,9 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 func (d *DockerMonitor) initMonitor(ctx context.Context) error {
 	if d.syncAtStart && d.config.Policy != nil {
 
-		options := types.ContainerListOptions{All: true}
+		options := types.ContainerListOptions{
+			All: !d.terminateStoppedContainers,
+		}
 		client := d.dockerClient()
 		if client == nil {
 			return errors.New("unable to init monitor: nil clienthdl")
@@ -311,8 +316,9 @@ func (d *DockerMonitor) Resync(ctx context.Context) error {
 	}
 
 	zap.L().Debug("Syncing all existing containers")
-
-	options := types.ContainerListOptions{All: true}
+	options := types.ContainerListOptions{
+		All: !d.terminateStoppedContainers,
+	}
 	client := d.dockerClient()
 	if client == nil {
 		return errors.New("unable to resync: nil clienthdl")
@@ -607,7 +613,14 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetOptions(runtime.Options())
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime)
+	if err := d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime); err != nil && !d.terminateStoppedContainers {
+		return err
+	}
+
+	if d.terminateStoppedContainers {
+		return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, runtime)
+	}
+	return nil
 }
 
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"

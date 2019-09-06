@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"time"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
@@ -96,6 +97,9 @@ type EventCollector interface {
 
 	// CollectCounterEvent collects the counters from
 	CollectCounterEvent(counterReport *CounterReport)
+
+	// CollectDNSRequests collects the dns requests
+	CollectDNSRequests(request *DNSRequestReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -203,6 +207,16 @@ type PacketReport struct {
 	SourcePort      int
 	TriremePacket   bool
 	Payload         []byte
+}
+
+// DNSRequestReport object is used to report dns requests being made by PU's
+type DNSRequestReport struct {
+	Namespace  string
+	Source     *EndPoint
+	NameLookup string
+	Error      string
+	Count      int
+	Ts         time.Time
 }
 
 // Counters represent a single entry with name and current val

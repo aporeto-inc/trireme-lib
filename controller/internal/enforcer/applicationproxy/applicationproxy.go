@@ -27,7 +27,6 @@ import (
 
 const (
 	proxyMarkInt = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
-
 )
 
 // ServerInterface describes the methods required by an application processor.

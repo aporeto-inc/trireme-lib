@@ -68,6 +68,18 @@ func (r *ProxyRPCServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapp
 	return nil
 }
 
+// DNSReports is called from the remote to post dns requests
+func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.DNSReportPayload)
+	zap.L().Debug("Posting DNS requests")
+	r.collector.CollectDNSRequests(payload.Report)
+	return nil
+}
+
 // RetrieveToken propagates the master request to the token retriever and returns a token.
 func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
@@ -83,7 +95,6 @@ func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	fmt.Println("token request type", payload.ServiceTokenType)
 	token, err := r.tokenIssuer.Issue(ctx, payload.ContextID, payload.ServiceTokenType, payload.Audience, payload.Validity)
 	if err != nil {
 		resp.Status = "error"

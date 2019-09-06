@@ -51,6 +51,7 @@ type InitRequestPayload struct {
 	ExternalIPCacheTimeout time.Duration          `json:",omitempty"`
 	Secrets                secrets.PublicSecrets  `json:",omitempty"`
 	Configuration          *runtime.Configuration `json:",omitempty"`
+	BinaryTokens           bool                   `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers
@@ -84,6 +85,11 @@ type StatsPayload struct {
 // DebugPacketPayload is the enforcer packet report from remote enforcers
 type DebugPacketPayload struct {
 	PacketRecords []*collector.PacketReport
+}
+
+// DNSReportPayload represents the payload for dns reporting.
+type DNSReportPayload struct {
+	Report *collector.DNSRequestReport
 }
 
 // CounterReportPayload is the counter report from remote enforcer

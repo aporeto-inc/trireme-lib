@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 const (
 	// DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
@@ -122,4 +124,16 @@ const (
 // PortNumberLabelString is the label to use for port numbers
 const (
 	PortNumberLabelString = "@sys:port"
+)
+
+// Token and cache default validities. These have performance implications.
+// The faster the datapath issues new tokens it affects performance. However,
+// making it too slow can potentially allow reuse of the tokens. The
+// token issuance rate must be always faster than the expiration rate.
+const (
+	// SynTokenCacheValiditity determines how often the data path creates new tokens.
+	SynTokenCacheValiditity = 10 * time.Second
+
+	// DatapathTokenValidity determines how long the tokens are valid.
+	DatapathTokenValidity = 1 * time.Minute
 )

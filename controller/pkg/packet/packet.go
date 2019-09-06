@@ -121,6 +121,10 @@ func (p *Packet) parseIPv4Packet(bytes []byte, lengthValidate bool) (err error) 
 		p.parseUDP(bytes)
 	}
 
+	// Chaching the result of the flow hash for performance optimization.
+	// It is called in multiple places.
+	p.l4flowhash = p.l4FlowHash()
+
 	return nil
 }
 
@@ -160,6 +164,10 @@ func (p *Packet) parseIPv6Packet(bytes []byte, lengthValidate bool) (err error) 
 		}
 		p.parseUDP(bytes)
 	}
+
+	// Chaching the result of the flow hash for performance optimization.
+	// It is called in multiple places.
+	p.l4flowhash = p.l4FlowHash()
 
 	return nil
 }
@@ -460,8 +468,13 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	return
 }
 
-// L4FlowHash calculate a hash string based on the 4-tuple
+// L4FlowHash calculate a hash string based on the 4-tuple. It returns the cached
+// value and does not re-calculate it. This leads to performance gains.
 func (p *Packet) L4FlowHash() string {
+	return p.l4flowhash
+}
+
+func (p *Packet) l4FlowHash() string {
 	return p.ipHdr.sourceAddress.String() + ":" + p.ipHdr.destinationAddress.String() + ":" + strconv.Itoa(int(p.SourcePort())) + ":" + strconv.Itoa(int(p.DestPort()))
 }
 

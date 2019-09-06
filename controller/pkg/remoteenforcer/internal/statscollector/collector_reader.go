@@ -66,3 +66,7 @@ func (c *collectorImpl) GetAllCounterReports() []*collector.CounterReport {
 	c.CounterReports = []*collector.CounterReport{}
 	return records
 }
+
+func (c *collectorImpl) GetDNSReports() chan *collector.DNSRequestReport {
+	return c.DNSReport
+}

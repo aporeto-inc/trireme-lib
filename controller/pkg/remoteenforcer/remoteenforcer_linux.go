@@ -27,6 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
@@ -57,6 +58,7 @@ func newRemoteEnforcer(
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 	counterClient counterclient.CounterClient,
+	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 ) (*RemoteEnforcer, error) {
@@ -88,11 +90,19 @@ func newRemoteEnforcer(
 		}
 	}
 
+	if dnsReportClient == nil {
+		dnsReportClient, err = dnsreportclient.NewDNSReportClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if tokenIssuer == nil {
 		tokenIssuer, err = tokenissuer.NewClient()
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
@@ -101,19 +111,20 @@ func newRemoteEnforcer(
 	}
 
 	return &RemoteEnforcer{
-		collector:      collector,
-		service:        service,
-		rpcSecret:      secret,
-		rpcHandle:      rpcHandle,
-		procMountPoint: procMountPoint,
-		statsClient:    statsClient,
-		debugClient:    debugClient,
-		counterClient:  counterClient,
-		ctx:            ctx,
-		cancel:         cancel,
-		exit:           make(chan bool),
-		zapConfig:      zapConfig,
-		tokenIssuer:    tokenIssuer,
+		collector:       collector,
+		service:         service,
+		rpcSecret:       secret,
+		rpcHandle:       rpcHandle,
+		procMountPoint:  procMountPoint,
+		statsClient:     statsClient,
+		debugClient:     debugClient,
+		counterClient:   counterClient,
+		dnsReportClient: dnsReportClient,
+		ctx:             ctx,
+		cancel:          cancel,
+		exit:            make(chan bool),
+		zapConfig:       zapConfig,
+		tokenIssuer:     tokenIssuer,
 	}, nil
 }
 
@@ -185,10 +196,16 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
+	if err = s.dnsReportClient.Run(s.ctx); err != nil {
+		resp.Status = "DNSReportClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
 	if err = s.tokenIssuer.Run(s.ctx); err != nil {
 		resp.Status = "TokenIssuer" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
+
 	resp.Status = ""
 
 	return nil
@@ -499,6 +516,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		payload.PacketLogs,
 		payload.Configuration,
 		s.tokenIssuer,
+		payload.BinaryTokens,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -570,7 +588,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig)
 	if err != nil {
 		return err
 	}

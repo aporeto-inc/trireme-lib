@@ -197,6 +197,8 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 		policy.NewTagStore(),
 		policy.NewTagStoreFromSlice([]string{appLabel, "type=aporeto"}),
 		nil,
+		nil,
+		0,
 		0,
 		exposedServices,
 		dependentServices,
