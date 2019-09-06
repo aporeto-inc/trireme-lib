@@ -296,26 +296,25 @@ type IPRule struct {
 // IPRuleList is a list of IP rules
 type IPRuleList []IPRule
 
-// DNSRule holds the dns names and the assicated ports
-type DNSRule struct {
-	Name     string
-	Port     string
-	Protocol string
-	Policy   *FlowPolicy
+// PortProtocolPolicy holds the assicated ports, protocols and policy
+type PortProtocolPolicy struct {
+	Ports     []string
+	Protocols []string
+	Policy    *FlowPolicy
 }
 
-// DNSRuleList is a list of DNS rules
-type DNSRuleList []DNSRule
+// DNSRuleList is a map from fqdns to a list of policies.
+type DNSRuleList map[string][]PortProtocolPolicy
 
 // Copy creates a clone of DNS rule list
 func (l DNSRuleList) Copy() DNSRuleList {
-	list := make(DNSRuleList, len(l))
+	dnsRuleList := DNSRuleList{}
 
-	for i, v := range l {
-		list[i] = v
+	for k, v := range l {
+		dnsRuleList[k] = v
 	}
 
-	return list
+	return dnsRuleList
 }
 
 // Copy creates a clone of the IP rule list

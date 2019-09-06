@@ -53,6 +53,8 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 			cfg.AppSection,
 			cfg.NetSection,
 			cfg.PUType,
+			cfg.DNSProxyPort,
+			cfg.DNSServerIP,
 		)
 	}
 
@@ -86,7 +88,7 @@ func (i *iptables) uidChainRules(cfg *ACLInfo) [][]string {
 	}
 
 	if i.isLegacyKernel {
-		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark)...)
+		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark, cfg.DNSProxyPort, cfg.DNSServerIP)...)
 	}
 	return append(rules, i.proxyRules(cfg)...)
 }
@@ -112,6 +114,9 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 	tmpl := template.Must(template.New(proxyChainTemplate).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
 			return cfg.CgroupMark != ""
+		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
 		},
 	}).Parse(proxyChainTemplate))
 
@@ -153,6 +158,10 @@ func (i *iptables) addContainerChain(appChain string, netChain string) error {
 	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
 		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
 	}
+
+	// if err := i.impl.NewChain(appProxyIPTableContext, appChain); err != nil {
+	// 	return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
+	// }
 
 	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
@@ -222,12 +231,13 @@ func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 }
 
-func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
+func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
 	iptRules := [][]string{}
 	reverseRules := [][]string{}
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
+	contextID := cfg.ContextID
 
 	baseRule := func(proto string) []string {
 		iptRule := []string{
@@ -273,8 +283,7 @@ func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain stri
 
 	if !observeContinue {
 		if (rule.policy.Action & policy.Accept) != 0 {
-			accept := []string{"-j", "ACCEPT"}
-			acceptRule := append(baseRule(proto), accept...)
+			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
 			iptRules = append(iptRules, acceptRule)
 		}
 
@@ -365,7 +374,7 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 // in order to support observation only of ACL actions. The parameters
 // must provide the chain and whether it is App or Net ACLs so that the rules
 // can be created accordingly.
-func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
+func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
 
 	rulesBucket := &rulesInfo{
 		RejectObserveApply:    [][]string{},
@@ -394,7 +403,7 @@ func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain strin
 				continue
 			}
 
-			acls, r := i.generateACLRules(contextID, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
+			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
@@ -428,9 +437,9 @@ func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain strin
 
 // addExternalACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *iptables) addExternalACLs(contextID string, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
+func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
-	rulesBucket := i.sortACLsInBuckets(contextID, chain, reverseChain, rules, isAppAcls)
+	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {

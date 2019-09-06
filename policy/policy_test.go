@@ -11,7 +11,7 @@ func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{})
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.applicationACLs, ShouldNotBeNil)
@@ -86,6 +86,7 @@ func TestNewPolicy(t *testing.T) {
 				annotations,
 				nil,
 				ips,
+				0,
 				0,
 				nil,
 				nil,
@@ -187,6 +188,7 @@ func TestFuncClone(t *testing.T) {
 			nil,
 			ips,
 			0,
+			0,
 			nil,
 			nil,
 			[]string{},
@@ -271,6 +273,7 @@ func TestAllLockedSetGet(t *testing.T) {
 			annotations,
 			nil,
 			ips,
+			0,
 			0,
 			nil,
 			nil,
@@ -370,7 +373,7 @@ func TestAllLockedSetGet(t *testing.T) {
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
 		puInfor := NewPUInfo("123", "/abc", common.ContainerPU)
-		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{})
 		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")

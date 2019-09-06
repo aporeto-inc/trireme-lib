@@ -199,6 +199,7 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 		nil,
 		nil,
 		0,
+		0,
 		exposedServices,
 		dependentServices,
 		[]string{appLabel},

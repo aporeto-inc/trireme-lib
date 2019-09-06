@@ -1,7 +1,6 @@
 package pucontext
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -9,14 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minio/minio/pkg/wildcard"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -27,9 +27,6 @@ type policies struct {
 	observeApplyRules  *lookup.PolicyDB // Packet:  Forward       Report: Forward
 	encryptRules       *lookup.PolicyDB // Packet: Encrypt       Report: Encrypt
 }
-
-// LookupHost is mapped to the function net.LookupHost
-var LookupHost = net.LookupHost
 
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
@@ -47,7 +44,8 @@ type PUContext struct {
 	ApplicationACLs     *acls.ACLCache
 	networkACLs         *acls.ACLCache
 	externalIPCache     cache.DataStore
-	DNSACLs             cache.DataStore
+	DNSACLs             policy.DNSRuleList
+	DNSProxyPort        string
 	mark                string
 	tcpPorts            []string
 	udpPorts            []string
@@ -59,7 +57,6 @@ type PUContext struct {
 	jwtExpiration       time.Time
 	scopes              []string
 	Extension           interface{}
-	CancelFunc          context.CancelFunc
 	counters            []uint32
 
 	sync.RWMutex
@@ -78,9 +75,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		return nil, fmt.Errorf("unable to hash contextID: %v", err)
 	}
 
-	ctx := context.Background()
-	ctx, cancelFunc := context.WithCancel(ctx)
-
 	pu := &PUContext{
 		id:                  contextID,
 		hashID:              hashID,
@@ -95,9 +89,9 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		externalIPCache:     cache.NewCacheWithExpiration("External IP Cache", timeout),
 		ApplicationACLs:     acls.NewACLCache(),
 		networkACLs:         acls.NewACLCache(),
+		DNSACLs:             puInfo.Policy.DNSNameACLs(),
 		mark:                puInfo.Runtime.Options().CgroupMark,
 		scopes:              puInfo.Policy.Scopes(),
-		CancelFunc:          cancelFunc,
 		counters:            make([]uint32, len(countedEvents)),
 	}
 
@@ -117,100 +111,27 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		return nil, err
 	}
 
-	dnsACL := puInfo.Policy.DNSNameACLs()
-	pu.startDNS(ctx, &dnsACL)
 	return pu, nil
 }
 
-func createACLRules(rules policy.IPRuleList, dnsrule *policy.DNSRule, ip string) policy.IPRuleList {
-	// ipv6 is not supported
-	if strings.Contains(ip, ":") {
-		return rules
+// GetPolicyFromFQDN gets the list of policies that are mapped with the hostname
+func (p *PUContext) GetPolicyFromFQDN(fqdn string) ([]policy.PortProtocolPolicy, error) {
+	p.RLock()
+	defer p.RUnlock()
+
+	// If we find a direct match, return policy
+	if v, ok := p.DNSACLs[fqdn]; ok {
+		return v, nil
 	}
 
-	rules = append(rules, policy.IPRule{
-		Addresses: []string{ip},
-		Ports:     []string{dnsrule.Port},
-		Protocols: []string{constants.TCPProtoNum},
-		Policy:    dnsrule.Policy,
-	})
-
-	return rules
-}
-
-func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bool) {
-
-	lookupHost := func(dnsrule *policy.DNSRule) error {
-		var rules policy.IPRuleList
-
-		ips, err := LookupHost(dnsrule.Name)
-		if err != nil {
-			zap.L().Warn("Failed to resolve dns rule", zap.Error(err))
-			return err
-		}
-
-		for _, ip := range ips {
-			if !ipcache[ip+":"+dnsrule.Port] {
-				rules = createACLRules(rules, dnsrule, ip)
-				ipcache[ip+":"+dnsrule.Port] = true
-			}
-		}
-		if len(rules) > 0 {
-			if err = p.UpdateApplicationACLs(rules); err != nil {
-				zap.L().Error("Error in Adding rules", zap.Error(err))
-			}
-		}
-		return nil
-	}
-
-	iterDNS := func(dnsList policy.DNSRuleList) policy.DNSRuleList {
-		var errDNSNames policy.DNSRuleList
-		for _, dnsrule := range dnsList {
-			if err := lookupHost(&dnsrule); err != nil {
-				errDNSNames = append(errDNSNames, dnsrule)
-			}
-		}
-
-		return errDNSNames
-	}
-
-	initDNSRules := *dnsList
-	sleepTimes := []int{0, 500, 1000, 2000, 4000, 8000}
-
-	for _, s := range sleepTimes {
-		time.Sleep(time.Duration(s) * time.Millisecond)
-		initDNSRules = iterDNS(initDNSRules)
-		if len(initDNSRules) == 0 {
-			return
+	// Try if there is a wildcard match
+	for policyName, policy := range p.DNSACLs {
+		if wildcard.MatchSimple(policyName, fqdn) {
+			return policy, nil
 		}
 	}
-}
 
-func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
-
-	ipcache := make(map[string]bool)
-
-	go func() {
-		curTime := time.Now()
-		sleepTime := func() time.Duration {
-			if time.Since(curTime) >= 2*time.Minute {
-				return 1 * time.Minute
-			}
-
-			return 30 * time.Second
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				p.dnsToACLs(dnsList, ipcache)
-			}
-
-			time.Sleep(sleepTime())
-		}
-	}()
+	return nil, fmt.Errorf("Policy doesn't exist")
 }
 
 // ID returns the ID of the PU
@@ -311,6 +232,13 @@ func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
 	defer p.Unlock()
 	p.Lock()
 	return p.ApplicationACLs.AddRuleList(rules)
+}
+
+// RemoveApplicationACL removes the application ACLs which are indexed with (ip, mask) key
+func (p *PUContext) RemoveApplicationACL(addr net.IP, mask int) {
+	defer p.Unlock()
+	p.Lock()
+	p.ApplicationACLs.RemoveIPMask(addr, mask)
 }
 
 // UpdateNetworkACLs updates the network ACL policy

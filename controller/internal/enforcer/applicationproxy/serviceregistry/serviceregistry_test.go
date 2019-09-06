@@ -115,6 +115,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		nil,
 		nil,
 		0,
+		0,
 		exposedServices,
 		dependentServices,
 		[]string{},
