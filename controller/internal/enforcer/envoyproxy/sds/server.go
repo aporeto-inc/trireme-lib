@@ -3,13 +3,17 @@ package sds
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"context"
 
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	v2 "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2"
+	"go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2/auth"
 	sds "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/service/discovery/v2"
+	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 // Options to create a SDS server to task to envoy
@@ -42,9 +46,13 @@ func NewServer() Server {
 // 2. create a listener on the Unix Domain Socket.
 // 3.
 func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
-	fmt.Println("create  SDS server")
+	fmt.Println("ABHI, envoy-trireme create  SDS server")
 	s.sdsGrpcServer = grpc.NewServer()
-
+	if err := os.Remove(options.SocketPath); err != nil {
+		fmt.Println("ABHI, envoy-reireme, failed to remove the udspath")
+		return err
+	}
+	fmt.Println("Start listening on UDS path: ", options.SocketPath)
 	sdsGrpcListener, err := net.Listen("unix", options.SocketPath)
 	if err != nil {
 		fmt.Println("cannot listen on the socketpath", err)
@@ -52,13 +60,20 @@ func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
 	}
 	s.sdsGrpcListener = sdsGrpcListener
 	s.register(s.sdsGrpcServer)
+	fmt.Println("run the grpc server")
+	s.Run()
 	return nil
 }
 
 // Run starts the sdsGrpcServer to serve
 func (s Server) Run() {
 	go func() {
-		s.errCh <- s.sdsGrpcServer.Serve(s.sdsGrpcListener)
+		if s.sdsGrpcListener != nil {
+			err := s.sdsGrpcServer.Serve(s.sdsGrpcListener)
+			fmt.Println("got error after serve", err)
+			s.errCh <- err
+		}
+		fmt.Println("the listener is nil, cannot start the server")
 	}()
 }
 
@@ -74,7 +89,7 @@ func (s Server) Stop() {
 
 // register adds the SDS handle to the grpc server
 func (s Server) register(sdsGrpcServer *grpc.Server) {
-	fmt.Println("\n\n ** registering the secret discovery")
+	fmt.Println("\n\n ** Abhi envoy-trireme registering the secret discovery")
 	sds.RegisterSecretDiscoveryServiceServer(sdsGrpcServer, s)
 }
 
@@ -91,13 +106,16 @@ func (s Server) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServe
 }
 
 func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.DiscoveryRequest) {
+	fmt.Println("In start streaming")
 	defer close(discoveryReqCh)
 	for {
+		fmt.Println("\n wait for the stream to be received")
 		req, err := stream.Recv()
 		if err != nil {
 			fmt.Println("Connection terminated with err: ", err)
 			return
 		}
+		fmt.Println("received the msg, now send it the main function")
 		discoveryReqCh <- req
 	}
 }
@@ -109,6 +127,7 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 // 3. track the request.
 // 4. call the Aporeto api to generate the secret
 func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	fmt.Println("IN stream secret")
 	discoveryReqCh := make(chan *v2.DiscoveryRequest, 1)
 	go startStreaming(stream, discoveryReqCh)
 
@@ -116,6 +135,7 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 		// wait for the receiver thread to stream the request and send it to us over here.
 		select {
 		case req, ok := <-discoveryReqCh:
+			fmt.Println("got the req to be processed by start streaming")
 			// Now check the following:
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
@@ -141,7 +161,28 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 			if len(req.ResourceNames) == 0 {
 				continue
 			}
+			fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
 
+			secret := generateSecret(req)
+
+			// TODO: now call the metadata-lib function to fetch the secrets.
+			// TODO: once the secret is fetched create a discovery Response depending on the secret.
+
+			resp := &v2.DiscoveryResponse{
+				TypeUrl: "aporeto.io/sds_envoy_certs",
+			}
+			retSecret := auth.Secret{}
+			if secret.RootCert != nil {
+				retSecret.Type = getRootCert(secret)
+			} else {
+				retSecret.Type = getTLScerts(secret)
+			}
+			endSecret, err := types.MarshalAny(retSecret)
+			if err != nil {
+				fmt.Println("Cannot marshall the secret")
+				continue
+			}
+			resp.Resources = append(resp.Resources, endSecret)
 		}
 	}
 
@@ -153,4 +194,16 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 // 3. call the Aporeto api to generate the secret
 func (s Server) FetchSecrets(ctx context.Context, discReq *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
 	return nil, nil
+}
+
+// generateSecret is the call which talks to the metadata API to fetch the certs.
+func generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
+	return nil
+}
+
+func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
+	return nil
+}
+func getTLScerts(secret *model.SecretItem) *auth.Secret_TlsCertificate {
+	return nil
 }
