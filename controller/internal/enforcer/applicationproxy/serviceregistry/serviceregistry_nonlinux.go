@@ -118,7 +118,7 @@ func (r *Registry) updateExposedServices(sctx *ServiceContext, secrets secrets.S
 	netIPAddress := make([]*net.IPNet, len(addresses))
 	var err error
 	for index, addr := range addresses {
-		ipnetaddr := addr.String() + "/32"
+		ipnetaddr := addr.String()
 		_, netIPAddress[index], err = net.ParseCIDR(ipnetaddr)
 		if err != nil {
 			zap.L().Error("Got Invalid Address", zap.String("CIDR", ipnetaddr))
@@ -171,6 +171,19 @@ func (r *Registry) RetrieveExposedServiceContext(ip net.IP, port int, host strin
 	}
 
 	return portContext, nil
+}
+
+// RetrieveServiceByID retrieves a service by the PU ID. Returns error if not found.
+func (r *Registry) RetrieveServiceByID(id string) (*ServiceContext, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	svc, ok := r.indexByName[id]
+	if !ok {
+		return nil, fmt.Errorf("Service not found: %s", id)
+	}
+
+	return svc, nil
 }
 
 // RetrieveServiceDataByIDAndNetwork will return the service data that match the given

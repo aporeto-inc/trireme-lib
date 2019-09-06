@@ -141,7 +141,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 	defer func() {
 		err := m.onStopListening()
 		if err != nil {
-			zap.L().Error(fmt.Sprintf("onStopListening error: %v", err))
+			zap.L().Error("onStopListening error", zap.Error(err))
 		}
 		close(m.done)
 		m.wg.Wait()
@@ -160,7 +160,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 
 	err := m.onStartListening()
 	if err != nil {
-		zap.L().Error(fmt.Sprintf("onStartListening error: %v", err))
+		zap.L().Error("onStartListening error", zap.Error(err))
 	}
 
 	for {
@@ -170,10 +170,11 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		case <-m.shutdown:
 			return nil
 		default:
-			zap.L().Error("M.Root", zap.Reflect("LIS", m.root))
+
 			c, err := m.root.Accept()
 			if err != nil {
-				return err
+				zap.L().Error("error from Accept", zap.Error(err))
+				break
 			}
 			m.wg.Add(1)
 			go m.serve(c)
