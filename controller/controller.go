@@ -135,14 +135,14 @@ func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, puID string, 
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
-	return t.doHandleEnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration)
+	return t.doHandleEnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval)
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
-	return t.doHandleEnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration)
+	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
 // UpdateSecrets updates the secrets of the controllers.
@@ -302,10 +302,13 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 
 //Debug Handlers
 func (t *trireme) doHandleEnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
-	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(contextID, direction, interval)
+
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].EnableDatapathPacketTracing(puID, direction, interval)
 }
 
 func (t *trireme) doHandleEnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+
+	modeType := t.modeTypeFromPolicy(policy, runtime)
 
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
@@ -322,11 +325,11 @@ func (t *trireme) doHandleEnableIPTablesPacketTracing(ctx context.Context, puID 
 		expiry:   time.Now().Add(interval),
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval); err != nil {
+	if err := t.supervisors[modeType].EnableIPTablesPacketTracing(ctx, puID, interval); err != nil {
 		return err
 	}
 
-	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+	return t.enforcers[modeType].EnableIPTablesPacketTracing(ctx, puID, interval)
 }
 
 func (t *trireme) runIPTraceCollector(ctx context.Context) {
