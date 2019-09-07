@@ -25,6 +25,9 @@ const (
 	// EnvMountPoint is an environment variable which will contain the mount point
 	EnvMountPoint = "TRIREME_ENV_PROC_MOUNTPOINT"
 
+	// EnvEnforcerType is an environment variable which will indicate what enforcer type we want to use
+	EnvEnforcerType = "TRIREME_ENV_ENFORCER_TYPE"
+
 	// EnvContextSocket stores the path to the context specific socket
 	EnvContextSocket = "TRIREME_ENV_SOCKET_PATH"
 
@@ -33,6 +36,7 @@ const (
 
 	// EnvDebugChannel stores the path to the debug channel
 	EnvDebugChannel = "TRIREME_ENV_DEBUG_CHANNEL_PATH"
+
 	// EnvRPCClientSecret is the secret used between RPC client/server
 	EnvRPCClientSecret = "TRIREME_ENV_SECRET"
 
