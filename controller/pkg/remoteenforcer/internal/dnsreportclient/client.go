@@ -14,7 +14,7 @@ import (
 
 const (
 	dnsReportContextID = "UNUSED"
-	dnsRPCCommand      = "StatsServer.DNSReports"
+	dnsRPCCommand      = "ProxyRPCServer.DNSReports"
 )
 
 // dsnReportClient  This is the struct for storing state for the rpc client

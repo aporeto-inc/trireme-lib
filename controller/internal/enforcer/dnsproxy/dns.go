@@ -1,3 +1,5 @@
+// +build linux !darwin
+
 package dnsproxy
 
 import (
@@ -102,11 +104,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	defer func() {
 		if puCtx != nil {
-			var errStr string
-			if err != nil {
-				errStr = err.Error()
-			}
-			s.reportDNSLookup(r.Question[0].Name, puCtx, rAddr.IP, errStr)
+			s.reportDNSLookup(r.Question[0].Name, puCtx, rAddr.IP, "")
 		}
 	}()
 

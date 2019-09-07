@@ -1,3 +1,5 @@
+// +build linux !darwin
+
 package dnsproxy
 
 import (
@@ -29,7 +31,6 @@ func (p *Proxy) sendToCollector(report dnsReport, count int) {
 		Count:      count,
 		Ts:         time.Now(),
 	}
-
 	p.collector.CollectDNSRequests(r)
 }
 
