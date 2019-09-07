@@ -77,6 +77,7 @@ func createPUInfo() *policy.PUInfo {
 		nil,
 		nil,
 		[]string{},
+		policy.EnforcerMapping,
 	)
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)

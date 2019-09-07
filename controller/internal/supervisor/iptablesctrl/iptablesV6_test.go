@@ -88,6 +88,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			policy.EnforcerMapping,
 		)
 		containerinfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -543,6 +544,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -632,6 +634,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						nil,
 						nil,
 						[]string{},
+						policy.EnforcerMapping,
 					)
 					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 					puInfoUpdated.Policy = policyrules
@@ -953,6 +956,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 				puInfo.Policy = policyrules
