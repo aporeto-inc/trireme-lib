@@ -837,7 +837,7 @@ func Test_EnableDatapathPacketTracing(t *testing.T) {
 
 			Convey("When I try to enable datapath tracing  and the enforcer fails, it should fail and cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
@@ -854,7 +854,7 @@ func Test_EnableDatapathPacketTracing(t *testing.T) {
 
 			Convey("When the enforce command succeeds, I should get no errors", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockEnf.EXPECT().EnableDatapathPacketTracing(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response

@@ -401,7 +401,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
 
-	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+	if err := s.enforcer.EnableDatapathPacketTracing(context.TODO(), payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
