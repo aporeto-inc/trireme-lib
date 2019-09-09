@@ -219,6 +219,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
+	defer s.Unlock()
 
 	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
@@ -230,7 +231,6 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
 		zap.L().Error("Update rules failed with error", zap.Error(err))
-		s.Unlock()
 		s.Unsupervise(contextID) // nolint
 		return err
 	}
@@ -243,7 +243,6 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
 
-	s.Unlock()
 	return nil
 }
 
