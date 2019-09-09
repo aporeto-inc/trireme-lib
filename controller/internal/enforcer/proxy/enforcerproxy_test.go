@@ -352,13 +352,13 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 
 		Convey("When I try to call unenforce", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			err := e.EnableDatapathPacketTracing("testServerID", packettracing.NetworkOnly, 10*time.Second)
+			err := e.EnableDatapathPacketTracing(context.TODO(), "testServerID", packettracing.NetworkOnly, 10*time.Second)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I try to call unenforce and there is a failure", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
-			err := e.EnableDatapathPacketTracing("testServerID", packettracing.NetworkOnly, 10*time.Second)
+			err := e.EnableDatapathPacketTracing(context.TODO(), "testServerID", packettracing.NetworkOnly, 10*time.Second)
 
 			Convey("Then I should get an error", func() {
 				So(err, ShouldNotBeNil)

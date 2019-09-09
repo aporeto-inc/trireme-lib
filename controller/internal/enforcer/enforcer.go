@@ -56,7 +56,7 @@ type Enforcer interface {
 // DebugInfo is interface to implement methods to configure datapath packet tracing in the nfqdatapath
 type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
-	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
+	EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
@@ -204,8 +204,8 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 }
 
 // EnableDatapathPacketTracing implemented the datapath packet tracing
-func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	return e.transport.EnableDatapathPacketTracing(contextID, direction, interval)
+func (e *enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	return e.transport.EnableDatapathPacketTracing(ctx, contextID, direction, interval)
 
 }
 

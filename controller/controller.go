@@ -303,7 +303,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 //Debug Handlers
 func (t *trireme) doHandleEnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
 
-	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].EnableDatapathPacketTracing(puID, direction, interval)
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].EnableDatapathPacketTracing(ctx, puID, direction, interval)
 }
 
 func (t *trireme) doHandleEnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
