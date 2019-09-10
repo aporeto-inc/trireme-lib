@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"text/template"
@@ -100,6 +101,8 @@ type ACLInfo struct {
 	DestIPSet    string
 	SrvIPSet     string
 	ProxyPort    string
+	DNSProxyPort string
+	DNSServerIP  string
 	CgroupMark   string
 	ProxyMark    string
 	ProxySetName string
@@ -139,6 +142,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	var err error
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
+	ipFilter := i.impl.IPFilter()
 
 	if contextID != "" {
 		appChain, netChain, err = chainName(contextID, version)
@@ -147,12 +151,32 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		}
 	}
 
+	parseDNSServerIP := func() string {
+		for _, ipString := range i.fqc.DNSServerAddress {
+			if ip := net.ParseIP(ipString); ip != nil {
+				if ipFilter(ip) {
+					return ipString
+				}
+
+				continue
+			}
+			// parseCIDR
+			if ip, _, err := net.ParseCIDR(ipString); err == nil {
+				if ipFilter(ip) {
+					return ipString
+				}
+			}
+		}
+		return ""
+	}
+
 	var tcpPorts, udpPorts string
-	var servicePort, mark, uid string
+	var servicePort, mark, uid, dnsProxyPort string
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
 		puType = p.Runtime.PUType()
 		servicePort = p.Policy.ServicesListeningPort()
+		dnsProxyPort = p.Policy.DNSProxyPort()
 		mark = p.Runtime.Options().CgroupMark
 		uid = p.Runtime.Options().UserID
 	}
@@ -239,6 +263,8 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		DestIPSet:    destSetName,
 		SrvIPSet:     srvSetName,
 		ProxyPort:    servicePort,
+		DNSProxyPort: dnsProxyPort,
+		DNSServerIP:  parseDNSServerIP(),
 		CgroupMark:   mark,
 		ProxyMark:    proxyMark,
 		ProxySetName: proxySetName,

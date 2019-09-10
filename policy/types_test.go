@@ -64,6 +64,44 @@ func TestLogPrefix(t *testing.T) {
 	})
 }
 
+func TestLogPrefixAction(t *testing.T) {
+	Convey("When I request log prefix action 6", t, func() {
+		f := &FlowPolicy{
+			Action:        Accept,
+			ObserveAction: ObserveNone,
+			PolicyID:      "deadbeef",
+			ServiceID:     "beaddead",
+		}
+		Convey("I should have the correct log prefix", func() {
+			So(f.LogPrefixAction("somecontextID", "6"), ShouldEqual, "3985287229:deadbeef:beaddead:6")
+		})
+	})
+
+	Convey("When I request log prefix action 0", t, func() {
+		f := &FlowPolicy{
+			Action:        Accept,
+			ObserveAction: ObserveNone,
+			PolicyID:      "deadbeef",
+			ServiceID:     "beaddead",
+		}
+		Convey("I should have the correct log prefix", func() {
+			So(f.LogPrefixAction("somecontextID", "0"), ShouldEqual, "3985287229:deadbeef:beaddead:6")
+		})
+	})
+
+	Convey("When I request log prefix action empty", t, func() {
+		f := &FlowPolicy{
+			Action:        Accept,
+			ObserveAction: ObserveNone,
+			PolicyID:      "deadbeef",
+			ServiceID:     "beaddead",
+		}
+		Convey("I should have the correct log prefix", func() {
+			So(f.LogPrefixAction("somecontextID", ""), ShouldEqual, "3985287229:deadbeef:beaddead:6")
+		})
+	})
+}
+
 func TestFnv32(t *testing.T) {
 
 	Convey("When I request log prefix with no data", t, func() {

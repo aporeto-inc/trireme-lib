@@ -3,7 +3,7 @@ package usertokens
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"net/url"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
@@ -17,7 +17,7 @@ import (
 type Verifier interface {
 	VerifierType() common.JWTType
 	Validate(ctx context.Context, token string) ([]string, bool, string, error)
-	Callback(r *http.Request) (string, string, int, error)
+	Callback(ctx context.Context, u *url.URL) (string, string, int, error)
 	IssueRedirect(string) string
 }
 

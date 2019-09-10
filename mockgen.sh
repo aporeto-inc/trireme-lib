@@ -46,16 +46,25 @@ mkdir -p controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient
 mockgen -source controller/pkg/remoteenforcer/internal/counterclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go -package mockcounterclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go
 
+echo "controller/pkg/remoteenforcer/TokenIssuer Mocks"
+mkdir -p controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient
+mockgen -source controller/pkg/remoteenforcer/internal/tokenissuer/tokenissuer.go -destination controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go -package mocktokenclient
+goimport_sanitize controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go
+
 echo "controller/pkg/remoteenforcer/DebugClient Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient
 mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go
 
-
 echo "controller/pkg/remoteenforcer/StatsCollector Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector
 mockgen -source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go -package mockstatscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
+
+echo "controller/pkg/usertokens Mocks"
+mkdir -p controller/pkg/usertokens/mockusertokens
+mockgen -source controller/pkg/usertokens/usertokens.go -destination controller/pkg/usertokens/mockusertokens/mockusertokens.go -package mockusertokens
+goimport_sanitize controller/pkg/usertokens/mockusertokens/mockusertokens.go
 
 echo "Collector Mocks"
 mkdir -p collector/mockcollector

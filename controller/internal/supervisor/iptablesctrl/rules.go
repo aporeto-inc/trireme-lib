@@ -21,7 +21,7 @@ var globalRules = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
-{{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
+{{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
 {{end}}
@@ -36,7 +36,7 @@ var globalRules = `
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.MangleProxyAppChain}}
 {{.MangleTable}} {{.MainAppChain}} -m mark --mark {{.RawSocketMark}} -j ACCEPT
-{{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -j ACCEPT
+{{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK  -j ACCEPT
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.UIDOutput}}{{end}}
 {{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}
@@ -161,20 +161,30 @@ var packetCaptureTemplate = `
 
 var proxyChainTemplate = `
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m tcp --sport {{.ProxyPort}} -j ACCEPT
+{{if enableDNSProxy}}
+{{.MangleTable}} {{.MangleProxyAppChain}} -p udp -m udp --sport {{.DNSProxyPort}} -j ACCEPT
+{{end}}
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m set --match-set {{.SrvIPSet}} src -j ACCEPT
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -j ACCEPT
 
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m set --match-set {{.DestIPSet}} src,src -j ACCEPT
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} src -m addrtype --src-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m tcp --dport {{.ProxyPort}} -j ACCEPT
-
-
+{{if enableDNSProxy}}
+{{.MangleTable}} {{.MangleProxyNetChain}} -p udp -m udp --dport {{.DNSProxyPort}} -j ACCEPT
+{{end}}
 {{if isCgroupSet}}
 {{.NatTable}} {{.NatProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -m cgroup --cgroup {{.CgroupMark}} -j REDIRECT --to-ports {{.ProxyPort}}
+{{if enableDNSProxy}}
+{{.NatTable}} {{.NatProxyAppChain}} -d {{.DNSServerIP}} -p udp --dport 53 -m mark ! --mark {{.ProxyMark}} -m cgroup --cgroup {{.CgroupMark}} -j CONNMARK --save-mark
+{{.NatTable}} {{.NatProxyAppChain}} -d {{.DNSServerIP}} -p udp --dport 53 -m mark ! --mark {{.ProxyMark}} -m cgroup --cgroup {{.CgroupMark}} -j REDIRECT --to-ports {{.DNSProxyPort}}
+{{end}}
 {{else}}
 {{.NatTable}} {{.NatProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}
+{{if enableDNSProxy}}
+{{.NatTable}} {{.NatProxyAppChain}} -d {{.DNSServerIP}} -p udp --dport 53 -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.DNSProxyPort}}
 {{end}}
-
+{{end}}
 {{.NatTable}} {{.NatProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}`
 
 var deleteChains = `
@@ -231,18 +241,27 @@ var globalHooks = `
 
 var legacyProxyRules = `
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m tcp --sport {{.ProxyPort}} -j ACCEPT
+{{if enableDNSProxy}}
+{{.MangleTable}} {{.MangleProxyAppChain}} -p udp -m udp --sport {{.DNSProxyPort}} -j ACCEPT
+{{end}}
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m set --match-set {{.SrvIPSet}} src -j ACCEPT
 {{.MangleTable}} {{.MangleProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -j ACCEPT
 
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m set --match-set {{.DestIPSet}} src,src -j ACCEPT
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} src -m addrtype --src-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.MangleProxyNetChain}} -p tcp -m tcp --dport {{.ProxyPort}} -j ACCEPT
-
+{{if enableDNSProxy}}
+{{.MangleTable}} {{.MangleProxyNetChain}} -p udp -m udp --dport {{.DNSProxyPort}} -j ACCEPT
+{{end}}
 
 {{if isCgroupSet}}
 {{.NatTable}} {{.NatProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -m multiport --source-ports {{.TCPPorts}} -j REDIRECT --to-ports {{.ProxyPort}}
 {{else}}
 {{.NatTable}} {{.NatProxyAppChain}} -p tcp -m set --match-set {{.DestIPSet}} dst,dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}
+{{end}}
+
+{{if enableDNSProxy}}
+{{.NatTable}} {{.NatProxyAppChain}} -p udp --dport 53 -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.DNSProxyPort}}
 {{end}}
 
 {{.NatTable}} {{.NatProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}`

@@ -2,7 +2,7 @@ package fqconfig
 
 import "strconv"
 
-// FilterQueue captures all the configuration parameters of the NFQUEUEs
+// FilterQueue captures all the configuration parameters of the NFQUEUEs and Iptables configuration.
 type FilterQueue struct {
 	// QueueSeparation specifies if we should use separate queues per packet type
 	QueueSeparation bool
@@ -36,6 +36,8 @@ type FilterQueue struct {
 	ApplicationQueuesSvcStr string
 	// ApplicationQueuesSynAckStr is the queue string for application synack packets
 	ApplicationQueuesSynAckStr string
+	// DNSServerAddress
+	DNSServerAddress []string
 }
 
 // NewFilterQueueWithDefaults return a default filter queue config
@@ -48,17 +50,19 @@ func NewFilterQueueWithDefaults() *FilterQueue {
 		DefaultNumberOfQueues,
 		DefaultQueueSize,
 		DefaultQueueSize,
+		nil,
 	)
 }
 
 // NewFilterQueue returns an instance of FilterQueue
-func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32) *FilterQueue {
+func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32, dnsServerAddress []string) *FilterQueue {
 
 	fq := &FilterQueue{
 		QueueSeparation:      queueSeparation,
 		MarkValue:            MarkValue,
 		NetworkQueueSize:     NetworkQueueSize,
 		ApplicationQueueSize: ApplicationQueueSize,
+		DNSServerAddress:     dnsServerAddress,
 	}
 
 	if queueSeparation {

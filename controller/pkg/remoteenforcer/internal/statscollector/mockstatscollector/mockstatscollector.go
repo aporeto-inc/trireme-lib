@@ -223,6 +223,14 @@ func (m *MockCollector) GetAllCounterReports() []*collector.CounterReport {
 	return ret0
 }
 
+// GetDNSReports mocks base method
+// nolint
+func (m *MockCollector) GetDNSReports() chan *collector.DNSRequestReport {
+	ret := m.ctrl.Call(m, "GetDNSReports")
+	ret0, _ := ret[0].(chan *collector.DNSRequestReport)
+	return ret0
+}
+
 // GetAllCounterReports indicates an expected call of GetAllCounterReports
 // nolint
 func (mr *MockCollectorMockRecorder) GetAllCounterReports() *gomock.Call {
@@ -233,6 +241,12 @@ func (mr *MockCollectorMockRecorder) GetAllCounterReports() *gomock.Call {
 // nolint
 func (m *MockCollector) CollectFlowEvent(record *collector.FlowRecord) {
 	m.ctrl.Call(m, "CollectFlowEvent", record)
+}
+
+// CollectDNSRequests mocks base method
+// nolint
+func (m *MockCollector) CollectDNSRequests(record *collector.DNSRequestReport) {
+	m.ctrl.Call(m, "CollectDNSRequests", record)
 }
 
 // CollectFlowEvent indicates an expected call of CollectFlowEvent

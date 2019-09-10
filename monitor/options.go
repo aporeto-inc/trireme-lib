@@ -157,6 +157,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+
+	}
+}
+
+// SubOptionMonitorDockerDestroyStoppedContainers sets the option to destroy stopped containers.
+func SubOptionMonitorDockerDestroyStoppedContainers(f bool) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.DestroyStoppedContainers = f
 	}
 }
 
@@ -260,10 +268,24 @@ func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
 	}
 }
 
+// SubOptionMonitorPodWorkers provides a way to specify the maximum number of workers that are used in the controller.
+func SubOptionMonitorPodWorkers(workers int) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Workers = workers
+	}
+}
+
 // SubOptionMonitorPodMetadataExtractor provides a way to specify metadata extractor for Kubernetes
 func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtractor) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
 		cfg.MetadataExtractor = extractor
+	}
+}
+
+// SubOptionMonitorSandboxExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorSandboxExtractor(extractor extractors.PodSandboxExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.SandboxExtractor = extractor
 	}
 }
 
