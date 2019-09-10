@@ -219,10 +219,10 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
-	defer s.Unlock()
 
 	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
+		s.Unlock()
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
@@ -233,7 +233,6 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		zap.L().Error("Update rules failed with error", zap.Error(err))
 		s.Unlock()
 		s.Unsupervise(contextID) // nolint
-		s.Lock()
 		return err
 	}
 
@@ -242,6 +241,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
 
+	s.Unlock()
 	return nil
 }
 
