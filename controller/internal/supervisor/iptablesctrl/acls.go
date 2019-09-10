@@ -55,6 +55,8 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 			cfg.AppSection,
 			cfg.NetSection,
 			cfg.PUType,
+			cfg.DNSProxyPort,
+			cfg.DNSServerIP,
 		)
 	}
 
@@ -88,7 +90,7 @@ func (i *iptables) uidChainRules(cfg *ACLInfo) [][]string {
 	}
 
 	if i.isLegacyKernel {
-		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark)...)
+		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark, cfg.DNSProxyPort, cfg.DNSServerIP)...)
 	}
 	return append(rules, i.proxyRules(cfg)...)
 }
@@ -114,6 +116,9 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 	tmpl := template.Must(template.New(proxyChainTemplate).Funcs(template.FuncMap{
 		"isCgroupSet": func() bool {
 			return cfg.CgroupMark != ""
+		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
 		},
 	}).Parse(proxyChainTemplate))
 
@@ -155,6 +160,10 @@ func (i *iptables) addContainerChain(appChain string, netChain string) error {
 	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
 		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
 	}
+
+	// if err := i.impl.NewChain(appProxyIPTableContext, appChain); err != nil {
+	// 	return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
+	// }
 
 	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
@@ -224,12 +233,13 @@ func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 }
 
-func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
+func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
 	iptRules := [][]string{}
 	reverseRules := [][]string{}
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
 	observeContinue := rule.policy.ObserveAction.ObserveContinue()
+	contextID := cfg.ContextID
 
 	baseRule := func(proto string) []string {
 		iptRule := []string{
@@ -259,7 +269,7 @@ func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain stri
 		return iptRule
 	}
 
-	if err := i.programExtensionsRules(rule, chain, proto, ipMatchDirection); err != nil {
+	if err := i.programExtensionsRules(contextID, rule, chain, proto, ipMatchDirection, nfLogGroup); err != nil {
 		zap.L().Warn("unable to program extension rules",
 			zap.Error(err),
 		)
@@ -275,8 +285,7 @@ func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain stri
 
 	if !observeContinue {
 		if (rule.policy.Action & policy.Accept) != 0 {
-			accept := []string{"-j", "ACCEPT"}
-			acceptRule := append(baseRule(proto), accept...)
+			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
 			iptRules = append(iptRules, acceptRule)
 		}
 
@@ -302,23 +311,27 @@ func (i *iptables) generateACLRules(contextID string, rule *aclIPset, chain stri
 }
 
 // programExtensionsRules programs iptable rules for the given extensions
-func (i *iptables) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchDirection string) error {
+func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chain, proto, ipMatchDirection, nfLogGroup string) error {
 
 	rulesspec := []string{
 		"-p", proto,
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		"--match", "multiport", "--dports", strings.Join(rule.ports, ","),
 	}
 
 	for _, ext := range rule.extensions {
+		if rule.policy.Action&policy.Log > 0 {
+			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
+				return fmt.Errorf("unable to program nflog extension: %v", err)
+			}
+		}
+
 		args, err := shellwords.Parse(ext)
 		if err != nil {
 			return fmt.Errorf("unable to parse extension %s: %v", ext, err)
 		}
 
-		rulesspec = append(rulesspec, args...)
-
-		if err := i.impl.Append(appPacketIPTableContext, chain, rulesspec...); err != nil {
+		extRulesSpec := append(rulesspec, args...)
+		if err := i.impl.Append(appPacketIPTableContext, chain, extRulesSpec...); err != nil {
 			return fmt.Errorf("unable to program extension rules: %v", err)
 		}
 	}
@@ -326,12 +339,44 @@ func (i *iptables) programExtensionsRules(rule *aclIPset, chain, proto, ipMatchD
 	return nil
 }
 
+// WARNING: The extension should always contain the action at the end else,
+// the function returns error.
+func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, rulesspec []string, ext string, chain, nfLogGroup string) error {
+
+	parts := strings.SplitN(ext, " -j ", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid extension format: %s", ext)
+	}
+	filter, target := parts[0], parts[1]
+
+	if filter == "" || target == "" {
+		return fmt.Errorf("filter or target is empty: %s", ext)
+	}
+
+	filterArgs, err := shellwords.Parse(filter)
+	if err != nil {
+		return fmt.Errorf("unable to parse extension %s: %v", ext, err)
+	}
+
+	action := "3"
+	if target == "DROP" {
+		action = "6"
+	}
+
+	defaultNflogSuffix := []string{"-m", "state", "--state", "NEW",
+		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefixAction(contextID, action)}
+	filterArgs = append(filterArgs, defaultNflogSuffix...)
+
+	nflogRulesspec := append(rulesspec, filterArgs...)
+	return i.impl.Append(appPacketIPTableContext, chain, nflogRulesspec...)
+}
+
 // sortACLsInBuckets will process all the rules and add them in a list of buckets
 // based on their priority. We need an explicit order of these buckets
 // in order to support observation only of ACL actions. The parameters
 // must provide the chain and whether it is App or Net ACLs so that the rules
 // can be created accordingly.
-func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
+func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppACLs bool) *rulesInfo {
 
 	rulesBucket := &rulesInfo{
 		RejectObserveApply:    [][]string{},
@@ -360,7 +405,7 @@ func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain strin
 				continue
 			}
 
-			acls, r := i.generateACLRules(contextID, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
+			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
 			if testReject(rule.policy) && testObserveApply(rule.policy) {
@@ -394,9 +439,9 @@ func (i *iptables) sortACLsInBuckets(contextID, chain string, reverseChain strin
 
 // addExternalACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *iptables) addExternalACLs(contextID string, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
+func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
-	rulesBucket := i.sortACLsInBuckets(contextID, chain, reverseChain, rules, isAppAcls)
+	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
@@ -514,8 +559,38 @@ func (i *iptables) setGlobalRules() error {
 	return nil
 }
 
-func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
+// removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
+// no errors if these things fail.
+func (i *iptables) removeGlobalHooksPre() {
+	rules := [][]string{
+		{
+			"nat",
+			"PREROUTING",
+			"-p", "tcp",
+			"-m", "addrtype",
+			"--dst-type", "LOCAL",
+			"-m", "set", "!", "--match-set", "TRI-Excluded", "src",
+			"-j", "TRI-Redir-Net",
+		},
+		{
+			"nat",
+			"OUTPUT",
+			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
+			"-j", "TRI-Redir-App",
+		},
+	}
 
+	for _, rule := range rules {
+		if err := i.impl.Delete(rule[0], rule[1], rule[2:]...); err != nil {
+			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
+		}
+	}
+
+}
+func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
+	// This func is a chance to remove rules that don't fit in your templates.
+	// This should ideally not be used
+	i.removeGlobalHooksPre()
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer

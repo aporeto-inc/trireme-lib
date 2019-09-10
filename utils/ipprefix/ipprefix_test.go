@@ -35,6 +35,10 @@ func TestPutGetV4(t *testing.T) {
 
 	_, ok = ipcache.Get(ip, 10)
 	assert.Equal(t, ok, false, "Get should return nil")
+
+	ipcache.Put(ip, 32, nil)
+	_, ok = ipcache.Get(ip, 32)
+	assert.Equal(t, ok, false, "Should not be found in cache")
 }
 
 func TestPutGetV6(t *testing.T) {
@@ -56,6 +60,10 @@ func TestPutGetV6(t *testing.T) {
 	assert.Equal(t, ok, true, "Get should return success")
 
 	_, ok = ipcache.Get(ip, 10)
+	assert.Equal(t, ok, false, "Get should return nil")
+
+	ipcache.Put(ip, 128, nil)
+	_, ok = ipcache.Get(ip, 128)
 	assert.Equal(t, ok, false, "Get should return nil")
 }
 

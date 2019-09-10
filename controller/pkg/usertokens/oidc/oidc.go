@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -129,13 +130,13 @@ func (v *TokenVerifier) IssueRedirect(originURL string) string {
 // and perform all other validations. It will return the resulting token,
 // the original URL that was called to initiate the protocol, and the
 // http status response.
-func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
+func (v *TokenVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
 
 	// We first validate that the callback state matches the original redirect
 	// state. We clean up the cache once it is validated. During this process
 	// we recover the original URL that initiated the protocol. This allows
 	// us to redirect the client to their original request.
-	receivedState := r.URL.Query().Get("state")
+	receivedState := u.Query().Get("state")
 	originURL, err := stateCache.Get(receivedState)
 	if err != nil {
 		return "", "", http.StatusBadRequest, fmt.Errorf("bad state")
@@ -144,7 +145,7 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
-	oauth2Token, err := v.clientConfig.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.AccessTypeOffline)
+	oauth2Token, err := v.clientConfig.Exchange(ctx, u.Query().Get("code"), oauth2.AccessTypeOffline)
 	if err != nil {
 		return "", "", http.StatusInternalServerError, fmt.Errorf("bad code: %s", err)
 	}

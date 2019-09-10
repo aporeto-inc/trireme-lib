@@ -43,7 +43,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -51,6 +51,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		netclsProgrammer:  netclsProgrammer,
+		sandboxExtractor:  sandboxExtractor,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
 		deleteCh:          deleteCh,
@@ -64,12 +65,11 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 }
 
 // addController adds a new Controller to mgr with r as the reconcile.Reconciler
-func addController(mgr manager.Manager, r *ReconcilePod, eventsCh <-chan event.GenericEvent) error {
+func addController(mgr manager.Manager, r *ReconcilePod, workers int, eventsCh <-chan event.GenericEvent) error {
 	// Create a new controller
 	c, err := controller.New("trireme-pod-controller", mgr, controller.Options{
-		Reconciler: r,
-		// TODO: should move into configuration
-		MaxConcurrentReconciles: 4,
+		Reconciler:              r,
+		MaxConcurrentReconciles: workers,
 	})
 	if err != nil {
 		return err
@@ -103,8 +103,9 @@ var _ reconcile.Reconciler = &ReconcilePod{}
 // them for real deletion in the Kubernetes API. Once an object is gone, we will
 // send down destroy events to trireme.
 type DeleteEvent struct {
-	NativeID string
-	Key      client.ObjectKey
+	PodUID        string
+	SandboxID     string
+	NamespaceName client.ObjectKey
 }
 
 // ReconcilePod reconciles a Pod object
@@ -117,6 +118,7 @@ type ReconcilePod struct {
 	handler           *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
 	netclsProgrammer  extractors.PodNetclsProgrammer
+	sandboxExtractor  extractors.PodSandboxExtractor
 	nodeName          string
 	enableHostPods    bool
 	deleteCh          chan<- DeleteEvent
@@ -131,7 +133,8 @@ type ReconcilePod struct {
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
 	nn := request.NamespacedName.String()
-
+	var puID, sandboxID string
+	var err error
 	// Fetch the corresponding pod object.
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, request.NamespacedName, pod); err != nil {
@@ -143,8 +146,12 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
-	puID := string(pod.GetUID())
-
+	sandboxID, err = r.sandboxExtractor(ctx, pod)
+	if err != nil {
+		// Do nothing if we can't find the sandboxID
+		zap.L().Debug("Pod reconcile: Cannot extract the SandboxID for ", zap.String("podname: ", nn))
+	}
+	puID = string(pod.GetUID())
 	// abort immediately if this is a HostNetwork pod, but we don't want to activate them
 	// NOTE: is already done in the mapper, however, this additional check does not hurt
 	if pod.Spec.HostNetwork && !r.enableHostPods {
@@ -156,8 +163,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	// if we reconcile though and the pod exists, we definitely know though
 	// that it must go away at some point, so always register it with the delete controller
 	r.deleteCh <- DeleteEvent{
-		NativeID: puID,
-		Key:      request.NamespacedName,
+		PodUID:        puID,
+		SandboxID:     sandboxID,
+		NamespaceName: request.NamespacedName,
 	}
 
 	// try to find out if any of the containers have been started yet
@@ -221,7 +229,10 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		if pod.DeletionTimestamp != nil {
 			return reconcile.Result{}, nil
 		}
-
+		// If the pod hasn't started or if there is no sandbox present, requeue.
+		if sandboxID == "" || !started {
+			return reconcile.Result{Requeue: true}, nil
+		}
 		if started {
 			// if the metadata extractor is missing the PID or nspath, we need to try again
 			// we need it for starting the PU. However, only require this if we are not in host network mode.
@@ -295,6 +306,20 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// every HandlePUEvent call gets done in this context
 		handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 		defer handlePUCancel()
+
+		if err := r.handler.Policy.HandlePUEvent(
+			handlePUCtx,
+			puID,
+			common.EventUpdate,
+			puRuntime,
+		); err != nil {
+			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+			// return reconcile.Result{}, err
+		} else {
+			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		}
+
 		if err := r.handler.Policy.HandlePUEvent(
 			handlePUCtx,
 			puID,

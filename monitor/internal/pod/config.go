@@ -9,10 +9,12 @@ type Config struct { // nolint
 	Kubeconfig     string
 	Nodename       string
 	EnableHostPods bool
+	Workers        int
 
 	MetadataExtractor extractors.PodMetadataExtractor
 	NetclsProgrammer  extractors.PodNetclsProgrammer
 	ResetNetcls       extractors.ResetNetclsKubepods
+	SandboxExtractor  extractors.PodSandboxExtractor
 }
 
 // DefaultConfig provides a default configuration
@@ -21,9 +23,11 @@ func DefaultConfig() *Config {
 		MetadataExtractor: nil,
 		NetclsProgrammer:  nil,
 		ResetNetcls:       nil,
+		SandboxExtractor:  nil,
 		EnableHostPods:    false,
 		Kubeconfig:        "",
 		Nodename:          "",
+		Workers:           4,
 	}
 }
 

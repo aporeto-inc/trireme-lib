@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
@@ -94,7 +95,6 @@ func (e *enforcer) Run(ctx context.Context) error {
 
 // Enforce implements the enforce interface by sending the event to all the enforcers.
 func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
 			return fmt.Errorf("unable to enforce in nfq: %s", err)
@@ -228,9 +228,11 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	cfg *runtime.Configuration,
+	tokenIssuer common.ServiceTokenIssuer,
+	binaryTokens bool,
 ) (Enforcer, error) {
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
@@ -254,7 +256,7 @@ func New(
 		cfg,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
+	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("App proxy %s", err)
 	}

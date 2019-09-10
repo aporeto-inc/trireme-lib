@@ -217,6 +217,11 @@ func TestController(t *testing.T) {
 			return nil
 		}
 
+		sandboxExtractor := func(context.Context, *corev1.Pod) (string, error) {
+			return "", nil
+		}
+
+		sandboxID := "test"
 		// we will only send all delete events in this test, we are not going to handle them
 		deleteCh := make(chan DeleteEvent, 1000)
 		deleteReconcileCh := make(chan struct{}, 1000)
@@ -232,6 +237,7 @@ func TestController(t *testing.T) {
 			handler:           pc,
 			metadataExtractor: metadataExtractor,
 			netclsProgrammer:  netclsProgrammer,
+			sandboxExtractor:  sandboxExtractor,
 			nodeName:          "testing-node",
 			enableHostPods:    true,
 			deleteCh:          deleteCh,
@@ -278,14 +284,17 @@ func TestController(t *testing.T) {
 		})
 
 		Convey("a pod which is in podsucceeded or podfailed state should try to stop the PU", func() {
-			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/failed", common.EventStop, gomock.Any()).Return(fmt.Errorf("stopping failed")).Times(1)
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/failed", common.EventUpdate, gomock.Any()).Return(fmt.Errorf("update failed")).Times(1)
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/failed", common.EventStop, gomock.Any()).Return(fmt.Errorf("stop failed")).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "failed", Namespace: "default"}})
 			So(err, ShouldBeNil)
 
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventStop, gomock.Any()).Return(nil).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
 			So(err, ShouldBeNil)
 
+			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventUpdate, gomock.Any()).Return(policy.ErrPUNotFound("default/succeeded", nil)).Times(1)
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/succeeded", common.EventStop, gomock.Any()).Return(policy.ErrPUNotFound("default/succeeded", nil)).Times(1)
 			_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
 			So(err, ShouldBeNil)
@@ -339,6 +348,9 @@ func TestController(t *testing.T) {
 			r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 				return policy.NewPURuntime("default/pendingAndStarted", 42, "", nil, nil, common.ContainerPU, nil), nil
 			}
+			r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+				return sandboxID, nil
+			}
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/pendingAndStarted", common.EventStart, gomock.Any()).Return(nil).Times(1)
 			_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "pendingAndStarted", Namespace: "default"}})
@@ -365,6 +377,9 @@ func TestController(t *testing.T) {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntimeWithDefaults(), nil
 				}
+				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+					return sandboxID, nil
+				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "running", Namespace: "default"}})
 				So(err, ShouldNotBeNil)
 				So(err, ShouldEqual, ErrNetnsExtractionMissing)
@@ -372,6 +387,9 @@ func TestController(t *testing.T) {
 			Convey("should *not* fail if metadata and PID/netnspath extraction succeeded, but the Start PU event fails", func() {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
+				}
+				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+					return sandboxID, nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(failure).Times(1)
@@ -382,6 +400,9 @@ func TestController(t *testing.T) {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
+				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+					return sandboxID, nil
+				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(policy.ErrPUAlreadyActivated("default/running", nil)).Times(1)
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "running", Namespace: "default"}})
@@ -390,6 +411,9 @@ func TestController(t *testing.T) {
 			Convey("should return silently if metadata and PID/netnspath extraction succeeded, and the PU could be successfully activated", func() {
 				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
+				}
+				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+					return sandboxID, nil
 				}
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventStart, gomock.Any()).Return(nil).Times(1)
@@ -425,6 +449,9 @@ func TestController(t *testing.T) {
 			Convey("should fail if metadata extraction succeeded, but netcls cgroup programming fails", func() {
 				r.netclsProgrammer = func(context.Context, *corev1.Pod, policy.RuntimeReader) error {
 					return failure
+				}
+				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+					return sandboxID, nil
 				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "runningHostNetwork", Namespace: "default"}})
 				So(err, ShouldNotBeNil)
