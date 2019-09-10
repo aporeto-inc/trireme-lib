@@ -375,9 +375,3 @@ func debugRules(data *cacheData, mode constants.ModeType) [][]string {
 	}
 	return iptables
 }
-
-func revert(a, b interface{}) interface{} {
-	entry := a.(*cacheData)
-	entry.version = entry.version ^ 1
-	return entry
-}
