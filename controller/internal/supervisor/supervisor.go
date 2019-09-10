@@ -231,14 +231,13 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
 		zap.L().Error("Update rules failed with error", zap.Error(err))
+		s.Unlock()
 		s.Unsupervise(contextID) // nolint
+		s.Lock()
 		return err
 	}
 
-	data, err = s.versionTracker.LockedModify(contextID, revert, 1)
-	if err != nil {
-		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
-	}
+	c.version ^= 1
 
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
