@@ -1,7 +1,9 @@
+// +build windows
+
 package extractors
 
 import (
-	"debug/elf"
+	"debug/pe"
 	"encoding/hex"
 	"fmt"
 	"os/user"
@@ -12,40 +14,14 @@ import (
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	portspec "go.aporeto.io/trireme-lib/utils/portspec"
 )
 
-// LinuxMetadataExtractorType is a type of Linux metadata extractors
-type LinuxMetadataExtractorType func(event *common.EventInfo) (*policy.PURuntime, error)
+// WindowsMetadataExtractorType is a type of Windows metadata extractors
+type WindowsMetadataExtractorType func(event *common.EventInfo) (*policy.PURuntime, error)
 
-// DefaultHostMetadataExtractor is a host specific metadata extractor
-func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
-
-	runtimeTags := policy.NewTagStore()
-
-	for _, tag := range event.Tags {
-		parts := strings.SplitN(tag, "=", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid tag: %s", tag)
-		}
-		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
-	}
-
-	options := &policy.OptionsType{
-		CgroupName: event.PUID,
-		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
-		Services:   event.Services,
-	}
-
-	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
-
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, options), nil
-}
-
-// SystemdEventMetadataExtractor is a systemd based metadata extractor
-// TODO: Remove OLDTAGS
-func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
+// WindowsServiceEventMetadataExtractor is a windows service based metadata extractor
+func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
@@ -57,11 +33,11 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
-	userdata := ProcessInfo(event.PID)
+	userdata := WinProcessInfo(event.PID)
 
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
-		runtimeTags.AppendKeyValue("@app:linux:"+u, "true")
+		runtimeTags.AppendKeyValue("@app:windows:"+u, "true")
 	}
 
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
@@ -69,13 +45,13 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	if fileMd5, err := computeFileMd5(event.Executable); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
-		runtimeTags.AppendKeyValue("@app:linux:filechecksum", hex.EncodeToString(fileMd5))
+		runtimeTags.AppendKeyValue("@app:windows:filechecksum", hex.EncodeToString(fileMd5))
 	}
 
-	depends := libs(event.Name)
+	depends := getDllImports(event.Name)
 	for _, lib := range depends {
 		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
-		runtimeTags.AppendKeyValue("@app:linux:lib:"+lib, "true")
+		runtimeTags.AppendKeyValue("@app:windows:lib:"+lib, "true")
 	}
 
 	options := policy.OptionsType{}
@@ -91,7 +67,7 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 	}
 	options.Services = event.Services
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
-	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	//options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 	options.AutoPort = event.AutoPort
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
@@ -99,8 +75,8 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
 }
 
-// ProcessInfo returns all metadata captured by a process
-func ProcessInfo(pid int32) []string {
+// ProcessInfo returns all metadata captured by a Windows process
+func WinProcessInfo(pid int32) []string {
 	userdata := []string{}
 
 	p, err := process.NewProcess(pid)
@@ -108,6 +84,7 @@ func ProcessInfo(pid int32) []string {
 		return userdata
 	}
 
+	// TODO(windows): do equivalent of uids and gids (using GetNamedSecurityInfo and LookupAccountSid, eg)
 	uids, err := p.Uids()
 	if err != nil {
 		return userdata
@@ -155,9 +132,9 @@ func ProcessInfo(pid int32) []string {
 	return userdata
 }
 
-// libs returns the list of dynamic library dependencies of an executable
-func libs(binpath string) []string {
-	f, err := elf.Open(binpath)
+// getDllImports returns the list of dynamic library dependencies of an executable
+func getDllImports(binpath string) []string {
+	f, err := pe.Open(binpath)
 	if err != nil {
 		return []string{}
 	}
