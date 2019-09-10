@@ -61,6 +61,7 @@ func newRemoteEnforcer(
 	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
+	enforcerType policy.EnforcerType,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -125,6 +126,7 @@ func newRemoteEnforcer(
 		exit:            make(chan bool),
 		zapConfig:       zapConfig,
 		tokenIssuer:     tokenIssuer,
+		enforcerType:    enforcerType,
 	}, nil
 }
 
@@ -587,8 +589,13 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 		return err
 	}
 
+	enforcerType, err := policy.EnforcerTypeFromString(os.Getenv(constants.EnvEnforcerType))
+	if err != nil {
+		return err
+	}
+
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig, enforcerType)
 	if err != nil {
 		return err
 	}

@@ -114,13 +114,13 @@ func TestLaunchProcess(t *testing.T) {
 		Convey("if the process is already activated, then it should return with initialize false and no error", func() {
 			p.activeProcesses.AddOrUpdate(contextID, &processInfo{})
 
-			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, refNSPath, "", "mysecret", testDirBase)
+			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, refNSPath, "", "mysecret", testDirBase, policy.EnforcerMapping)
 			So(err, ShouldBeNil)
 			So(initialize, ShouldBeFalse)
 		})
 
 		Convey("if the process is not already activated and stat fails, it should error and cleanup", func() {
-			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, "", "", "my secret", "/badpath")
+			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, "", "", "my secret", "/badpath", policy.EnforcerMapping)
 			So(initialize, ShouldBeFalse)
 			So(err, ShouldNotBeNil)
 
@@ -130,7 +130,7 @@ func TestLaunchProcess(t *testing.T) {
 		})
 
 		Convey("if the process is not already activated and pid stat fails, it should error and cleanup", func() {
-			initialize, err := p.LaunchRemoteEnforcer(contextID, 10000, refNSPath, "", "my secret", "/badpath")
+			initialize, err := p.LaunchRemoteEnforcer(contextID, 10000, refNSPath, "", "my secret", "/badpath", policy.EnforcerMapping)
 			So(initialize, ShouldBeFalse)
 			So(err, ShouldNotBeNil)
 
@@ -143,7 +143,7 @@ func TestLaunchProcess(t *testing.T) {
 			rpchdl.MockGetRPCClient(t, func(string) (*rpcwrapper.RPCHdl, error) {
 				return nil, nil
 			})
-			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, refNSPath, "", "my secret", testDirBase)
+			initialize, err := p.LaunchRemoteEnforcer(contextID, refPid, refNSPath, "", "my secret", testDirBase, policy.EnforcerMapping)
 			So(initialize, ShouldBeFalse)
 			So(err, ShouldNotBeNil)
 
@@ -160,7 +160,7 @@ func TestLaunchProcess(t *testing.T) {
 			defer killContainer()
 
 			execCommand = fakeExecCommand
-			initialize, err := p.LaunchRemoteEnforcer(contextID, pid, refNSPath, "", "my secret", testDirBase)
+			initialize, err := p.LaunchRemoteEnforcer(contextID, pid, refNSPath, "", "my secret", testDirBase, policy.EnforcerMapping)
 			So(initialize, ShouldBeTrue)
 			So(err, ShouldBeNil)
 

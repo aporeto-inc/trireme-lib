@@ -58,6 +58,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.commandArg,
 		s.statsServerSecret,
 		s.procMountPoint,
+		puInfo.Policy.EnforcerType,
 	)
 	if err != nil {
 		return err

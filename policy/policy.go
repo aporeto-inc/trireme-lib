@@ -18,6 +18,41 @@ const (
 	EnvoyAuthorizerEnforcer
 )
 
+// String implements the string interface
+func (t EnforcerType) String() string {
+	switch t {
+	case EnforcerMapping:
+		return "EnforcerMapping"
+	case EnvoyAuthorizerEnforcer:
+		return "EnvoyAuthorizerEnforcer"
+	default:
+		return strconv.Itoa(int(t))
+	}
+}
+
+// EnforcerTypeFromString parses `str` and tries to convert it to
+func EnforcerTypeFromString(str string) (EnforcerType, error) {
+	switch str {
+	case "EnforcerMapping":
+		return EnforcerMapping, nil
+	case "EnvoyAuthorizerEnforcer":
+		return EnvoyAuthorizerEnforcer, nil
+	default:
+		i, err := strconv.Atoi(str)
+		if err != nil {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): %s", str, err.Error())
+		}
+		if i < int(EnforcerMapping) {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): below possible valid value", str)
+		}
+		if i > int(EnvoyAuthorizerEnforcer) {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): above possible valid value", str)
+		}
+
+		return EnforcerType(i), nil
+	}
+}
+
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
 

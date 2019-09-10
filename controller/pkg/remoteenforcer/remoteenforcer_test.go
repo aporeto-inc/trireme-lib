@@ -227,7 +227,7 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 			defer cancel()
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient, dnsreportclient, tokenclient, zap.Config{})
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient, dnsreportclient, tokenclient, zap.Config{}, policy.EnforcerMapping)
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -304,7 +304,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, mockDNSReportClient, mockTokenClient, zap.Config{})
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, mockDNSReportClient, mockTokenClient, zap.Config{}, policy.EnforcerMapping)
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
