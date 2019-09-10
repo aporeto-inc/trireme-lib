@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -106,23 +107,22 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
-
-		packetTracingCache:     cache.NewCache("PacketTracingCache"),
-		targetNetworks:         acls.NewACLCache(),
-		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
-		filterQueue:            filterQueue,
-		mutualAuthorization:    mutualAuth,
-		service:                service,
-		collector:              collector,
-		tokenAccessor:          tokenaccessor,
-		secrets:                secrets,
-		ackSize:                secrets.AckSize(),
-		mode:                   mode,
-		procMountPoint:         procMountPoint,
-		packetLogs:             packetLogs,
-		udpSocketWriter:        udpSocketWriter,
-		puToPortsMap:           map[string]map[string]bool{},
-		puCountersChannel:      make(chan *pucontext.PUContext, 220),
+		packetTracingCache:           cache.NewCache("PacketTracingCache"),
+		targetNetworks:               acls.NewACLCache(),
+		ExternalIPCacheTimeout:       ExternalIPCacheTimeout,
+		filterQueue:                  filterQueue,
+		mutualAuthorization:          mutualAuth,
+		service:                      service,
+		collector:                    collector,
+		tokenAccessor:                tokenaccessor,
+		secrets:                      secrets,
+		ackSize:                      secrets.AckSize(),
+		mode:                         mode,
+		procMountPoint:               procMountPoint,
+		packetLogs:                   packetLogs,
+		udpSocketWriter:              udpSocketWriter,
+		puToPortsMap:                 map[string]map[string]bool{},
+		puCountersChannel:            make(chan *pucontext.PUContext, 220),
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -155,14 +155,14 @@ func NewWithDefaults(
 
 	defaultMutualAuthorization := false
 	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := time.Hour * 8760
+	defaultValidity := constants.DatapathTokenValidity
 	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
 	defaultPacketLogs := false
 
-	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets, false)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
@@ -191,6 +191,8 @@ func NewWithDefaults(
 		return nil
 	}
 	e.conntrack = conntrackClient
+
+	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector)
 
 	return e
 }
