@@ -13,7 +13,6 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
-	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -127,11 +126,12 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) *iptables {
 
 	return &iptables{
-		impl:                  impl,
-		fqc:                   fqc,
-		mode:                  mode,
-		ipset:                 ips,
-		isLegacyKernel:        buildflags.IsLegacyKernel(),
+		impl:  impl,
+		fqc:   fqc,
+		mode:  mode,
+		ipset: ips,
+		//		isLegacyKernel:        buildflags.IsLegacyKernel(),
+		isLegacyKernel:        true,
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
@@ -405,7 +405,7 @@ func (i *iptables) initializeChains() error {
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
-
+	zap.L().Error("Chains", zap.String("ChainList", triremChains))
 	for _, rule := range rules {
 		if len(rule) != 4 {
 			continue
