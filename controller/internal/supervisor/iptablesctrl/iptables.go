@@ -1,5 +1,3 @@
-// +build !windows
-
 package iptablesctrl
 
 import (
@@ -131,9 +129,9 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		mode:  mode,
 		ipset: ips,
 		//		isLegacyKernel:        buildflags.IsLegacyKernel(),
-		isLegacyKernel:        true,
-		conntrackCmd:          flushUDPConntrack,
-		cfg:                   nil,
+		isLegacyKernel: true,
+		conntrackCmd:   flushUDPConntrack,
+		cfg:            nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 		serviceIDToIPsets:     map[string]*ipsetInfo{},
 		puToServiceIDs:        map[string][]string{},
