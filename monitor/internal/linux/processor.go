@@ -235,6 +235,9 @@ func (l *linuxProcessor) resyncHostService(ctx context.Context, e *common.EventI
 // Resync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 
+	d, _ := json.MarshalIndent(e, "", "    ")
+	zap.L().Info("RESYNC IN TRIREME", zap.Reflect("resync", string(d)))
+
 	if e != nil {
 		// If its a host service then use pu from eventInfo
 		// The code block below assumes that pu is already created
