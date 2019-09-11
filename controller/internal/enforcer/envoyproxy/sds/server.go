@@ -7,12 +7,11 @@ import (
 
 	"context"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
-	v2 "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2"
-	"go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2/auth"
-	sds "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/service/discovery/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
@@ -48,8 +47,9 @@ func NewServer() Server {
 func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
 	fmt.Println("ABHI, envoy-trireme create  SDS server")
 	s.sdsGrpcServer = grpc.NewServer()
-	if err := os.Remove(options.SocketPath); err != nil {
-		fmt.Println("ABHI, envoy-reireme, failed to remove the udspath")
+	s.register(s.sdsGrpcServer)
+	if err := os.Remove(options.SocketPath); err != nil && !os.IsNotExist(err) {
+		fmt.Println("ABHI, envoy-reireme, failed to remove the udspath", err)
 		return err
 	}
 	fmt.Println("Start listening on UDS path: ", options.SocketPath)
@@ -58,8 +58,18 @@ func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
 		fmt.Println("cannot listen on the socketpath", err)
 		return err
 	}
+	// make sure the socket path can be accessed.
+	if _, err := os.Stat(options.SocketPath); err != nil {
+		fmt.Println("SDS uds file %q doesn't exist", options.SocketPath)
+		return fmt.Errorf("sds uds file %q doesn't exist", options.SocketPath)
+	}
+	if err := os.Chmod(options.SocketPath, 0666); err != nil {
+		fmt.Println("Failed to update %q permission", options.SocketPath)
+		return fmt.Errorf("failed to update %q permission", options.SocketPath)
+	}
+	//var err error
 	s.sdsGrpcListener = sdsGrpcListener
-	s.register(s.sdsGrpcServer)
+
 	fmt.Println("run the grpc server")
 	s.Run()
 	return nil
@@ -69,9 +79,10 @@ func (s Server) CreateSdsService(options *Options) error { //nolint: unparam
 func (s Server) Run() {
 	go func() {
 		if s.sdsGrpcListener != nil {
-			err := s.sdsGrpcServer.Serve(s.sdsGrpcListener)
-			fmt.Println("got error after serve", err)
-			s.errCh <- err
+			if err := s.sdsGrpcServer.Serve(s.sdsGrpcListener); err != nil {
+				fmt.Println("got error after serve", err)
+				s.errCh <- err
+			}
 		}
 		fmt.Println("the listener is nil, cannot start the server")
 	}()
@@ -115,7 +126,7 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 			fmt.Println("Connection terminated with err: ", err)
 			return
 		}
-		fmt.Println("received the msg, now send it the main function")
+		fmt.Println("\n\n **** $$$$$ received the msg, now send it the main function", req.Node.Id)
 		discoveryReqCh <- req
 	}
 }
@@ -163,26 +174,26 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 			}
 			fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
 
-			secret := generateSecret(req)
+			//secret := generateSecret(req)
 
 			// TODO: now call the metadata-lib function to fetch the secrets.
 			// TODO: once the secret is fetched create a discovery Response depending on the secret.
 
-			resp := &v2.DiscoveryResponse{
-				TypeUrl: "aporeto.io/sds_envoy_certs",
-			}
-			retSecret := auth.Secret{}
-			if secret.RootCert != nil {
-				retSecret.Type = getRootCert(secret)
-			} else {
-				retSecret.Type = getTLScerts(secret)
-			}
-			endSecret, err := types.MarshalAny(retSecret)
-			if err != nil {
-				fmt.Println("Cannot marshall the secret")
-				continue
-			}
-			resp.Resources = append(resp.Resources, endSecret)
+			// resp := &v2.DiscoveryResponse{
+			// 	TypeUrl: "aporeto.io/sds_envoy_certs",
+			// }
+			// retSecret := auth.Secret{}
+			// if secret.RootCert != nil {
+			// 	retSecret.Type = getRootCert(secret)
+			// } else {
+			// 	retSecret.Type = getTLScerts(secret)
+			// }
+			// endSecret, err := types.MarshalAny(retSecret)
+			// if err != nil {
+			// 	fmt.Println("Cannot marshall the secret")
+			// 	continue
+			// }
+			// resp.Resources = append(resp.Resources, endSecret)
 		}
 	}
 
