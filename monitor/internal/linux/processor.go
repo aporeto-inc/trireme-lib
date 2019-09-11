@@ -2,6 +2,7 @@ package linuxmonitor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -281,6 +282,11 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,
 		})
+
+		d, _ := json.MarshalIndent(runtime, "", "    ")
+		zap.L().Info("RUNTIME IN TRIREME", zap.Reflect("runtime", string(d)))
+
+		zap.L().Info("RUNTIME CGROUP IN TRIREME", zap.Reflect("cgroup", cgroup))
 
 		// Processes are still alive. We should enforce policy.
 		if err := l.config.Policy.HandlePUEvent(ctx, cgroup, common.EventStart, runtime); err != nil {
