@@ -5,7 +5,6 @@ import (
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/processor"
-	"go.uber.org/zap"
 )
 
 // registerer provides a way for others to register a registerer
@@ -24,7 +23,7 @@ func New() Registerer {
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
 func (r *registerer) RegisterProcessor(puType common.PUType, ep processor.Processor) error {
-	zap.L().Error("REgistering", zap.Int("puType", int(puType)))
+
 	if _, ok := r.handlers[puType]; ok {
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
 	}

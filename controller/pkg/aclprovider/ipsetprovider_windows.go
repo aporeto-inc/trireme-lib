@@ -64,7 +64,7 @@ func getTypeForDll(name string) int {
 	if name == "TRI-v4-Excluded" || name == "TRI-v6-Excluded" {
 		return IpsetProviderTypeExclusions
 	}
-	return 0
+	return IpsetProviderTypeExclusions
 }
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
@@ -76,15 +76,17 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 	}
 	typeForDll := getTypeForDll(name)
 	// TODO(windows): for now don't pass on to the driver if it's not excluded type
-	if typeForDll != IpsetProviderTypeExclusions {
+	/* if typeForDll != IpsetProviderTypeExclusions {
 		return &winIpSet{}, nil
-	}
+	} */
+
 	var ipsetHandle uintptr
 	dllRet, _, err := newIpSetProc.Call(driverHandle, uintptr(typeForDll), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(ipsetType))), uintptr(unsafe.Pointer(&ipsetHandle)))
 	if dllRet == 0 {
-		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", newIpSetProc.Name, dllRet, err)
+		return nil, fmt.Errorf("%s failed (ret=%d err=%v) %s %s", newIpSetProc.Name, dllRet, err, name, ipsetType)
 	}
+
 	return &winIpSet{ipsetHandle, typeForDll}, nil
 }
 

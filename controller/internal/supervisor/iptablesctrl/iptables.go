@@ -187,7 +187,7 @@ func (i *iptables) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
-
+	targetTCPSet.Flush()
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
@@ -403,7 +403,7 @@ func (i *iptables) initializeChains() error {
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
-	zap.L().Error("Chains", zap.String("ChainList", triremChains))
+
 	for _, rule := range rules {
 		if len(rule) != 4 {
 			continue
@@ -483,16 +483,20 @@ func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ip
 
 	for _, t := range targetSetNames {
 		_, ok := setIndex[t]
+
 		createdSet, err := ips.NewIpset(t, "hash:net", params)
+
 		if err != nil {
 			if !ok {
 				return nil, nil, nil, err
 			}
+
 			createdSet = ips.GetIpset(t)
 		}
 		if err = createdSet.Flush(); err != nil {
 			return nil, nil, nil, err
 		}
+
 		targetSets[t] = createdSet
 	}
 
@@ -517,20 +521,27 @@ func addToIPset(set provider.Ipset, data string) error {
 
 	// ipset can not program this rule
 	if data == IPv4DefaultIP {
-		if err := addToIPset(set, "0.0.0.0/1"); err != nil {
+		set.Add("0.0.0.0/1", 0)
+		set.Add("128.0.0.0/1", 0)
+		/* if err := addToIPset(set, "0.0.0.0/1"); err != nil {
 			return err
 		}
 
 		return addToIPset(set, "128.0.0.0/1")
+		*/
+		return nil
 	}
 
 	// ipset can not program this rule
 	if data == IPv6DefaultIP {
-		if err := addToIPset(set, "::/1"); err != nil {
+		set.Add("::/1", 0)
+		set.Add("8000::/1", 0)
+		return nil
+		/* if err := addToIPset(set, "::/1"); err != nil {
 			return err
 		}
 
-		return addToIPset(set, "8000::/1")
+		return addToIPset(set, "8000::/1") */
 	}
 
 	return set.Add(data, 0)

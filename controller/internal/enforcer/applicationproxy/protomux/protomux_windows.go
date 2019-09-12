@@ -5,7 +5,6 @@ package protomux
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"syscall"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
@@ -73,7 +72,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 // onStartListening tells Windows proxy driver to start forwarding traffic
 func (m *MultiplexedListener) onStartListening() error {
-	_, portStr, err := net.SplitHostPort(m.root.Addr().String())
+	/* _, portStr, err := net.SplitHostPort(m.root.Addr().String())
 	if err != nil {
 		return err
 	}
@@ -92,12 +91,12 @@ func (m *MultiplexedListener) onStartListening() error {
 	}
 
 	zap.L().Debug(fmt.Sprintf("Windows proxy driver started, forwarding to port %d", port))
-	return nil
+	*/return nil
 }
 
 // onStopListening tells Windows proxy driver to stop forwarding traffic
 func (m *MultiplexedListener) onStopListening() error {
-	driverHandle, err := getDriverHandle()
+	/* driverHandle, err := getDriverHandle()
 	if err != nil {
 		return err
 	}
@@ -107,5 +106,5 @@ func (m *MultiplexedListener) onStopListening() error {
 	}
 
 	zap.L().Debug("Windows proxy driver stopped")
-	return nil
+	*/return nil
 }

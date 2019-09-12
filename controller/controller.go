@@ -76,6 +76,7 @@ func (t *trireme) Run(ctx context.Context) error {
 
 	// Start all the supervisors.
 	for _, s := range t.supervisors {
+
 		if err := s.Run(ctx); err != nil {
 			zap.L().Error("Error when starting the supervisor", zap.Error(err))
 			return fmt.Errorf("Error while starting supervisor %v", err)
