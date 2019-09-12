@@ -220,18 +220,23 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
 
-	data, err := s.versionTracker.LockedModify(contextID, revert, 1)
+	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
+		s.Unlock()
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
 	c := data.(*cacheData)
-	if err := s.impl.UpdateRules(c.version, contextID, pu, c.containerInfo); err != nil {
+
+	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
+		zap.L().Error("Update rules failed with error", zap.Error(err))
 		s.Unlock()
 		s.Unsupervise(contextID) // nolint
 		return err
 	}
+
+	c.version ^= 1
 
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
@@ -369,10 +374,4 @@ func debugRules(data *cacheData, mode constants.ModeType) [][]string {
 		}
 	}
 	return iptables
-}
-
-func revert(a, b interface{}) interface{} {
-	entry := a.(*cacheData)
-	entry.version = entry.version ^ 1
-	return entry
 }
