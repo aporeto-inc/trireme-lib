@@ -48,7 +48,7 @@ func (i *iptables) createProxySets(portSetName string) error {
 	}
 
 	// create ipset for port match
-	_, err = i.ipset.NewIpset(srvSetName, "", nil)
+	_, err = i.ipset.NewIpset(srvSetName, "hash:port", nil)
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srvSetName, err)
 	}

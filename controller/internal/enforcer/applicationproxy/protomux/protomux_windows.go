@@ -3,29 +3,12 @@
 package protomux
 
 import (
-	"fmt"
 	"net"
-	"syscall"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
 )
-
-var (
-	driverDll        = syscall.NewLazyDLL("Frontman.dll")
-	proxyStartProc   = driverDll.NewProc("FrontmanProxyStart")
-	proxyStopProc    = driverDll.NewProc("FrontmanProxyStop")
-	frontManOpenProc = driverDll.NewProc("FrontmanOpenShared")
-)
-
-func getDriverHandle() (uintptr, error) {
-	driverHandle, _, err := frontManOpenProc.Call()
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return 0, fmt.Errorf("got INVALID_HANDLE_VALUE: %v", err)
-	}
-	return driverHandle, nil
-}
 
 func (m *MultiplexedListener) serve(conn net.Conn) {
 	defer m.wg.Done()
@@ -91,7 +74,8 @@ func (m *MultiplexedListener) onStartListening() error {
 	}
 
 	zap.L().Debug(fmt.Sprintf("Windows proxy driver started, forwarding to port %d", port))
-	*/return nil
+	*/
+	return nil
 }
 
 // onStopListening tells Windows proxy driver to stop forwarding traffic
@@ -106,5 +90,6 @@ func (m *MultiplexedListener) onStopListening() error {
 	}
 
 	zap.L().Debug("Windows proxy driver stopped")
-	*/return nil
+	*/
+	return nil
 }

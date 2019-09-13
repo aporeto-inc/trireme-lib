@@ -7,16 +7,10 @@ import (
 	"net"
 	"unsafe"
 
+	"go.aporeto.io/trireme-lib/controller/internal/windows"
+	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.uber.org/zap"
 )
-
-type frontmanDestInfo struct {
-	ipAddr     *uint16 // WCHAR* IPAddress		Destination address allocated and will be free by FrontmanFreeDestHandle
-	port       uint16  // USHORT Port			Destination port
-	outbound   int32   // INT32 Outbound		Whether or not this is an outbound or inbound connection
-	processId  uint64  // UINT64 ProcessId		Process id.  Only available for outbound connections
-	destHandle uintptr // LPVOID DestHandle		Handle to memory that must be freed by called ProxyDestConnected when connection is established.
-}
 
 func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *NativeData, error) {
 	var netIP net.IP
@@ -24,31 +18,31 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Native
 	var destHandle uintptr
 	var err error
 
-	driverHandle, errDll := getDriverHandle()
+	driverHandle, errDll := frontman.GetDriverHandle()
 	if errDll != nil {
 		return nil, 0, nil, fmt.Errorf("failed to get driver handle: %v", errDll)
 	}
 
 	freeFunc := func(fd uintptr) {
-		dllRet, _, errDll := freeDestHandleProc.Call(fd)
+		dllRet, _, errDll := frontman.FreeDestHandleProc.Call(fd)
 		if dllRet == 0 {
-			zap.L().Error(fmt.Sprintf("%s failed: %v", freeDestHandleProc.Name, errDll))
+			zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.FreeDestHandleProc.Name, errDll))
 		}
 	}
 
 	ctrlFunc := func(fd uintptr) {
-		var destInfo frontmanDestInfo
-		dllRet, _, errDll := getDestInfoProc.Call(driverHandle, fd, uintptr(unsafe.Pointer(&destInfo)))
+		var destInfo frontman.DestInfo
+		dllRet, _, errDll := frontman.GetDestInfoProc.Call(driverHandle, fd, uintptr(unsafe.Pointer(&destInfo)))
 		if dllRet == 0 {
-			err = fmt.Errorf("%s failed (ret=%d, err=%v)", getDestInfoProc.Name, dllRet, errDll)
+			err = fmt.Errorf("%s failed (ret=%d, err=%v)", frontman.GetDestInfoProc.Name, dllRet, errDll)
 		} else {
-			destHandle = destInfo.destHandle
-			port = int(destInfo.port)
+			destHandle = destInfo.DestHandle
+			port = int(destInfo.Port)
 			// convert allocated wchar_t* to golang string
-			ipAddrStr := WideCharPointerToString(destInfo.ipAddr)
+			ipAddrStr := windows.WideCharPointerToString(destInfo.IpAddr)
 			netIP = net.ParseIP(ipAddrStr)
 			if netIP == nil {
-				err = fmt.Errorf("%s failed to get valid IP (%S)", getDestInfoProc.Name, ipAddrStr)
+				err = fmt.Errorf("%s failed to get valid IP (%s)", frontman.GetDestInfoProc.Name, ipAddrStr)
 				// FrontmanGetDestInfo returned success, so clean up acquired native resources
 				freeFunc(fd)
 			}

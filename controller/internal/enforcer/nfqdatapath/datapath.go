@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -560,4 +561,132 @@ func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packe
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
+}
+
+func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
+	if msg.udpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Namespace = d.puFromIP.ManagementNamespace()
+		report.Encrypt = false
+
+	} else {
+		//udpConn is not nil
+		if value, err = d.packetTracingCache.Get(msg.udpConn.Context.ID()); err != nil {
+			return
+		}
+		report.Encrypt = msg.udpConn.ServiceConnection
+		report.Claims = msg.udpConn.Context.Identity().GetSlice()
+		report.PUID = msg.udpConn.Context.ManagementID()
+		report.Namespace = msg.udpConn.Context.ManagementNamespace()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+	report.Protocol = int(packet.IPProtocolUDP)
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
+	report.DestinationPort = int(msg.p.DestPort())
+	report.SourcePort = int(msg.p.SourcePort())
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLen())
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
+
+	d.collector.CollectPacketEvent(report)
+}
+
+func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
+
+	if msg.tcpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Encrypt = false
+
+	} else {
+
+		if value, err = d.packetTracingCache.Get(msg.tcpConn.Context.ID()); err != nil {
+			//not being traced return
+			return
+		}
+		//tcpConn is not nil
+		report.Encrypt = msg.tcpConn.ServiceConnection
+		report.Claims = msg.tcpConn.Context.Identity().GetSlice()
+		report.PUID = msg.tcpConn.Context.ManagementID()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+
+	report.TCPFlags = int(msg.p.GetTCPFlags())
+	report.Protocol = int(packet.IPProtocolTCP)
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
+	report.DestinationPort = int(msg.p.DestPort())
+	report.SourcePort = int(msg.p.SourcePort())
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLen())
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
+	d.collector.CollectPacketEvent(report)
+
 }

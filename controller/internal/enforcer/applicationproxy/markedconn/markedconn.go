@@ -15,7 +15,7 @@ import (
 // DialMarkedWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.
 func DialMarkedWithContext(ctx context.Context, network string, addr string, nativeData *NativeData, mark int) (net.Conn, error) {
-	// in Windows we "mark" the socket in the kernel, so we have nativeData to act on instead
+	// nativeData is for Windows
 	if nativeData != nil && nativeData.postConnectFunc != nil {
 		defer nativeData.postConnectFunc(nativeData.handle)
 	}

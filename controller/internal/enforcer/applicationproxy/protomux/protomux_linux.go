@@ -68,11 +68,3 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		c.Close() // nolint
 	}
 }
-
-func (m *MultiplexedListener) onStartListening() error {
-	return nil
-}
-
-func (m *MultiplexedListener) onStopListening() error {
-	return nil
-}
