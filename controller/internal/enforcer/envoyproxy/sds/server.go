@@ -1,9 +1,12 @@
 package sds
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"context"
 
@@ -11,8 +14,67 @@ import (
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/protobuf/types"
 	"istio.io/istio/security/pkg/nodeagent/model"
+)
+
+// for testing/POC purpose just add the manually created certificates.
+var (
+	defaultPEM = `
+-----BEGIN CERTIFICATE-----
+MIIBcTCCARegAwIBAgIQdw6H03rhcOJcMuiZpaJl7zAKBggqhkjOPQQDAjAeMQ0w
+CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MDkxNjE4NDM1N1oXDTI5
+MDcyNTE4NDM1N1owIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGY2xpZW50MFkw
+EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERHFXYaf/hyQitC/Qz2qKw8ZOVYSmL+Ud
+oZzyYPOBxRioIFataB2fvNIliqyv07cEh1QGB/HIYt2SxUbONqNS0aM1MDMwDgYD
+VR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
+CgYIKoZIzj0EAwIDSAAwRQIgXyviix/36GZ3CrVgWyFLxzC/gss9A9C+S0GbNIZ5
+mJ4CIQCW0iOpO9vtnhm9pboDlQ2A/P2VMZDeU2tKMXk+J7Zljw==
+-----END CERTIFICATE-----`
+	defaultKey = `
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIGx3vWwOsFXhbtz59P4MSv4tAQTaA46BZbjAp1hKlqbioAoGCCqGSM49
+AwEHoUQDQgAERHFXYaf/hyQitC/Qz2qKw8ZOVYSmL+UdoZzyYPOBxRioIFataB2f
+vNIliqyv07cEh1QGB/HIYt2SxUbONqNS0Q==
+-----END EC PRIVATE KEY-----`
+	rootPEM = `
+-----BEGIN CERTIFICATE-----
+MIIBXTCCAQSgAwIBAgIRANHUhGwjacv0a/34X5D9cJEwCgYIKoZIzj0EAwIwHjEN
+MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTA5MTYxODQzMDFaFw0y
+OTA3MjUxODQzMDFaMB4xDTALBgNVBAoTBGFjbWUxDTALBgNVBAMTBHJvb3QwWTAT
+BgcqhkjOPQIBBggqhkjOPQMBBwNCAARJI8STC0WVw5sQ/Ija0nrYKIBZO43iifs0
+tsk7coRZwaYM7MEEr1qIOk+LmtR3DIGQTWva19u/56inYCTwDA7UoyMwITAOBgNV
+HQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiBO
+DMNgviNbjkZPE4RcldmEEBfHpPgMDir4jJhRGS624QIgMojinDUARNuyzQA4/B98
+pnICnBfAt0aiZojITEqCDDc=
+-----END CERTIFICATE-----`
+	rootPEM2 = `
+-----BEGIN CERTIFICATE-----
+MIIEBDCCAuygAwIBAgIDAjppMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
+MRYwFAYDVQQKEw1HZW9UcnVzdCBJbmMuMRswGQYDVQQDExJHZW9UcnVzdCBHbG9i
+YWwgQ0EwHhcNMTMwNDA1MTUxNTU1WhcNMTUwNDA0MTUxNTU1WjBJMQswCQYDVQQG
+EwJVUzETMBEGA1UEChMKR29vZ2xlIEluYzElMCMGA1UEAxMcR29vZ2xlIEludGVy
+bmV0IEF1dGhvcml0eSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+AJwqBHdc2FCROgajguDYUEi8iT/xGXAaiEZ+4I/F8YnOIe5a/mENtzJEiaB0C1NP
+VaTOgmKV7utZX8bhBYASxF6UP7xbSDj0U/ck5vuR6RXEz/RTDfRK/J9U3n2+oGtv
+h8DQUB8oMANA2ghzUWx//zo8pzcGjr1LEQTrfSTe5vn8MXH7lNVg8y5Kr0LSy+rE
+ahqyzFPdFUuLH8gZYR/Nnag+YyuENWllhMgZxUYi+FOVvuOAShDGKuy6lyARxzmZ
+EASg8GF6lSWMTlJ14rbtCMoU/M4iarNOz0YDl5cDfsCx3nuvRTPPuj5xt970JSXC
+DTWJnZ37DhF5iR43xa+OcmkCAwEAAaOB+zCB+DAfBgNVHSMEGDAWgBTAephojYn7
+qwVkDBF9qn1luMrMTjAdBgNVHQ4EFgQUSt0GFhu89mi1dvWBtrtiGrpagS8wEgYD
+VR0TAQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwOgYDVR0fBDMwMTAvoC2g
+K4YpaHR0cDovL2NybC5nZW90cnVzdC5jb20vY3Jscy9ndGdsb2JhbC5jcmwwPQYI
+KwYBBQUHAQEEMTAvMC0GCCsGAQUFBzABhiFodHRwOi8vZ3RnbG9iYWwtb2NzcC5n
+ZW90cnVzdC5jb20wFwYDVR0gBBAwDjAMBgorBgEEAdZ5AgUBMA0GCSqGSIb3DQEB
+BQUAA4IBAQA21waAESetKhSbOHezI6B1WLuxfoNCunLaHtiONgaX4PCVOzf9G0JY
+/iLIa704XtE7JW4S615ndkZAkNoUyHgN7ZVm2o6Gb4ChulYylYbc3GrKBIxbf/a/
+zG+FA1jDaFETzf3I93k9mTXwVqO94FntT0QJo544evZG0R0SnU++0ED8Vf4GXjza
+HFa9llF7b1cq26KqltyMdMKVvvBulRP/F/A8rLIQjcxz++iPAsbw+zOzlTvjwsto
+WHPbqCRiOwY1nQ2pM714A5AuTHhdUDqB1O6gyHA43LL5Z/qHQF1hwFGPa4NrzQU6
+yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
+-----END CERTIFICATE-----`
 )
 
 // Options to create a SDS server to task to envoy
@@ -146,7 +208,11 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 		// wait for the receiver thread to stream the request and send it to us over here.
 		select {
 		case req, ok := <-discoveryReqCh:
-			fmt.Println("got the req to be processed by start streaming")
+			fmt.Println("got the req to be processed by start streaming", req)
+			if req.ErrorDetail != nil {
+				fmt.Println("ERROR from envoy for processing the resource: ", req.ResourceNames, " with error: ", req.ErrorDetail.GoString())
+				continue
+			}
 			// Now check the following:
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
@@ -174,26 +240,38 @@ func (s Server) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsSer
 			}
 			fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
 
-			//secret := generateSecret(req)
+			secret := generateSecret(req)
 
 			// TODO: now call the metadata-lib function to fetch the secrets.
 			// TODO: once the secret is fetched create a discovery Response depending on the secret.
 
-			// resp := &v2.DiscoveryResponse{
-			// 	TypeUrl: "aporeto.io/sds_envoy_certs",
-			// }
-			// retSecret := auth.Secret{}
-			// if secret.RootCert != nil {
-			// 	retSecret.Type = getRootCert(secret)
-			// } else {
-			// 	retSecret.Type = getTLScerts(secret)
-			// }
-			// endSecret, err := types.MarshalAny(retSecret)
-			// if err != nil {
-			// 	fmt.Println("Cannot marshall the secret")
-			// 	continue
-			// }
-			// resp.Resources = append(resp.Resources, endSecret)
+			resp := &v2.DiscoveryResponse{
+				TypeUrl: "type.googleapis.com/envoy.api.v2.auth.Secret",
+			}
+			retSecret := &auth.Secret{
+				Name: secret.ResourceName,
+			}
+			if secret.RootCert != nil {
+				fmt.Println("*** ABHI: send the root cert")
+				retSecret.Type = getRootCert(secret)
+			} else {
+				retSecret.Type = getTLScerts(secret)
+			}
+			endSecret, err := types.MarshalAny(retSecret)
+			if err != nil {
+				fmt.Println("Cannot marshall the secret")
+				continue
+			}
+			resp.Resources = append(resp.Resources, endSecret)
+			if err = stream.Send(resp); err != nil {
+				fmt.Println("Failed to send the resp cert")
+				return err
+			}
+			if secret.RootCert != nil {
+				fmt.Println("\n\n ** Successfully sent root cert: ", string(secret.RootCert))
+			} else {
+				fmt.Println("Successfully sent default cert: ", string(secret.CertificateChain))
+			}
 		}
 	}
 
@@ -209,12 +287,84 @@ func (s Server) FetchSecrets(ctx context.Context, discReq *v2.DiscoveryRequest) 
 
 // generateSecret is the call which talks to the metadata API to fetch the certs.
 func generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
-	return nil
+	t := time.Now()
+	expTime := time.Time{}
+	var err error
+	pemCert := []byte{}
+	if req.ResourceNames[0] == "default" {
+		expTime, err = getExpTimeFromCert([]byte(defaultPEM))
+		pemCert = []byte(defaultPEM)
+	} else {
+		expTime, err = getExpTimeFromCert([]byte(rootPEM))
+		pemCert = []byte(rootPEM)
+	}
+	if err != nil {
+		fmt.Println("cannot get exp time", err)
+		return nil
+	}
+	if req.ResourceNames[0] == "default" {
+		return &model.SecretItem{
+			CertificateChain: pemCert,
+			PrivateKey:       []byte(defaultKey),
+			ResourceName:     req.ResourceNames[0],
+			Token:            "",
+			CreatedTime:      t,
+			ExpireTime:       expTime,
+			Version:          t.String(),
+		}
+	}
+
+	return &model.SecretItem{
+		RootCert:     pemCert,
+		ResourceName: req.ResourceNames[0],
+		Token:        "",
+		CreatedTime:  t,
+		ExpireTime:   expTime,
+		Version:      t.String(),
+	}
+
 }
 
-func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
-	return nil
+// getExpTimeFromCert gets the exp time from the cert, assumning the cert is in pem encoded.
+func getExpTimeFromCert(cert []byte) (time.Time, error) {
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		fmt.Println("block is nil")
+		return time.Time{}, fmt.Errorf("Cannot decode the certs")
+	}
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Println("failed to parse the certs", err)
+		return time.Time{}, err
+	}
+	fmt.Println("exp time is : ", x509Cert.NotAfter)
+	return x509Cert.NotAfter, nil
 }
+func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
+	return &auth.Secret_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: secret.RootCert,
+				},
+			},
+		},
+	}
+}
+
 func getTLScerts(secret *model.SecretItem) *auth.Secret_TlsCertificate {
-	return nil
+	return &auth.Secret_TlsCertificate{
+		TlsCertificate: &auth.TlsCertificate{
+			CertificateChain: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: secret.CertificateChain,
+				},
+			},
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: secret.PrivateKey,
+				},
+			},
+		},
+	}
 }

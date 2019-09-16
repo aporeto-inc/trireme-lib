@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"go.aporeto.io/istio/istio/pkg/cmd"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyproxy/sds"
+	"istio.io/istio/pkg/cmd"
 )
 
 var (
