@@ -5,6 +5,8 @@ package provider
 import (
 	"bytes"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // IptablesProvider is an abstraction of all the methods an implementation of userspace
@@ -76,6 +78,10 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
+	zap.L().Error("Append",
+		zap.String("Table", table),
+		zap.String("Chain", chain),
+		zap.Strings("Rules", rulespec))
 	return nil
 }
 
@@ -87,6 +93,11 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
+	zap.L().Error("Delete",
+		zap.String("Table", table),
+		zap.String("Chain", chain),
+		zap.Strings("Rules", rulespec))
+
 	return nil
 }
 
@@ -107,6 +118,9 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
+	zap.L().Error("NewCHain",
+		zap.String("Table", table),
+		zap.String("Chain", chain))
 	return nil
 }
 

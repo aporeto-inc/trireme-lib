@@ -1,4 +1,4 @@
-// +build linux
+// +build linux !windows
 
 package iptablesctrl
 
@@ -17,6 +17,11 @@ var triremChains = `
 -t {{.MangleTable}} -N {{.MangleProxyNetChain}}
 -t {{.NatTable}} -N {{.NatProxyAppChain}}
 -t {{.NatTable}} -N {{.NatProxyNetChain}}
+`
+
+var containerChains = `
+-t {{.MangleTable}} -N {{.AppChain}}
+-t {{.MangleTable}} -N {{.NetChain}}
 `
 
 var globalRules = `

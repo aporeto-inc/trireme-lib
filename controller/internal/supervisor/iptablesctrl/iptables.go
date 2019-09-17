@@ -129,7 +129,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		mode:  mode,
 		ipset: ips,
 		//		isLegacyKernel:        buildflags.IsLegacyKernel(),
-		isLegacyKernel: true,
+		isLegacyKernel: false,
 		conntrackCmd:   flushUDPConntrack,
 		cfg:            nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
@@ -222,7 +222,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// applies to Linux type PUs. A port set is associated with every PU,
 	// and packets matching this destination get associated with the context
 	// of the PU.
-	zap.L().Error("Create User sets")
+
 	if err = i.createPortSet(contextID, pu.Runtime.Options().UserID); err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// The outgoing sets capture all traffic towards specific destinations
 	// as proxied traffic. Incoming sets correspond to the listening
 	// services.
-	zap.L().Error("Create Proxy sets")
+
 	if err = i.createProxySets(cfg.ProxySetName); err != nil {
 		return err
 	}
@@ -745,7 +745,7 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	}
 
 	// Install the PU specific chain first.
-	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
+	if err := i.addContainerChain(cfg); err != nil {
 		return err
 	}
 

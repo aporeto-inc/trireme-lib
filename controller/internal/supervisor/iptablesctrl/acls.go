@@ -142,6 +142,9 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 		"needICMP": func() bool {
 			return cfg.needICMPRules
 		},
+		"isHostPU": func() bool {
+			return isHostPU
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -155,8 +158,26 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func (i *iptables) addContainerChain(appChain string, netChain string) error {
+func (i *iptables) addContainerChain(cfg *ACLInfo) error {
+	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
+		"isLocalServer": func() bool {
+			return i.mode == constants.LocalServer
+		},
+	}).Parse(containerChains))
+	zap.L().Error("ADD CONTAINER CHAINS")
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
+	}
 
+	for _, rule := range rules {
+		zap.L().Error("Creating rules", zap.Strings("rule", rule))
+		if err := i.impl.NewChain(rule[1], rule[3]); err != nil {
+			return fmt.Errorf("unable to add chain %s of context %s %s", rule[3], rule[1], err)
+		}
+	}
+	/* appChain := cfg.AppChain
+	netChain := cfg.NetChain
 	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
 		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
 	}
@@ -167,7 +188,7 @@ func (i *iptables) addContainerChain(appChain string, netChain string) error {
 
 	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
-	}
+	} */
 
 	return nil
 }
