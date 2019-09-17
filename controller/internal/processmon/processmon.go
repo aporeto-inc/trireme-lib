@@ -175,25 +175,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		return false, err
 	}
 
-	if _, err = os.Stat(p.netNSPath); err != nil {
-		err = os.MkdirAll(p.netNSPath, os.ModeDir)
-		if err != nil {
-			zap.L().Warn("could not create directory netns directory", zap.Error(err))
-		}
-	}
-
-	// A symlink is created from /var/run/netns/<context> to the NetNSPath
-	contextFile := filepath.Join(p.netNSPath, strings.Replace(contextID, "/", "_", -1))
-	// Remove the context file if it already exists.
-	if removeErr := os.RemoveAll(contextFile); err != nil {
-		zap.L().Warn("Failed to remove namespace link",
-			zap.Error(removeErr))
-	}
-
-	if err = os.Symlink(nsPath, contextFile); err != nil {
-		zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
-	}
-
 	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
 
 	if err = p.pollStdOutAndErr(cmd); err != nil {
@@ -218,10 +199,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {
-		// Cleanup resources
-		if err1 := os.Remove(contextFile); err1 != nil {
-			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
-		}
 		return false, fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
