@@ -1,7 +1,13 @@
-// +build darwin
+// +build windows
 
-//Package cgnetcls implements functionality to manage classid for processes belonging to different cgroups
 package cgnetcls
+
+import "sync/atomic"
+
+// MarkVal returns a new Mark Value
+func MarkVal() uint64 {
+	return atomic.AddUint64(&markval, 1)
+}
 
 //Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 //To add a new process to this cgroup we need to write to the cgroup file
@@ -61,9 +67,4 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 //NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewDockerCgroupNetController() Cgroupnetcls {
 	return &netCls{}
-}
-
-// MarkVal returns a new Mark
-func MarkVal() uint64 {
-	return 103
 }
