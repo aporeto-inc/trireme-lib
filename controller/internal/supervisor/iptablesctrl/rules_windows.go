@@ -12,8 +12,8 @@ var triremChains = `
 -t INPUT   -N HostPU-INPUT
 `
 var globalRules = `
--A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} src -j ACCEPT
--A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dst -j ACCEPT
+-A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
+-A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
 `
 
 var containerChains = ``

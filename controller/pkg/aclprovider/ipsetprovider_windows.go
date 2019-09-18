@@ -41,8 +41,6 @@ const (
 	IpsetErrorInsufficientBuffer = uint32(0x55550004)
 )
 
-
-
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params) (Ipset, error) {

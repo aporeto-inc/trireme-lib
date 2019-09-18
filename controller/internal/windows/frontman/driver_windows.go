@@ -43,6 +43,13 @@ var (
 	SetFilterCriteriaProc = driverDll.NewProc("SetFilterCriteria")
 )
 
+const (
+	FilterActionAllow = iota + 1
+	FilterActionBlock
+	FilterActionProxy
+	FilterActionNfq
+)
+
 type DestInfo struct {
 	IpAddr     *uint16 // WCHAR* IPAddress		Destination address allocated and will be free by FrontmanFreeDestHandle
 	Port       uint16  // USHORT Port			Destination port
