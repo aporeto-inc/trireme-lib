@@ -247,6 +247,15 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
 		}
 
+		if proto == constants.AllProtoString {
+			iptRule = []string{
+				appPacketIPTableContext,
+				chain,
+				"!", "-p", "tcp",
+				"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
+			}
+		}
+
 		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
 			stateMatch := []string{"-m", "state", "--state", "NEW"}
 			iptRule = append(iptRule, stateMatch...)
@@ -293,11 +302,11 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 			iptRules = append(iptRules, rejectRule)
 		}
 
-		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString || proto == constants.AllProtoString) {
 			reverseRules = append(reverseRules, []string{
 				appPacketIPTableContext,
 				reverseChain,
-				"-p", proto,
+				"!", "-p", "tcp",
 				"-m", "set", "--match-set", rule.ipset, reverseDirection,
 				"-m", "state", "--state", "ESTABLISHED",
 				"-j", "ACCEPT",

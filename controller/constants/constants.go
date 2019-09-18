@@ -109,6 +109,7 @@ const (
 	UDPProtoNum    = "17"
 	TCPProtoString = "TCP"
 	UDPProtoString = "UDP"
+	AllProtoString = "ALL"
 )
 
 // sockets
