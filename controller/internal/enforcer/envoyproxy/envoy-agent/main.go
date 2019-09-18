@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyproxy/sds"
+	"go.uber.org/zap"
 	"istio.io/istio/pkg/cmd"
 )
 
@@ -19,13 +19,12 @@ var (
 			stop := make(chan struct{})
 
 			server := sds.NewServer()
-			fmt.Println("create and run the sds server")
+
 			server.CreateSdsService(&sdsOptions)
 
 			defer server.Stop()
-			fmt.Println("wait for the cmd to finsih")
+			zap.L().Debug("Started the envoy-trireme proxy")
 			cmd.WaitSignal(stop)
-			fmt.Println("evoy-trireme is done running")
 
 			return nil
 		},
@@ -36,7 +35,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&sdsOptions.SocketPath, "workloadUDSPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with envoy proxies")
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println("Cannot execute the envoy-agent")
+		zap.L().Error("Cannot execute the envoy-agent", zap.Error(err))
 		os.Exit(1)
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"context"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -24,20 +25,20 @@ import (
 var (
 	defaultPEM = `
 -----BEGIN CERTIFICATE-----
-MIIBcTCCARegAwIBAgIQdw6H03rhcOJcMuiZpaJl7zAKBggqhkjOPQQDAjAeMQ0w
-CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MDkxNjE4NDM1N1oXDTI5
-MDcyNTE4NDM1N1owIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGY2xpZW50MFkw
-EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERHFXYaf/hyQitC/Qz2qKw8ZOVYSmL+Ud
-oZzyYPOBxRioIFataB2fvNIliqyv07cEh1QGB/HIYt2SxUbONqNS0aM1MDMwDgYD
-VR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
-CgYIKoZIzj0EAwIDSAAwRQIgXyviix/36GZ3CrVgWyFLxzC/gss9A9C+S0GbNIZ5
-mJ4CIQCW0iOpO9vtnhm9pboDlQ2A/P2VMZDeU2tKMXk+J7Zljw==
+MIIBcjCCARigAwIBAgIRANdSVgeGQ1MmZNBLBAsTPbswCgYIKoZIzj0EAwIwHjEN
+MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTA5MTcwMDM4MDdaFw0y
+OTA3MjYwMDM4MDdaMCAxDTALBgNVBAoTBGFjbWUxDzANBgNVBAMTBnNlcnZlcjBZ
+MBMGByqGSM49AgEGCCqGSM49AwEHA0IABMssoKX7OnfBXttYTf3TtFE7uJwveyED
+xDrZzffzXCXvgkhEA8Llri32e+uJk0OKEzFrS0gsH5tNPwYkSa0zaJ6jNTAzMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MAoGCCqGSM49BAMCA0gAMEUCIQCPWNVRhmfHsctDfbRrRz9kcwr2jpPSm68A4P9P
+0AMlSAIgOmoxQS3EVJGkYgUap6aHM+82u1RBrRXgzu9jMuWdsMo=
 -----END CERTIFICATE-----`
 	defaultKey = `
 -----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIGx3vWwOsFXhbtz59P4MSv4tAQTaA46BZbjAp1hKlqbioAoGCCqGSM49
-AwEHoUQDQgAERHFXYaf/hyQitC/Qz2qKw8ZOVYSmL+UdoZzyYPOBxRioIFataB2f
-vNIliqyv07cEh1QGB/HIYt2SxUbONqNS0Q==
+MHcCAQEEIBe4TlWfJnq3VWLy+uHLg4zd1EsdRTJkOVCI4Mf8EwdyoAoGCCqGSM49
+AwEHoUQDQgAEyyygpfs6d8Fe21hN/dO0UTu4nC97IQPEOtnN9/NcJe+CSEQDwuWu
+LfZ764mTQ4oTMWtLSCwfm00/BiRJrTNong==
 -----END EC PRIVATE KEY-----`
 	rootPEM = `
 -----BEGIN CERTIFICATE-----
@@ -329,15 +330,14 @@ func generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 func getExpTimeFromCert(cert []byte) (time.Time, error) {
 	block, _ := pem.Decode(cert)
 	if block == nil {
-		fmt.Println("block is nil")
-		return time.Time{}, fmt.Errorf("Cannot decode the certs")
+		zap.L().Error("getExpTimeFromCert: error while pem decode")
+		return time.Time{}, fmt.Errorf("Cannot decode the pem certs")
 	}
 	x509Cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		fmt.Println("failed to parse the certs", err)
+		zap.L().Error("failed to parse the certs", zap.Error(err))
 		return time.Time{}, err
 	}
-	fmt.Println("exp time is : ", x509Cert.NotAfter)
 	return x509Cert.NotAfter, nil
 }
 func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
