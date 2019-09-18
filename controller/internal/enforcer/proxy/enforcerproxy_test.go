@@ -196,13 +196,13 @@ func TestEnforce(t *testing.T) {
 		pu := createPUInfo()
 
 		Convey("When launching the remote fails, it should error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("error"))
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("error"))
 			err := e.Enforce("pu", pu)
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When launching the remote succeeds, and init is false, but the rpc calls fails, it should work", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
 			err := e.Enforce("pu", pu)
@@ -210,14 +210,14 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When launching the remote succeeds, and init is false, and rpc succeeds, it should work", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
 			err := e.Enforce("pu", pu)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When launching the remote succeeds, and init is true, and init of remote fails, it should error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
 			err := e.Enforce("pu", pu)
@@ -225,7 +225,7 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When launching succeeds with init true, it should not error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
 			err := e.Enforce("pu", pu)

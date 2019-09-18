@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockProcessManager is a mock of ProcessManager interface
@@ -53,8 +54,8 @@ func (mr *MockProcessManagerMockRecorder) KillRemoteEnforcer(contextID, force in
 
 // LaunchRemoteEnforcer mocks base method
 // nolint
-func (m *MockProcessManager) LaunchRemoteEnforcer(contextID string, refPid int, refNsPath, arg, statssecret, procMountPoint string) (bool, error) {
-	ret := m.ctrl.Call(m, "LaunchRemoteEnforcer", contextID, refPid, refNsPath, arg, statssecret, procMountPoint)
+func (m *MockProcessManager) LaunchRemoteEnforcer(contextID string, refPid int, refNsPath, arg, statssecret, procMountPoint string, enforcerType policy.EnforcerType) (bool, error) {
+	ret := m.ctrl.Call(m, "LaunchRemoteEnforcer", contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -62,6 +63,6 @@ func (m *MockProcessManager) LaunchRemoteEnforcer(contextID string, refPid int, 
 
 // LaunchRemoteEnforcer indicates an expected call of LaunchRemoteEnforcer
 // nolint
-func (mr *MockProcessManagerMockRecorder) LaunchRemoteEnforcer(contextID, refPid, refNsPath, arg, statssecret, procMountPoint interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchRemoteEnforcer", reflect.TypeOf((*MockProcessManager)(nil).LaunchRemoteEnforcer), contextID, refPid, refNsPath, arg, statssecret, procMountPoint)
+func (mr *MockProcessManagerMockRecorder) LaunchRemoteEnforcer(contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchRemoteEnforcer", reflect.TypeOf((*MockProcessManager)(nil).LaunchRemoteEnforcer), contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType)
 }
