@@ -36,11 +36,13 @@ var (
 	PacketFilterCloseProc   = driverDll.NewProc("PacketFilterClose")
 	PacketFilterForwardProc = driverDll.NewProc("PacketFilterForwardPacket")
 
-	AppendFilterProc      = driverDll.NewProc("AppendFilter")
-	InsertFilterProc      = driverDll.NewProc("InsertFilter")
-	DestroyFilterProc     = driverDll.NewProc("DestroyFilter")
-	EmptyFilterProc       = driverDll.NewProc("EmptyFilter")
-	SetFilterCriteriaProc = driverDll.NewProc("SetFilterCriteria")
+	AppendFilterProc         = driverDll.NewProc("AppendFilter")
+	InsertFilterProc         = driverDll.NewProc("InsertFilter")
+	DestroyFilterProc        = driverDll.NewProc("DestroyFilter")
+	EmptyFilterProc          = driverDll.NewProc("EmptyFilter")
+	GetFilterListProc        = driverDll.NewProc("GetFilterList")
+	AppendFilterCriteriaProc = driverDll.NewProc("AppendFilterCriteria")
+	DeleteFilterCriteriaProc = driverDll.NewProc("DeleteFilterCriteria")
 )
 
 const (
@@ -58,7 +60,7 @@ type DestInfo struct {
 	DestHandle uintptr // LPVOID DestHandle		Handle to memory that must be freed by called ProxyDestConnected when connection is established.
 }
 
-type ProxyPacket struct {
+type PacketInfo struct {
 	Ipv4       uint8
 	Protocol   uint8
 	Outbound   uint8
@@ -67,16 +69,37 @@ type ProxyPacket struct {
 	Reserved1  uint8
 	Reserved2  uint8
 	Reserved3  uint8
-	LocalAddr  [4]uint32
 	LocalPort  uint16
-	RemoteAddr [4]uint32
 	RemotePort uint16
+	LocalAddr  [4]uint32
+	RemoteAddr [4]uint32
 	IfIdx      uint32
 	SubIfIdx   uint32
 	PacketSize uint32
 	Mark       uint32
 	StartTime  uint64
 	StartTime2 uint64
+}
+
+type RuleSpec struct {
+	Action       uint8
+	Log          uint8
+	Protocol     uint8
+	NotIpset     uint8
+	IpsetDstIp   uint8
+	IpsetDstPort uint8
+	IpsetSrcIp   uint8
+	IpsetSrcPort uint8
+	ProxyPort    int16
+	Reserved     int16
+	SrcPortStart uint16
+	SrcPortEnd   uint16
+	DstPortStart uint16
+	DstPortEnd   uint16
+	Mark         uint32
+	GroupId      uint32
+	IpsetName    uintptr // const wchar_t*
+	LogPrefix    uintptr // const wchar_t*
 }
 
 func GetDriverHandle() (uintptr, error) {

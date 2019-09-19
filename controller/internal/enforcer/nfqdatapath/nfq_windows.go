@@ -20,30 +20,30 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		return err
 	}
 
-	callback := func(proxyPacketPtr, dataPtr uintptr) uintptr {
+	callback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
-		proxyPacket := *(*frontman.ProxyPacket)(unsafe.Pointer(proxyPacketPtr))
-		packetBytes := make([]byte, proxyPacket.PacketSize)
+		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
+		packetBytes := make([]byte, packetInfo.PacketSize)
 
 		ptr := uintptr(unsafe.Pointer(dataPtr))
-		for i := uint32(0); i < proxyPacket.PacketSize; i++ {
+		for i := uint32(0); i < packetInfo.PacketSize; i++ {
 			packetBytes[i] = *(*byte)(unsafe.Pointer(ptr))
 			ptr++
 		}
 
 		var packetType int
-		if proxyPacket.Outbound != 0 {
+		if packetInfo.Outbound != 0 {
 			packetType = packet.PacketTypeApplication
 		} else {
 			packetType = packet.PacketTypeNetwork
 		}
 
 		// TODO(windows): temp - for now just forward all packets unmodified
-		frontman.PacketFilterForwardProc.Call(proxyPacketPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
+		frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
 		return 0
 
 		// Parse the packet
-		mark := int(proxyPacket.Mark) // TODO
+		mark := int(packetInfo.Mark) // TODO
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
 		var processError error
 		var tcpConn *connection.TCPConnection
@@ -97,14 +97,14 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			copyIndex := copy(modifiedPacketBytes, parsedPacket.GetBuffer(0))
 			copyIndex += copy(modifiedPacketBytes[copyIndex:], parsedPacket.GetTCPOptions())
 			copyIndex += copy(modifiedPacketBytes[copyIndex:], parsedPacket.GetTCPData())
-			proxyPacket.PacketSize = uint32(copyIndex)
+			packetInfo.PacketSize = uint32(copyIndex)
 		} else {
 			modifiedPacketBytes = parsedPacket.GetBuffer(0)
-			proxyPacket.PacketSize = uint32(len(modifiedPacketBytes))
+			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
-		// proxyPacketPtr still points to correct (modified) struct
-		frontman.PacketFilterForwardProc.Call(proxyPacketPtr, uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
+		// packetInfoPtr still points to correct (modified) struct
+		frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
 
 		if parsedPacket.IPProto() == packet.IPProtocolTCP {
 			d.collectTCPPacket(&debugpacketmessage{

@@ -10,6 +10,7 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
+	"go.uber.org/zap"
 )
 
 // IpsetProvider returns a fabric for Ipset.
@@ -44,6 +45,10 @@ const (
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params) (Ipset, error) {
+	zap.L().Error("NewIpset",
+		zap.String("Name", name),
+		zap.String("IpsetType", ipsetType))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get driver handle: %v", err)
@@ -60,6 +65,9 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 // GetIpset gets the ipset object from the name.
 // TODO(windows): should this return error?
 func (i *ipsetProvider) GetIpset(name string) Ipset {
+	zap.L().Error("GetIpset",
+		zap.String("Name", name))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return nil //, fmt.Errorf("failed to get driver handle: %v", err)
@@ -75,6 +83,9 @@ func (i *ipsetProvider) GetIpset(name string) Ipset {
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references
 func (i *ipsetProvider) DestroyAll(prefix string) error {
+	zap.L().Error("DestroyAll",
+		zap.String("Prefix", prefix))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -88,6 +99,8 @@ func (i *ipsetProvider) DestroyAll(prefix string) error {
 }
 
 func (i *ipsetProvider) ListIPSets() ([]string, error) {
+	zap.L().Error("ListIPSets")
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get driver handle: %v", err)
@@ -121,6 +134,9 @@ func NewGoIPsetProvider() IpsetProvider {
 }
 
 func (w *winIpSet) Add(entry string, timeout int) error {
+	zap.L().Error("Add ipset",
+		zap.String("Entry", entry))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -134,6 +150,10 @@ func (w *winIpSet) Add(entry string, timeout int) error {
 }
 
 func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
+	zap.L().Error("AddOption ipset",
+		zap.String("Entry", entry),
+		zap.String("Option", option))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -148,6 +168,9 @@ func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
 }
 
 func (w *winIpSet) Del(entry string) error {
+	zap.L().Error("Del ipset",
+		zap.String("Entry", entry))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -161,6 +184,8 @@ func (w *winIpSet) Del(entry string) error {
 }
 
 func (w *winIpSet) Destroy() error {
+	zap.L().Error("Destroy ipset")
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -173,6 +198,8 @@ func (w *winIpSet) Destroy() error {
 }
 
 func (w *winIpSet) Flush() error {
+	zap.L().Error("Flush ipset")
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -185,6 +212,9 @@ func (w *winIpSet) Flush() error {
 }
 
 func (w *winIpSet) Test(entry string) (bool, error) {
+	zap.L().Error("Test ipset",
+		zap.String("Entry", entry))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return false, fmt.Errorf("failed to get driver handle: %v", err)

@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+
 	"github.com/DavidGamba/go-getoptions"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.uber.org/zap"
@@ -68,26 +70,32 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 }
 
 type windowsRuleSpec struct {
-	protocol        int
-	matchPortBegin  int
-	matchPortEnd    int
-	matchSet        string // ipset name
-	matchSetNegate  bool
-	matchSetDstIp   bool
-	matchSetDstPort bool
-	matchSetSrcIp   bool
-	matchSetSrcPort bool
-	action          int // FilterAction (allow, drop, nfq, proxy)
-	proxyPort       int
-	mark            int
+	protocol          int
+	matchSrcPortBegin int
+	matchSrcPortEnd   int
+	matchDstPortBegin int
+	matchDstPortEnd   int
+	matchSet          string // ipset name
+	matchSetNegate    bool
+	matchSetDstIp     bool
+	matchSetDstPort   bool
+	matchSetSrcIp     bool
+	matchSetSrcPort   bool
+	action            int // FilterAction (allow, drop, nfq, proxy)
+	proxyPort         int
+	mark              int
+	log               bool
+	logPrefix         string
+	groupId           int
 }
 
-func (b *BatchProvider) parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
+func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 
 	opt := getoptions.New()
 
 	protocolOpt := opt.String("p", "")
-	sdPortOpt := opt.String("sport", "", opt.Alias("dport"))
+	sPortOpt := opt.String("sport", "")
+	dPortOpt := opt.String("dport", "")
 	actionOpt := opt.StringSlice("j", 1, 10, opt.Required())
 	modeOpt := opt.StringSlice("m", 1, 2)
 	matchSetOpt := opt.StringSlice("match-set", 2, 2)
@@ -102,30 +110,40 @@ func (b *BatchProvider) parseRuleSpec(rulespec ...string) (*windowsRuleSpec, err
 
 	// protocol: either "tcp" or "udp"
 	if strings.HasPrefix(*protocolOpt, "T") || strings.HasPrefix(*protocolOpt, "t") {
-		result.protocol = 6
+		result.protocol = packet.IPProtocolTCP
 	} else if strings.HasPrefix(*protocolOpt, "U") || strings.HasPrefix(*protocolOpt, "u") {
-		result.protocol = 17
+		result.protocol = packet.IPProtocolUDP
 	}
 
-	// source or dest port: either port or port range
-	if *sdPortOpt != "" {
-		result.matchPortBegin, err = strconv.Atoi(*sdPortOpt)
-		if err != nil {
-			sdPortRange := strings.SplitN(*sdPortOpt, ":", 2)
-			if len(sdPortRange) != 2 {
-				return nil, errors.New("rulespec not valid: invalid match port")
-			}
-			result.matchPortBegin, err = strconv.Atoi(sdPortRange[0])
+	// src/dest port: either port or port range
+	for i, portOpt := range []string{*sPortOpt, *dPortOpt} {
+		if portOpt != "" {
+			portEnd := 0
+			portStart, err := strconv.Atoi(portOpt)
 			if err != nil {
-				return nil, errors.New("rulespec not valid: invalid match port")
+				portRange := strings.SplitN(portOpt, ":", 2)
+				if len(portRange) != 2 {
+					return nil, errors.New("rulespec not valid: invalid match port")
+				}
+				portStart, err = strconv.Atoi(portRange[0])
+				if err != nil {
+					return nil, errors.New("rulespec not valid: invalid match port")
+				}
+				portEnd, err = strconv.Atoi(portRange[1])
+				if err != nil {
+					return nil, errors.New("rulespec not valid: invalid match port")
+				}
 			}
-			result.matchPortEnd, err = strconv.Atoi(sdPortRange[1])
-			if err != nil {
-				return nil, errors.New("rulespec not valid: invalid match port")
+			if portEnd == 0 {
+				portEnd = portStart
 			}
-		}
-		if result.matchPortEnd == 0 {
-			result.matchPortEnd = result.matchPortBegin
+			if i == 0 {
+				result.matchSrcPortBegin = portStart
+				result.matchSrcPortEnd = portEnd
+			} else {
+				result.matchDstPortBegin = portStart
+				result.matchDstPortEnd = portEnd
+			}
 		}
 	}
 
@@ -195,6 +213,13 @@ func (b *BatchProvider) parseRuleSpec(rulespec ...string) (*windowsRuleSpec, err
 	return result, nil
 }
 
+func boolToUint8(b bool) uint8 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
@@ -203,30 +228,43 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		zap.String("Chain", chain),
 		zap.Strings("Rules", rulespec))
 
-	_, err := b.parseRuleSpec(rulespec...)
+	winRuleSpec, err := parseRuleSpec(rulespec...)
 	if err != nil {
 		return err
 	}
 
-	//driverHandle, err := frontman.GetDriverHandle()
-	//if err != nil {
-	//	return err
-	//}
+	driverHandle, err := frontman.GetDriverHandle()
+	if err != nil {
+		return err
+	}
 
-	// TODO
-	//dllRet, _, err := frontman.SetFilterCriteriaProc.Call(driverHandle,
-	//	uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
-	//	0x40, //criteria.mark,
-	//	uintptr(frontman.FilterActionNfq),
-	//	0,      // log=false
-	//	0,      //criteria.proxyPort, // proxyPort,
-	//	0,      // matchIpSet
-	//	6,      // tcp=6
-	//	80, 80) //criteria.matchPortBegin, criteria.matchPortEnd)
+	criteriaId := strings.Join(rulespec, " ")
+	dllRet, _, err := frontman.AppendFilterCriteriaProc.Call(driverHandle,
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
+		uintptr(unsafe.Pointer(&frontman.RuleSpec{
+			Action:       uint8(winRuleSpec.action),
+			Protocol:     uint8(winRuleSpec.protocol),
+			NotIpset:     boolToUint8(winRuleSpec.matchSetNegate),
+			IpsetDstIp:   boolToUint8(winRuleSpec.matchSetDstIp),
+			IpsetDstPort: boolToUint8(winRuleSpec.matchSetDstPort),
+			IpsetSrcIp:   boolToUint8(winRuleSpec.matchSetSrcIp),
+			IpsetSrcPort: boolToUint8(winRuleSpec.matchSetSrcPort),
+			ProxyPort:    int16(winRuleSpec.proxyPort),
+			SrcPortStart: uint16(winRuleSpec.matchSrcPortBegin),
+			SrcPortEnd:   uint16(winRuleSpec.matchSrcPortEnd),
+			DstPortStart: uint16(winRuleSpec.matchDstPortBegin),
+			DstPortEnd:   uint16(winRuleSpec.matchDstPortEnd),
+			Mark:         uint32(winRuleSpec.mark),
+			IpsetName:    uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(winRuleSpec.matchSet))),
+			Log:          0,
+			GroupId:      0,
+			LogPrefix:    0,
+		})))
 
-	//if dllRet == 0 {
-	//	return fmt.Errorf("%s failed (%v)", frontman.SetFilterCriteriaProc.Name, err)
-	//}
+	if dllRet == 0 {
+		return fmt.Errorf("%s failed (%v)", frontman.AppendFilterCriteriaProc.Name, err)
+	}
 
 	return nil
 }
@@ -234,7 +272,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 // Insert will insert the rule in the corresponding position in the local
 // cache or call the corresponding iptables command, depending on the table.
 func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string) error {
-	return nil
+	return fmt.Errorf("Insert not expected for table %s and chain %s", table, chain)
 }
 
 // Delete will delete the rule from the local cache or the system.
@@ -244,16 +282,71 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 		zap.String("Chain", chain),
 		zap.Strings("Rules", rulespec))
 
+	driverHandle, err := frontman.GetDriverHandle()
+	if err != nil {
+		return err
+	}
+
+	criteriaId := strings.Join(rulespec, " ")
+	dllRet, _, err := frontman.DeleteFilterCriteriaProc.Call(driverHandle,
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))))
+
+	if dllRet == 0 {
+		return fmt.Errorf("%s failed - could not delete %s (%v)", frontman.DeleteFilterCriteriaProc.Name, criteriaId, err)
+	}
+
 	return nil
 }
 
 // ListChains will provide a list of the current chains.
 func (b *BatchProvider) ListChains(table string) ([]string, error) {
-	return []string{}, nil
+	zap.L().Error("ListChains",
+		zap.String("Table", table))
+
+	var outbound uintptr
+	if strings.HasPrefix(table, "O") || strings.HasPrefix(table, "o") {
+		outbound = 1
+	} else if strings.HasPrefix(table, "I") || strings.HasPrefix(table, "i") {
+		outbound = 0
+	} else {
+		return nil, fmt.Errorf("'%s' is not a valid table for ListChains", table)
+	}
+
+	driverHandle, err := frontman.GetDriverHandle()
+	if err != nil {
+		return nil, err
+	}
+
+	// first query for needed buffer size
+	var bytesNeeded, ignore uint32
+	dllRet, _, err := frontman.GetFilterListProc.Call(driverHandle, outbound, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	if dllRet != 0 && bytesNeeded == 0 {
+		return []string{}, nil
+	}
+	if err != syscall.Errno(122) {
+		return nil, fmt.Errorf("%s failed: %v", frontman.GetFilterListProc.Name, err)
+	}
+	if bytesNeeded%2 != 0 {
+		return nil, fmt.Errorf("%s failed: odd result (%d)", frontman.GetFilterListProc.Name, bytesNeeded)
+	}
+	// then allocate buffer for wide string and call again
+	buf := make([]uint16, bytesNeeded/2)
+	dllRet, _, err = frontman.GetFilterListProc.Call(driverHandle, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	if dllRet == 0 {
+		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.GetFilterListProc.Name, dllRet, err)
+	}
+	str := syscall.UTF16ToString(buf)
+	ipsets := strings.Split(str, ",")
+	return ipsets, nil
 }
 
 // ClearChain will clear the chains.
 func (b *BatchProvider) ClearChain(table, chain string) error {
+	zap.L().Error("ClearChain",
+		zap.String("Table", table),
+		zap.String("Chain", chain))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -269,6 +362,10 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
+	zap.L().Error("DeleteChain",
+		zap.String("Table", table),
+		zap.String("Chain", chain))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -284,6 +381,10 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
+	zap.L().Error("NewChain",
+		zap.String("Table", table),
+		zap.String("Chain", chain))
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -308,11 +409,15 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 
 // Commit commits the rules to the system
 func (b *BatchProvider) Commit() error {
+	zap.L().Error("Commit")
+
 	return nil
 }
 
 // RetrieveTable allows a caller to retrieve the final table. Mostly
 // needed for debuging and unit tests.
 func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
+	zap.L().Error("RetrieveTable")
+
 	return map[string]map[string][]string{}
 }
