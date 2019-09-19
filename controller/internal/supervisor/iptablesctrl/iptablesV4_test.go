@@ -377,8 +377,11 @@ var (
 
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:2:s4:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -393,6 +396,7 @@ var (
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
 			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -463,6 +467,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
@@ -550,6 +555,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
@@ -637,6 +643,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
@@ -889,6 +896,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						Protocols: []string{"UDP"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
+							ServiceID: "s4",
+							PolicyID:  "2",
+						},
+					},
+					policy.IPRule{
+						Addresses: []string{"40.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
 							ServiceID: "s4",
 							PolicyID:  "2",
 						},

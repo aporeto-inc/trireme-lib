@@ -253,6 +253,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--0": {
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
