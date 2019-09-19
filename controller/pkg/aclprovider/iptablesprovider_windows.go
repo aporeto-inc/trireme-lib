@@ -298,7 +298,9 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 // Insert will insert the rule in the corresponding position in the local
 // cache or call the corresponding iptables command, depending on the table.
 func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string) error {
-	return fmt.Errorf("Insert not expected for table %s and chain %s", table, chain)
+	//TODO(windows): is this called and why?
+	zap.L().Error(fmt.Sprintf("Insert not expected for table %s and chain %s", table, chain))
+	return nil
 }
 
 // Delete will delete the rule from the local cache or the system.
