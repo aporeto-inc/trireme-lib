@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -231,6 +233,10 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 ) (Enforcer, error) {
+
+	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
+		return envoyauthorizer.NewEnvoyAuthorizerEnforcer(mode, collector, externalIPCacheTimeout, secrets, tokenIssuer)
+	}
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
 	if err != nil {
