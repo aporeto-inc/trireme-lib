@@ -335,7 +335,8 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	// Install all the new rules. The hooks to the new chains are appended
 	// and do not take effect yet.
 	if err := i.installRules(newCfg, containerInfo); err != nil {
-		return nil
+		zap.L().Error("unable to install rules on update", zap.Error(err))
+		return err
 	}
 
 	// Remove mapping from old chain. By removing the old hooks the new
