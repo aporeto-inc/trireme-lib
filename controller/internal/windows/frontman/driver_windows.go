@@ -81,24 +81,31 @@ type PacketInfo struct {
 	StartTime2 uint64
 }
 
-type RuleSpec struct {
-	Action       uint8
-	Log          uint8
-	Protocol     uint8
+type IpsetRuleSpec struct {
 	NotIpset     uint8
 	IpsetDstIp   uint8
 	IpsetDstPort uint8
 	IpsetSrcIp   uint8
 	IpsetSrcPort uint8
+	Reserved1    uint8
+	Reserved2    uint8
+	Reserved3    uint8
+	IpsetName    uintptr // const wchar_t*
+}
+
+type RuleSpec struct {
+	Action       uint8
+	Log          uint8
+	Protocol     uint8
+	Reserved1    uint8
 	ProxyPort    int16
-	Reserved     int16
 	SrcPortStart uint16
 	SrcPortEnd   uint16
 	DstPortStart uint16
 	DstPortEnd   uint16
+	Reserved2    int16
 	Mark         uint32
 	GroupId      uint32
-	IpsetName    uintptr // const wchar_t*
 	LogPrefix    uintptr // const wchar_t*
 }
 

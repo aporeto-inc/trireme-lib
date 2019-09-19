@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.uber.org/zap"
@@ -37,10 +39,6 @@ type ipsetProvider struct{}
 type winIpSet struct {
 	handle uintptr
 }
-
-const (
-	IpsetErrorInsufficientBuffer = uint32(0x55550004)
-)
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
@@ -111,7 +109,7 @@ func (i *ipsetProvider) ListIPSets() ([]string, error) {
 	if dllRet != 0 && bytesNeeded == 0 {
 		return []string{}, nil
 	}
-	if err != syscall.Errno(IpsetErrorInsufficientBuffer) {
+	if err != windows.ERROR_INSUFFICIENT_BUFFER {
 		return nil, fmt.Errorf("%s failed: %v", frontman.ListIpsetsProc.Name, err)
 	}
 	if bytesNeeded%2 != 0 {
