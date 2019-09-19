@@ -584,7 +584,7 @@ func (i *iptables) setGlobalRules() error {
 // no errors if these things fail.
 func (i *iptables) removeGlobalHooksPre() {
 	rules := [][]string{
-		{
+		/* 	{
 			"nat",
 			"PREROUTING",
 			"-p", "tcp",
@@ -598,7 +598,7 @@ func (i *iptables) removeGlobalHooksPre() {
 			"OUTPUT",
 			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
 			"-j", "TRI-Redir-App",
-		},
+		}, */
 	}
 
 	for _, rule := range rules {
