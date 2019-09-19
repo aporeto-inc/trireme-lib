@@ -5,6 +5,7 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"syscall"
 	"unsafe"
@@ -12,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.uber.org/zap"
 )
 
 func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
@@ -39,8 +41,31 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		}
 
 		// TODO(windows): temp - for now just forward all packets unmodified
-		frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
-		return 0
+		var localAddr, remoteAddr string
+		if packetInfo.Ipv4 != 0 {
+			localAddr = net.IPv4(byte(packetInfo.LocalAddr[0]&0xff),
+				byte((packetInfo.LocalAddr[0]&0xff00)>>8),
+				byte((packetInfo.LocalAddr[0]&0xff0000)>>16),
+				byte((packetInfo.LocalAddr[0]&0xff000000)>>24)).String()
+			remoteAddr = net.IPv4(byte(packetInfo.RemoteAddr[0]&0xff),
+				byte((packetInfo.RemoteAddr[0]&0xff00)>>8),
+				byte((packetInfo.RemoteAddr[0]&0xff0000)>>16),
+				byte((packetInfo.RemoteAddr[0]&0xff000000)>>24)).String()
+		} else {
+			localAddr = strconv.Itoa(int(packetInfo.LocalAddr[0])) +
+				strconv.Itoa(int(packetInfo.LocalAddr[1])) +
+				strconv.Itoa(int(packetInfo.LocalAddr[2])) +
+				strconv.Itoa(int(packetInfo.LocalAddr[3]))
+			remoteAddr = strconv.Itoa(int(packetInfo.RemoteAddr[0])) +
+				strconv.Itoa(int(packetInfo.RemoteAddr[1])) +
+				strconv.Itoa(int(packetInfo.RemoteAddr[2])) +
+				strconv.Itoa(int(packetInfo.RemoteAddr[3]))
+		}
+		zap.L().Info(fmt.Sprintf("got packet of size %d and mark %d with localPort %d and localAddr %v and remotePort %d and remoteAddr %v and other %d %d %d",
+			packetInfo.PacketSize, packetInfo.Mark, packetInfo.LocalPort, localAddr, packetInfo.RemotePort, remoteAddr,
+			packetInfo.Ipv4, packetInfo.Protocol, packetInfo.Outbound))
+		//frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
+		//return 0
 
 		// Parse the packet
 		mark := int(packetInfo.Mark) // TODO
@@ -67,6 +92,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		}
 
 		if processError != nil {
+			zap.L().Error(fmt.Sprintf("Got ERROR: %v", processError))
 			if parsedPacket.IPProto() == packet.IPProtocolTCP {
 				d.collectTCPPacket(&debugpacketmessage{
 					Mark:    mark,
@@ -103,6 +129,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
+		zap.L().Info(fmt.Sprintf("forwarding modified packet of size %d and mark %d", packetInfo.PacketSize, packetInfo.Mark))
 		// packetInfoPtr still points to correct (modified) struct
 		frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
 
@@ -141,10 +168,10 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 // packets originated from a local application
 func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 	// TODO(windows): turn on packet filter here
-	//err := d.startFrontmanPacketFilter(ctx)
-	//if err != nil {
-	//	zap.L().Fatal("Unable to initialize windows packet proxy", zap.Error(err))
-	//}
+	err := d.startFrontmanPacketFilter(ctx)
+	if err != nil {
+		zap.L().Fatal("Unable to initialize windows packet proxy", zap.Error(err))
+	}
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network

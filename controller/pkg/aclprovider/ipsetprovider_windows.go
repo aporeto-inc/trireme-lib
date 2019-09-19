@@ -38,6 +38,7 @@ type ipsetProvider struct{}
 
 type winIpSet struct {
 	handle uintptr
+	name   string // for debugging
 }
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
@@ -57,7 +58,7 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 	if dllRet == 0 {
 		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.NewIpsetProc.Name, dllRet, err)
 	}
-	return &winIpSet{ipsetHandle}, nil
+	return &winIpSet{ipsetHandle, name}, nil
 }
 
 // GetIpset gets the ipset object from the name.
@@ -76,7 +77,7 @@ func (i *ipsetProvider) GetIpset(name string) Ipset {
 	if dllRet == 0 {
 		return &winIpSet{} //, fmt.Errorf("%s failed (ret=%d err=%v)", getIpSetProc.Name, dllRet, err)
 	}
-	return &winIpSet{ipsetHandle} //, nil
+	return &winIpSet{ipsetHandle, name} //, nil
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references
@@ -133,7 +134,8 @@ func NewGoIPsetProvider() IpsetProvider {
 
 func (w *winIpSet) Add(entry string, timeout int) error {
 	zap.L().Error("Add ipset",
-		zap.String("Entry", entry))
+		zap.String("Entry", entry),
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
@@ -150,7 +152,8 @@ func (w *winIpSet) Add(entry string, timeout int) error {
 func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
 	zap.L().Error("AddOption ipset",
 		zap.String("Entry", entry),
-		zap.String("Option", option))
+		zap.String("Option", option),
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
@@ -167,7 +170,8 @@ func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
 
 func (w *winIpSet) Del(entry string) error {
 	zap.L().Error("Del ipset",
-		zap.String("Entry", entry))
+		zap.String("Entry", entry),
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
@@ -182,7 +186,8 @@ func (w *winIpSet) Del(entry string) error {
 }
 
 func (w *winIpSet) Destroy() error {
-	zap.L().Error("Destroy ipset")
+	zap.L().Error("Destroy ipset",
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
@@ -196,7 +201,8 @@ func (w *winIpSet) Destroy() error {
 }
 
 func (w *winIpSet) Flush() error {
-	zap.L().Error("Flush ipset")
+	zap.L().Error("Flush ipset",
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
@@ -211,7 +217,8 @@ func (w *winIpSet) Flush() error {
 
 func (w *winIpSet) Test(entry string) (bool, error) {
 	zap.L().Error("Test ipset",
-		zap.String("Entry", entry))
+		zap.String("Entry", entry),
+		zap.String("ipset name", w.name))
 
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {

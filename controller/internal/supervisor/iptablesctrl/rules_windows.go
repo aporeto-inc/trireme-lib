@@ -4,7 +4,7 @@ package iptablesctrl
 
 var triremChains = `
 -t OUTPUT  -N GlobalRules-OUTPUT
--t INPUT   -N GlobalRles-INPUT
+-t INPUT   -N GlobalRules-INPUT
 -t OUTPUT  -N HostSvcRules-OUTPUT
 -t INPUT   -N HostSvcRules-INPUT
 -t OUTPUT  -N HostPU -OUTPUT
