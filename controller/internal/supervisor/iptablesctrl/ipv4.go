@@ -46,7 +46,6 @@ func (i *ipv4) GetIPSetParam() *ipset.Params {
 
 func (i *ipv4) IPFilter() func(net.IP) bool {
 	ipv4Filter := func(ip net.IP) bool {
-
 		return (ip.To4() != nil)
 	}
 

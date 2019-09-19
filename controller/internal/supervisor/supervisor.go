@@ -51,6 +51,16 @@ type Config struct {
 	sync.Mutex
 }
 
+var configInstance *Config
+var lock sync.RWMutex
+
+// GetInstance returns the instance of the iptables object.
+func GetInstance() *Config {
+	lock.Lock()
+	defer lock.Unlock()
+	return configInstance
+}
+
 // NewSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
@@ -77,7 +87,10 @@ func NewSupervisor(
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
-	return &Config{
+	lock.Lock()
+	defer lock.Unlock()
+
+	configInstance = &Config{
 		mode:           mode,
 		impl:           impl,
 		versionTracker: cache.NewCache("SupVersionTracker"),
@@ -85,7 +98,9 @@ func NewSupervisor(
 		filterQueue:    filterQueue,
 		service:        p,
 		cfg:            cfg,
-	}, nil
+	}
+
+	return configInstance, nil
 }
 
 // Run starts the supervisor
@@ -174,6 +189,14 @@ func (s *Config) SetTargetNetworks(cfg *runtime.Configuration) error {
 	defer s.Unlock()
 
 	return s.impl.SetTargetNetworks(cfg)
+}
+
+// UpdateIPsets updates the ip's in the ipsets corresponding to the serviceID
+func (s *Config) UpdateIPsets(ips []string, serviceID string) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.impl.UpdateIPsets(ips, serviceID)
 }
 
 // ACLProvider returns the ACL provider used by the supervisor that can be
