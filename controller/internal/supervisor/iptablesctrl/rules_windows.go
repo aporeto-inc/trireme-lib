@@ -3,7 +3,6 @@
 package iptablesctrl
 
 var triremChains = `
-
 -t OUTPUT  -N GlobalRules-OUTPUT
 -t INPUT   -N GlobalRles-INPUT
 -t OUTPUT  -N HostSvcRules-OUTPUT
@@ -22,9 +21,9 @@ var containerChains = ``
 // chain. The hook method depends on the type of PU.
 var cgroupCaptureTemplate = `
 {{if isHostPU}}
--A  HostPU-OUTPUT -p tcp -m set --match-set {{.DestIPSet}} dstIP,dstPort -j REDIRECT  --to-ports {{.ProxyPort}}
--A  HostPU-OUTPUT -p tcp -j NFQUEUE -j MARK {{.Mark}}
--A  HostPU-INPUT -p tcp -j NFQUEUE -j MARK {{.Mark}}
+-A  HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} destIP -m set --match-set {{.DestIPSet}} dstIP,dstPort -j REDIRECT  --to-ports {{.ProxyPort}}
+-A  HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} destIP -j NFQUEUE -j MARK {{.Mark}}
+-A  HostPU-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP -j NFQUEUE -j MARK {{.Mark}}
 {{else}}
 -A HostSvcRules-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
 -A HostSvcRule-INPUT -p tcp --dport {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
