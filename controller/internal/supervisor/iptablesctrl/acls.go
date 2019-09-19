@@ -302,15 +302,32 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 			iptRules = append(iptRules, rejectRule)
 		}
 
-		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString || proto == constants.AllProtoString) {
-			reverseRules = append(reverseRules, []string{
-				appPacketIPTableContext,
-				reverseChain,
-				"!", "-p", "tcp",
-				"-m", "set", "--match-set", rule.ipset, reverseDirection,
-				"-m", "state", "--state", "ESTABLISHED",
-				"-j", "ACCEPT",
-			})
+		if rule.policy.Action&policy.Accept != 0 {
+			ipRule := []string{}
+
+			// If it is 'all', we add established accept rule with  !tcp.
+			if proto == constants.AllProtoString {
+				ipRule = []string{
+					appPacketIPTableContext,
+					reverseChain,
+					"!", "-p", "tcp",
+					"-m", "set", "--match-set", rule.ipset, reverseDirection,
+					"-m", "state", "--state", "ESTABLISHED",
+					"-j", "ACCEPT",
+				}
+				// If its not TCP, we add established accept rule with given protocol.
+			} else if proto != constants.TCPProtoNum && proto != constants.TCPProtoString {
+				ipRule = []string{
+					appPacketIPTableContext,
+					reverseChain,
+					"-p", proto,
+					"-m", "set", "--match-set", rule.ipset, reverseDirection,
+					"-m", "state", "--state", "ESTABLISHED",
+					"-j", "ACCEPT",
+				}
+			}
+
+			reverseRules = append(reverseRules, ipRule)
 		}
 	}
 
