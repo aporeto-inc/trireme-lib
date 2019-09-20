@@ -7,7 +7,7 @@ var triremChains = `
 -t INPUT   -N GlobalRules-INPUT
 -t OUTPUT  -N HostSvcRules-OUTPUT
 -t INPUT   -N HostSvcRules-INPUT
--t OUTPUT  -N HostPU -OUTPUT
+-t OUTPUT  -N HostPU-OUTPUT
 -t INPUT   -N HostPU-INPUT
 `
 var globalRules = `

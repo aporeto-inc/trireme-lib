@@ -249,3 +249,5 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	}
 
 }
+
+func (d *Datapath) cleanupPlatform() {}

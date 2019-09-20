@@ -446,7 +446,7 @@ func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
 
 // CleanUp implements the cleanup interface.
 func (d *Datapath) CleanUp() error {
-	// TODO add any cleaning up we need to do here.
+	d.cleanupPlatform()
 	return nil
 }
 

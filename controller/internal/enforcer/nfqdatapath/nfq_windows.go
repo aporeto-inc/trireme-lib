@@ -40,7 +40,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetType = packet.PacketTypeNetwork
 		}
 
-		// TODO(windows): temp - for now just forward all packets unmodified
+		// TODO(windows): temp
 		var localAddr, remoteAddr string
 		if packetInfo.Ipv4 != 0 {
 			localAddr = net.IPv4(byte(packetInfo.LocalAddr[0]&0xff),
@@ -61,14 +61,14 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 				strconv.Itoa(int(packetInfo.RemoteAddr[2])) +
 				strconv.Itoa(int(packetInfo.RemoteAddr[3]))
 		}
-		zap.L().Info(fmt.Sprintf("got packet of size %d and mark %d with localPort %d and localAddr %v and remotePort %d and remoteAddr %v and other %d %d %d",
-			packetInfo.PacketSize, packetInfo.Mark, packetInfo.LocalPort, localAddr, packetInfo.RemotePort, remoteAddr,
-			packetInfo.Ipv4, packetInfo.Protocol, packetInfo.Outbound))
+		zap.L().Info(fmt.Sprintf("got packet of size %d and mark %d and outbound is %d with localPort %d and localAddr %v and remotePort %d and remoteAddr %v and other %d %d %d",
+			packetInfo.PacketSize, packetInfo.Mark, packetInfo.Outbound, packetInfo.LocalPort, localAddr, packetInfo.RemotePort,
+			remoteAddr, packetInfo.Ipv4, packetInfo.Protocol, packetInfo.Outbound))
 		//frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
 		//return 0
 
 		// Parse the packet
-		mark := int(packetInfo.Mark) // TODO
+		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
 		var processError error
 		var tcpConn *connection.TCPConnection
@@ -178,4 +178,12 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 	// for Windows, we do nothing here since our packet proxy sends outbound and inbound
 	// TODO(windows): cleanup api to make more sense
+}
+
+// cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down
+func (d *Datapath) cleanupPlatform() {
+	dllRet, _, err := frontman.PacketFilterCloseProc.Call()
+	if dllRet == 0 {
+		zap.L().Error("Failed to close packet proxy", zap.Error(err))
+	}
 }
