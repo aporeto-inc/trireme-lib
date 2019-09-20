@@ -130,8 +130,10 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		}
 
 		zap.L().Info(fmt.Sprintf("forwarding modified packet of size %d and mark %d", packetInfo.PacketSize, packetInfo.Mark))
-		// packetInfoPtr still points to correct (modified) struct
-		frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
+		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
+		if dllRet == 0 {
+			zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.PacketFilterForwardProc.Name, err))
+		}
 
 		if parsedPacket.IPProto() == packet.IPProtocolTCP {
 			d.collectTCPPacket(&debugpacketmessage{
