@@ -87,6 +87,7 @@ type iptables struct {
 type IPImpl interface {
 	provider.IptablesProvider
 	GetIPSetPrefix() string
+	IPsetVersion() int
 	GetIPSetParam() *ipset.Params
 	ProtocolAllowed(proto string) bool
 	IPFilter() func(net.IP) bool
@@ -304,7 +305,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	}
 
 	// remove the external nets that are associated with this contextID
-	ipsetmanager.RemoveContextIDFromExtNets(contextID, i.impl.GetIPSetPrefix())
+	ipsetmanager.RemoveContextIDFromExtNets(contextID, i.impl.IPsetVersion())
 
 	return nil
 }
@@ -499,7 +500,7 @@ type aclIPset struct {
 }
 
 func (i *iptables) createACLIPSets(contextID string, appIPRules policy.IPRuleList, netIPRules policy.IPRuleList) ([]aclIPset, []aclIPset, error) {
-	appIPsets, netIPsets, err := ipsetmanager.GetACLIPSets(contextID, appIPRules, netIPRules, i.impl.IPFilter(), i.impl.GetIPSetPrefix(), i.impl.GetIPSetParam())
+	appIPsets, netIPsets, err := ipsetmanager.GetACLIPSets(contextID, appIPRules, netIPRules, i.impl.IPFilter(), i.impl.GetIPSetPrefix(), i.impl.GetIPSetParam(), i.impl.IPsetVersion())
 	if err != nil {
 		return nil, nil, err
 	}

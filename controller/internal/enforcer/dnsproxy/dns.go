@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/dns"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -130,6 +131,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	ps, err1 := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err1 == nil {
 		for _, p := range ps {
+			ipsetmanager.UpdateIPsets(ips, p.Policy.ServiceID)
 			if err1 := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
 				Protocols: p.Protocols,
@@ -137,7 +139,6 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			}}); err1 != nil {
 				zap.L().Error("Adding IP rule returned error", zap.Error(err1))
 			}
-
 		}
 	}
 
