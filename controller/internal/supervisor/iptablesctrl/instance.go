@@ -95,12 +95,6 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	return nil
 }
 
-// UpdateIPsets updates the ip's in the ipsets corresponding to the serviceID
-func (i *Instance) UpdateIPsets(ips []string, serviceID string) {
-	i.iptv4.UpdateIPsets(ips, serviceID)
-	i.iptv6.UpdateIPsets(ips, serviceID)
-}
-
 // UpdateRules implements the update part of the interface. Update will call
 // installrules to install the new rules and then it will delete the old rules.
 // For installations that do not have latests iptables-restore we time

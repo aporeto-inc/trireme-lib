@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
@@ -80,8 +81,6 @@ type iptables struct {
 	excludedNetworksSet   provider.Ipset
 	cfg                   *runtime.Configuration
 	contextIDToPortSetMap cache.DataStore
-	serviceIDToIPsets     map[string]*ipsetInfo
-	puToServiceIDs        map[string][]string
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
@@ -133,8 +132,6 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
-		serviceIDToIPsets:     map[string]*ipsetInfo{},
-		puToServiceIDs:        map[string][]string{},
 	}
 }
 
@@ -307,7 +304,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	}
 
 	// remove the external nets that are associated with this contextID
-	ipsetmanager.RemoveContextIDsFromExtNets(contextID)
+	ipsetmanager.RemoveContextIDFromExtNets(contextID, i.impl.GetIPSetPrefix())
 
 	return nil
 }
@@ -353,9 +350,6 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	if err := i.impl.Commit(); err != nil {
 		return err
 	}
-
-	// Sync all the IPSets with any new information coming from the policy.
-	i.synchronizePUACLs(contextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs())
 
 	return nil
 }
@@ -500,27 +494,24 @@ func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ip
 }
 
 type aclIPset struct {
-	ipset      string
-	ports      []string
-	protocols  []string
-	extensions []string
-	policy     *policy.FlowPolicy
+	ipset string
+	*policy.IPRule
 }
 
-func (i *iptables) createACLIPSets(contextID string, appIPRules policy.IPRuleList, netIPRules policy.IPRuleList) ([]ACLIPset, []ACLIPset, error) {
-	appIPsets, netIPSets, err := ipsetmanager.CreateACLIPSets(contextID, appIPRules, netIPRules, i.impl.IPFilter(), i.impl.GetIPSetPrefix(), i.impl.GetIPSetParam())
+func (i *iptables) createACLIPSets(contextID string, appIPRules policy.IPRuleList, netIPRules policy.IPRuleList) ([]aclIPset, []aclIPset, error) {
+	appIPsets, netIPsets, err := ipsetmanager.GetACLIPSets(contextID, appIPRules, netIPRules, i.impl.IPFilter(), i.impl.GetIPSetPrefix(), i.impl.GetIPSetParam())
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var appACLIPsets, netACLIPsets []aclIPset
 
-	for _, ipset := range appIPsets {
-		appACLIPsets = append(appACLIPsets, ipset)
+	for i, ipset := range appIPsets {
+		appACLIPsets = append(appACLIPsets, aclIPset{ipset, &appIPRules[i]})
 	}
 
-	for _, ipset := range netIPsets {
-		netACLIPsets = append(netACLIPsets, ipset)
+	for i, ipset := range netIPsets {
+		netACLIPsets = append(netACLIPsets, aclIPset{ipset, &netIPRules[i]})
 	}
 
 	return appACLIPsets, netACLIPsets, nil

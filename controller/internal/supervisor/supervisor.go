@@ -191,14 +191,6 @@ func (s *Config) SetTargetNetworks(cfg *runtime.Configuration) error {
 	return s.impl.SetTargetNetworks(cfg)
 }
 
-// UpdateIPsets updates the ip's in the ipsets corresponding to the serviceID
-func (s *Config) UpdateIPsets(ips []string, serviceID string) {
-	s.Lock()
-	defer s.Unlock()
-
-	s.impl.UpdateIPsets(ips, serviceID)
-}
-
 // ACLProvider returns the ACL provider used by the supervisor that can be
 // shared with other entities.
 func (s *Config) ACLProvider() []provider.IptablesProvider {
