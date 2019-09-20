@@ -129,7 +129,6 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	puCtx = data.(*pucontext.PUContext)
 	ps, err1 := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err1 == nil {
-		//iptables := supervisor.GetInstance()
 		for _, p := range ps {
 			if err1 := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
@@ -139,7 +138,6 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				zap.L().Error("Adding IP rule returned error", zap.Error(err1))
 			}
 
-			//iptables.UpdateIPsets(ips, p.Policy.ServiceID)
 		}
 	}
 
