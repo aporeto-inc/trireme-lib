@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -26,7 +27,11 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
+
+	ipsetmanager.SetIpsetProvider(ipsv4, ipv4Impl.IPsetVersion())
 	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode)
+
+	ipsetmanager.SetIpsetProvider(ipsv6, ipv6Impl.IPsetVersion())
 	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}

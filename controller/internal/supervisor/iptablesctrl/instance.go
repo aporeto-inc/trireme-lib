@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -137,6 +138,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
+	ipsetmanager.SetIpsetProvider(ips, ipv4Impl.IPsetVersion())
 	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode)
 
 	ipv6Impl, err := GetIPv6Impl()
@@ -144,6 +146,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
 	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode)
+	ipsetmanager.SetIpsetProvider(ips, ipv6Impl.IPsetVersion())
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }

@@ -45,8 +45,18 @@ func init() {
 	for i := 0; i < 2; i++ {
 		ipsetHandlers[i].serviceIDtoIpset = map[string]*ipsetInfo{}
 		ipsetHandlers[i].contextIDtoServiceIDs = map[string]map[string]bool{}
-		ipsetHandlers[i].ipset = provider.NewGoIPsetProvider()
 	}
+}
+
+func SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int) {
+	var ipsetManager *ipsetHandler
+	if ipsetVersion == IPsetV4 {
+		ipsetManager = &ipsetHandlers[0]
+	} else {
+		ipsetManager = &ipsetHandlers[1]
+	}
+
+	ipsetManager.ipset = ipset
 }
 
 func hashServiceID(serviceID string) string {
