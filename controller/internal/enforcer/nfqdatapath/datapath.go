@@ -725,7 +725,7 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 		d.packetTracingCache.Remove(contextID) // nolint
 	}()
 
-	return ctx.Err()
+	return nil
 }
 
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
