@@ -281,12 +281,20 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argIpsetRuleSpecs[i].IpsetSrcPort = boolToUint8(matchSet.matchSetSrcPort)
 		argIpsetRuleSpecs[i].IpsetName = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(matchSet.matchSetName)))
 	}
-	dllRet, _, err := frontman.AppendFilterCriteriaProc.Call(driverHandle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
-		uintptr(unsafe.Pointer(&argRuleSpec)),
-		uintptr(unsafe.Pointer(&argIpsetRuleSpecs[0])),
-		uintptr(len(argIpsetRuleSpecs)))
+	var dllRet uintptr
+	if len(argIpsetRuleSpecs) > 0 {
+		dllRet, _, err = frontman.AppendFilterCriteriaProc.Call(driverHandle,
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
+			uintptr(unsafe.Pointer(&argRuleSpec)),
+			uintptr(unsafe.Pointer(&argIpsetRuleSpecs[0])),
+			uintptr(len(argIpsetRuleSpecs)))
+	} else {
+		dllRet, _, err = frontman.AppendFilterCriteriaProc.Call(driverHandle,
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
+			uintptr(unsafe.Pointer(&argRuleSpec)), 0, 0)
+	}
 
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (%v)", frontman.AppendFilterCriteriaProc.Name, err)
