@@ -133,7 +133,9 @@ func synchronizeIPsinIpset(ipsetInfo *ipsetInfo, addresses []string, ipFilter fu
 		}
 
 		newips[address] = true
-		if ipsetInfo.ips[address] == true {
+
+		_, ok := ipsetInfo.ips[address]
+		if ok {
 			delete(ipsetInfo.ips, address)
 		} else {
 			if err := AddToIPset(ipsetHandler, address); err != nil {
@@ -164,12 +166,14 @@ func decRefCountForServiceIDs(serviceIDMap map[string]bool) {
 			if err := ips.Destroy(); err != nil {
 				zap.L().Warn("Failed to destroy ipset " + ipsetInfo.name)
 			}
+
+			delete(ipsetManager.serviceIDtoIpset, serviceID)
 		}
 	}
 }
 
 func GetACLIPSets(contextID string, appExtnets policy.IPRuleList, netExtnets policy.IPRuleList, ipFilter func(net.IP) bool, ipsetPrefix string, ipsetParams *ipset.Params) ([]string, []string, error) {
-	var newServiceIDs map[string]bool
+	newServiceIDs := map[string]bool{}
 
 	contextID = contextID + ipsetPrefix
 
@@ -177,7 +181,7 @@ func GetACLIPSets(contextID string, appExtnets policy.IPRuleList, netExtnets pol
 		var ipsets []string
 		for _, extnet := range extnets {
 			var ipset *ipsetInfo
-			serviceID := extnet.Policy.ServiceID
+			serviceID := extnet.Policy.ServiceID + ipsetPrefix
 			if ipsetManager.serviceIDtoIpset[serviceID] == nil {
 				ipsetName := "extnet-" + ipsetPrefix + hashServiceID(serviceID)
 				_, err := ipsetManager.ipset.NewIpset(ipsetName, "hash:net", ipsetParams)
@@ -221,4 +225,6 @@ func GetACLIPSets(contextID string, appExtnets policy.IPRuleList, netExtnets pol
 func RemoveContextIDFromExtNets(contextID string, ipsetPrefix string) {
 	contextID = contextID + ipsetPrefix
 	decRefCountForServiceIDs(ipsetManager.contextIDtoServiceIDs[contextID])
+
+	delete(ipsetManager.contextIDtoServiceIDs, contextID)
 }
