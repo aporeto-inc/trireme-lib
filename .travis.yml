@@ -22,7 +22,7 @@ env:
     - SUDO_PERMITTED=1
 
 before_install:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+  - GO111MODULE=on go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
   - go get -u github.com/golang/dep/cmd/dep
 
 install:

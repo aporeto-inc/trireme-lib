@@ -165,15 +165,21 @@ func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 
-	// request := &rpcwrapper.Request{}
-
 	var allErrors string
 
-	for _, contextID := range s.rpchdl.ContextList() {
+	remotes := s.rpchdl.ContextList()
+
+	for _, contextID := range remotes {
 
 		if err := s.prochdl.KillRemoteEnforcer(contextID, false); err != nil {
 			allErrors = allErrors + " contextID:" + err.Error()
 		}
+		// This sleep is added on purpose to reduce the rate of remotes
+		// that are activating iptables commands. When they are all
+		// started in parallel they overload the kernel and the iptables
+		// locks take a very long time. It is one of these times where
+		// a sleep is needed.
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	if len(allErrors) > 0 {
