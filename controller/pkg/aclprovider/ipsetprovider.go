@@ -73,22 +73,7 @@ func (i *goIpsetProvider) GetIpset(name string) Ipset {
 // DestroyAll destroys all the ipsets - it will fail if there are existing references
 func (i *goIpsetProvider) DestroyAll(prefix string) error {
 
-	sets, err := i.ListIPSets()
-	if err != nil {
-		return ipset.DestroyAll()
-	}
-
-	for _, s := range sets {
-		if !strings.HasPrefix(s, prefix) {
-			continue
-		}
-		ips := i.GetIpset(s)
-		if err := ips.Destroy(); err != nil {
-			return ipset.DestroyAll()
-		}
-	}
-
-	return nil
+	return ipset.DestroyAll()
 }
 
 func (i *goIpsetProvider) ListIPSets() ([]string, error) {

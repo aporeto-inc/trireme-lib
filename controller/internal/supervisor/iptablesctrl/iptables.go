@@ -361,6 +361,7 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 }
 
 func (i *iptables) CleanUp() error {
+
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
