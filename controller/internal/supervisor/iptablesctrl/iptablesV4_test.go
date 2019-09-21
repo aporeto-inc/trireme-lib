@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
@@ -1023,13 +1022,6 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
 							}
 						}
-
-						Convey("When I cancel the context, it should cleanup", func() {
-							cancel()
-							time.Sleep(1 * time.Second)
-							t := i.iptv4.impl.RetrieveTable()
-							So(len(t["mangle"]), ShouldEqual, 2)
-						})
 					})
 				})
 			})
@@ -1882,13 +1874,6 @@ func Test_OperationWithContainersV4(t *testing.T) {
 						So(expectedContainerGlobalNATChainsV4, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalNATChainsV4[chain])
 					}
-
-					Convey("When I cancel the context, it should cleanup", func() {
-						cancel()
-						time.Sleep(1 * time.Second)
-						t := i.iptv4.impl.RetrieveTable()
-						So(len(t["mangle"]), ShouldEqual, 2)
-					})
 				})
 
 			})
