@@ -363,6 +363,17 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 }
 
 func (t *trireme) modeTypeFromPolicy(policyInfo *policy.PUPolicy, runtime *policy.PURuntime) constants.ModeType {
+	if policyInfo == nil {
+		// there are edge cases when policyInfo really can be nil - and it is fine
+		// let's just fall back to the normal enforcertype mapping if this is the case
+		//
+		// Here is an example: when a PU Create event failed, but the PU gets destroyed afterwards, there is a stop
+		// event generated which will call UnEnforce. However, in this case there is no guarantee that PUPolicy has
+		// actually ever been set.
+		zap.L().Debug("modeTypeFromPolicy received no PU policy", zap.String("name", runtime.Name()))
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
+
 	switch policyInfo.EnforcerType() {
 	case policy.EnforcerMapping:
 		return t.puTypeToEnforcerType[runtime.PUType()]
