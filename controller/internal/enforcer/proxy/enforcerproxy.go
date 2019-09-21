@@ -180,7 +180,7 @@ func (s *ProxyInfo) CleanUp() error {
 		// started in parallel they overload the kernel and the iptables
 		// locks take a very long time. It is one of these times where
 		// a sleep is needed.
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(3 * time.Millisecond)
 	}
 
 	if len(allErrors) > 0 {
