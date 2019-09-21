@@ -169,7 +169,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Cleaning the iptable rules")
-
 		i.CleanUp() // nolint
 	}()
 
