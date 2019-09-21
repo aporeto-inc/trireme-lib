@@ -187,51 +187,6 @@ var proxyChainTemplate = `
 {{end}}
 {{.NatTable}} {{.NatProxyNetChain}} -p tcp -m set --match-set {{.SrvIPSet}} dst -m mark ! --mark {{.ProxyMark}} -j REDIRECT --to-ports {{.ProxyPort}}`
 
-var deleteChains = `
--t {{.MangleTable}} -F {{.MainAppChain}}
--t {{.MangleTable}} -X {{.MainAppChain}}
--t {{.MangleTable}} -F {{.MainNetChain}}
--t {{.MangleTable}} -X {{.MainNetChain}}
-
-{{if isLocalServer}}
--t {{.MangleTable}} -F {{.HostInput}}
--t {{.MangleTable}} -X {{.HostInput}}
-
--t {{.MangleTable}} -F {{.HostOutput}}
--t {{.MangleTable}} -X {{.HostOutput}}
-
--t {{.MangleTable}} -F {{.TriremeInput}}
--t {{.MangleTable}} -X {{.TriremeInput}}
-
--t {{.MangleTable}} -F {{.TriremeOutput}}
--t {{.MangleTable}} -X {{.TriremeOutput}}
-
--t {{.MangleTable}} -F {{.NetworkSvcInput}}
--t {{.MangleTable}} -X {{.NetworkSvcInput}}
-
--t {{.MangleTable}} -F {{.NetworkSvcOutput}}
--t {{.MangleTable}} -X {{.NetworkSvcOutput}}
-
--t {{.MangleTable}} -F {{.UIDInput}}
--t {{.MangleTable}} -X {{.UIDInput}}
-
--t {{.MangleTable}} -F {{.UIDOutput}}
--t {{.MangleTable}} -X {{.UIDOutput}}
-{{end}}
-
--t {{.MangleTable}} -F {{.MangleProxyAppChain}}
--t {{.MangleTable}} -X {{.MangleProxyAppChain}}
-
--t {{.MangleTable}} -F {{.MangleProxyNetChain}}
--t {{.MangleTable}} -X {{.MangleProxyNetChain}}
-
--t {{.NatTable}} -F {{.NatProxyAppChain}}
--t {{.NatTable}} -X {{.NatProxyAppChain}}
-
--t {{.NatTable}} -F {{.NatProxyNetChain}}
--t {{.NatTable}} -X {{.NatProxyNetChain}}
-`
-
 var globalHooks = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
