@@ -615,6 +615,7 @@ func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
 	// This should ideally not be used
 	i.removeGlobalHooksPre()
+
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
@@ -641,39 +642,9 @@ func (i *iptables) cleanACLs() error { // nolint
 		zap.L().Error("unable to remove nat proxy rules")
 	}
 
-	tmpl := template.Must(template.New(deleteChains).Funcs(template.FuncMap{
-		"isLocalServer": func() bool {
-			return i.mode == constants.LocalServer
-		},
-	}).Parse(deleteChains))
-
-	rules, err := extractRulesFromTemplate(tmpl, cfg)
-	if err != nil {
-		return fmt.Errorf("unable to create trireme chains:%s", err)
-	}
-
-	for _, rule := range rules {
-		if len(rule) != 4 {
-			continue
-		}
-
-		// Flush the chains
-		if rule[2] == "-F" {
-			if err := i.impl.ClearChain(rule[1], rule[3]); err != nil {
-				zap.L().Error("unable to flush chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
-			}
-		}
-
-		// Delete the chains
-		if rule[2] == "-X" {
-			if err := i.impl.DeleteChain(rule[1], rule[3]); err != nil {
-				zap.L().Error("unable to delete chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
-			}
-		}
-	}
-
 	// Clean Application Rules/Chains
 	i.cleanACLSection(appPacketIPTableContext, chainPrefix)
+	i.cleanACLSection(appProxyIPTableContext, chainPrefix)
 
 	i.impl.Commit() // nolint
 
@@ -693,7 +664,6 @@ func (i *iptables) cleanACLSection(context, chainPrefix string) {
 	}
 
 	for _, rule := range rules {
-
 		if strings.Contains(rule, chainPrefix) {
 			if err := i.impl.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
@@ -702,6 +672,11 @@ func (i *iptables) cleanACLSection(context, chainPrefix string) {
 					zap.Error(err),
 				)
 			}
+		}
+	}
+
+	for _, rule := range rules {
+		if strings.Contains(rule, chainPrefix) {
 			if err := i.impl.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),

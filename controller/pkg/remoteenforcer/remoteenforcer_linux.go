@@ -12,10 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -631,17 +628,6 @@ func validateNamespace() error {
 	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
 	if nsEnterState != "" {
 		return fmt.Errorf("nsErr: %s nsLogs: %s", nsEnterState, nsEnterLogMsg)
-	}
-
-	pid := strconv.Itoa(os.Getpid())
-	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	if err != nil {
-		zap.L().Warn("Unable to identity namespace - ip netns commands not available", zap.Error(err))
-	}
-
-	netnsString := strings.TrimSpace(string(netns))
-	if netnsString == "" {
-		zap.L().Warn("Unable to identity namespace - ip netns commands returned empty and will not be available")
 	}
 
 	return nil
