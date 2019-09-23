@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -62,6 +63,12 @@ func NewSupervisor(
 	cfg *runtime.Configuration,
 	p packetprocessor.PacketProcessor,
 ) (Supervisor, error) {
+
+	// for certain modes we do not want to launch a supervisor at all, so we are going to launch a noop supervisor
+	// like we do for the supervisor proxy
+	if mode == constants.RemoteContainerEnvoyAuthorizer {
+		return supervisornoop.NewNoopSupervisor(), nil
+	}
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")

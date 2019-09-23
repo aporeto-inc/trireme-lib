@@ -159,16 +159,16 @@ func (mr *MockEnforcerMockRecorder) CleanUp() *gomock.Call {
 
 // EnableDatapathPacketTracing mocks base method
 // nolint
-func (m *MockEnforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval)
+func (m *MockEnforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
-func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
+func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method
@@ -214,16 +214,16 @@ func (m *MockDebugInfo) EXPECT() *MockDebugInfoMockRecorder {
 
 // EnableDatapathPacketTracing mocks base method
 // nolint
-func (m *MockDebugInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval)
+func (m *MockDebugInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
-func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), contextID, direction, interval)
+func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method

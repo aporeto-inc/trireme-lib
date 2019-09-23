@@ -184,7 +184,7 @@ func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, container
 
 // DeleteRules mocks base method
 // nolint
-func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort string, dnsProxyPort string, puType common.PUType) error {
+func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort string, puType common.PUType) error {
 	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort, puType)
 	ret0, _ := ret[0].(error)
 	return ret0

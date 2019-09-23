@@ -112,7 +112,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{})
+	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{}, policy.EnforcerMapping)
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 
@@ -196,13 +196,13 @@ func TestEnforce(t *testing.T) {
 		pu := createPUInfo()
 
 		Convey("When launching the remote fails, it should error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("error"))
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("error"))
 			err := e.Enforce("pu", pu)
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When launching the remote succeeds, and init is false, but the rpc calls fails, it should work", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
 			err := e.Enforce("pu", pu)
@@ -210,14 +210,14 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When launching the remote succeeds, and init is false, and rpc succeeds, it should work", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
 			err := e.Enforce("pu", pu)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When launching the remote succeeds, and init is true, and init of remote fails, it should error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
 			err := e.Enforce("pu", pu)
@@ -225,7 +225,7 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When launching succeeds with init true, it should not error", func() {
-			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
 			err := e.Enforce("pu", pu)
@@ -352,13 +352,13 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 
 		Convey("When I try to call unenforce", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			err := e.EnableDatapathPacketTracing("testServerID", packettracing.NetworkOnly, 10*time.Second)
+			err := e.EnableDatapathPacketTracing(context.TODO(), "testServerID", packettracing.NetworkOnly, 10*time.Second)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I try to call unenforce and there is a failure", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.EnableDatapathPacketTracing, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
-			err := e.EnableDatapathPacketTracing("testServerID", packettracing.NetworkOnly, 10*time.Second)
+			err := e.EnableDatapathPacketTracing(context.TODO(), "testServerID", packettracing.NetworkOnly, 10*time.Second)
 
 			Convey("Then I should get an error", func() {
 				So(err, ShouldNotBeNil)

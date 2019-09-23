@@ -3,6 +3,8 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/policy"
+
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -43,4 +45,5 @@ type RemoteEnforcer struct {
 	zapConfig       zap.Config
 	logLevel        constants.LogLevel
 	tokenIssuer     tokenissuer.TokenClient
+	enforcerType    policy.EnforcerType
 }
