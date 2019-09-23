@@ -407,6 +407,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			if isHook, err := hook(w, r); err != nil || isHook {
 				if err != nil {
 					state.stats.Action = policy.Reject
+					state.stats.DropReason = collector.PolicyDrop
 				}
 				return
 			}
