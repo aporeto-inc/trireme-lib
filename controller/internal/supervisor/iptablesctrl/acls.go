@@ -230,7 +230,7 @@ func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
 	// We insert the udp nfq rules at the top of the pu chain, before the external acls.
 	udpNfqRules := [][]string{
-		[]string{
+		{
 			appPacketIPTableContext,
 			cfg.AppChain,
 			"1",
@@ -238,7 +238,7 @@ func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 			"-m", "set", "--match-set", cfg.TargetUDPNetSet, "dst",
 			"-j", "NFQUEUE", "--queue-balance", cfg.QueueBalanceAppSyn,
 		},
-		[]string{
+		{
 			appPacketIPTableContext,
 			cfg.AppChain,
 			"2",
