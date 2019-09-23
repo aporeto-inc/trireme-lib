@@ -11,7 +11,6 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
 
@@ -232,7 +231,6 @@ func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (repo
 func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
 	defer p.Unlock()
 	p.Lock()
-
 	return p.ApplicationACLs.AddRuleList(rules)
 }
 

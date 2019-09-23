@@ -52,16 +52,6 @@ type Config struct {
 	sync.Mutex
 }
 
-var configInstance *Config
-var lock sync.RWMutex
-
-// GetInstance returns the instance of the iptables object.
-func GetInstance() *Config {
-	lock.Lock()
-	defer lock.Unlock()
-	return configInstance
-}
-
 // NewSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
@@ -88,10 +78,7 @@ func NewSupervisor(
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
-
-	configInstance = &Config{
+	return &Config{
 		mode:           mode,
 		impl:           impl,
 		versionTracker: cache.NewCache("SupVersionTracker"),
@@ -99,9 +86,7 @@ func NewSupervisor(
 		filterQueue:    filterQueue,
 		service:        p,
 		cfg:            cfg,
-	}
-
-	return configInstance, nil
+	}, nil
 }
 
 // Run starts the supervisor
