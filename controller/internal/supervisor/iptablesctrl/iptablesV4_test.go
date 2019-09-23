@@ -121,7 +121,6 @@ func (m *memoryIPSetProvider) NewIpset(name string, hasht string, p *ipset.Param
 
 	newSet := &memoryIPSet{set: map[string]struct{}{}}
 	m.sets[name] = newSet
-
 	return newSet, nil
 }
 
@@ -381,9 +380,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -394,10 +393,11 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -467,9 +467,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -480,11 +480,11 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-s TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -554,9 +554,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -567,11 +567,11 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -641,9 +641,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -654,13 +654,13 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:6",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:6",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -699,10 +699,10 @@ var (
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 		"TRI-v4-ProcPort-pu19gtV":            {"8080"},
-		"TRI-v4-ext-6zlJIpu19gtV":            {"30.0.0.0/24"},
-		"TRI-v4-ext-uNdc0pu19gtV":            {"30.0.0.0/24"},
-		"TRI-v4-ext-w5frVpu19gtV":            {"40.0.0.0/24"},
-		"TRI-v4-ext-IuSLspu19gtV":            {"40.0.0.0/24"},
+		"TRI-v4-ext-6zlJIvP3B68=":            {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0vdcFZA=":            {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVvhsnpU=":            {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLsD1R-mE=":            {"40.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":           {},
 		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}
@@ -765,7 +765,7 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -776,7 +776,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -833,7 +833,6 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 			So(len(t), ShouldEqual, 2)
 			So(t["mangle"], ShouldNotBeNil)
 			So(t["nat"], ShouldNotBeNil)
-
 			for chain, rules := range t["mangle"] {
 				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
 				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
@@ -941,6 +940,9 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 				})
 
+				ipsetmanager.RegisterExternalNets("pu1", puInfo.Policy.ApplicationACLs())
+				ipsetmanager.RegisterExternalNets("pu1", puInfo.Policy.ApplicationACLs())
+
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				err = i.AddPortToPortSet("pu1", "8080")
@@ -1030,10 +1032,8 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						err = i.DeletePortFromPortSet("pu1", "8080")
 						So(err, ShouldBeNil)
 						t := i.iptv4.impl.RetrieveTable()
-
 						So(t["mangle"], ShouldNotBeNil)
 						So(t["nat"], ShouldNotBeNil)
-
 						for chain, rules := range t["mangle"] {
 							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
 							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
@@ -1685,9 +1685,9 @@ var (
 			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -1698,9 +1698,9 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-x1uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -1730,16 +1730,15 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 	}
-
 	expectedContainerIPSetsAfterPUInsertV4 = map[string][]string{
 		"TRI-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 		"TRI-v4-ProcPort-pu19gtV":       {"8080"},
-		"TRI-v4-ext-6zlJIpu19gtV":       {"30.0.0.0/24"},
-		"TRI-v4-ext-uNdc0pu19gtV":       {"30.0.0.0/24"},
-		"TRI-v4-ext-w5frVpu19gtV":       {"40.0.0.0/24"},
-		"TRI-v4-ext-IuSLspu19gtV":       {"40.0.0.0/24"},
+		"TRI-v4-ext-6zlJIvP3B68=":       {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0vdcFZA=":       {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVvhsnpU=":       {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLsD1R-mE=":       {"40.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":      {},
 		"TRI-v4-Proxy-pu19gtV-srv":      {},
 	}

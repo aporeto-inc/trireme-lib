@@ -304,9 +304,6 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
 	}
 
-	// remove the external nets that are associated with this contextID
-	ipsetmanager.RemoveContextIDFromExtNets(contextID, i.impl.IPsetVersion())
-
 	return nil
 }
 
@@ -499,38 +496,29 @@ type aclIPset struct {
 	*policy.IPRule
 }
 
-func (i *iptables) createACLIPSets(contextID string, appIPRules policy.IPRuleList, netIPRules policy.IPRuleList) ([]aclIPset, []aclIPset, error) {
-	appIPsets, netIPsets, err := ipsetmanager.GetACLIPSets(contextID, appIPRules, netIPRules, i.impl.IPFilter(), i.impl.GetIPSetPrefix(), i.impl.GetIPSetParam(), i.impl.IPsetVersion())
-	if err != nil {
-		return nil, nil, err
+func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
+
+	ipsets := ipsetmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
+
+	var aclIPsets []aclIPset
+
+	for i, ipset := range ipsets {
+		aclIPsets = append(aclIPsets, aclIPset{ipset, &ipRules[i]})
 	}
 
-	var appACLIPsets, netACLIPsets []aclIPset
-
-	for i, ipset := range appIPsets {
-		appACLIPsets = append(appACLIPsets, aclIPset{ipset, &appIPRules[i]})
-	}
-
-	for i, ipset := range netIPsets {
-		netACLIPsets = append(netACLIPsets, aclIPset{ipset, &netIPRules[i]})
-	}
-
-	return appACLIPsets, netACLIPsets, nil
+	return aclIPsets
 }
 
 // Install rules will install all the rules and update the port sets.
 func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
-	var err error
-	var appACLIPset, netACLIPset []aclIPset
 	policyrules := containerInfo.Policy
 
 	if err := i.updateProxySet(containerInfo.Policy, cfg.ProxySetName); err != nil {
 		return err
 	}
 
-	if appACLIPset, netACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs()); err != nil {
-		return err
-	}
+	appACLIPset := i.getACLIPSets(policyrules.ApplicationACLs())
+	netACLIPset := i.getACLIPSets(policyrules.NetworkACLs())
 
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {

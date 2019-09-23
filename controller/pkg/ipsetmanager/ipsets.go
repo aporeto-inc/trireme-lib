@@ -27,36 +27,58 @@ type ExternalNetIPs struct {
 }
 
 type ipsetInfo struct {
-	refCount int
-	name     string
-	ips      map[string]bool
+	contextIDs map[string]bool
+	name       string
+	addresses  map[string]bool
 }
 
-type ipsetHandler struct {
-	serviceIDtoIpset      map[string]*ipsetInfo
+type handler struct {
+	serviceIDtoIPset      map[string]*ipsetInfo
 	contextIDtoServiceIDs map[string]map[string]bool
 	ipset                 provider.IpsetProvider
+	ipsetPrefix           string
+	ipFilter              func(net.IP) bool
+	ipsetParams           *ipset.Params
+	toDestroy             []string
 }
 
 var lock sync.RWMutex
-var ipsetHandlers = [2]ipsetHandler{}
+var ipv4Handler handler
+var ipv6Handler handler
+
+const (
+	ipv4String = "v4-"
+	ipv6String = "v6-"
+)
 
 func init() {
-	for i := 0; i < 2; i++ {
-		ipsetHandlers[i].serviceIDtoIpset = map[string]*ipsetInfo{}
-		ipsetHandlers[i].contextIDtoServiceIDs = map[string]map[string]bool{}
+	ipv4Handler = handler{
+		serviceIDtoIPset:      map[string]*ipsetInfo{},
+		contextIDtoServiceIDs: map[string]map[string]bool{},
+		ipsetPrefix:           ipv4String,
+		ipFilter: func(ip net.IP) bool {
+			return (ip.To4() != nil)
+		},
+		ipsetParams: &ipset.Params{},
+	}
+
+	ipv6Handler = handler{
+		serviceIDtoIPset:      map[string]*ipsetInfo{},
+		contextIDtoServiceIDs: map[string]map[string]bool{},
+		ipsetPrefix:           ipv4String,
+		ipFilter: func(ip net.IP) bool {
+			return (ip.To4() == nil)
+		},
+		ipsetParams: &ipset.Params{HashFamily: "inet6"},
 	}
 }
 
 func SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int) {
-	var ipsetManager *ipsetHandler
 	if ipsetVersion == IPsetV4 {
-		ipsetManager = &ipsetHandlers[0]
+		ipv4Handler.ipset = ipset
 	} else {
-		ipsetManager = &ipsetHandlers[1]
+		ipv6Handler.ipset = ipset
 	}
-
-	ipsetManager.ipset = ipset
 }
 
 func hashServiceID(serviceID string) string {
@@ -112,9 +134,9 @@ func DelFromIPset(set provider.Ipset, data string) error {
 	return set.Del(data)
 }
 
-func synchronizeIPsinIpset(ipsetManager *ipsetHandler, ipsetInfo *ipsetInfo, addresses []string, ipFilter func(net.IP) bool) {
+func synchronizeIPsinIpset(ipHandler *handler, ipsetInfo *ipsetInfo, addresses []string) {
 	newips := map[string]bool{}
-	ipsetHandler := ipsetManager.ipset.GetIpset(ipsetInfo.name)
+	ipsetHandler := ipHandler.ipset.GetIpset(ipsetInfo.name)
 
 	for _, address := range addresses {
 		netIP := net.ParseIP(address)
@@ -122,15 +144,14 @@ func synchronizeIPsinIpset(ipsetManager *ipsetHandler, ipsetInfo *ipsetInfo, add
 			netIP, _, _ = net.ParseCIDR(address)
 		}
 
-		if !ipFilter(netIP) {
+		if !ipHandler.ipFilter(netIP) {
 			continue
 		}
 
 		newips[address] = true
 
-		_, ok := ipsetInfo.ips[address]
-		if ok {
-			delete(ipsetInfo.ips, address)
+		if _, ok := ipsetInfo.addresses[address]; ok {
+			delete(ipsetInfo.addresses, address)
 		} else {
 			if err := AddToIPset(ipsetHandler, address); err != nil {
 				zap.L().Error("Error adding IPs to ipset", zap.String("ipset", ipsetInfo.name), zap.String("address", address))
@@ -139,7 +160,7 @@ func synchronizeIPsinIpset(ipsetManager *ipsetHandler, ipsetInfo *ipsetInfo, add
 	}
 
 	// Remove the old entries
-	for address, val := range ipsetInfo.ips {
+	for address, val := range ipsetInfo.addresses {
 		if val {
 			if err := DelFromIPset(ipsetHandler, address); err != nil {
 				zap.L().Error("Error removing IPs from ipset", zap.String("ipset", ipsetInfo.name), zap.String("address", address))
@@ -147,119 +168,178 @@ func synchronizeIPsinIpset(ipsetManager *ipsetHandler, ipsetInfo *ipsetInfo, add
 		}
 	}
 
-	ipsetInfo.ips = newips
+	ipsetInfo.addresses = newips
 }
 
-func decRefCountForServiceIDs(ipsetManager *ipsetHandler, serviceIDMap map[string]bool) {
-	for serviceID, _ := range serviceIDMap {
-		ipsetInfo := ipsetManager.serviceIDtoIpset[serviceID]
-		ipsetInfo.refCount--
-		if ipsetInfo.refCount == 0 {
-			// destroy ipsets as there is no reference
-			ips := ipsetManager.ipset.GetIpset(ipsetInfo.name)
-			if err := ips.Destroy(); err != nil {
-				zap.L().Warn("Failed to destroy ipset " + ipsetInfo.name)
-			}
+func createIPset(ipHandler *handler, serviceID string) (*ipsetInfo, error) {
+	ipsetName := "TRI-" + ipHandler.ipsetPrefix + "ext-" + hashServiceID(serviceID)
+	_, err := ipHandler.ipset.NewIpset(ipsetName, "hash:net", ipHandler.ipsetParams)
+	if err != nil {
+		return nil, err
+	}
 
-			delete(ipsetManager.serviceIDtoIpset, serviceID)
-		}
+	ipset := &ipsetInfo{contextIDs: map[string]bool{}, name: ipsetName, addresses: map[string]bool{}}
+	ipHandler.serviceIDtoIPset[serviceID] = ipset
+
+	return ipset, nil
+}
+
+func deleteServiceID(ipHandler *handler, serviceID string) {
+	ipsetInfo := ipHandler.serviceIDtoIPset[serviceID]
+	ipHandler.toDestroy = append(ipHandler.toDestroy, ipsetInfo.name)
+	delete(ipHandler.serviceIDtoIPset, serviceID)
+}
+
+func reduceReferenceFromServiceID(ipHandler *handler, contextID string, serviceID string) {
+	var ipset *ipsetInfo
+
+	if ipset = ipHandler.serviceIDtoIPset[serviceID]; ipset == nil {
+		zap.L().Error("Could not find ipset corresponding to serviceID", zap.String("serviceID", serviceID))
+		return
+	}
+
+	delete(ipset.contextIDs, contextID)
+
+	// there are no references from any pu. safe to destroy now
+	if len(ipset.contextIDs) == 0 {
+		deleteServiceID(ipHandler, serviceID)
 	}
 }
 
-func GetACLIPSets(contextID string, appExtnets policy.IPRuleList, netExtnets policy.IPRuleList, ipFilter func(net.IP) bool, ipsetPrefix string, ipsetParams *ipset.Params, ipsetVersion int) ([]string, []string, error) {
-	lock.Lock()
-	defer lock.Unlock()
+func RegisterExternalNets(contextID string, extnets policy.IPRuleList) {
 
-	newServiceIDs := map[string]bool{}
-	var ipsetManager *ipsetHandler
-	if ipsetVersion == IPsetV4 {
-		ipsetManager = &ipsetHandlers[0]
-	} else {
-		ipsetManager = &ipsetHandlers[1]
-	}
-
-	process := func(extnets policy.IPRuleList) ([]string, error) {
-		var ipsets []string
+	processExtnets := func(ipHandler *handler) error {
 		for _, extnet := range extnets {
 			var ipset *ipsetInfo
-			serviceID := extnet.Policy.ServiceID
-			if ipsetManager.serviceIDtoIpset[serviceID] == nil {
-				ipsetName := "extnet-" + ipsetPrefix + hashServiceID(serviceID)
-				_, err := ipsetManager.ipset.NewIpset(ipsetName, "hash:net", ipsetParams)
-				if err != nil {
-					return nil, err
-				}
 
-				ipset = &ipsetInfo{name: ipsetName, ips: map[string]bool{}}
-				ipsetManager.serviceIDtoIpset[serviceID] = ipset
-			} else {
-				ipset = ipsetManager.serviceIDtoIpset[serviceID]
+			serviceID := extnet.Policy.ServiceID
+			if ipset = ipHandler.serviceIDtoIPset[serviceID]; ipset == nil {
+				var err error
+				if ipset, err = createIPset(ipHandler, serviceID); err != nil {
+					return err
+				}
 			}
 
-			ipsets = append(ipsets, ipset.name)
-			synchronizeIPsinIpset(ipsetManager, ipset, extnet.Addresses, ipFilter)
-
-			ipset.refCount++
-			newServiceIDs[serviceID] = true
-			delete(ipsetManager.contextIDtoServiceIDs[contextID], serviceID)
+			synchronizeIPsinIpset(ipHandler, ipset, extnet.Addresses)
+			// have a backreference from serviceID to contextID
+			ipset.contextIDs[contextID] = true
 		}
-		return ipsets, nil
+
+		return nil
 	}
 
-	var appIPsets, netIPsets []string
-	var err error
+	processOlderExtnets := func(ipHandler *handler) {
+		newExtnets := map[string]bool{}
 
-	if appIPsets, err = process(appExtnets); err != nil {
-		return nil, nil, err
+		for _, extnet := range extnets {
+
+			serviceID := extnet.Policy.ServiceID
+			newExtnets[serviceID] = true
+			m, ok := ipHandler.contextIDtoServiceIDs[contextID]
+
+			if ok && m[serviceID] {
+				delete(m, serviceID)
+			}
+		}
+
+		for serviceID, _ := range ipHandler.contextIDtoServiceIDs[contextID] {
+			reduceReferenceFromServiceID(ipHandler, contextID, serviceID)
+		}
+
+		ipHandler.contextIDtoServiceIDs[contextID] = newExtnets
 	}
 
-	if netIPsets, err = process(netExtnets); err != nil {
-		return nil, nil, err
+	if err := processExtnets(&ipv4Handler); err != nil {
 	}
-	// decrement refcount
-	decRefCountForServiceIDs(ipsetManager, ipsetManager.contextIDtoServiceIDs[contextID])
-	ipsetManager.contextIDtoServiceIDs[contextID] = newServiceIDs
 
-	return appIPsets, netIPsets, nil
+	if err := processExtnets(&ipv6Handler); err != nil {
+	}
+
+	processOlderExtnets(&ipv4Handler)
+	processOlderExtnets(&ipv6Handler)
 }
 
-func RemoveContextIDFromExtNets(contextID string, ipsetVersion int) {
-	lock.Lock()
-	defer lock.Unlock()
+func DestroyUnusedIPsets() {
+	destroy := func(ipHandler *handler) {
+		for _, ipsetName := range ipHandler.toDestroy {
+			ipsetHandler := ipHandler.ipset.GetIpset(ipsetName)
+			if err := ipsetHandler.Destroy(); err != nil {
+				zap.L().Warn("Failed to destroy ipset", zap.String("ipset", ipsetName), zap.Error(err))
+			}
 
-	var ipsetManager *ipsetHandler
-	if ipsetVersion == IPsetV4 {
-		ipsetManager = &ipsetHandlers[0]
-	} else {
-		ipsetManager = &ipsetHandlers[1]
+		}
 	}
-	decRefCountForServiceIDs(ipsetManager, ipsetManager.contextIDtoServiceIDs[contextID])
-	delete(ipsetManager.contextIDtoServiceIDs, contextID)
+
+	destroy(&ipv4Handler)
+	destroy(&ipv6Handler)
+}
+
+func RemoveExternalNets(contextID string) {
+	process := func(ipHandler *handler) {
+		m, ok := ipHandler.contextIDtoServiceIDs[contextID]
+		if ok {
+			for serviceID, _ := range m {
+				reduceReferenceFromServiceID(ipHandler, contextID, serviceID)
+			}
+		}
+
+		delete(ipHandler.contextIDtoServiceIDs, contextID)
+	}
+
+	process(&ipv4Handler)
+	process(&ipv6Handler)
+
+	DestroyUnusedIPsets()
+}
+
+func GetIPsets(extnets policy.IPRuleList, ipver int) []string {
+	var ipHandler *handler
+
+	if ipver == IPsetV4 {
+		ipHandler = &ipv4Handler
+	} else {
+		ipHandler = &ipv6Handler
+	}
+
+	var ipsets []string
+
+	for _, extnet := range extnets {
+		serviceID := extnet.Policy.ServiceID
+
+		ipsetInfo, ok := ipHandler.serviceIDtoIPset[serviceID]
+		if ok {
+			ipsets = append(ipsets, ipsetInfo.name)
+		}
+	}
+
+	return ipsets
 }
 
 func UpdateIPsets(addresses []string, serviceID string) {
 	lock.Lock()
 	defer lock.Unlock()
-	var ipsetManager *ipsetHandler
 
-	for _, address := range addresses {
-		netIP := net.ParseIP(address)
-		if netIP == nil {
-			netIP, _, _ = net.ParseCIDR(address)
-		}
-
-		if netIP.To4() != nil {
-			ipsetManager = &ipsetHandlers[0]
-		} else {
-			ipsetManager = &ipsetHandlers[1]
-		}
-
-		if ipset := ipsetManager.serviceIDtoIpset[serviceID]; ipset != nil {
-			ipsetHandler := ipsetManager.ipset.GetIpset(ipset.name)
-			if err := AddToIPset(ipsetHandler, address); err != nil {
-				zap.L().Error("Error adding IPs to ipset", zap.String("ipset", ipset.name), zap.String("address", address))
+	process := func(ipHandler *handler) {
+		for _, address := range addresses {
+			netIP := net.ParseIP(address)
+			if netIP == nil {
+				netIP, _, _ = net.ParseCIDR(address)
 			}
-			ipset.ips[address] = true
+
+			if !ipHandler.ipFilter(netIP) {
+				continue
+			}
+
+			if ipset := ipHandler.serviceIDtoIPset[serviceID]; ipset != nil {
+				ipsetHandler := ipHandler.ipset.GetIpset(ipset.name)
+				if err := AddToIPset(ipsetHandler, address); err != nil {
+					zap.L().Error("Error adding IPs to ipset", zap.String("ipset", ipset.name), zap.String("address", address))
+				}
+				ipset.addresses[address] = true
+			}
 		}
 	}
+
+	process(&ipv4Handler)
+	process(&ipv6Handler)
 }

@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
@@ -171,6 +172,7 @@ func (s *Config) Unsupervise(contextID string) error {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
 	}
 
+	ipsetmanager.RemoveExternalNets(contextID)
 	return nil
 }
 
@@ -215,6 +217,9 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Version the policy so that we can do hitless policy changes
 	s.versionTracker.AddOrUpdate(contextID, c)
 
+	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.ApplicationACLs())
+	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.NetworkACLs())
+
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
@@ -241,8 +246,10 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
-	c := data.(*cacheData)
+	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.ApplicationACLs())
+	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.NetworkACLs())
 
+	c := data.(*cacheData)
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
 		zap.L().Error("Update rules failed with error", zap.Error(err))
@@ -255,6 +262,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
+	ipsetmanager.DestroyUnusedIPsets()
 
 	s.Unlock()
 	return nil
