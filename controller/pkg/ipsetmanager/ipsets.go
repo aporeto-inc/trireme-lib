@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/aporeto-inc/go-ipset/ipset"
+	ipsetpackage "github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 
@@ -38,46 +38,43 @@ type handler struct {
 	ipset                 provider.IpsetProvider
 	ipsetPrefix           string
 	ipFilter              func(net.IP) bool
-	ipsetParams           *ipset.Params
+	ipsetParams           *ipsetpackage.Params
 	toDestroy             []string
 }
 
 var lock sync.RWMutex
-var ipv4Handler handler
-var ipv6Handler handler
+var ipv4Handler *handler
+var ipv6Handler *handler
 
 const (
 	ipv4String = "v4-"
 	ipv6String = "v6-"
 )
 
-func init() {
-	ipv4Handler = handler{
-		serviceIDtoIPset:      map[string]*ipsetInfo{},
-		contextIDtoServiceIDs: map[string]map[string]bool{},
-		ipsetPrefix:           ipv4String,
-		ipFilter: func(ip net.IP) bool {
-			return (ip.To4() != nil)
-		},
-		ipsetParams: &ipset.Params{},
-	}
-
-	ipv6Handler = handler{
-		serviceIDtoIPset:      map[string]*ipsetInfo{},
-		contextIDtoServiceIDs: map[string]map[string]bool{},
-		ipsetPrefix:           ipv4String,
-		ipFilter: func(ip net.IP) bool {
-			return (ip.To4() == nil)
-		},
-		ipsetParams: &ipset.Params{HashFamily: "inet6"},
-	}
-}
-
 func SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int) {
 	if ipsetVersion == IPsetV4 {
-		ipv4Handler.ipset = ipset
+		ipv4Handler = &handler{
+			serviceIDtoIPset:      map[string]*ipsetInfo{},
+			contextIDtoServiceIDs: map[string]map[string]bool{},
+			ipset:                 ipset,
+			ipsetPrefix:           ipv4String,
+			ipFilter: func(ip net.IP) bool {
+				return (ip.To4() != nil)
+			},
+			ipsetParams: &ipsetpackage.Params{},
+		}
+
 	} else {
-		ipv6Handler.ipset = ipset
+		ipv6Handler = &handler{
+			serviceIDtoIPset:      map[string]*ipsetInfo{},
+			contextIDtoServiceIDs: map[string]map[string]bool{},
+			ipset:                 ipset,
+			ipsetPrefix:           ipv6String,
+			ipFilter: func(ip net.IP) bool {
+				return (ip.To4() == nil)
+			},
+			ipsetParams: &ipsetpackage.Params{HashFamily: "inet6"},
+		}
 	}
 }
 
@@ -249,14 +246,14 @@ func RegisterExternalNets(contextID string, extnets policy.IPRuleList) {
 		ipHandler.contextIDtoServiceIDs[contextID] = newExtnets
 	}
 
-	if err := processExtnets(&ipv4Handler); err != nil {
+	if err := processExtnets(ipv4Handler); err != nil {
 	}
 
-	if err := processExtnets(&ipv6Handler); err != nil {
+	if err := processExtnets(ipv6Handler); err != nil {
 	}
 
-	processOlderExtnets(&ipv4Handler)
-	processOlderExtnets(&ipv6Handler)
+	processOlderExtnets(ipv4Handler)
+	processOlderExtnets(ipv6Handler)
 }
 
 func DestroyUnusedIPsets() {
@@ -270,8 +267,8 @@ func DestroyUnusedIPsets() {
 		}
 	}
 
-	destroy(&ipv4Handler)
-	destroy(&ipv6Handler)
+	destroy(ipv4Handler)
+	destroy(ipv6Handler)
 }
 
 func RemoveExternalNets(contextID string) {
@@ -286,8 +283,8 @@ func RemoveExternalNets(contextID string) {
 		delete(ipHandler.contextIDtoServiceIDs, contextID)
 	}
 
-	process(&ipv4Handler)
-	process(&ipv6Handler)
+	process(ipv4Handler)
+	process(ipv6Handler)
 
 	DestroyUnusedIPsets()
 }
@@ -296,9 +293,9 @@ func GetIPsets(extnets policy.IPRuleList, ipver int) []string {
 	var ipHandler *handler
 
 	if ipver == IPsetV4 {
-		ipHandler = &ipv4Handler
+		ipHandler = ipv4Handler
 	} else {
-		ipHandler = &ipv6Handler
+		ipHandler = ipv6Handler
 	}
 
 	var ipsets []string
@@ -340,6 +337,6 @@ func UpdateIPsets(addresses []string, serviceID string) {
 		}
 	}
 
-	process(&ipv4Handler)
-	process(&ipv6Handler)
+	process(ipv4Handler)
+	process(ipv6Handler)
 }

@@ -481,7 +481,7 @@ var (
 
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-s TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
 			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
@@ -940,8 +940,11 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 				})
 
-				ipsetmanager.RegisterExternalNets("pu1", puInfo.Policy.ApplicationACLs())
-				ipsetmanager.RegisterExternalNets("pu1", puInfo.Policy.ApplicationACLs())
+				var iprules policy.IPRuleList
+
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1017,8 +1020,15 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						CgroupMark: "10",
 					})
 
+					var iprules policy.IPRuleList
+
+					iprules = append(iprules, puInfoUpdated.Policy.ApplicationACLs()...)
+					iprules = append(iprules, puInfoUpdated.Policy.NetworkACLs()...)
+					ipsetmanager.RegisterExternalNets("pu1", iprules)
+
 					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
+					ipsetmanager.DestroyUnusedIPsets()
 
 					t := i.iptv4.impl.RetrieveTable()
 					for chain, rules := range t["mangle"] {
@@ -1028,6 +1038,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
 						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						ipsetmanager.RemoveExternalNets("pu1")
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
 						So(err, ShouldBeNil)
@@ -1212,6 +1223,11 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 				})
 
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
+
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				err = i.AddPortToPortSet("pu1", "8080")
@@ -1389,6 +1405,11 @@ func Test_ExtensionsV4(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1569,6 +1590,11 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 				})
 
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
+
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				err = i.AddPortToPortSet("pu1", "8080")
@@ -1698,7 +1724,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-x1uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
@@ -1869,6 +1895,12 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
+
 				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()

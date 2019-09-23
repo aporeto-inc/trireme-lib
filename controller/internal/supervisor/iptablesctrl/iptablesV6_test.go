@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -252,9 +253,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -266,10 +267,10 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -309,10 +310,10 @@ var (
 		"TRI" + "-v6-" + targetUDPNetworkSet: {"1120::/64"},
 		"TRI" + "-v6-" + excludedNetworkSet:  {"::1"},
 		"TRI-v6-ProcPort-pu19gtV":            {},
-		"TRI-v6-ext-6zlJIpu19gtV":            {"1120::/64"},
-		"TRI-v6-ext-uNdc0pu19gtV":            {"1120::/64"},
-		"TRI-v6-ext-w5frVpu19gtV":            {"1122::/64"},
-		"TRI-v6-ext-IuSLspu19gtV":            {"1122::/64"},
+		"TRI-v6-ext-6zlJIvP3B68=":            {"1120::/64"},
+		"TRI-v6-ext-uNdc0vdcFZA=":            {"1120::/64"},
+		"TRI-v6-ext-w5frVvhsnpU=":            {"1122::/64"},
+		"TRI-v6-ext-IuSLsD1R-mE=":            {"1122::/64"},
 		"TRI-v6-Proxy-pu19gtV-dst":           {},
 		"TRI-v6-Proxy-pu19gtV-srv":           {},
 	}
@@ -375,7 +376,7 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -387,7 +388,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -565,6 +566,11 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
 
 				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -771,9 +777,9 @@ var (
 			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
@@ -785,9 +791,9 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
@@ -824,10 +830,10 @@ var (
 		"TRI-v6-" + targetUDPNetworkSet: {"1120::/64"},
 		"TRI-v6-" + excludedNetworkSet:  {"::1"},
 		"TRI-v6-ProcPort-pu19gtV":       {},
-		"TRI-v6-ext-6zlJIpu19gtV":       {"1120::/64"},
-		"TRI-v6-ext-uNdc0pu19gtV":       {"1120::/64"},
-		"TRI-v6-ext-w5frVpu19gtV":       {"1122::/64"},
-		"TRI-v6-ext-IuSLspu19gtV":       {"1122::/64"},
+		"TRI-v6-ext-6zlJIvP3B68=":       {"1120::/64"},
+		"TRI-v6-ext-uNdc0vdcFZA=":       {"1120::/64"},
+		"TRI-v6-ext-w5frVvhsnpU=":       {"1122::/64"},
+		"TRI-v6-ext-IuSLsD1R-mE=":       {"1122::/64"},
 		"TRI-v6-Proxy-pu19gtV-dst":      {},
 		"TRI-v6-Proxy-pu19gtV-srv":      {},
 	}
@@ -959,6 +965,12 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				ipsetmanager.RegisterExternalNets("pu1", iprules)
+
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv6.impl.RetrieveTable()

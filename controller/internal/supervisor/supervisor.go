@@ -217,8 +217,12 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Version the policy so that we can do hitless policy changes
 	s.versionTracker.AddOrUpdate(contextID, c)
 
-	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.ApplicationACLs())
-	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.NetworkACLs())
+	var iprules policy.IPRuleList
+
+	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
+	iprules = append(iprules, pu.Policy.NetworkACLs()...)
+
+	ipsetmanager.RegisterExternalNets(contextID, iprules)
 
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
@@ -246,8 +250,11 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
-	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.ApplicationACLs())
-	ipsetmanager.RegisterExternalNets(contextID, pu.Policy.NetworkACLs())
+	var iprules policy.IPRuleList
+
+	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
+	iprules = append(iprules, pu.Policy.NetworkACLs()...)
+	ipsetmanager.RegisterExternalNets(contextID, iprules)
 
 	c := data.(*cacheData)
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
