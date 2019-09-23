@@ -23,7 +23,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		return err
 	}
 
-	callback := func(packetInfoPtr, dataPtr uintptr) uintptr {
+	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
 		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
 		packetBytes := make([]byte, packetInfo.PacketSize)
@@ -163,7 +163,12 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		return 0
 	}
 
-	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, syscall.NewCallbackCDecl(callback))
+	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
+		// TODO
+		return 0
+	}
+
+	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed: %v", frontman.PacketFilterStartProc.Name, err)
 	}

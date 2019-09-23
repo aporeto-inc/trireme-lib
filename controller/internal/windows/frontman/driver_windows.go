@@ -81,6 +81,13 @@ type PacketInfo struct {
 	StartTime2 uint64
 }
 
+type LogPacketInfo struct {
+	Outbound   int32
+	PacketSize uint32
+	GroupId    uint32
+	LogPrefix  [64]uint16
+}
+
 type IpsetRuleSpec struct {
 	NotIpset     uint8
 	IpsetDstIp   uint8
