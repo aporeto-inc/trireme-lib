@@ -120,7 +120,7 @@ func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUP
 		t.locks.Delete(puID)
 		lock.(*sync.Mutex).Unlock()
 	}()
-	return t.doHandleDelete(puID, runtime)
+	return t.doHandleDelete(puID, policy, runtime)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
@@ -129,6 +129,20 @@ func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUP
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 	return t.doUpdatePolicy(puID, plc, runtime)
+}
+
+func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
+	return t.doHandleEnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval)
+}
+
+func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
+	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
 // UpdateSecrets updates the secrets of the controllers.
@@ -198,13 +212,15 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -219,10 +235,12 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 }
 
 // doHandleDelete is the detailed implementation of the delete event.
-func (t *trireme) doHandleDelete(contextID string, runtime *policy.PURuntime) error {
+func (t *trireme) doHandleDelete(contextID string, policyInfo *policy.PUPolicy, runtime *policy.PURuntime) error {
 
-	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
-	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
+	modeType := t.modeTypeFromPolicy(policyInfo, runtime)
+
+	errS := t.supervisors[modeType].Unsupervise(contextID)
+	errE := t.enforcers[modeType].Unenforce(contextID)
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
@@ -249,9 +267,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-		if werr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); werr != nil {
+		if werr := t.supervisors[modeType].Unsupervise(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -260,8 +280,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		return fmt.Errorf("unable to update policy for pu %s: %s", contextID, err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -281,11 +301,14 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 }
 
 //Debug Handlers
-func (t *trireme) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
-	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableDatapathPacketTracing(contextID, direction, interval)
+func (t *trireme) doHandleEnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].EnableDatapathPacketTracing(ctx, puID, direction, interval)
 }
 
-func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
+func (t *trireme) doHandleEnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+
+	modeType := t.modeTypeFromPolicy(policy, runtime)
 
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
@@ -302,11 +325,11 @@ func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, contextID str
 		expiry:   time.Now().Add(interval),
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval); err != nil {
+	if err := t.supervisors[modeType].EnableIPTablesPacketTracing(ctx, puID, interval); err != nil {
 		return err
 	}
 
-	return t.enforcers[t.puTypeToEnforcerType[putype]].EnableIPTablesPacketTracing(ctx, contextID, interval)
+	return t.enforcers[modeType].EnableIPTablesPacketTracing(ctx, puID, interval)
 }
 
 func (t *trireme) runIPTraceCollector(ctx context.Context) {
@@ -337,4 +360,43 @@ func (t *trireme) runIPTraceCollector(ctx context.Context) {
 		}
 	}
 
+}
+
+func (t *trireme) modeTypeFromPolicy(policyInfo *policy.PUPolicy, runtime *policy.PURuntime) constants.ModeType {
+	if policyInfo == nil {
+		// there are edge cases when policyInfo really can be nil - and it is fine
+		// let's just fall back to the normal enforcertype mapping if this is the case
+		//
+		// Here is an example: when a PU Create event failed, but the PU gets destroyed afterwards, there is a stop
+		// event generated which will call UnEnforce. However, in this case there is no guarantee that PUPolicy has
+		// actually ever been set.
+		zap.L().Debug("modeTypeFromPolicy received no PU policy", zap.String("name", runtime.Name()))
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
+
+	switch policyInfo.EnforcerType() {
+	case policy.EnforcerMapping:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	case policy.EnvoyAuthorizerEnforcer:
+		switch runtime.PUType() {
+		case common.KubernetesPU:
+			fallthrough
+		case common.ContainerPU:
+			return constants.RemoteContainerEnvoyAuthorizer
+		case common.UIDLoginPU:
+			fallthrough
+		case common.HostPU:
+			fallthrough
+		case common.HostNetworkPU:
+			fallthrough
+		case common.SSHSessionPU:
+			fallthrough
+		case common.LinuxProcessPU:
+			return constants.LocalEnvoyAuthorizer
+		default:
+			return t.puTypeToEnforcerType[runtime.PUType()]
+		}
+	default:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
 }

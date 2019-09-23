@@ -58,6 +58,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.commandArg,
 		s.statsServerSecret,
 		s.procMountPoint,
+		puInfo.Policy.EnforcerType(),
 	)
 	if err != nil {
 		return err
@@ -191,7 +192,7 @@ func (s *ProxyInfo) CleanUp() error {
 }
 
 // EnableDatapathPacketTracing enable nfq packet tracing in remote container
-func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+func (s *ProxyInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 
 	resp := &rpcwrapper.Response{}
 

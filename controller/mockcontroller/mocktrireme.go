@@ -10,7 +10,6 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	common "go.aporeto.io/trireme-lib/common"
 	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	runtime "go.aporeto.io/trireme-lib/controller/runtime"
@@ -144,30 +143,30 @@ func (mr *MockTriremeControllerMockRecorder) UpdateConfiguration(cfg interface{}
 
 // EnableDatapathPacketTracing mocks base method
 // nolint
-func (m *MockTriremeController) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
-	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval, putype)
+func (m *MockTriremeController) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, puID, policy, runtime, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
-func (mr *MockTriremeControllerMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval, putype interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableDatapathPacketTracing), contextID, direction, interval, putype)
+func (mr *MockTriremeControllerMockRecorder) EnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableDatapathPacketTracing), ctx, puID, policy, runtime, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method
 // nolint
-func (m *MockTriremeController) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
-	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval, putype)
+func (m *MockTriremeController) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, puID, policy, runtime, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
 // nolint
-func (mr *MockTriremeControllerMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval, putype interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval, putype)
+func (mr *MockTriremeControllerMockRecorder) EnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }
 
 // MockDebugInfo is a mock of DebugInfo interface
@@ -199,28 +198,28 @@ func (m *MockDebugInfo) EXPECT() *MockDebugInfoMockRecorder {
 
 // EnableDatapathPacketTracing mocks base method
 // nolint
-func (m *MockDebugInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration, putype common.PUType) error {
-	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", contextID, direction, interval, putype)
+func (m *MockDebugInfo) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, puID, policy, runtime, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
-func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(contextID, direction, interval, putype interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), contextID, direction, interval, putype)
+func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), ctx, puID, policy, runtime, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method
 // nolint
-func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration, putype common.PUType) error {
-	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval, putype)
+func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, puID, policy, runtime, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
 // nolint
-func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval, putype interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval, putype)
+func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }

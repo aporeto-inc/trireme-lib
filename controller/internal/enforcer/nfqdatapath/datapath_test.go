@@ -4669,7 +4669,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		So(err, ShouldBeNil)
 		Convey("We setup tcp network packet tracing for this pu with incomplete state", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4687,7 +4687,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		})
 		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil state", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4707,7 +4707,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		})
 		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil and inject application packet", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4736,7 +4736,7 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
 		Convey("I enable packettracing on a PU", func() {
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.ApplicationOnly, 10*time.Second)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.ApplicationOnly, 10*time.Second)
 			So(err, ShouldBeNil)
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
