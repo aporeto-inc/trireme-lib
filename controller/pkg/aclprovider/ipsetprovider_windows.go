@@ -44,10 +44,10 @@ type winIpSet struct {
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params) (Ipset, error) {
-	zap.L().Error("NewIpset",
-		zap.String("Name", name),
-		zap.String("IpsetType", ipsetType))
-
+	/* zap.L().Error("NewIpset",
+	zap.String("Name", name),
+	zap.String("IpsetType", ipsetType))
+	*/
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get driver handle: %v", err)

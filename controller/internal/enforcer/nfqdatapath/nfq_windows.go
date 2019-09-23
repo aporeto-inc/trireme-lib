@@ -5,7 +5,6 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
-	"net"
 	"strconv"
 	"syscall"
 	"unsafe"
@@ -42,7 +41,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		}
 
 		// TODO(windows): temp
-		var localAddr, remoteAddr string
+		/* var localAddr, remoteAddr string
 		if packetInfo.Ipv4 != 0 {
 			localAddr = net.IPv4(byte(packetInfo.LocalAddr[0]&0xff),
 				byte((packetInfo.LocalAddr[0]&0xff00)>>8),
@@ -61,10 +60,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 				strconv.Itoa(int(packetInfo.RemoteAddr[1])) +
 				strconv.Itoa(int(packetInfo.RemoteAddr[2])) +
 				strconv.Itoa(int(packetInfo.RemoteAddr[3]))
-		}
-		zap.L().Info(fmt.Sprintf("got packet of size %d and mark %d and outbound is %d with localPort %d and localAddr %v and remotePort %d and remoteAddr %v and other %d %d %d",
-			packetInfo.PacketSize, packetInfo.Mark, packetInfo.Outbound, packetInfo.LocalPort, localAddr, packetInfo.RemotePort,
-			remoteAddr, packetInfo.Ipv4, packetInfo.Protocol, packetInfo.Outbound))
+		} */
 
 		// Parse the packet
 		mark := int(packetInfo.Mark)

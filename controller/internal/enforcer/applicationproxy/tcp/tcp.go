@@ -288,6 +288,7 @@ func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, nativeD
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downConn net.Conn) (bool, error) {
+	zap.L().Error("StartClientAuthStateMachine")
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
@@ -307,13 +308,11 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
-	isEncrypted, externalnetwork, err := p.CheckExternalNetwork(puContext, downIP, downPort, flowproperties, true)
+	isEncrypted, _, err = p.CheckExternalNetwork(puContext, downIP, downPort, flowproperties, true)
 	if err != nil {
 		return false, err
 	}
-	if externalnetwork {
-		return false, nil
-	}
+
 	for {
 		switch conn.GetState() {
 		case connection.ClientTokenSend:

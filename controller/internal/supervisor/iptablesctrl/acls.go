@@ -164,7 +164,7 @@ func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 			return i.mode == constants.LocalServer
 		},
 	}).Parse(containerChains))
-	zap.L().Error("ADD CONTAINER CHAINS")
+
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
