@@ -12,6 +12,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
@@ -64,8 +65,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		zap.L().Info(fmt.Sprintf("got packet of size %d and mark %d and outbound is %d with localPort %d and localAddr %v and remotePort %d and remoteAddr %v and other %d %d %d",
 			packetInfo.PacketSize, packetInfo.Mark, packetInfo.Outbound, packetInfo.LocalPort, localAddr, packetInfo.RemotePort,
 			remoteAddr, packetInfo.Ipv4, packetInfo.Protocol, packetInfo.Outbound))
-		//frontman.PacketFilterForwardProc.Call(packetInfoPtr, uintptr(unsafe.Pointer(&packetBytes[0])))
-		//return 0
 
 		// Parse the packet
 		mark := int(packetInfo.Mark)
@@ -90,6 +89,8 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		} else {
 			processError = fmt.Errorf("invalid ip protocol: %d", parsedPacket.IPProto())
 		}
+
+		defer d.conntrack.(*flowtracking.Client).ClearIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort())
 
 		if processError != nil {
 			zap.L().Error(fmt.Sprintf("Got ERROR: %v", processError))
@@ -129,6 +130,10 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
+		// TODO(windows): is the ignore flow impl ok? does it work in multithreaded situations?
+		if d.conntrack.(*flowtracking.Client).ShouldIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort()) {
+			packetInfo.IgnoreFlow = 1
+		}
 		zap.L().Info(fmt.Sprintf("forwarding modified packet of size %d and mark %d", packetInfo.PacketSize, packetInfo.Mark))
 		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
 		if dllRet == 0 {

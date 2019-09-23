@@ -129,6 +129,8 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	ip, port := upConnP.GetOriginalDestination()
 	nativeData := upConnP.GetNativeData()
 
+	zap.L().Info(fmt.Sprintf("Handling Proxy Connection %s:%d", ip.String(), port))
+
 	downConn, err := p.downConnection(ctx, ip, port, nativeData)
 	if err != nil {
 
