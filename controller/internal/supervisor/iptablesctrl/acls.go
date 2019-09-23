@@ -228,6 +228,32 @@ func (i *iptables) addChainRules(cfg *ACLInfo) error {
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
 func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
 
+	// We insert the udp nfq rules at the top of the pu chain, before the external acls.
+	udpNfqRules := [][]string{
+		[]string{
+			appPacketIPTableContext,
+			cfg.AppChain,
+			"1",
+			"-p", "udp",
+			"-m", "set", "--match-set", cfg.TargetUDPNetSet, "dst",
+			"-j", "NFQUEUE", "--queue-balance", cfg.QueueBalanceAppSyn,
+		},
+		[]string{
+			appPacketIPTableContext,
+			cfg.AppChain,
+			"2",
+			"-p", "udp",
+			"-m", "set", "--match-set", cfg.TargetUDPNetSet, "dst",
+			"-m", "state", "--state", "ESTABLISHED",
+			"-m", "comment", "--comment", "UDP-Established-Connections",
+			"-j", "ACCEPT",
+		},
+	}
+
+	if err := i.processRulesFromList(udpNfqRules, "Insert"); err != nil {
+		return err
+	}
+
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
 }
 

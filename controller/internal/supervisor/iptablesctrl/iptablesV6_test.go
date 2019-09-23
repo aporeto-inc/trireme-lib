@@ -266,6 +266,8 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
 			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVpu19gtV dst -j ACCEPT",
@@ -273,8 +275,6 @@ var (
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
@@ -387,12 +387,12 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
@@ -778,14 +778,14 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
