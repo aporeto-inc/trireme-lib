@@ -405,6 +405,9 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	if resp.HookMethod != "" {
 		if hook, ok := p.hooks[resp.HookMethod]; ok {
 			if isHook, err := hook(w, r); err != nil || isHook {
+				if err != nil {
+					state.stats.Action = policy.Reject
+				}
 				return
 			}
 		} else {
