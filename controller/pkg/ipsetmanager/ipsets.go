@@ -21,7 +21,7 @@ const (
 	IPv4DefaultIP = "0.0.0.0/0"
 	//IPsetV4 version for ipv4
 	IPsetV4 = iota
-	///IPsetV6 version for ipv6
+	//IPsetV6 version for ipv6
 	IPsetV6
 )
 

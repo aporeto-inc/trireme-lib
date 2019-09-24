@@ -250,7 +250,12 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
 	iprules = append(iprules, pu.Policy.NetworkACLs()...)
-	ipsetmanager.RegisterExternalNets(contextID, iprules)
+
+	if err := ipsetmanager.RegisterExternalNets(contextID, iprules); err != nil {
+		s.Unlock()
+		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
+		return err
+	}
 
 	c := data.(*cacheData)
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
