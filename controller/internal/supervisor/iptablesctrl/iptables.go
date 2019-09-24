@@ -167,7 +167,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Cleaning the iptable rules")
-
 		i.CleanUp() // nolint
 	}()
 
@@ -353,6 +352,7 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 }
 
 func (i *iptables) CleanUp() error {
+
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}

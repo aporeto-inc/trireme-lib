@@ -109,3 +109,15 @@ func (m *MockEventCollector) CollectCounterEvent(counterReport *collector.Counte
 func (mr *MockEventCollectorMockRecorder) CollectCounterEvent(counterReport interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectCounterEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectCounterEvent), counterReport)
 }
+
+// CollectDNSRequests mocks base method
+// nolint
+func (m *MockEventCollector) CollectDNSRequests(request *collector.DNSRequestReport) {
+	m.ctrl.Call(m, "CollectDNSRequests", request)
+}
+
+// CollectDNSRequests indicates an expected call of CollectDNSRequests
+// nolint
+func (mr *MockEventCollectorMockRecorder) CollectDNSRequests(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDNSRequests", reflect.TypeOf((*MockEventCollector)(nil).CollectDNSRequests), request)
+}

@@ -12,10 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -61,6 +58,7 @@ func newRemoteEnforcer(
 	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
+	enforcerType policy.EnforcerType,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -125,6 +123,7 @@ func newRemoteEnforcer(
 		exit:            make(chan bool),
 		zapConfig:       zapConfig,
 		tokenIssuer:     tokenIssuer,
+		enforcerType:    enforcerType,
 	}, nil
 }
 
@@ -401,7 +400,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
 
-	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+	if err := s.enforcer.EnableDatapathPacketTracing(context.TODO(), payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -502,6 +501,13 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		return err
 	}
 
+	// we are usually always starting RemoteContainer enforcers,
+	// however, if envoy is requested, we change the mode to RemoteContainerEnvoyAuthorizer
+	mode := constants.RemoteContainer
+	if s.enforcerType == policy.EnvoyAuthorizerEnforcer {
+		mode = constants.RemoteContainerEnvoyAuthorizer
+	}
+
 	if s.enforcer, err = createEnforcer(
 		payload.MutualAuth,
 		payload.FqConfig,
@@ -510,7 +516,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		s.secrets,
 		payload.ServerID,
 		payload.Validity,
-		constants.RemoteContainer,
+		mode,
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
@@ -526,10 +532,17 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
+	// we are usually always starting RemoteContainer enforcers,
+	// however, if envoy is requested, we change the mode to RemoteContainerEnvoyAuthorizer
+	mode := constants.RemoteContainer
+	if s.enforcerType == policy.EnvoyAuthorizerEnforcer {
+		mode = constants.RemoteContainerEnvoyAuthorizer
+	}
+
 	h, err := createSupervisor(
 		s.collector,
 		s.enforcer,
-		constants.RemoteContainer,
+		mode,
 		payload.Configuration,
 		s.service,
 	)
@@ -587,8 +600,13 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 		return err
 	}
 
+	enforcerType, err := policy.EnforcerTypeFromString(os.Getenv(constants.EnvEnforcerType))
+	if err != nil {
+		return err
+	}
+
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig, enforcerType)
 	if err != nil {
 		return err
 	}
@@ -631,17 +649,6 @@ func validateNamespace() error {
 	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
 	if nsEnterState != "" {
 		return fmt.Errorf("nsErr: %s nsLogs: %s", nsEnterState, nsEnterLogMsg)
-	}
-
-	pid := strconv.Itoa(os.Getpid())
-	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	if err != nil {
-		zap.L().Warn("Unable to identity namespace - ip netns commands not available", zap.Error(err))
-	}
-
-	netnsString := strings.TrimSpace(string(netns))
-	if netnsString == "" {
-		zap.L().Warn("Unable to identity namespace - ip netns commands returned empty and will not be available")
 	}
 
 	return nil

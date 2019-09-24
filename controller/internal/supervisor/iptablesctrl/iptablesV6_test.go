@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
@@ -89,6 +88,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			policy.EnforcerMapping,
 		)
 		containerinfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -544,6 +544,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -638,6 +639,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						nil,
 						nil,
 						[]string{},
+						policy.EnforcerMapping,
 					)
 					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 					puInfoUpdated.Policy = policyrules
@@ -674,13 +676,6 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 								So(rules, ShouldResemble, expectedGlobalNATChainsV6[chain])
 							}
 						}
-
-						Convey("When I cancel the context, it should cleanup", func() {
-							cancel()
-							time.Sleep(1 * time.Second)
-							t := i.iptv6.impl.RetrieveTable()
-							So(len(t["mangle"]), ShouldEqual, 2)
-						})
 					})
 				})
 			})
@@ -959,6 +954,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 				puInfo.Policy = policyrules
@@ -1013,13 +1009,6 @@ func Test_OperationWithContainersV6(t *testing.T) {
 						So(expectedContainerGlobalNATChainsV6, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalNATChainsV6[chain])
 					}
-
-					Convey("When I cancel the context, it should cleanup", func() {
-						cancel()
-						time.Sleep(1 * time.Second)
-						t := i.iptv6.impl.RetrieveTable()
-						So(len(t["mangle"]), ShouldEqual, 2)
-					})
 				})
 
 			})
