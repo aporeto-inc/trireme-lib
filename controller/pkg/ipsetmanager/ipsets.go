@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	//default ip for ipv6
+	//IPv6DefaultIP is the default ip of v6
 	IPv6DefaultIP = "::/0"
-	// default ip for ipv4
+	//IPv4DefaultIP is the  default ip for v4
 	IPv4DefaultIP = "0.0.0.0/0"
-	// ipset version for ipv4
+	//IPsetV4 version for ipv4
 	IPsetV4 = iota
-	/// ipset version for ipv6
+	///IPsetV6 version for ipv6
 	IPsetV6
 )
 
@@ -149,13 +149,12 @@ func synchronizeIPsinIpset(ipHandler *handler, ipsetInfo *ipsetInfo, addresses [
 
 		newips[address] = true
 
-		if _, ok := ipsetInfo.addresses[address]; ok {
-			delete(ipsetInfo.addresses, address)
-		} else {
+		if _, ok := ipsetInfo.addresses[address]; !ok {
 			if err := AddToIPset(ipsetHandler, address); err != nil {
 				zap.L().Error("Error adding IPs to ipset", zap.String("ipset", ipsetInfo.name), zap.String("address", address))
 			}
 		}
+		delete(ipsetInfo.addresses, address)
 	}
 
 	// Remove the old entries

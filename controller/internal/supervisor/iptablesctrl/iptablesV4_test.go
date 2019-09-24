@@ -945,7 +945,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules)
+				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1026,7 +1026,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 					iprules = append(iprules, puInfoUpdated.Policy.ApplicationACLs()...)
 					iprules = append(iprules, puInfoUpdated.Policy.NetworkACLs()...)
-					ipsetmanager.RegisterExternalNets("pu1", iprules)
+					ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
@@ -1222,7 +1222,7 @@ func Test_ExtensionsV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules)
+				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
