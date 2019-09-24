@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
@@ -149,6 +150,9 @@ func TestSupervise(t *testing.T) {
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
+		ips := provider.NewTestIpsetProvider()
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV4)
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV6)
 
 		Convey("When I supervise a new PU with invalid policy", func() {
 			err := s.Supervise("contextID", nil)
