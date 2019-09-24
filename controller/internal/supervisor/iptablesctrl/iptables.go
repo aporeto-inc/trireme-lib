@@ -500,10 +500,10 @@ func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
 	ipsets := ipsetmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
 
-	var aclIPsets []aclIPset
+	aclIPsets := make([]aclIPset, len(ipsets))
 
 	for i, ipset := range ipsets {
-		aclIPsets = append(aclIPsets, aclIPset{ipset, &ipRules[i]})
+		aclIPsets[i] = aclIPset{ipset, &ipRules[i]}
 	}
 
 	return aclIPsets
