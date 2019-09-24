@@ -207,7 +207,11 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
 	iprules = append(iprules, pu.Policy.NetworkACLs()...)
 
-	ipsetmanager.RegisterExternalNets(contextID, iprules)
+	if err := ipsetmanager.RegisterExternalNets(contextID, iprules); err != nil {
+		s.Unlock()
+		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
+		return err
+	}
 
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
