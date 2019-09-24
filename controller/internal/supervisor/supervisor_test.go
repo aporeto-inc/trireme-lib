@@ -230,6 +230,9 @@ func TestUnsupervise(t *testing.T) {
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
+		ips := provider.NewTestIpsetProvider()
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV4)
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV6)
 
 		Convey("When I try to unsupervise a PU that was not see before", func() {
 			err := s.Unsupervise("badContext")
@@ -357,6 +360,9 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
+		ips := provider.NewTestIpsetProvider()
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV4)
+		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV6)
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
