@@ -571,7 +571,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -965,7 +965,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)

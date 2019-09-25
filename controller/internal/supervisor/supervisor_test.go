@@ -361,8 +361,8 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 		ips := provider.NewTestIpsetProvider()
-		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV4)
-		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV6)
+		ipsetmanager.GetManager().SetIpsetProvider(ips, ipsetmanager.IPsetV4)
+		ipsetmanager.GetManager().SetIpsetProvider(ips, ipsetmanager.IPsetV6)
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)

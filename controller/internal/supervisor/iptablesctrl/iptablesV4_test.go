@@ -27,10 +27,10 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
 
-	ipsetmanager.SetIpsetProvider(ipsv4, ipv4Impl.IPsetVersion())
+	ipsetmanager.GetManager().SetIpsetProvider(ipsv4, ipv4Impl.IPsetVersion())
 	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode)
 
-	ipsetmanager.SetIpsetProvider(ipsv6, ipv6Impl.IPsetVersion())
+	ipsetmanager.GetManager().SetIpsetProvider(ipsv6, ipv6Impl.IPsetVersion())
 	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
@@ -945,7 +945,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1026,11 +1026,11 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 					iprules = append(iprules, puInfoUpdated.Policy.ApplicationACLs()...)
 					iprules = append(iprules, puInfoUpdated.Policy.NetworkACLs()...)
-					ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+					ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
-					ipsetmanager.DestroyUnusedIPsets()
+					ipsetmanager.GetManager().DestroyUnusedIPsets()
 
 					t := i.iptv4.impl.RetrieveTable()
 					for chain, rules := range t["mangle"] {
@@ -1040,7 +1040,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
 						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
-						ipsetmanager.RemoveExternalNets("pu1")
+						ipsetmanager.GetManager().RemoveExternalNets("pu1")
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
 						So(err, ShouldBeNil)
@@ -1222,7 +1222,7 @@ func Test_ExtensionsV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1406,7 +1406,7 @@ func Test_ExtensionsV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1591,7 +1591,7 @@ func Test_ExtensionsV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1898,7 +1898,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.RegisterExternalNets("pu1", iprules) //nolint
+				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
 
 				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)

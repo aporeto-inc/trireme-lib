@@ -25,6 +25,8 @@ const (
 	IPsetV6
 )
 
+//ACLManager interface is used by supervisor. This interface provides the supervisor to
+//create ipsets corresponding to service ID.
 type ACLManager interface {
 	// sets the ipset provider
 	SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int)
@@ -38,6 +40,7 @@ type ACLManager interface {
 	GetIPsets(extnets policy.IPRuleList, ipver int) []string
 }
 
+//IPsetUpdates is used by dns proxy currently to dynamically update the ips.
 type IPsetUpdates interface {
 	UpdateIPsets([]string, string)
 }
@@ -71,10 +74,12 @@ const (
 	ipv6String = "v6-"
 )
 
+//GetManager is called to get the object to manage acls.
 func GetManager() ACLManager {
 	return &manager
 }
 
+//GetIPsetUpdates is called to get the object to update the ipsets.
 func GetIPsetUpdates() IPsetUpdates {
 	return &manager
 }
