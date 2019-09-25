@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -24,14 +23,14 @@ func (i *iptables) updateTargetNetworks(set provider.Ipset, old, new []string) e
 			deleteMap[net] = false
 			continue
 		}
-		if err := ipsetmanager.AddToIPset(set, net); err != nil {
+		if err := i.aclmanager.AddToIPset(set, net); err != nil {
 			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
-			if err := ipsetmanager.DelFromIPset(set, net); err != nil {
+			if err := i.aclmanager.DelFromIPset(set, net); err != nil {
 				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}

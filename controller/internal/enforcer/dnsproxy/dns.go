@@ -27,6 +27,7 @@ type Proxy struct {
 	collector         collector.EventCollector
 	contextIDToServer map[string]*dns.Server
 	chreports         chan dnsReport
+	updateIPsets      ipsetmanager.IPsetUpdates
 	sync.RWMutex
 }
 
@@ -131,7 +132,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	ps, err1 := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err1 == nil {
 		for _, p := range ps {
-			ipsetmanager.UpdateIPsets(ips, p.Policy.ServiceID)
+			s.updateIPsets.UpdateIPsets(ips, p.Policy.ServiceID)
 			if err1 := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
 				Protocols: p.Protocols,
@@ -189,7 +190,7 @@ func (p *Proxy) ShutdownDNS(contextID string) {
 // New creates an instance of the dns proxy
 func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector) *Proxy {
 	ch := make(chan dnsReport)
-	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
+	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}, updateIPsets: ipsetmanager.GetIPsetUpdates()}
 	go p.reportDNSRequests(ch)
 	return p
 }

@@ -49,7 +49,8 @@ type Config struct {
 	service packetprocessor.PacketProcessor
 	// cfg is the mutable configuration
 	cfg *runtime.Configuration
-
+	// ipsetmanager is used to register external net
+	aclmanager ipsetmanager.ACLManager
 	sync.Mutex
 }
 
@@ -93,6 +94,7 @@ func NewSupervisor(
 		filterQueue:    filterQueue,
 		service:        p,
 		cfg:            cfg,
+		aclmanager:     ipsetmanager.GetManager(),
 	}, nil
 }
 
@@ -164,7 +166,7 @@ func (s *Config) Unsupervise(contextID string) error {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
 	}
 
-	ipsetmanager.RemoveExternalNets(contextID)
+	s.aclmanager.RemoveExternalNets(contextID)
 	return nil
 }
 
@@ -214,7 +216,7 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
 	iprules = append(iprules, pu.Policy.NetworkACLs()...)
 
-	if err := ipsetmanager.RegisterExternalNets(contextID, iprules); err != nil {
+	if err := s.aclmanager.RegisterExternalNets(contextID, iprules); err != nil {
 		s.Unlock()
 		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
 		return err
@@ -251,7 +253,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
 	iprules = append(iprules, pu.Policy.NetworkACLs()...)
 
-	if err := ipsetmanager.RegisterExternalNets(contextID, iprules); err != nil {
+	if err := s.aclmanager.RegisterExternalNets(contextID, iprules); err != nil {
 		s.Unlock()
 		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
 		return err
@@ -270,7 +272,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
-	ipsetmanager.DestroyUnusedIPsets()
+	s.aclmanager.DestroyUnusedIPsets()
 
 	s.Unlock()
 	return nil

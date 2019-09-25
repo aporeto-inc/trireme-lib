@@ -81,6 +81,7 @@ type iptables struct {
 	excludedNetworksSet   provider.Ipset
 	cfg                   *runtime.Configuration
 	contextIDToPortSetMap cache.DataStore
+	aclmanager            ipsetmanager.ACLManager
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
@@ -133,6 +134,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
+		aclmanager:            ipsetmanager.GetManager(),
 	}
 }
 
@@ -498,7 +500,7 @@ type aclIPset struct {
 
 func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
-	ipsets := ipsetmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
+	ipsets := i.aclmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
 
 	aclIPsets := make([]aclIPset, len(ipsets))
 
