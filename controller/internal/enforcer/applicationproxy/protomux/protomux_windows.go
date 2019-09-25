@@ -19,7 +19,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		return
 	}
 
-	//ip, port := c.GetOriginalDestination()
+	ip, port := c.GetOriginalDestination()
 	remoteAddr := c.RemoteAddr()
 	if remoteAddr == nil {
 		zap.L().Error("Connection remote address cannot be found. Abort")
@@ -33,9 +33,25 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	var listenerType common.ListenerType
 	if local {
-		listenerType = common.TCPNetwork
+		_, serviceData, err := m.registry.RetrieveServiceDataByIDAndNetwork(m.puID, ip, port, "")
+		if err != nil {
+			zap.L().Error("Cannot discover target service",
+				zap.String("ContextID", m.puID),
+				zap.String("ip", ip.String()),
+				zap.Int("port", port),
+				zap.Error(err),
+			)
+			return
+		}
+		listenerType = serviceData.ServiceType
 	} else {
-		listenerType = common.TCPApplication
+		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
+		if err != nil {
+			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
+			return
+		}
+
+		listenerType = pctx.Type
 	}
 
 	m.RLock()
@@ -51,45 +67,4 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	case <-m.done:
 		c.Close() // nolint
 	}
-}
-
-// onStartListening tells Windows proxy driver to start forwarding traffic
-func (m *MultiplexedListener) onStartListening() error {
-	/* _, portStr, err := net.SplitHostPort(m.root.Addr().String())
-	if err != nil {
-		return err
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return err
-	}
-
-	driverHandle, err := getDriverHandle()
-	if err != nil {
-		return err
-	}
-	dllRet, _, errDll := proxyStartProc.Call(driverHandle, uintptr(port), 0)
-	if dllRet == 0 {
-		return fmt.Errorf("%s failed (ret=%d, err=%v)", proxyStartProc.Name, dllRet, errDll)
-	}
-
-	zap.L().Debug(fmt.Sprintf("Windows proxy driver started, forwarding to port %d", port))
-	*/
-	return nil
-}
-
-// onStopListening tells Windows proxy driver to stop forwarding traffic
-func (m *MultiplexedListener) onStopListening() error {
-	/* driverHandle, err := getDriverHandle()
-	if err != nil {
-		return err
-	}
-	dllRet, _, errDll := proxyStopProc.Call(driverHandle)
-	if dllRet == 0 {
-		return fmt.Errorf("%s failed (ret=%d, err=%v)", proxyStopProc.Name, dllRet, errDll)
-	}
-
-	zap.L().Debug("Windows proxy driver stopped")
-	*/
-	return nil
 }

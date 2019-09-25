@@ -42,7 +42,11 @@ func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener
 		return nil, fmt.Errorf("Failed to create listener: %s", err)
 	}
 
-	return ProxiedListener{netListener: listener, mark: mark}, nil
+	return ProxiedListener{
+		netListener:    listener,
+		mark:           mark,
+		nativeDataCtrl: NewNativeDataControl(),
+	}, nil
 }
 
 // ProxiedConnection is a proxied connection where we can recover the
@@ -121,8 +125,9 @@ func (p *ProxiedConnection) SetWriteDeadline(t time.Time) error {
 
 // ProxiedListener is a proxied listener that uses proxied connections.
 type ProxiedListener struct {
-	netListener net.Listener
-	mark        int
+	netListener    net.Listener
+	mark           int
+	nativeDataCtrl *NativeDataControl
 }
 
 type passFD interface {
@@ -164,6 +169,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		zap.L().Error("Failed to discover original destination - aborting", zap.Error(err))
 		return nil, err
 	}
+	l.nativeDataCtrl.StoreNativeData(ip, port, nativeData)
 
 	return &ProxiedConnection{
 		originalIP:            ip,

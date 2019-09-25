@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -111,6 +112,11 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 			conn, err := listener.Accept()
 			if err != nil {
 				return
+			}
+			if protoListener, ok := listener.(*protomux.ProtoListener); ok {
+				// Windows: we don't really need the native data map for plain tcp (we can get it from the conn).
+				// So just remove from the map here.
+				markedconn.RemoveNativeData(protoListener.Listener, conn)
 			}
 			go p.handle(ctx, conn)
 		}

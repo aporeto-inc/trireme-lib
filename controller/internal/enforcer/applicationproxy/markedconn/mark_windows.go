@@ -16,7 +16,6 @@ func makeDialer(mark int, nativeData *NativeData) net.Dialer {
 	return net.Dialer{
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
-
 				// call FrontmanApplyDestHandle to update WFP redirect data before the connect() call on the new socket
 				dllRet, _, err := frontman.ApplyDestHandleProc.Call(fd, nativeData.handle)
 				if dllRet == 0 {
