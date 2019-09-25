@@ -40,28 +40,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetType = packet.PacketTypeNetwork
 		}
 
-		// TODO(windows): temp
-		/* var localAddr, remoteAddr string
-		if packetInfo.Ipv4 != 0 {
-			localAddr = net.IPv4(byte(packetInfo.LocalAddr[0]&0xff),
-				byte((packetInfo.LocalAddr[0]&0xff00)>>8),
-				byte((packetInfo.LocalAddr[0]&0xff0000)>>16),
-				byte((packetInfo.LocalAddr[0]&0xff000000)>>24)).String()
-			remoteAddr = net.IPv4(byte(packetInfo.RemoteAddr[0]&0xff),
-				byte((packetInfo.RemoteAddr[0]&0xff00)>>8),
-				byte((packetInfo.RemoteAddr[0]&0xff0000)>>16),
-				byte((packetInfo.RemoteAddr[0]&0xff000000)>>24)).String()
-		} else {
-			localAddr = strconv.Itoa(int(packetInfo.LocalAddr[0])) +
-				strconv.Itoa(int(packetInfo.LocalAddr[1])) +
-				strconv.Itoa(int(packetInfo.LocalAddr[2])) +
-				strconv.Itoa(int(packetInfo.LocalAddr[3]))
-			remoteAddr = strconv.Itoa(int(packetInfo.RemoteAddr[0])) +
-				strconv.Itoa(int(packetInfo.RemoteAddr[1])) +
-				strconv.Itoa(int(packetInfo.RemoteAddr[2])) +
-				strconv.Itoa(int(packetInfo.RemoteAddr[3]))
-		} */
-
 		// Parse the packet
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
@@ -130,7 +108,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		if d.conntrack.(*flowtracking.Client).ShouldIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort()) {
 			packetInfo.IgnoreFlow = 1
 		}
-		zap.L().Info(fmt.Sprintf("forwarding modified packet of size %d and mark %d", packetInfo.PacketSize, packetInfo.Mark))
 		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
 		if dllRet == 0 {
 			zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.PacketFilterForwardProc.Name, err))
@@ -160,7 +137,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 	}
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
-		// TODO
+		// TODO(windows)
 		return 0
 	}
 
@@ -175,7 +152,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
-	// TODO(windows): turn on packet filter here
 	err := d.startFrontmanPacketFilter(ctx)
 	if err != nil {
 		zap.L().Fatal("Unable to initialize windows packet proxy", zap.Error(err))
@@ -185,7 +161,7 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 // startNetworkInterceptor will the process that processes  packets from the network
 func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 	// for Windows, we do nothing here since our packet proxy sends outbound and inbound
-	// TODO(windows): cleanup api to make more sense
+	// and startApplicationInterceptor is called in tandem
 }
 
 // cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down

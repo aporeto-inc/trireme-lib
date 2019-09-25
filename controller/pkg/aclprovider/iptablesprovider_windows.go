@@ -246,11 +246,6 @@ func boolToUint8(b bool) uint8 {
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
-	zap.L().Error("Append",
-		zap.String("Table", table),
-		zap.String("Chain", chain),
-		zap.Strings("Rules", rulespec))
-
 	winRuleSpec, err := parseRuleSpec(rulespec...)
 	if err != nil {
 		return err
@@ -313,11 +308,6 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
-	zap.L().Error("Delete",
-		zap.String("Table", table),
-		zap.String("Chain", chain),
-		zap.Strings("Rules", rulespec))
-
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -337,9 +327,6 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 
 // ListChains will provide a list of the current chains.
 func (b *BatchProvider) ListChains(table string) ([]string, error) {
-	zap.L().Error("ListChains",
-		zap.String("Table", table))
-
 	var outbound uintptr
 	if strings.HasPrefix(table, "O") || strings.HasPrefix(table, "o") {
 		outbound = 1
@@ -379,10 +366,6 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 
 // ClearChain will clear the chains.
 func (b *BatchProvider) ClearChain(table, chain string) error {
-	zap.L().Error("ClearChain",
-		zap.String("Table", table),
-		zap.String("Chain", chain))
-
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -398,10 +381,6 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
-	zap.L().Error("DeleteChain",
-		zap.String("Table", table),
-		zap.String("Chain", chain))
-
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -417,10 +396,6 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
-	zap.L().Error("NewChain",
-		zap.String("Table", table),
-		zap.String("Chain", chain))
-
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -445,6 +420,7 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 
 // Commit commits the rules to the system
 func (b *BatchProvider) Commit() error {
+	//TODO(windows): is this called and why?
 	zap.L().Error("Commit")
 
 	return nil
@@ -453,6 +429,7 @@ func (b *BatchProvider) Commit() error {
 // RetrieveTable allows a caller to retrieve the final table. Mostly
 // needed for debuging and unit tests.
 func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
+	//TODO(windows): is this called and why?
 	zap.L().Error("RetrieveTable")
 
 	return map[string]map[string][]string{}
