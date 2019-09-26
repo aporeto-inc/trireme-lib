@@ -151,8 +151,8 @@ func TestSupervise(t *testing.T) {
 		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 		ips := provider.NewTestIpsetProvider()
-		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV4)
-		ipsetmanager.SetIpsetProvider(ips, ipsetmanager.IPsetV6)
+		ipsetmanager.GetManager().SetIpsetProvider(ips, ipsetmanager.IPsetV4)
+		ipsetmanager.GetManager().SetIpsetProvider(ips, ipsetmanager.IPsetV6)
 
 		Convey("When I supervise a new PU with invalid policy", func() {
 			err := s.Supervise("contextID", nil)
