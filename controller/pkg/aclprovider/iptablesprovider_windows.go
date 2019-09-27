@@ -304,8 +304,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 // Insert will insert the rule in the corresponding position in the local
 // cache or call the corresponding iptables command, depending on the table.
 func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string) error {
-	//TODO(windows): is this called and why?
-	zap.L().Error(fmt.Sprintf("Insert not expected for table %s and chain %s", table, chain))
+	zap.L().Debug(fmt.Sprintf("Insert not expected for table %s and chain %s", table, chain))
 	return nil
 }
 
@@ -423,17 +422,13 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 
 // Commit commits the rules to the system
 func (b *BatchProvider) Commit() error {
-	//TODO(windows): is this called and why?
-	zap.L().Error("Commit")
-
+	// does nothing
 	return nil
 }
 
 // RetrieveTable allows a caller to retrieve the final table. Mostly
 // needed for debuging and unit tests.
 func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
-	//TODO(windows): is this called and why?
-	zap.L().Error("RetrieveTable")
-
+	// not applicable for windows
 	return map[string]map[string][]string{}
 }

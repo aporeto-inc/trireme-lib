@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/windows"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -57,19 +58,22 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 }
 
 // GetIpset gets the ipset object from the name.
-// TODO(windows): should this return error?
+// Note that the interface can't return error here, but since it's possible to fail in Windows,
+// we log error and return incomplete object, and expect a failure from Frontman on a later call.
 func (i *ipsetProvider) GetIpset(name string) Ipset {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
-		return nil //, fmt.Errorf("failed to get driver handle: %v", err)
+		zap.L().Error("failed to get driver handle", zap.Error(err))
+		return &winIpset{0, name}
 	}
 	var ipsetHandle uintptr
-	dllRet, _, _ := frontman.GetIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
+	dllRet, _, err := frontman.GetIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(&ipsetHandle)))
 	if dllRet == 0 {
-		return &winIpSet{} //, fmt.Errorf("%s failed (ret=%d err=%v)", getIpSetProc.Name, dllRet, err)
+		zap.L().Error(fmt.Sprintf("%s failed (ret=%d err=%v)", getIpSetProc.Name, dllRet, err), zap.Error(err))
+		return &winIpset{0, name}
 	}
-	return &winIpSet{ipsetHandle, name} //, nil
+	return &winIpSet{ipsetHandle, name}
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references

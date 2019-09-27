@@ -104,7 +104,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
-		// TODO(windows): is the ignore flow impl ok? does it work in multithreaded situations?
 		if d.conntrack.(*flowtracking.Client).ShouldIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort()) {
 			packetInfo.IgnoreFlow = 1
 		}
