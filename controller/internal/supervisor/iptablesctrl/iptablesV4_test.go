@@ -407,6 +407,252 @@ var (
 		},
 	}
 
+	expectedMangleAfterPUInsertV4WithAll = map[string][]string{
+		"INPUT": {
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
+		},
+		"OUTPUT": {
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
+		},
+		"TRI-App": {
+			"-j TRI-Prx-App",
+			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-App",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-j TRI-Pid-App",
+			"-j TRI-Svc-App",
+			"-j TRI-Hst-App",
+		},
+		"TRI-Net": {
+			"-j TRI-Prx-Net",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-Net",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-j TRI-Pid-Net",
+			"-j TRI-Svc-Net",
+			"-j TRI-Hst-Net",
+		},
+		"TRI-Pid-App": {
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+		},
+		"TRI-Pid-Net": {
+			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+		},
+		"TRI-Prx-App": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+		},
+		"TRI-Prx-Net": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
+		},
+		"TRI-Hst-App": {},
+		"TRI-Hst-Net": {},
+		"TRI-Svc-App": {},
+		"TRI-Svc-Net": {},
+		"TRI-UID-App": {},
+		"TRI-UID-Net": {},
+
+		"TRI-Net-pu1N7uS6--0": {
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:2:s4:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
+			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
+			"-s 0.0.0.0/0 -j DROP",
+		},
+
+		"TRI-App-pu1N7uS6--0": {
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s4:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -j ACCEPT",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
+			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
+			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
+			"-d 0.0.0.0/0 -j DROP",
+		},
+	}
+
+	expectedMangleAfterPUInsertV4WithAllApp = map[string][]string{
+		"INPUT": {
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
+		},
+		"OUTPUT": {
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
+		},
+		"TRI-App": {
+			"-j TRI-Prx-App",
+			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-App",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-j TRI-Pid-App",
+			"-j TRI-Svc-App",
+			"-j TRI-Hst-App",
+		},
+		"TRI-Net": {
+			"-j TRI-Prx-Net",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-Net",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-j TRI-Pid-Net",
+			"-j TRI-Svc-Net",
+			"-j TRI-Hst-Net",
+		},
+		"TRI-Pid-App": {
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+		},
+		"TRI-Pid-Net": {
+			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+		},
+		"TRI-Prx-App": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+		},
+		"TRI-Prx-Net": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
+		},
+		"TRI-Hst-App": {},
+		"TRI-Hst-Net": {},
+		"TRI-Svc-App": {},
+		"TRI-Svc-Net": {},
+		"TRI-UID-App": {},
+		"TRI-UID-Net": {},
+
+		"TRI-Net-pu1N7uS6--0": {
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -m state --state ESTABLISHED -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
+			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
+			"-s 0.0.0.0/0 -j DROP",
+		},
+
+		"TRI-App-pu1N7uS6--0": {
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s4:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
+			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
+			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
+			"-d 0.0.0.0/0 -j DROP",
+		},
+	}
+
+	expectedMangleAfterPUInsertV4WithAllNet = map[string][]string{
+		"INPUT": {
+			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
+		},
+		"OUTPUT": {
+			"-m set ! --match-set TRI-v4-Excluded dst -j TRI-App",
+		},
+		"TRI-App": {
+			"-j TRI-Prx-App",
+			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-App",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-j TRI-Pid-App",
+			"-j TRI-Svc-App",
+			"-j TRI-Hst-App",
+		},
+		"TRI-Net": {
+			"-j TRI-Prx-Net",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
+			"-j TRI-UID-Net",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
+			"-j TRI-Pid-Net",
+			"-j TRI-Svc-Net",
+			"-j TRI-Hst-Net",
+		},
+		"TRI-Pid-App": {
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+		},
+		"TRI-Pid-Net": {
+			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+		},
+		"TRI-Prx-App": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m tcp --sport 0 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+		},
+		"TRI-Prx-Net": {
+			"-m mark --mark 0x40 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-dst src,src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv src -m addrtype --src-type LOCAL -j ACCEPT",
+			"-p tcp -m tcp --dport 0 -j ACCEPT",
+			"-p udp -m udp --dport 0 -j ACCEPT",
+		},
+		"TRI-Hst-App": {},
+		"TRI-Hst-Net": {},
+		"TRI-Svc-App": {},
+		"TRI-Svc-Net": {},
+		"TRI-UID-App": {},
+		"TRI-UID-Net": {},
+
+		"TRI-Net-pu1N7uS6--0": {
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:2:s4:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV src -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
+			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
+			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
+			"-s 0.0.0.0/0 -j DROP",
+		},
+
+		"TRI-App-pu1N7uS6--0": {
+			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
+			"! -p tcp -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
+			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
+			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
+			"-d 0.0.0.0/0 -j DROP",
+		},
+	}
+
 	expectedMangleAfterPUInsertWithLogV4 = map[string][]string{
 		"INPUT": {
 			"-m set ! --match-set TRI-v4-Excluded src -j TRI-Net",
@@ -970,6 +1216,675 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					for target := range targets.set {
 						So(expectedIPSetsAfterPUInsertV4[set], ShouldContain, target)
 					}
+				}
+
+				Convey("When I update the policy, the update must result in correct state", func() {
+					appACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"30.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s1",
+								PolicyID:  "1",
+							},
+						},
+					}
+					netACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"40.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s3",
+								PolicyID:  "1",
+							},
+						},
+					}
+					ipl := policy.ExtendedMap{}
+					policyrules := policy.NewPUPolicy(
+						"Context",
+						"/ns1",
+						policy.Police,
+						appACLs,
+						netACLs,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						ipl,
+						0,
+						0,
+						nil,
+						nil,
+						[]string{},
+						policy.EnforcerMapping,
+					)
+					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+					puInfoUpdated.Policy = policyrules
+					puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
+						CgroupMark: "10",
+					})
+
+					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					So(err, ShouldBeNil)
+
+					t := i.iptv4.impl.RetrieveTable()
+					for chain, rules := range t["mangle"] {
+						So(expectedMangleAfterPUUpdateV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedMangleAfterPUUpdateV4[chain])
+					}
+
+					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						So(err, ShouldBeNil)
+						err = i.DeletePortFromPortSet("pu1", "8080")
+						So(err, ShouldBeNil)
+						t := i.iptv4.impl.RetrieveTable()
+
+						So(t["mangle"], ShouldNotBeNil)
+						So(t["nat"], ShouldNotBeNil)
+
+						for chain, rules := range t["mangle"] {
+							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+						}
+
+						for chain, rules := range t["nat"] {
+							if len(rules) > 0 {
+								So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+							}
+						}
+					})
+				})
+			})
+		})
+	})
+}
+
+func Test_OperationWithLinuxServicesV4WithAllToAllExternalNetwork(t *testing.T) {
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+			So(err, ShouldBeNil)
+
+			for set, targets := range ipsv4.sets {
+				So(expectedGlobalIPSetsV4, ShouldContainKey, set)
+				for target := range targets.set {
+					So(expectedGlobalIPSetsV4[set], ShouldContain, target)
+				}
+			}
+
+			t := i.iptv4.impl.RetrieveTable()
+			So(t, ShouldNotBeNil)
+			So(len(t), ShouldEqual, 2)
+			So(t["mangle"], ShouldNotBeNil)
+			So(t["nat"], ShouldNotBeNil)
+
+			for chain, rules := range t["mangle"] {
+				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+			}
+
+			for chain, rules := range t["nat"] {
+				So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+			}
+
+			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
+				appACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"50.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "s4",
+							PolicyID:  "2",
+						},
+					},
+				}
+				netACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"40.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "s4",
+							PolicyID:  "2",
+						},
+					},
+				}
+				ipl := policy.ExtendedMap{}
+				policyrules := policy.NewPUPolicy(
+					"Context",
+					"/ns1",
+					policy.Police,
+					appACLs,
+					netACLs,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					ipl,
+					0,
+					0,
+					nil,
+					nil,
+					[]string{},
+					policy.EnforcerMapping,
+				)
+				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+				puInfo.Policy = policyrules
+				puInfo.Runtime.SetOptions(policy.OptionsType{
+					CgroupMark: "10",
+				})
+
+				udpPortSpec, err := portspec.NewPortSpecFromString("5000", nil)
+				So(err, ShouldBeNil)
+				tcpPortSpec, err := portspec.NewPortSpecFromString("9000", nil)
+				So(err, ShouldBeNil)
+
+				puInfo.Runtime.SetServices([]common.Service{
+					{
+						Ports:    udpPortSpec,
+						Protocol: 17,
+					},
+					{
+						Ports:    tcpPortSpec,
+						Protocol: 6,
+					},
+				})
+
+				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
+				So(err, ShouldBeNil)
+				err = i.AddPortToPortSet("pu1", "8080")
+				So(err, ShouldBeNil)
+				t := i.iptv4.impl.RetrieveTable()
+
+				for chain, rules := range t["mangle"] {
+					So(expectedMangleAfterPUInsertV4WithAll, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedMangleAfterPUInsertV4WithAll[chain])
+				}
+
+				for chain, rules := range t["nat"] {
+					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
+				}
+
+				for set, targets := range ipsv4.sets {
+					So(expectedIPSetsAfterPUInsertV4, ShouldContainKey, set)
+					for target := range targets.set {
+						So(expectedIPSetsAfterPUInsertV4[set], ShouldContain, target)
+					}
+				}
+
+				Convey("When I update the policy, the update must result in correct state", func() {
+					appACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"30.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s1",
+								PolicyID:  "1",
+							},
+						},
+					}
+					netACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"40.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s3",
+								PolicyID:  "1",
+							},
+						},
+					}
+					ipl := policy.ExtendedMap{}
+					policyrules := policy.NewPUPolicy(
+						"Context",
+						"/ns1",
+						policy.Police,
+						appACLs,
+						netACLs,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						ipl,
+						0,
+						0,
+						nil,
+						nil,
+						[]string{},
+						policy.EnforcerMapping,
+					)
+					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+					puInfoUpdated.Policy = policyrules
+					puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
+						CgroupMark: "10",
+					})
+
+					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					So(err, ShouldBeNil)
+
+					t := i.iptv4.impl.RetrieveTable()
+					for chain, rules := range t["mangle"] {
+						So(expectedMangleAfterPUUpdateV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedMangleAfterPUUpdateV4[chain])
+					}
+
+					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						So(err, ShouldBeNil)
+						err = i.DeletePortFromPortSet("pu1", "8080")
+						So(err, ShouldBeNil)
+						t := i.iptv4.impl.RetrieveTable()
+
+						So(t["mangle"], ShouldNotBeNil)
+						So(t["nat"], ShouldNotBeNil)
+
+						for chain, rules := range t["mangle"] {
+							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+						}
+
+						for chain, rules := range t["nat"] {
+							if len(rules) > 0 {
+								So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+							}
+						}
+					})
+				})
+			})
+		})
+	})
+}
+
+func Test_OperationWithLinuxServicesV4WithAllAppExternalNetwork(t *testing.T) {
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+			So(err, ShouldBeNil)
+
+			for set, targets := range ipsv4.sets {
+				So(expectedGlobalIPSetsV4, ShouldContainKey, set)
+				for target := range targets.set {
+					So(expectedGlobalIPSetsV4[set], ShouldContain, target)
+				}
+			}
+
+			t := i.iptv4.impl.RetrieveTable()
+			So(t, ShouldNotBeNil)
+			So(len(t), ShouldEqual, 2)
+			So(t["mangle"], ShouldNotBeNil)
+			So(t["nat"], ShouldNotBeNil)
+
+			for chain, rules := range t["mangle"] {
+				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+			}
+
+			for chain, rules := range t["nat"] {
+				So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+			}
+
+			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
+				appACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"50.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "s4",
+							PolicyID:  "2",
+						},
+					},
+				}
+				netACLs := policy.IPRuleList{}
+				ipl := policy.ExtendedMap{}
+				policyrules := policy.NewPUPolicy(
+					"Context",
+					"/ns1",
+					policy.Police,
+					appACLs,
+					netACLs,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					ipl,
+					0,
+					0,
+					nil,
+					nil,
+					[]string{},
+					policy.EnforcerMapping,
+				)
+				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+				puInfo.Policy = policyrules
+				puInfo.Runtime.SetOptions(policy.OptionsType{
+					CgroupMark: "10",
+				})
+
+				udpPortSpec, err := portspec.NewPortSpecFromString("5000", nil)
+				So(err, ShouldBeNil)
+				tcpPortSpec, err := portspec.NewPortSpecFromString("9000", nil)
+				So(err, ShouldBeNil)
+
+				puInfo.Runtime.SetServices([]common.Service{
+					{
+						Ports:    udpPortSpec,
+						Protocol: 17,
+					},
+					{
+						Ports:    tcpPortSpec,
+						Protocol: 6,
+					},
+				})
+
+				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
+				So(err, ShouldBeNil)
+				err = i.AddPortToPortSet("pu1", "8080")
+				So(err, ShouldBeNil)
+				t := i.iptv4.impl.RetrieveTable()
+
+				for chain, rules := range t["mangle"] {
+					So(expectedMangleAfterPUInsertV4WithAllApp, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedMangleAfterPUInsertV4WithAllApp[chain])
+				}
+
+				for chain, rules := range t["nat"] {
+					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
+				}
+
+				Convey("When I update the policy, the update must result in correct state", func() {
+					appACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"30.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s1",
+								PolicyID:  "1",
+							},
+						},
+					}
+					netACLs := policy.IPRuleList{
+						policy.IPRule{
+							Addresses: []string{"40.0.0.0/24"},
+							Ports:     []string{"80"},
+							Protocols: []string{"TCP"},
+							Policy: &policy.FlowPolicy{
+								Action:    policy.Reject,
+								ServiceID: "s3",
+								PolicyID:  "1",
+							},
+						},
+					}
+					ipl := policy.ExtendedMap{}
+					policyrules := policy.NewPUPolicy(
+						"Context",
+						"/ns1",
+						policy.Police,
+						appACLs,
+						netACLs,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+						ipl,
+						0,
+						0,
+						nil,
+						nil,
+						[]string{},
+						policy.EnforcerMapping,
+					)
+					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+					puInfoUpdated.Policy = policyrules
+					puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
+						CgroupMark: "10",
+					})
+
+					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					So(err, ShouldBeNil)
+
+					t := i.iptv4.impl.RetrieveTable()
+					for chain, rules := range t["mangle"] {
+						So(expectedMangleAfterPUUpdateV4, ShouldContainKey, chain)
+						So(rules, ShouldResemble, expectedMangleAfterPUUpdateV4[chain])
+					}
+
+					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						So(err, ShouldBeNil)
+						err = i.DeletePortFromPortSet("pu1", "8080")
+						So(err, ShouldBeNil)
+						t := i.iptv4.impl.RetrieveTable()
+
+						So(t["mangle"], ShouldNotBeNil)
+						So(t["nat"], ShouldNotBeNil)
+
+						for chain, rules := range t["mangle"] {
+							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+						}
+
+						for chain, rules := range t["nat"] {
+							if len(rules) > 0 {
+								So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+							}
+						}
+					})
+				})
+			})
+		})
+	})
+}
+
+func Test_OperationWithLinuxServicesV4WithAllNetExternalNetwork(t *testing.T) {
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+			So(err, ShouldBeNil)
+
+			for set, targets := range ipsv4.sets {
+				So(expectedGlobalIPSetsV4, ShouldContainKey, set)
+				for target := range targets.set {
+					So(expectedGlobalIPSetsV4[set], ShouldContain, target)
+				}
+			}
+
+			t := i.iptv4.impl.RetrieveTable()
+			So(t, ShouldNotBeNil)
+			So(len(t), ShouldEqual, 2)
+			So(t["mangle"], ShouldNotBeNil)
+			So(t["nat"], ShouldNotBeNil)
+
+			for chain, rules := range t["mangle"] {
+				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
+			}
+
+			for chain, rules := range t["nat"] {
+				So(expectedGlobalNATChainsV4, ShouldContainKey, chain)
+				So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
+			}
+
+			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
+				appACLs := policy.IPRuleList{}
+				netACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"50.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "s4",
+							PolicyID:  "2",
+						},
+					},
+				}
+				ipl := policy.ExtendedMap{}
+				policyrules := policy.NewPUPolicy(
+					"Context",
+					"/ns1",
+					policy.Police,
+					appACLs,
+					netACLs,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+					ipl,
+					0,
+					0,
+					nil,
+					nil,
+					[]string{},
+					policy.EnforcerMapping,
+				)
+				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+				puInfo.Policy = policyrules
+				puInfo.Runtime.SetOptions(policy.OptionsType{
+					CgroupMark: "10",
+				})
+
+				udpPortSpec, err := portspec.NewPortSpecFromString("5000", nil)
+				So(err, ShouldBeNil)
+				tcpPortSpec, err := portspec.NewPortSpecFromString("9000", nil)
+				So(err, ShouldBeNil)
+
+				puInfo.Runtime.SetServices([]common.Service{
+					{
+						Ports:    udpPortSpec,
+						Protocol: 17,
+					},
+					{
+						Ports:    tcpPortSpec,
+						Protocol: 6,
+					},
+				})
+
+				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
+				So(err, ShouldBeNil)
+				err = i.AddPortToPortSet("pu1", "8080")
+				So(err, ShouldBeNil)
+				t := i.iptv4.impl.RetrieveTable()
+
+				for chain, rules := range t["mangle"] {
+					So(expectedMangleAfterPUInsertV4WithAllNet, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedMangleAfterPUInsertV4WithAllNet[chain])
+				}
+
+				for chain, rules := range t["nat"] {
+					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
+					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
 				}
 
 				Convey("When I update the policy, the update must result in correct state", func() {
