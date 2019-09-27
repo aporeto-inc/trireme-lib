@@ -137,6 +137,16 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
 		// TODO(windows)
+
+		/*logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
+		packetBytes := make([]byte, logPacketInfo.PacketSize)
+
+		ptr := uintptr(unsafe.Pointer(dataPtr))
+		for i := uint32(0); i < logPacketInfo.PacketSize; i++ {
+			packetBytes[i] = *(*byte)(unsafe.Pointer(ptr))
+			ptr++
+		}*/
+
 		return 0
 	}
 
