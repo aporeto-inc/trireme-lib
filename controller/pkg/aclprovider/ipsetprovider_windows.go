@@ -64,14 +64,14 @@ func (i *ipsetProvider) GetIpset(name string) Ipset {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		zap.L().Error("failed to get driver handle", zap.Error(err))
-		return &winIpset{0, name}
+		return &winIpSet{0, name}
 	}
 	var ipsetHandle uintptr
 	dllRet, _, err := frontman.GetIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(&ipsetHandle)))
 	if dllRet == 0 {
-		zap.L().Error(fmt.Sprintf("%s failed (ret=%d err=%v)", getIpSetProc.Name, dllRet, err), zap.Error(err))
-		return &winIpset{0, name}
+		zap.L().Error(fmt.Sprintf("%s failed (ret=%d err=%v)", frontman.GetIpsetProc.Name, dllRet, err), zap.Error(err))
+		return &winIpSet{0, name}
 	}
 	return &winIpSet{ipsetHandle, name}
 }

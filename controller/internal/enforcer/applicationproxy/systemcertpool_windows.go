@@ -7,12 +7,9 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
-
-	"go.uber.org/zap"
 )
 
 func GetSystemCertPool() (*x509.CertPool, error) {
-	zap.L().Error("Called windows")
 	return loadSystemRoots()
 }
 

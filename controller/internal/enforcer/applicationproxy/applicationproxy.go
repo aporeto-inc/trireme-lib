@@ -124,7 +124,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if err != nil {
 		return fmt.Errorf("policy conflicts detected: %s", err)
 	}
-	zap.L().Error("REgister Service")
+
 	caPool := p.expandCAPool(sctx.RootCA)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
@@ -144,7 +144,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		zap.L().Error("Failed to create network listener", zap.Error(err))
 		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
-	zap.L().Error("LIS", zap.Reflect("LISTEN", l))
+
 	// Create a new client entry and start the servers.
 	client := &clientData{
 		netserver: map[common.ListenerType]ServerInterface{},

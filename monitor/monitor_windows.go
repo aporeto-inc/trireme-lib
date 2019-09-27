@@ -76,7 +76,6 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 	}
 
 	for k, v := range c.Monitors {
-		zap.L().Error("Key", zap.Reflect("kev", k))
 		switch k {
 		case config.Windows:
 			mon := windowsmonitor.New()

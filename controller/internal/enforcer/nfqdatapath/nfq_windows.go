@@ -60,6 +60,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			} else {
 				udpConn, processError = d.ProcessApplicationUDPPacket(parsedPacket)
 			}*/
+			// TODO(windows): handle UDP
 		} else {
 			processError = fmt.Errorf("invalid ip protocol: %d", parsedPacket.IPProto())
 		}
@@ -67,7 +68,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		defer d.conntrack.(*flowtracking.Client).ClearIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort())
 
 		if processError != nil {
-			zap.L().Error(fmt.Sprintf("Got ERROR: %v", processError))
 			if parsedPacket.IPProto() == packet.IPProtocolTCP {
 				d.collectTCPPacket(&debugpacketmessage{
 					Mark:    mark,
