@@ -81,7 +81,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		case config.Windows:
 			mon := windowsmonitor.New()
 			mon.SetupHandlers(c.Common)
-			zap.L().Error("Hwew")
+			// TODO(windows): make a real Windows monitor option rather than using LinuxHost
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Windows: %s", err.Error())
 			}
