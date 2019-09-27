@@ -201,7 +201,7 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 		modeOptNum++
 	}
 
-	// action: required, either NFQUEUE, REDIRECT, MARK, ACCEPT, DROP
+	// action: required, either NFQUEUE, REDIRECT, MARK, ACCEPT, DROP, NFLOG
 	for i := 0; i < len(*actionOpt); i++ {
 		switch (*actionOpt)[i] {
 		case "NFQUEUE":
@@ -221,6 +221,8 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 			if err != nil {
 				return nil, errors.New("rulespec not valid: mark should be int32")
 			}
+		case "NFLOG":
+			result.log = true
 		default:
 			return nil, errors.New("rulespec not valid: invalid action")
 		}
@@ -259,6 +261,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	criteriaId := strings.Join(rulespec, " ")
 	argRuleSpec := frontman.RuleSpec{
 		Action:       uint8(winRuleSpec.action),
+		Log:          boolToUint8(winRuleSpec.log),
 		Protocol:     uint8(winRuleSpec.protocol),
 		ProxyPort:    int16(winRuleSpec.proxyPort),
 		SrcPortStart: uint16(winRuleSpec.matchSrcPortBegin),

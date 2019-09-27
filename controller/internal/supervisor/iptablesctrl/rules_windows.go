@@ -23,8 +23,10 @@ var cgroupCaptureTemplate = `
 {{if isHostPU}}
 -A  HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP -m set --match-set {{.DestIPSet}} dstIP,dstPort -j REDIRECT  --to-ports {{.ProxyPort}}
 -A  HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP -j NFQUEUE -j MARK {{.Mark}}
+-A  HostPU-OUTPUT -p tcp -j DROP -j NFLOG
 -A HostPU-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
 -A  HostPU-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP -j NFQUEUE -j MARK {{.Mark}}
+-A  HostPU-INPUT -p tcp -j DROP -j NFLOG
 {{else}}
 -A HostSvcRules-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
 -A HostSvcRule-INPUT -p tcp --dport {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
