@@ -1365,7 +1365,7 @@ func Test_OperationWithLinuxServicesV4WithAllToAllExternalNetwork(t *testing.T) 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
-						Addresses: []string{"50.0.0.0/24"},
+						Addresses: []string{"40.0.0.0/24"},
 						Ports:     nil,
 						Protocols: []string{constants.AllProtoString},
 						Policy: &policy.FlowPolicy{
@@ -1600,7 +1600,7 @@ func Test_OperationWithLinuxServicesV4WithAllAppExternalNetwork(t *testing.T) {
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
-						Addresses: []string{"50.0.0.0/24"},
+						Addresses: []string{"40.0.0.0/24"},
 						Ports:     nil,
 						Protocols: []string{constants.AllProtoString},
 						Policy: &policy.FlowPolicy{
@@ -1668,6 +1668,13 @@ func Test_OperationWithLinuxServicesV4WithAllAppExternalNetwork(t *testing.T) {
 				for chain, rules := range t["nat"] {
 					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
 					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
+				}
+
+				for set, targets := range ipsv4.sets {
+					So(expectedIPSetsAfterPUInsertV4, ShouldContainKey, set)
+					for target := range targets.set {
+						So(expectedIPSetsAfterPUInsertV4[set], ShouldContain, target)
+					}
 				}
 
 				Convey("When I update the policy, the update must result in correct state", func() {
@@ -1818,7 +1825,7 @@ func Test_OperationWithLinuxServicesV4WithAllNetExternalNetwork(t *testing.T) {
 				appACLs := policy.IPRuleList{}
 				netACLs := policy.IPRuleList{
 					policy.IPRule{
-						Addresses: []string{"50.0.0.0/24"},
+						Addresses: []string{"40.0.0.0/24"},
 						Ports:     nil,
 						Protocols: []string{constants.AllProtoString},
 						Policy: &policy.FlowPolicy{
@@ -1885,6 +1892,13 @@ func Test_OperationWithLinuxServicesV4WithAllNetExternalNetwork(t *testing.T) {
 				for chain, rules := range t["nat"] {
 					So(expectedNATAfterPUInsertV4, ShouldContainKey, chain)
 					So(rules, ShouldResemble, expectedNATAfterPUInsertV4[chain])
+				}
+
+				for set, targets := range ipsv4.sets {
+					So(expectedIPSetsAfterPUInsertV4, ShouldContainKey, set)
+					for target := range targets.set {
+						So(expectedIPSetsAfterPUInsertV4[set], ShouldContain, target)
+					}
 				}
 
 				Convey("When I update the policy, the update must result in correct state", func() {
