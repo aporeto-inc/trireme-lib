@@ -50,7 +50,7 @@ type ProxyInfo struct {
 
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
+	fmt.Println("2222 ABHI calling the enforce for remote proxy, therefore now launch the remoteEnforcer")
 	initEnforcer, err := s.prochdl.LaunchRemoteEnforcer(
 		contextID,
 		puInfo.Runtime.Pid(),
@@ -86,7 +86,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	request := &rpcwrapper.Request{
 		Payload: enforcerPayload,
 	}
-
+	fmt.Println("\n\nAfter launching now making a RPC call to the remote with Enforce method")
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{}); err != nil {
 		s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)

@@ -76,7 +76,7 @@ func NewAppProxy(
 	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
 		return nil, fmt.Errorf("error while adding provided CA")
 	}
-
+	fmt.Println("ABHI *** Starting a new APP proxy")
 	return &AppProxy{
 		collector:     c,
 		tokenaccessor: tp,
@@ -104,7 +104,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	p.Lock()
 	defer p.Unlock()
-
+	fmt.Println("ABHI *** Calling the APP-proxy Enforce")
 	if puInfo.Policy.ServicesListeningPort() == "0" {
 		zap.L().Warn("Services listening port not specified - not activating proxy")
 		return nil

@@ -109,7 +109,7 @@ func NewHTTPProxy(
 		common.AWSHookInfo:             h.awsInfoHook,
 		common.AWSHookRole:             h.awsTokenHook,
 	}
-
+	fmt.Println("ABHI **** New http proxy func with hooks.")
 	h.hooks = hooks
 
 	return h
@@ -161,7 +161,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	p.Lock()
 	defer p.Unlock()
-
+	fmt.Println("ABHI *** Run Network Server")
 	if p.server != nil {
 		return fmt.Errorf("Server already running")
 	}
@@ -315,7 +315,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		<-ctx.Done()
 		p.server.Close() // nolint
 	}()
-
+	fmt.Println("ABHI *** started the app-traffic serving")
 	go p.server.Serve(l) // nolint
 
 	return nil
@@ -372,7 +372,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
-
+	fmt.Println("ABHI *** processing app request")
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
@@ -428,7 +428,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
 	}
-
+	fmt.Println("Adding the Aporeto auth and key")
 	// Add the headers with the authorization parameters and public key. The other side
 	// must validate our public key.
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
