@@ -73,11 +73,11 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 	// We will only support the batch method if there is iptables-restore and iptables
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
-	// if restoreHasWait(restoreCmdV4) {
-	// 	for _, t := range batchTables {
-	// 		batchTablesMap[t] = true
-	// 	}
-	// }
+	if restoreHasWait(restoreCmdV4) {
+		for _, t := range batchTables {
+			batchTablesMap[t] = true
+		}
+	}
 
 	b := &BatchProvider{
 		ipt:         ipt,
