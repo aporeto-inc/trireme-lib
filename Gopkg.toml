@@ -29,7 +29,7 @@ required = ["github.com/docker/distribution"]
 #
 [[override]]
   name = "sigs.k8s.io/controller-runtime"
-  version = "v0.1.10"
+  version = "v0.2.2"
 
 #
 # Kubernetes dependencies
@@ -37,31 +37,40 @@ required = ["github.com/docker/distribution"]
 #
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
+
+[[constraint]]
+  name = "k8s.io/cri-api"
+  version = "kubernetes-1.16.0"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.13.1"
+  version = "kubernetes-1.14.1"
 
 [[override]]
   name = "k8s.io/gengo"
   branch = "master"
+
+# to work around https://github.com/golang/dep/issues/1799
+[[override]]
+  name = "gopkg.in/fsnotify.v1"
+  source = "https://github.com/fsnotify/fsnotify.git"
 
 [[constraint]]
   name = "github.com/aporeto-inc/oxy"
