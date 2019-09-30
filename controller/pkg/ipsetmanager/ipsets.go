@@ -65,6 +65,7 @@ const (
 	ipv6String = "v6-"
 )
 
+//CreateIPsetManager creates the handle with Interface ACLManager
 func CreateIPsetManager(ipset provider.IpsetProvider) ACLManager {
 	return &managerType{
 		ipv4Handler: &handler{

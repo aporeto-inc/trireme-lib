@@ -40,7 +40,7 @@ func setupDatapath(collector collector.EventCollector) *Datapath {
 	GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 		return nil, nil
 	}
-	return NewWithDefaults("serverID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1._,1.1.1/31"})
+	return NewWithDefaults("serverID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1._,1.1.1/31"}, nil)
 }
 
 func generateCommonTestData(action policy.ActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) {
