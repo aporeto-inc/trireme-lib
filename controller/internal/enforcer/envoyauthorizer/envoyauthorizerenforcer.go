@@ -101,7 +101,7 @@ func (e *Enforcer) Secrets() (secrets.Secrets, func()) {
 
 // Enforce starts enforcing policies for the given policy.PUInfo.
 // here we do the following:
-// 1. create a new PU.
+// 1. create a new PU always and instantiate a new apiAuth, as we want to be as stateless as possible.
 // 2. create a PUcontext as this will be used in auth code.
 // 3. If envoy servers are not present then create all 3 envoy servers.
 // 4. If the servers are already present under policy update then update the service certs.
@@ -117,7 +117,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
-
+	// Add the puContext to the cache as we need to later while serving the requests.
 	e.puContexts.AddOrUpdate(contextID, pu)
 
 	sctx, err := e.registry.Register(contextID, puInfo, pu, e.secrets)
@@ -131,13 +131,13 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// create a new server if it doesn't exist yet
 	if _, err := e.clients.Get(contextID); err != nil {
 		zap.L().Debug("creating new auth and sds servers", zap.String("puID", contextID))
-		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection)
+		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection, e.registry, e.secrets, e.tokenIssuer)
 		if err != nil {
 			zap.L().Error("Cannot create and run IngressServer", zap.Error(err))
 			return err
 		}
 
-		egressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.EgressDirection)
+		egressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.EgressDirection, e.registry, e.secrets, e.tokenIssuer)
 		if err != nil {
 			zap.L().Error("Cannot create and run EgressServer", zap.Error(err))
 			ingressServer.Stop()
@@ -225,6 +225,71 @@ func (e *Enforcer) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 func (e *Enforcer) Unenforce(contextID string) error {
 	e.Lock()
 	defer e.Unlock()
+
+	// stop the authz servers
+	rawAuthzServers, err := e.clients.Get(contextID)
+	if err != nil {
+		return err
+	}
+
+	server := rawAuthzServers.(*envoyServers)
+	shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer shutdownCtxCancel()
+
+	var wg sync.WaitGroup
+	shutdownCh := make(chan struct{})
+	wg.Add(3)
+	go func() {
+		server.ingress.GracefulStop()
+		wg.Done()
+	}()
+	go func() {
+		server.egress.GracefulStop()
+		wg.Done()
+	}()
+	go func() {
+		server.sds.GracefulStop()
+		wg.Done()
+	}()
+	go func() {
+		wg.Wait()
+		shutdownCh <- struct{}{}
+	}()
+
+	select {
+	case <-shutdownCtx.Done():
+		zap.L().Warn("Graceful shutdown of envoy server did not finish in time. Shutting down hard now...", zap.String("puID", contextID), zap.Error(shutdownCtx.Err()))
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			server.ingress.Stop()
+			wg.Done()
+		}()
+		go func() {
+			server.egress.Stop()
+			wg.Done()
+		}()
+		go func() {
+			server.sds.Stop()
+			wg.Done()
+		}()
+		wg.Wait()
+	case <-shutdownCh:
+	}
+
+	// pucontext launches a go routine to periodically
+	// lookup dns names. ctx cancel signals the go routine to exit
+	// TODO: not sure what is this, check with Marcus.
+	// if existingPUContextRaw, _ := p.puContexts.Get(puID); existingPUContextRaw != nil {
+	// 	if existingPUContext, ok := existingPUContextRaw.(*pucontext.PUContext); ok {
+	// 		existingPUContext.CancelFunc()
+	// 	}
+	// }
+
+	if err := e.puContexts.RemoveWithDelay(contextID, 10*time.Second); err != nil {
+		zap.L().Debug("Unable to remove PU context from cache", zap.String("puID", contextID), zap.Error(err))
+	}
+
 	return nil
 }
 

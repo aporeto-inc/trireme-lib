@@ -186,6 +186,11 @@ func (s *SdsServer) Stop() {
 	}
 }
 
+// GracefulStop calls the function with the same name on the backing gRPC server
+func (s *SdsServer) GracefulStop() {
+	s.sdsGrpcServer.GracefulStop()
+}
+
 // register adds the SDS handle to the grpc server
 func (s *SdsServer) register(sdsGrpcServer *grpc.Server) {
 	fmt.Println("\n\n ** Abhi envoy-trireme registering the secret discovery")
