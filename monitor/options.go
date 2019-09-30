@@ -305,9 +305,9 @@ func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) 
 }
 
 // SubOptionMonitorPodCRIRuntimeEndpoint provides a way to specify the path to the CRI runtime endpoint
-func SubOptionMonitorPodCRIRuntimeEndpoint(criServiceRuntime cri.ExtendedRuntimeService) PodMonitorOption {
+func SubOptionMonitorPodCRIRuntimeEndpoint(criRuntimeService cri.ExtendedRuntimeService) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
-		cfg.CRIServiceRuntime = criServiceRuntime
+		cfg.CRIRuntimeService = criRuntimeService
 	}
 }
 
