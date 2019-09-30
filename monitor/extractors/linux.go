@@ -1,11 +1,7 @@
 package extractors
 
 import (
-	"crypto/md5"
-	"debug/elf"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/user"
@@ -59,7 +55,14 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
-		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+		key, value := parts[0], parts[1]
+
+		if strings.HasPrefix(key, "@app:linux:") {
+			runtimeTags.AppendKeyValue(key, value)
+			continue
+		}
+
+		runtimeTags.AppendKeyValue("@usr:"+key, value)
 	}
 
 	userdata := ProcessInfo(event.PID)
@@ -71,17 +74,6 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
 	runtimeTags.AppendKeyValue("@os:hostname", findFQDN(time.Second))
-
-	if fileMd5, err := computeFileMd5(event.Executable); err == nil {
-		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
-		runtimeTags.AppendKeyValue("@app:linux:filechecksum", hex.EncodeToString(fileMd5))
-	}
-
-	depends := libs(event.Name)
-	for _, lib := range depends {
-		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
-		runtimeTags.AppendKeyValue("@app:linux:lib:"+lib, "true")
-	}
 
 	options := policy.OptionsType{}
 	for index, s := range event.Services {
@@ -160,24 +152,6 @@ func ProcessInfo(pid int32) []string {
 	return userdata
 }
 
-// computeFileMd5 computes the Md5 of a file
-func computeFileMd5(filePath string) ([]byte, error) {
-
-	var result []byte
-	file, err := os.Open(filePath)
-	if err != nil {
-		return result, err
-	}
-	defer file.Close() //nolint : errcheck
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return result, err
-	}
-
-	return hash.Sum(result), nil
-}
-
 func findFQDN(expiration time.Duration) string {
 
 	hostname, err := os.Hostname()
@@ -217,16 +191,6 @@ func findFQDN(expiration time.Duration) string {
 	case name := <-globalHostname:
 		return name
 	}
-}
-
-// libs returns the list of dynamic library dependencies of an executable
-func libs(binpath string) []string {
-	f, err := elf.Open(binpath)
-	if err != nil {
-		return []string{}
-	}
-	libraries, _ := f.ImportedLibraries()
-	return libraries
 }
 
 // policyExtensions retrieves policy extensions. Moving this function from extractor package.
