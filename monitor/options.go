@@ -11,6 +11,7 @@ import (
 	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
 	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cri"
 )
 
 // Options is provided using functional arguments.
@@ -300,6 +301,13 @@ func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsPr
 func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
 		cfg.ResetNetcls = resetnetcls
+	}
+}
+
+// SubOptionMonitorPodCRIRuntimeEndpoint provides a way to specify the path to the CRI runtime endpoint
+func SubOptionMonitorPodCRIRuntimeEndpoint(criServiceRuntime cri.ExtendedRuntimeService) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.CRIServiceRuntime = criServiceRuntime
 	}
 }
 

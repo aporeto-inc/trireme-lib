@@ -9,13 +9,12 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cri"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
-	cri "k8s.io/cri-api/pkg/apis"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -38,12 +37,11 @@ type PodMonitor struct {
 	kubeCfg           *rest.Config
 	kubeClient        client.Client
 	eventsCh          chan event.GenericEvent
+	criRuntimeService cri.ExtendedRuntimeService
 }
 
 // New returns a new kubernetes monitor.
 func New() *PodMonitor {
-	var f cri.RuntimeService
-	fmt.Println(f)
 	podMonitor := &PodMonitor{
 		eventsCh: make(chan event.GenericEvent),
 	}
@@ -61,18 +59,18 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		cfg = defaultConfig
 	}
 
-	kubernetesconfig, ok := cfg.(*Config)
+	monitorconfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified (type '%T')", cfg)
 	}
 
-	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
+	monitorconfig = SetupDefaultConfig(monitorconfig)
 
 	// build kubernetes config
 	var kubeCfg *rest.Config
-	if len(kubernetesconfig.Kubeconfig) > 0 {
+	if len(monitorconfig.Kubeconfig) > 0 {
 		var err error
-		kubeCfg, err = clientcmd.BuildConfigFromFlags("", kubernetesconfig.Kubeconfig)
+		kubeCfg, err = clientcmd.BuildConfigFromFlags("", monitorconfig.Kubeconfig)
 		if err != nil {
 			return err
 		}
@@ -84,32 +82,34 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		}
 	}
 
-	if kubernetesconfig.MetadataExtractor == nil {
+	if monitorconfig.MetadataExtractor == nil {
 		return fmt.Errorf("missing metadata extractor")
 	}
 
-	if kubernetesconfig.NetclsProgrammer == nil {
+	if monitorconfig.NetclsProgrammer == nil {
 		return fmt.Errorf("missing net_cls programmer")
 	}
 
-	if kubernetesconfig.ResetNetcls == nil {
+	if monitorconfig.ResetNetcls == nil {
 		return fmt.Errorf("missing reset net_cls implementation")
 	}
-	if kubernetesconfig.SandboxExtractor == nil {
+	if monitorconfig.SandboxExtractor == nil {
 		return fmt.Errorf("missing SandboxExtractor implementation")
 	}
-	if kubernetesconfig.Workers < 1 {
+	if monitorconfig.Workers < 1 {
 		return fmt.Errorf("number of Kubernetes monitor workers must be at least 1")
 	}
+
 	// Setting up Kubernetes
 	m.kubeCfg = kubeCfg
-	m.localNode = kubernetesconfig.Nodename
-	m.enableHostPods = kubernetesconfig.EnableHostPods
-	m.metadataExtractor = kubernetesconfig.MetadataExtractor
-	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
-	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
-	m.resetNetcls = kubernetesconfig.ResetNetcls
-	m.workers = kubernetesconfig.Workers
+	m.localNode = monitorconfig.Nodename
+	m.enableHostPods = monitorconfig.EnableHostPods
+	m.metadataExtractor = monitorconfig.MetadataExtractor
+	m.netclsProgrammer = monitorconfig.NetclsProgrammer
+	m.sandboxExtractor = monitorconfig.SandboxExtractor
+	m.resetNetcls = monitorconfig.ResetNetcls
+	m.workers = monitorconfig.Workers
+	m.criRuntimeService = monitorconfig.CRIRuntimeService
 
 	return nil
 }
