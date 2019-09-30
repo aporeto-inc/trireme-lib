@@ -1639,7 +1639,7 @@ func Test_ExtensionsV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				i.iptv4.aclamanager.RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1946,7 +1946,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				i.iptv4.aclamanager.RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
