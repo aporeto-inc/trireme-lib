@@ -357,7 +357,7 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	}
 	// then allocate buffer for wide string and call again
 	buf := make([]uint16, bytesNeeded/2)
-	dllRet, _, err = frontman.GetFilterListProc.Call(driverHandle, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	dllRet, _, err = frontman.GetFilterListProc.Call(driverHandle, outbound, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
 	if dllRet == 0 {
 		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.GetFilterListProc.Name, dllRet, err)
 	}
