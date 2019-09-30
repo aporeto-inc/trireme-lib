@@ -200,6 +200,7 @@ func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envo
 	}
 	// update the sds server certs.
 	server.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
+	e.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
 	return true, nil
 }
 

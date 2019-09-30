@@ -320,8 +320,8 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 	s.secrets = secrets
 	s.certPEM = certPEM
 	s.keyPEM = keyPEM
-	s.tlsClientConfig.RootCAs = caPool
-	s.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
+	//s.tlsClientConfig.RootCAs = caPool
+	//s.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
 }
 
 // FetchSecrets gets the discovery request and call the Aporeto backend to fetch the certs.
