@@ -128,7 +128,7 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 }
 
 // trapRules provides the packet capture rules that are defined for each processing unit.
-func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
+func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) [][]string {
 
 	tmpl := template.Must(template.New(packetCaptureTemplate).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
@@ -140,6 +140,15 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 		"needICMP": func() bool {
 			return cfg.needICMPRules
 		},
+		"appAnyRules": func() [][]string {
+			return appAnyRules
+		},
+		"netAnyRules": func() [][]string {
+			return netAnyRules
+		},
+		"joinRule": func(rule []string) string {
+			return strings.Join(rule, " ")
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -148,6 +157,63 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 	}
 
 	return rules
+}
+
+// getProtocolAnyRules returns app any acls and net any acls.
+func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPset) ([][]string, [][]string, error) {
+
+	appAnyRules, _ := extractProtocolAnyRules(appRules)
+	netAnyRules, _ := extractProtocolAnyRules(netRules)
+
+	sortedAppAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.AppChain, cfg.NetChain, appAnyRules, true)
+	sortedNetAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.NetChain, cfg.AppChain, netAnyRules, false)
+
+	sortedAppAnyRules, err := extractACLsFromTemplate(sortedAppAnyRulesBuckets)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable extract app protocol any rules: %v", err)
+	}
+
+	sortedNetAnyRules, err := extractACLsFromTemplate(sortedNetAnyRulesBuckets)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
+	}
+
+	return sortedAppAnyRules, sortedNetAnyRules, nil
+}
+
+func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
+
+	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
+		"joinRule": func(rule []string) string {
+			return strings.Join(rule, " ")
+		},
+	}).Parse(acls))
+
+	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract rules from template: %s", err)
+	}
+
+	return aclRules, nil
+}
+
+// extractProtocolAnyRules extracts protocol any rules from the set and returns
+// protocol any rules and all other rules without any.
+func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules []aclIPset) {
+
+	for _, rule := range rules {
+		for _, proto := range rule.protocols {
+
+			if proto != constants.AllProtoString {
+				otherRules = append(otherRules, rule)
+				continue
+			}
+
+			anyRules = append(anyRules, rule)
+		}
+	}
+
+	return anyRules, otherRules
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -226,9 +292,9 @@ func (i *iptables) addChainRules(cfg *ACLInfo) error {
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
+func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) error {
 
-	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU, appAnyRules, netAnyRules), "Append")
 }
 
 func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
@@ -274,8 +340,12 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 	}
 
 	if rule.policy.Action&policy.Log > 0 || observeContinue {
-		nflog := []string{"-m", "state", "--state", "NEW",
-			"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}
+		state := []string{}
+		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
+			state = []string{"-m", "state", "--state", "NEW"}
+		}
+
+		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}...)
 		nfLogRule := append(baseRule(proto), nflog...)
 
 		iptRules = append(iptRules, nfLogRule)
@@ -439,15 +509,11 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 // by an application. The allow rules are inserted with highest priority.
 func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
+	_, rules = extractProtocolAnyRules(rules)
+
 	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
 
-	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
-		"joinRule": func(rule []string) string {
-			return strings.Join(rule, " ")
-		},
-	}).Parse(acls))
-
-	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	aclRules, err := extractACLsFromTemplate(rulesBucket)
 	if err != nil {
 		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
