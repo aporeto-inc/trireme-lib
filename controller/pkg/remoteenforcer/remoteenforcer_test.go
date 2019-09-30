@@ -380,6 +380,7 @@ func TestInitEnforcer(t *testing.T) {
 					cfg *runtime.Configuration,
 					tokenIssuer common.ServiceTokenIssuer,
 					binaryTokens bool,
+					aclmanager ipsetmanager.ACLManager,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}
@@ -406,6 +407,7 @@ func TestInitEnforcer(t *testing.T) {
 					mode constants.ModeType,
 					cfg *runtime.Configuration,
 					p packetprocessor.PacketProcessor,
+					aclmanager ipsetmanager.ACLManager,
 				) (supervisor.Supervisor, error) {
 					return nil, fmt.Errorf("failed supervisor")
 				}
