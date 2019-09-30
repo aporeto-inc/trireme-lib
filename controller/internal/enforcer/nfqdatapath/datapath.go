@@ -21,6 +21,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
@@ -113,8 +114,9 @@ type Datapath struct {
 	ackSize uint32
 
 	// conntrack is the conntrack client
-	conntrack flowtracking.FlowClient
-	dnsProxy  *dnsproxy.Proxy
+	conntrack  flowtracking.FlowClient
+	dnsProxy   *dnsproxy.Proxy
+	aclmanager ipsetmanager.ACLManager
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -172,6 +174,7 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
+	aclmanager ipsetmanager.ACLManager,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -250,6 +253,7 @@ func New(
 		udpSocketWriter:              udpSocketWriter,
 		puToPortsMap:                 map[string]map[string]bool{},
 		puCountersChannel:            make(chan *pucontext.PUContext, 220),
+		aclmanager:                   aclmanager,
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -274,6 +278,7 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	aclmanager ipsetmanager.ACLManager,
 ) *Datapath {
 
 	if collector == nil {
@@ -311,6 +316,7 @@ func NewWithDefaults(
 		tokenAccessor,
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
+		aclmanager,
 	)
 
 	conntrackClient, err := flowtracking.NewClient(context.Background())
@@ -319,7 +325,7 @@ func NewWithDefaults(
 	}
 	e.conntrack = conntrackClient
 
-	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector)
+	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector, e.aclmanager)
 
 	return e
 }
@@ -574,7 +580,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 	}
 
 	if d.dnsProxy == nil {
-		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector)
+		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector, d.aclmanager)
 	}
 
 	d.startApplicationInterceptor(ctx)

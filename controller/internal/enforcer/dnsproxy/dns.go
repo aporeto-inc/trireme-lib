@@ -27,7 +27,7 @@ type Proxy struct {
 	collector         collector.EventCollector
 	contextIDToServer map[string]*dns.Server
 	chreports         chan dnsReport
-	updateIPsets      ipsetmanager.IPsetUpdates
+	updateIPsets      ipsetmanager.ACLManager
 	sync.RWMutex
 }
 
@@ -188,9 +188,9 @@ func (p *Proxy) ShutdownDNS(contextID string) {
 }
 
 // New creates an instance of the dns proxy
-func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector) *Proxy {
+func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector, aclmanager ipsetmanager.ACLManager) *Proxy {
 	ch := make(chan dnsReport)
-	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}, updateIPsets: ipsetmanager.GetIPsetUpdates()}
+	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}, updateIPsets: aclmanager}
 	go p.reportDNSRequests(ch)
 	return p
 }

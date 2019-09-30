@@ -21,6 +21,8 @@ import (
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
@@ -108,6 +110,9 @@ func newRemoteEnforcer(
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
+	ips := provider.NewGoIPsetProvider()
+	aclmanager := ipsetmanager.CreateIPsetManager(ips)
+
 	return &RemoteEnforcer{
 		collector:       collector,
 		service:         service,
@@ -124,6 +129,7 @@ func newRemoteEnforcer(
 		zapConfig:       zapConfig,
 		tokenIssuer:     tokenIssuer,
 		enforcerType:    enforcerType,
+		aclmanager:      aclmanager,
 	}, nil
 }
 
@@ -523,6 +529,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		payload.Configuration,
 		s.tokenIssuer,
 		payload.BinaryTokens,
+		s.aclmanager,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -545,6 +552,7 @@ func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload)
 		mode,
 		payload.Configuration,
 		s.service,
+		s.aclmanager,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to setup supervisor: %s", err)

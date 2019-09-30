@@ -64,6 +64,7 @@ func NewSupervisor(
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
 	p packetprocessor.PacketProcessor,
+	aclmanager ipsetmanager.ACLManager,
 ) (Supervisor, error) {
 
 	// for certain modes we do not want to launch a supervisor at all, so we are going to launch a noop supervisor
@@ -81,7 +82,7 @@ func NewSupervisor(
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
@@ -94,7 +95,7 @@ func NewSupervisor(
 		filterQueue:    filterQueue,
 		service:        p,
 		cfg:            cfg,
-		aclmanager:     ipsetmanager.GetManager(),
+		aclmanager:     aclmanager,
 	}, nil
 }
 

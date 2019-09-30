@@ -123,7 +123,7 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) *iptables {
+func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
 
 	return &iptables{
 		impl:                  impl,
@@ -134,7 +134,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
-		aclmanager:            ipsetmanager.GetManager(),
+		aclmanager:            aclmanager,
 	}
 }
 

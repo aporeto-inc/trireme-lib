@@ -28,9 +28,6 @@ const (
 //ACLManager interface is used by supervisor. This interface provides the supervisor to
 //create ipsets corresponding to service ID.
 type ACLManager interface {
-	// sets the ipset provider
-	SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int)
-
 	AddToIPset(set provider.Ipset, data string) error
 	DelFromIPset(set provider.Ipset, data string) error
 
@@ -38,10 +35,6 @@ type ACLManager interface {
 	DestroyUnusedIPsets()
 	RemoveExternalNets(contextID string)
 	GetIPsets(extnets policy.IPRuleList, ipver int) []string
-}
-
-//IPsetUpdates is used by dns proxy currently to dynamically update the ips.
-type IPsetUpdates interface {
 	UpdateIPsets([]string, string)
 }
 
@@ -67,27 +60,14 @@ type managerType struct {
 	sync.RWMutex
 }
 
-var manager managerType
-
 const (
 	ipv4String = "v4-"
 	ipv6String = "v6-"
 )
 
-//GetManager is called to get the object to manage acls.
-func GetManager() ACLManager {
-	return &manager
-}
-
-//GetIPsetUpdates is called to get the object to update the ipsets.
-func GetIPsetUpdates() IPsetUpdates {
-	return &manager
-}
-
-// SetIpsetProvider sets the ipset providers for these handlers
-func (m *managerType) SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersion int) {
-	if ipsetVersion == IPsetV4 {
-		m.ipv4Handler = &handler{
+func CreateIPsetManager(ipset provider.IpsetProvider) ACLManager {
+	return &managerType{
+		ipv4Handler: &handler{
 			serviceIDtoIPset:      map[string]*ipsetInfo{},
 			contextIDtoServiceIDs: map[string]map[string]bool{},
 			ipset:                 ipset,
@@ -96,10 +76,8 @@ func (m *managerType) SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersio
 				return (ip.To4() != nil)
 			},
 			ipsetParams: &ipsetpackage.Params{},
-		}
-
-	} else {
-		m.ipv6Handler = &handler{
+		},
+		ipv6Handler: &handler{
 			serviceIDtoIPset:      map[string]*ipsetInfo{},
 			contextIDtoServiceIDs: map[string]map[string]bool{},
 			ipset:                 ipset,
@@ -108,8 +86,9 @@ func (m *managerType) SetIpsetProvider(ipset provider.IpsetProvider, ipsetVersio
 				return (ip.To4() == nil)
 			},
 			ipsetParams: &ipsetpackage.Params{HashFamily: "inet6"},
-		}
+		},
 	}
+
 }
 
 func hashServiceID(serviceID string) string {

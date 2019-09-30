@@ -11,7 +11,6 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -571,7 +570,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -965,7 +964,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				ipsetmanager.GetManager().RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err := i.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
