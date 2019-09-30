@@ -10,8 +10,12 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	cri "k8s.io/cri-api/pkg/apis"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -38,6 +42,8 @@ type PodMonitor struct {
 
 // New returns a new kubernetes monitor.
 func New() *PodMonitor {
+	var f cri.RuntimeService
+	fmt.Println(f)
 	podMonitor := &PodMonitor{
 		eventsCh: make(chan event.GenericEvent),
 	}
@@ -118,6 +124,11 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
+	nativeClient, err := kubernetes.NewForConfig(m.kubeCfg)
+	if err != nil {
+		return fmt.Errorf("pod: failed to create native kubernetes client: %s", err.Error())
+	}
+
 	// ensure to run the reset net_cls
 	// NOTE: we also call this during resync, however, that is not called at startup
 	if m.resetNetcls == nil {
@@ -127,12 +138,21 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: failed to reset net_cls cgroups: %s", err.Error())
 	}
 
-	syncPeriod := time.Second * 30
+	syncPeriod := time.Hour * 6
 	mgr, err := manager.New(m.kubeCfg, manager.Options{
 		SyncPeriod: &syncPeriod,
 	})
 	if err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
+	}
+
+	nativeInformers := informers.NewSharedInformerFactory(nativeClient, syncPeriod)
+	if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		nativeInformers.Start(s)
+		<-s
+		return nil
+	})); err != nil {
+		return fmt.Errorf("pod: failed to add native informers to manager: %s", err.Error())
 	}
 
 	// Create the delete event controller first
@@ -143,7 +163,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 
 	// Create the main controller for the monitor
 	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
-	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
+	if err := addController(mgr, r, m.workers, m.eventsCh, nativeInformers); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 

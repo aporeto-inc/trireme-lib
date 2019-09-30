@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/informers"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -63,7 +64,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 }
 
 // addController adds a new Controller to mgr with r as the reconcile.Reconciler
-func addController(mgr manager.Manager, r *ReconcilePod, workers int, eventsCh <-chan event.GenericEvent) error {
+func addController(mgr manager.Manager, r *ReconcilePod, workers int, eventsCh <-chan event.GenericEvent, nativeInformers informers.SharedInformerFactory) error {
 	// Create a new controller
 	c, err := controller.New("trireme-pod-controller", mgr, controller.Options{
 		Reconciler:              r,
@@ -82,7 +83,10 @@ func addController(mgr manager.Manager, r *ReconcilePod, workers int, eventsCh <
 
 	// use the our watch pod mapper which filters pods before we reconcile
 	if err := c.Watch(
-		&source.Kind{Type: &corev1.Pod{}},
+		//&source.Kind{Type: &corev1.Pod{}},
+		&source.Informer{
+			Informer: nativeInformers.Core().V1().Pods().Informer(),
+		},
 		&handler.EnqueueRequestsFromMapFunc{ToRequests: mapper},
 	); err != nil {
 		return err
