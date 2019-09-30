@@ -162,20 +162,20 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 // getProtocolAnyRules returns app any acls and net any acls.
 func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPset) ([][]string, [][]string, error) {
 
-	appAnyRules, _ := extractRules(appRules)
-	netAnyRules, _ := extractRules(netRules)
+	appAnyRules, _ := extractProtocolAnyRules(appRules)
+	netAnyRules, _ := extractProtocolAnyRules(netRules)
 
 	sortedAppAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.AppChain, cfg.NetChain, appAnyRules, true)
 	sortedNetAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.NetChain, cfg.AppChain, netAnyRules, false)
 
 	sortedAppAnyRules, err := extractACLsFromTemplate(sortedAppAnyRulesBuckets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to sort app any rules in buckets: %v", err)
+		return nil, nil, fmt.Errorf("unable extract app protocol any rules: %v", err)
 	}
 
 	sortedNetAnyRules, err := extractACLsFromTemplate(sortedNetAnyRulesBuckets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to sort net any rules in buckets: %v", err)
+		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
 	}
 
 	return sortedAppAnyRules, sortedNetAnyRules, nil
@@ -197,12 +197,9 @@ func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
 	return aclRules, nil
 }
 
-// extractRules extracts protocol any rules from the set and returns
+// extractProtocolAnyRules extracts protocol any rules from the set and returns
 // protocol any rules and all other rules without any.
-func extractRules(rules []aclIPset) ([]aclIPset, []aclIPset) {
-
-	anyRules := []aclIPset{}
-	otherRules := []aclIPset{}
+func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules []aclIPset) {
 
 	for _, rule := range rules {
 		for _, proto := range rule.protocols {
@@ -512,7 +509,7 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 // by an application. The allow rules are inserted with highest priority.
 func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
-	_, rules = extractRules(rules)
+	_, rules = extractProtocolAnyRules(rules)
 
 	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
 
