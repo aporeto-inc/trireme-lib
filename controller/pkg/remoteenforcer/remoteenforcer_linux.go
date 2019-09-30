@@ -111,7 +111,7 @@ func newRemoteEnforcer(
 	}
 
 	ips := provider.NewGoIPsetProvider()
-	aclmanager := ipsetmanager.CreateIPsetManager(ips)
+	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
 
 	return &RemoteEnforcer{
 		collector:       collector,
