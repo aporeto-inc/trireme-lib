@@ -23,7 +23,7 @@ func ResyncWithAllPods(ctx context.Context, c client.Client, evCh chan<- event.G
 	}
 
 	list := &corev1.PodList{}
-	if err := c.List(ctx, &client.ListOptions{}, list); err != nil {
+	if err := c.List(ctx, list); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
