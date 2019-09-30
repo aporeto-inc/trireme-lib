@@ -202,7 +202,7 @@ func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
 func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules []aclIPset) {
 
 	for _, rule := range rules {
-		for _, proto := range rule.protocols {
+		for _, proto := range rule.Protocols {
 
 			if proto != constants.AllProtoString {
 				otherRules = append(otherRules, rule)
@@ -339,13 +339,13 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 		)
 	}
 
-	if rule.policy.Action&policy.Log > 0 || observeContinue {
+	if rule.Policy.Action&policy.Log > 0 || observeContinue {
 		state := []string{}
 		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
 			state = []string{"-m", "state", "--state", "NEW"}
 		}
 
-		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}...)
+		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefix(contextID)}...)
 		nfLogRule := append(baseRule(proto), nflog...)
 
 		iptRules = append(iptRules, nfLogRule)

@@ -66,12 +66,12 @@ const (
 )
 
 //CreateIPsetManager creates the handle with Interface ACLManager
-func CreateIPsetManager(ipset provider.IpsetProvider) ACLManager {
+func CreateIPsetManager(ipsetv4 provider.IpsetProvider, ipsetv6 provider.IpsetProvider) ACLManager {
 	return &managerType{
 		ipv4Handler: &handler{
 			serviceIDtoIPset:      map[string]*ipsetInfo{},
 			contextIDtoServiceIDs: map[string]map[string]bool{},
-			ipset:                 ipset,
+			ipset:                 ipsetv4,
 			ipsetPrefix:           ipv4String,
 			ipFilter: func(ip net.IP) bool {
 				return (ip.To4() != nil)
@@ -81,7 +81,7 @@ func CreateIPsetManager(ipset provider.IpsetProvider) ACLManager {
 		ipv6Handler: &handler{
 			serviceIDtoIPset:      map[string]*ipsetInfo{},
 			contextIDtoServiceIDs: map[string]map[string]bool{},
-			ipset:                 ipset,
+			ipset:                 ipsetv6,
 			ipsetPrefix:           ipv6String,
 			ipFilter: func(ip net.IP) bool {
 				return (ip.To4() == nil)

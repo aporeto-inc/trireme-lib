@@ -27,7 +27,7 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
 
-	aclmanager := ipsetmanager.CreateIPsetManager(ipsv4)
+	aclmanager := ipsetmanager.CreateIPsetManager(ipsv4, ipsv6)
 	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode, aclmanager)
 	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode, aclmanager)
 
@@ -385,10 +385,10 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:6",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j DROP",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:3",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
 			"-s 0.0.0.0/0 -j DROP",
@@ -405,10 +405,10 @@ var (
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:6",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j DROP",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:3",
-			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
 			"-d 0.0.0.0/0 -j DROP",
@@ -709,7 +709,7 @@ var (
 		"TRI-v4-ext-uNdc0vdcFZA=":            {"30.0.0.0/24"},
 		"TRI-v4-ext-w5frVvhsnpU=":            {"40.0.0.0/24"},
 		"TRI-v4-ext-IuSLsD1R-mE=":            {"40.0.0.0/24"},
-		"TRI-v4-ext-_qhcdpu19gtV":            {"60.0.0.0/24"},
+		"TRI-v4-ext-_qhcdC8NcJc=":            {"60.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":           {},
 		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}

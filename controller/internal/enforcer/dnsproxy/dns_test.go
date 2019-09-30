@@ -114,7 +114,8 @@ func TestDNS(t *testing.T) {
 	conntrack := &flowClientDummy{}
 	collector := &DNSCollector{}
 
-	proxy := New(puIDcache, conntrack, collector, ipsetmanager.CreateIPsetManager(provider.NewTestIpsetProvider()))
+	ips := provider.NewTestIpsetProvider()
+	proxy := New(puIDcache, conntrack, collector, ipsetmanager.CreateIPsetManager(ips, ips))
 
 	err := proxy.StartDNSServer("pu1", "53001")
 	assert.Equal(t, err == nil, true, "start dns server")

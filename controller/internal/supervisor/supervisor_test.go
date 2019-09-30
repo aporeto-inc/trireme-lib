@@ -146,7 +146,8 @@ func TestSupervise(t *testing.T) {
 		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, ipsetmanager.CreateIPsetManager(provider.NewTestIpsetProvider()))
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -223,7 +224,8 @@ func TestUnsupervise(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(provider.NewTestIpsetProvider()))
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -350,7 +352,8 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(provider.NewTestIpsetProvider()))
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
