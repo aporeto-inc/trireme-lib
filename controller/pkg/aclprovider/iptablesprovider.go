@@ -53,6 +53,7 @@ type BatchProvider struct {
 	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
 	restoreCmd string
+	quote      bool
 }
 
 const (
@@ -83,6 +84,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
+		quote:       true,
 	}
 
 	b.commitFunc = b.restore
@@ -113,6 +115,7 @@ func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV6,
+		quote:       true,
 	}
 
 	b.commitFunc = b.restore
@@ -157,6 +160,8 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		b.rules[table][chain] = []string{}
 	}
 
+	b.quoteRulesSpec(rulespec)
+
 	rule := strings.Join(rulespec, " ")
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
 	return nil
@@ -180,6 +185,8 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 	if _, ok := b.rules[table][chain]; !ok {
 		b.rules[table][chain] = []string{}
 	}
+
+	b.quoteRulesSpec(rulespec)
 
 	rule := strings.Join(rulespec, " ")
 
@@ -212,6 +219,8 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 	if _, ok := b.rules[table][chain]; !ok {
 		return nil
 	}
+
+	b.quoteRulesSpec(rulespec)
 
 	rule := strings.Join(rulespec, " ")
 	for index, r := range b.rules[table][chain] {
@@ -369,6 +378,17 @@ func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
 	}
 	return nil
+}
+
+func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
+
+	if !b.quote {
+		return
+	}
+
+	for i, rule := range rulesspec {
+		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
+	}
 }
 
 func restoreHasWait(restoreCmd string) bool {
