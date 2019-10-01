@@ -761,7 +761,12 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 		return err
 	}
 
-	return i.addPacketTrap(cfg, isHostPU)
+	appAnyRules, netAnyRules, err := i.getProtocolAnyRules(cfg, appACLIPset, netACLIPset)
+	if err != nil {
+		return err
+	}
+
+	return i.addPacketTrap(cfg, isHostPU, appAnyRules, netAnyRules)
 }
 
 // puPortSetName returns the name of the pu portset.
