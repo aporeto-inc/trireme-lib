@@ -1,7 +1,10 @@
 package extractors
 
 import (
+	"crypto/md5"
+	"debug/elf"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/user"
@@ -152,6 +155,25 @@ func ProcessInfo(pid int32) []string {
 	return userdata
 }
 
+// ComputeFileMd5 computes the Md5 of a file
+func ComputeFileMd5(filePath string) ([]byte, error) {
+
+	var result []byte
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return result, err
+	}
+	defer file.Close() //nolint : errcheck
+
+	hash := md5.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return result, err
+	}
+
+	return hash.Sum(result), nil
+}
+
 func findFQDN(expiration time.Duration) string {
 
 	hostname, err := os.Hostname()
@@ -191,6 +213,18 @@ func findFQDN(expiration time.Duration) string {
 	case name := <-globalHostname:
 		return name
 	}
+}
+
+// Libs returns the list of dynamic library dependencies of an executable
+func Libs(binpath string) []string {
+
+	f, err := elf.Open(binpath)
+	if err != nil {
+		return []string{}
+	}
+
+	libraries, _ := f.ImportedLibraries()
+	return libraries
 }
 
 // policyExtensions retrieves policy extensions. Moving this function from extractor package.

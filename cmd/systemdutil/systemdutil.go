@@ -1,12 +1,9 @@
 package systemdutil
 
 import (
-	"crypto/md5"
-	"debug/elf"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -16,6 +13,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
@@ -353,48 +351,16 @@ func executableTags(c *CLIRequest) []string {
 
 	tags := []string{}
 
-	if fileMd5, err := computeFileMd5(c.Executable); err == nil {
+	if fileMd5, err := extractors.ComputeFileMd5(c.Executable); err == nil {
 		tags = append(tags, fmt.Sprintf("@app:linux:filechecksum=%s", hex.EncodeToString(fileMd5)))
 	}
 
-	depends := libs(c.ServiceName)
+	depends := extractors.Libs(c.ServiceName)
 	for _, lib := range depends {
 		tags = append(tags, fmt.Sprintf("@app:linux:lib:%s=true", lib))
 	}
 
 	return tags
-}
-
-// computeFileMd5 computes the Md5 of a file
-func computeFileMd5(filePath string) ([]byte, error) {
-
-	var result []byte
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return result, err
-	}
-	defer file.Close() //nolint : errcheck
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return result, err
-	}
-
-	return hash.Sum(result), nil
-}
-
-// libs returns the list of dynamic library dependencies of an executable
-func libs(binpath string) []string {
-
-	f, err := elf.Open(binpath)
-	if err != nil {
-		return []string{}
-	}
-
-	libraries, _ := f.ImportedLibraries()
-	fmt.Println(libraries)
-	return libraries
 }
 
 // ParseServices parses strings with the services and returns them in an
