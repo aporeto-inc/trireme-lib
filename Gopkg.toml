@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "master"
+  branch = "upgrade-sirupsen-logrus"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
