@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -57,7 +58,7 @@ type MultiplexedListener struct {
 // must register protocols outside of the new object creation.
 func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry, puID string) *MultiplexedListener {
 
-	return &MultiplexedListener{
+	m := &MultiplexedListener{
 		root:     l,
 		done:     make(chan struct{}),
 		shutdown: make(chan struct{}),
@@ -68,6 +69,19 @@ func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.
 		mark:     mark,
 		puID:     puID,
 	}
+
+	go func() {
+		for {
+			select {
+			case <-time.After(30 * time.Second):
+				m.Lock()
+				m.localIPs = markedconn.GetInterfaces()
+				m.Unlock()
+			}
+		}
+	}()
+
+	return m
 }
 
 // RegisterListener registers a new listener. It returns the listener that the various
@@ -188,7 +202,10 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	}
 
 	local := false
-	if _, ok = m.localIPs[networkOfAddress(remoteAddr.String())]; ok {
+	m.Lock()
+	localIPs := m.localIPs
+	m.Unlock()
+	if _, ok = localIPs[networkOfAddress(remoteAddr.String())]; ok {
 		local = true
 	}
 
@@ -200,6 +217,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 				zap.String("ContextID", m.puID),
 				zap.String("ip", ip.String()),
 				zap.Int("port", port),
+				zap.String("Remote IP", remoteAddr.String()),
 				zap.Error(err),
 			)
 			return
@@ -208,7 +226,11 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	} else {
 		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
-			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
+			zap.L().Error("Cannot discover target service",
+				zap.String("ip", ip.String()),
+				zap.Int("port", port),
+				zap.String("Remote IP", remoteAddr.String()),
+			)
 			return
 		}
 
