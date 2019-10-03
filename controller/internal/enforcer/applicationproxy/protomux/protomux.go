@@ -155,16 +155,25 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		}
 	}()
 
+	go func() {
+		for {
+			select {
+			case <-time.After(5 * time.Second):
+				m.Lock()
+				m.localIPs = markedconn.GetInterfaces()
+				m.Unlock()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-m.shutdown:
 			return nil
-		case <-time.After(5 * time.Second):
-			m.Lock()
-			m.localIPs = markedconn.GetInterfaces()
-			m.Unlock()
 		default:
 			c, err := m.root.Accept()
 			if err != nil {
