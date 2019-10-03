@@ -84,7 +84,9 @@ yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
 
 const (
 	// SdsSocketpath is the socket path on which the envoy will talk to the remoteEnforcer.
-	SdsSocketpath = "@aporeto_envoy_sds"
+	//SdsSocketpath = "@aporeto_envoy_sds"
+	//SdsSocketpath = "127.0.0.1:2999"
+	SdsSocketpath = "/var/run/sds/uds_path"
 )
 
 // Options to create a SDS server to task to envoy
@@ -125,6 +127,7 @@ func NewSdsServer(puInfo *policy.PUInfo) (*SdsServer, error) {
 		fmt.Println("Error while starting the envoy sds server.")
 		return nil, err
 	}
+	fmt.Println("SDS start success for :", puInfo.ContextID)
 	return sdsServer, nil
 }
 
@@ -141,24 +144,26 @@ func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 		return err
 	}
 	fmt.Println("Start listening on UDS path: ", options.SocketPath)
-	sdsGrpcListener, err := net.Listen("unix", options.SocketPath)
+	addr, _ := net.ResolveUnixAddr("unix", options.SocketPath)
+
+	sdsGrpcListener, err := net.ListenUnix("unix", addr)
 	if err != nil {
 		fmt.Println("cannot listen on the socketpath", err)
 		return err
 	}
-	// make sure the socket path can be accessed.
+	//make sure the socket path can be accessed.
 	if _, err := os.Stat(options.SocketPath); err != nil {
-		fmt.Println("SDS uds file %q doesn't exist", options.SocketPath)
+		fmt.Println("SDS uds file doesn't exist", options.SocketPath)
 		return fmt.Errorf("sds uds file %q doesn't exist", options.SocketPath)
 	}
 	if err := os.Chmod(options.SocketPath, 0666); err != nil {
-		fmt.Println("Failed to update %q permission", options.SocketPath)
+		fmt.Println("Failed to update permission", options.SocketPath)
 		return fmt.Errorf("failed to update %q permission", options.SocketPath)
 	}
 	//var err error
 	s.sdsGrpcListener = sdsGrpcListener
 
-	fmt.Println("run the grpc server")
+	fmt.Println("run the grpc server at: ", s.sdsGrpcListener.Addr())
 	s.Run()
 	return nil
 }
@@ -172,7 +177,7 @@ func (s *SdsServer) Run() {
 				s.errCh <- err
 			}
 		}
-		fmt.Println("the listener is nil, cannot start the server")
+		fmt.Println("the listener is nil, cannot start the SDS server for: ", s.puInfo.ContextID)
 	}()
 }
 

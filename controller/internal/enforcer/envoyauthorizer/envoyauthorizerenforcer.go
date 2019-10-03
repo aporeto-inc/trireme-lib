@@ -58,7 +58,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	if mode != constants.RemoteContainerEnvoyAuthorizer && mode != constants.LocalEnvoyAuthorizer {
 		return nil, fmt.Errorf("enforcer mode type must be either RemoteContainerEnvoyAuthorizer or LocalEnvoyAuthorizer, got: %d", mode)
 	}
-
+	fmt.Println("\n\n\n ABHI ***** envoy init ******")
 	// same logic as in the nfqdatapath
 	if externalIPCacheTimeout <= 0 {
 		var err error
@@ -109,7 +109,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	e.Lock()
 	defer e.Unlock()
 
-	zap.L().Info("ENforce for the envoy remoteEnforcer")
+	zap.L().Info("ENforce for the envoy remoteEnforcer for pu: ", zap.String("puID:", contextID))
 	// here we 1st need to create a PuContext, as the PU context will derive the
 	// serviceCtxt which will be used by the authorizer to determine the policyInfo.
 
@@ -200,7 +200,9 @@ func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envo
 	}
 	// update the sds server certs.
 	server.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
-	e.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
+	if e.metadata != nil {
+		e.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
+	}
 	return true, nil
 }
 

@@ -26,12 +26,12 @@ import (
 
 const (
 	// IngressSocketPath is the unix socket path where the authz server will be listening on for the ingress authz server
-	IngressSocketPath = "@aporeto_envoy_authz_ingress"
-	//IngressSocketPath = "127.0.0.1:1999"
+	//IngressSocketPath = "@aporeto_envoy_authz_ingress"
+	IngressSocketPath = "127.0.0.1:1999"
 
 	// EgressSocketPath is the unix socket path where the authz server will be listening on for the egress authz server
-	//EgressSocketPath = "127.0.0.1:1998"
-	EgressSocketPath = "@aporeto_envoy_authz_egress"
+	EgressSocketPath = "127.0.0.1:1998"
+	//EgressSocketPath = "@aporeto_envoy_authz_egress"
 
 	// defaultValidity of the issued JWT token
 	defaultValidity = 60 * time.Second
@@ -143,8 +143,27 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 	if err != nil {
 		return nil, err
 	}
-
+	// if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
+	// 	fmt.Println("ABHI, envoy-reireme, failed to remove the udspath", err)
+	// 	return nil, err
+	// }
+	// fmt.Println("Start listening on UDS path: ", socketPath)
+	// nl, err := net.Listen("unix", socketPath)
+	// if err != nil {
+	// 	fmt.Println("cannot listen on the socketpath", err)
+	// 	return nil, err
+	// }
+	// make sure the socket path can be accessed.
+	// if _, err := os.Stat(socketPath); err != nil {
+	// 	fmt.Println("SDS uds file doesn't exist", socketPath)
+	// 	return nil, fmt.Errorf("sds uds file %q doesn't exist", socketPath)
+	// }
+	// if err := os.Chmod(socketPath, 0666); err != nil {
+	// 	fmt.Println("Failed to update permission", socketPath)
+	// 	return nil, fmt.Errorf("failed to update %q permission", socketPath)
+	// }
 	// start and listen to the server
+	fmt.Println("\n\n Auth Server started the server on: ", nl.Addr())
 	go s.run(nl)
 
 	return s, nil
