@@ -58,7 +58,7 @@ type MultiplexedListener struct {
 // must register protocols outside of the new object creation.
 func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry, puID string) *MultiplexedListener {
 
-	m := &MultiplexedListener{
+	return &MultiplexedListener{
 		root:     l,
 		done:     make(chan struct{}),
 		shutdown: make(chan struct{}),
@@ -69,19 +69,6 @@ func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.
 		mark:     mark,
 		puID:     puID,
 	}
-
-	go func() {
-		for {
-			select {
-			case <-time.After(30 * time.Second):
-				m.Lock()
-				m.localIPs = markedconn.GetInterfaces()
-				m.Unlock()
-			}
-		}
-	}()
-
-	return m
 }
 
 // RegisterListener registers a new listener. It returns the listener that the various
@@ -174,6 +161,10 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 			return nil
 		case <-m.shutdown:
 			return nil
+		case <-time.After(5 * time.Second):
+			m.Lock()
+			m.localIPs = markedconn.GetInterfaces()
+			m.Unlock()
 		default:
 			c, err := m.root.Accept()
 			if err != nil {
