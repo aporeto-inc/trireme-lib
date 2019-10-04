@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	cripleg "go.aporeto.io/trireme-lib/monitor/internal/pod/internal/pleg"
+	"go.aporeto.io/trireme-lib/monitor/internal/pod/internal/queue"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"go.aporeto.io/trireme-lib/utils/cri"
 
@@ -219,8 +220,22 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: failed to add native informers to manager: %s", err.Error())
 	}
 
+	// create the policy engine queue
+	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, 10000)
+	if err := mgr.Add(policyEngineQueue); err != nil {
+		return fmt.Errorf("pod: failed to add policy engine queue to manager: %s", err.Error())
+	}
+
 	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.handlers, m.sandboxExtractor, m.eventsCh)
+	// NOTE: we don't want to rely on a cache here, _always_ read from the API directly
+	dcClient, err := client.New(m.kubeCfg, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create uncached client for delete controller")
+	}
+	dc := NewDeleteController(dcClient, m.handlers, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}

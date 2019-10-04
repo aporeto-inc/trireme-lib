@@ -170,19 +170,22 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 
 	// now the 2nd case, when pod UID match
 	if string(pod.UID) == delObj.podUID {
-		zap.L().Debug("DeleteController: the pod UID Match happened, delete the", zap.String("podName:", req.String()), zap.String("podUID", string(pod.UID)))
 		// 2a get the current sandboxID
 		if sandboxExtractor == nil {
 			return
 		}
 		currentSandboxID, err := sandboxExtractor(ctx, pod)
 		if err != nil {
-			zap.L().Debug("DeleteController: cannot extract the SandboxID, return", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+			zap.L().Debug("DeleteController: cannot extract the SandboxID", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
 			return
 		}
+		if currentSandboxID == "" {
+			zap.L().Debug("DeleteController: extracted SandboxID is empty", zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
+		}
+
 		// update the map with the sandboxID
 		// here we update the map only if the sandboxID has not been extracted.
-		// The extraction of the sandboxID if  missed by the main controller then we will update the map below.
+		// The extraction of the sandboxID if missed by the main controller then we will update the map below.
 		if delObj.sandboxID == "" {
 			delObj = DeleteObject{podUID: podUID, sandboxID: currentSandboxID, podName: req}
 			m[podUID] = delObj
@@ -190,10 +193,9 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		// 2b get the pod/old sandboxID
 		oldSandboxID := delObj.sandboxID
 
-		zap.L().Debug("DeleteController:", zap.String(" the sandboxID, curr:", currentSandboxID), zap.String(" old sandboxID: ", oldSandboxID))
 		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
 		if oldSandboxID != currentSandboxID {
-			zap.L().Debug("DeleteController: Pod SandboxID differ. Trying to destroy PU", zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
+			zap.L().Warn("DeleteController: Pod SandboxID changed, destroying PU now", zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
 				podUID,
