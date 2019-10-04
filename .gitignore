@@ -1,6 +1,7 @@
 .DS_Store
 example/example
 vendor
+moved_vendr
 coverage.txt
 controller/internal/processmon/testbinary/testbinary
 Gopkg.lock
