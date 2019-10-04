@@ -113,7 +113,7 @@ type podevents struct {
 	destroy policy.RuntimeReader
 	netcls  policy.RuntimeReader
 
-	netclsPod *corev1.Pod
+	pod *corev1.Pod
 
 	pc               *config.ProcessorConfig
 	netclsProgrammer extractors.PodNetclsProgrammer
@@ -124,7 +124,6 @@ type postProcessEvent struct {
 	err     error
 	ev      common.Event
 	runtime policy.RuntimeReader
-	pod     *corev1.Pod
 }
 
 func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder, candidateDeleteCh chan types.UID) *podevents {
@@ -197,6 +196,7 @@ func (p *podevents) hasNoEvents() bool {
 }
 
 func (p *podevents) rxEvent(ev *PolicyEngineEvent) {
+	p.pod = p.pod.DeepCopy()
 	switch ev.Event {
 	case common.EventCreate:
 		if !p.isCreated || p.stop != nil || p.destroy != nil {
@@ -217,12 +217,10 @@ func (p *podevents) rxEvent(ev *PolicyEngineEvent) {
 		p.start = nil
 		p.stop = nil
 		p.netcls = nil
-		p.netclsPod = nil
 		p.destroy = ev.Runtime
 	case common.Event("netcls"):
 		if !p.isNetclsProgrammed {
 			p.netcls = ev.Runtime
-			p.netclsPod = ev.Pod
 		}
 	}
 }
@@ -298,16 +296,13 @@ func (p *podevents) processEvent() {
 
 	if p.netcls != nil {
 		runtime := p.netcls
-		pod := p.netclsPod
 		p.netcls = nil
-		p.netclsPod = nil
 		go func() {
-			if err := p.netclsProgrammer(context.Background(), pod, runtime); err != nil {
+			if err := p.netclsProgrammer(context.Background(), p.pod, runtime); err != nil {
 				p.postProcessCh <- postProcessEvent{
 					err:     err,
 					ev:      common.Event("netcls"),
 					runtime: runtime,
-					pod:     pod,
 				}
 				return
 			}
@@ -352,18 +347,18 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isStarted = false
 			p.isNetclsProgrammed = false
 			p.stop = nil
-			p.recorder.Eventf(ev.pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", p.id)
+			p.recorder.Eventf(p.pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", p.id)
 		} else {
-			p.recorder.Eventf(ev.pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", p.id, err.Error())
+			p.recorder.Eventf(p.pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", p.id, err.Error())
 		}
 	case common.EventCreate:
 		// again, nothing here that we can do if it fails
 		if err == nil {
 			p.isCreated = true
 			p.create = nil
-			p.recorder.Eventf(ev.pod, "Normal", "PUCreate", "PU '%s' has been successfully created", p.id)
+			p.recorder.Eventf(p.pod, "Normal", "PUCreate", "PU '%s' has been successfully created", p.id)
 		} else {
-			p.recorder.Eventf(ev.pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", p.id, err.Error())
+			p.recorder.Eventf(p.pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", p.id, err.Error())
 		}
 	case common.EventStart:
 		// we will try to retry the start
@@ -371,32 +366,30 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isCreated = true
 			p.isStarted = true
 			p.start = nil
-			p.recorder.Eventf(ev.pod, "Normal", "PUStart", "PU '%s' started successfully", p.id)
+			p.recorder.Eventf(p.pod, "Normal", "PUStart", "PU '%s' started successfully", p.id)
 		} else {
 			if p.start == nil {
 				p.start = ev.runtime
 			}
-			p.recorder.Eventf(ev.pod, "Warning", "PUStart", "PU '%s' failed to start: %s", p.id, err.Error())
+			p.recorder.Eventf(p.pod, "Warning", "PUStart", "PU '%s' failed to start: %s", p.id, err.Error())
 		}
 	case common.Event("netcls"):
 		if err == nil {
 			p.isNetclsProgrammed = true
 			p.netcls = nil
-			p.netclsPod = nil
-			p.recorder.Eventf(ev.pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", p.id)
+			p.recorder.Eventf(p.pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", p.id)
 		} else {
-			if p.netcls == nil && p.netclsPod == nil {
+			if p.netcls == nil {
 				p.netcls = ev.runtime
-				p.netclsPod = ev.pod
 			}
-			p.recorder.Eventf(ev.pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", p.id, err.Error())
+			p.recorder.Eventf(p.pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", p.id, err.Error())
 		}
 	case common.EventUpdate:
 		if err == nil {
 			p.isCreated = true
-			p.recorder.Eventf(ev.pod, "Normal", "PUUpdate", "PU '%s' updated successfully", p.id)
+			p.recorder.Eventf(p.pod, "Normal", "PUUpdate", "PU '%s' updated successfully", p.id)
 		} else {
-			p.recorder.Eventf(ev.pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", p.id, err.Error())
+			p.recorder.Eventf(p.pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", p.id, err.Error())
 		}
 	}
 }
