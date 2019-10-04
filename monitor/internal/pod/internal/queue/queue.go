@@ -8,6 +8,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,19 +31,25 @@ type PolicyEngineEvent struct {
 
 // PerPodPolicyEngineQueue queues events to the policy engine and processes them in serial *per pod*
 type PerPodPolicyEngineQueue struct {
-	queue            chan *PolicyEngineEvent
-	pc               *config.ProcessorConfig
-	netclsProgrammer extractors.PodNetclsProgrammer
-	recorder         record.EventRecorder
+	queue             chan *PolicyEngineEvent
+	candidateDeleteCh chan types.UID
+	pc                *config.ProcessorConfig
+	netclsProgrammer  extractors.PodNetclsProgrammer
+	recorder          record.EventRecorder
 }
 
 // NewPolicyEngineQueue creates a new policy engine queue
 func NewPolicyEngineQueue(pc *config.ProcessorConfig, queueSize int, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) PolicyEngineQueue {
+	candidateDeleteChSize := 0.2 * float64(queueSize)
+	if candidateDeleteChSize < 10 {
+		candidateDeleteChSize = 10
+	}
 	return &PerPodPolicyEngineQueue{
-		pc:               pc,
-		netclsProgrammer: netclsProgrammer,
-		recorder:         recorder,
-		queue:            make(chan *PolicyEngineEvent, queueSize),
+		pc:                pc,
+		netclsProgrammer:  netclsProgrammer,
+		recorder:          recorder,
+		queue:             make(chan *PolicyEngineEvent, queueSize),
+		candidateDeleteCh: make(chan types.UID, int(candidateDeleteChSize)),
 	}
 }
 
@@ -71,10 +78,16 @@ loop:
 		case ev := <-q.queue:
 			p, ok := m[ev.ID]
 			if !ok {
-				m[ev.ID] = newPodevents(ev, q.pc, q.netclsProgrammer, q.recorder)
+				m[ev.ID] = newPodevents(ev, q.pc, q.netclsProgrammer, q.recorder, q.candidateDeleteCh)
 				break
 			}
 			p.rxEvCh <- ev
+		case c := <-q.candidateDeleteCh:
+			_, ok := m[c]
+			if ok {
+				delete(m, c)
+				zap.L().Debug("deleted queue podevent monitor", zap.String("id", string(c)))
+			}
 		}
 	}
 }
@@ -90,6 +103,8 @@ type podevents struct {
 	stopCh        chan struct{}
 	processCh     chan struct{}
 	postProcessCh chan postProcessEvent
+
+	candidateDeleteCh chan types.UID
 
 	create  policy.RuntimeReader
 	update  policy.RuntimeReader
@@ -112,16 +127,17 @@ type postProcessEvent struct {
 	pod     *corev1.Pod
 }
 
-func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) *podevents {
+func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder, candidateDeleteCh chan types.UID) *podevents {
 	ret := &podevents{
-		id:               ev.ID,
-		rxEvCh:           make(chan *PolicyEngineEvent),
-		stopCh:           make(chan struct{}),
-		processCh:        make(chan struct{}, 1),
-		postProcessCh:    make(chan postProcessEvent),
-		pc:               pc,
-		netclsProgrammer: netclsProgrammer,
-		recorder:         recorder,
+		id:                ev.ID,
+		rxEvCh:            make(chan *PolicyEngineEvent),
+		stopCh:            make(chan struct{}),
+		processCh:         make(chan struct{}, 1),
+		postProcessCh:     make(chan postProcessEvent),
+		candidateDeleteCh: candidateDeleteCh,
+		pc:                pc,
+		netclsProgrammer:  netclsProgrammer,
+		recorder:          recorder,
 	}
 	go ret.loop()
 	ret.rxEvCh <- ev
@@ -162,11 +178,22 @@ loop:
 				}
 				needsProcesssing = false
 			}
+			if p.hasNoEvents() {
+				p.candidateDeleteCh <- p.id
+				close(p.stopCh)
+				break loop
+			}
 		}
 	}
 	close(p.rxEvCh)
 	close(p.processCh)
 	close(p.postProcessCh)
+	zap.L().Debug("shut down queue podevent monitor", zap.String("id", string(p.id)))
+}
+
+func (p *podevents) hasNoEvents() bool {
+	return !p.isCreated && !p.isStarted &&
+		p.create == nil && p.update == nil && p.start == nil && p.stop == nil && p.destroy == nil
 }
 
 func (p *podevents) rxEvent(ev *PolicyEngineEvent) {
