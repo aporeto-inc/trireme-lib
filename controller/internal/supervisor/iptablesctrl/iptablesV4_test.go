@@ -383,6 +383,10 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV src -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
 			"-s 0.0.0.0/0 -j DROP",
@@ -398,6 +402,10 @@ var (
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdpu19gtV dst -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
 			"-d 0.0.0.0/0 -j DROP",
@@ -698,6 +706,7 @@ var (
 		"TRI-v4-ext-uNdc0pu19gtV":            {"30.0.0.0/24"},
 		"TRI-v4-ext-w5frVpu19gtV":            {"40.0.0.0/24"},
 		"TRI-v4-ext-IuSLspu19gtV":            {"40.0.0.0/24"},
+		"TRI-v4-ext-_qhcdpu19gtV":            {"60.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":           {},
 		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}
@@ -842,6 +851,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				appACLs := policy.IPRuleList{
 					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
+					policy.IPRule{
 						Addresses: []string{"30.0.0.0/24"},
 						Ports:     []string{"80"},
 						Protocols: []string{"TCP"},
@@ -871,8 +890,28 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 							PolicyID:  "3",
 						},
 					},
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Reject | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
 				}
 				netACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
 					policy.IPRule{
 						Addresses: []string{"40.0.0.0/24"},
 						Ports:     []string{"80"},
@@ -891,6 +930,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 							Action:    policy.Accept,
 							ServiceID: "s4",
 							PolicyID:  "2",
+						},
+					},
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Reject | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
 						},
 					},
 				}

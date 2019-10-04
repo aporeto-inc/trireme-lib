@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -154,6 +155,19 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		}
 	}()
 
+	go func() {
+		for {
+			select {
+			case <-time.After(5 * time.Second):
+				m.Lock()
+				m.localIPs = markedconn.GetInterfaces()
+				m.Unlock()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -188,7 +202,10 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	}
 
 	local := false
-	if _, ok = m.localIPs[networkOfAddress(remoteAddr.String())]; ok {
+	m.Lock()
+	localIPs := m.localIPs
+	m.Unlock()
+	if _, ok = localIPs[networkOfAddress(remoteAddr.String())]; ok {
 		local = true
 	}
 
@@ -200,6 +217,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 				zap.String("ContextID", m.puID),
 				zap.String("ip", ip.String()),
 				zap.Int("port", port),
+				zap.String("Remote IP", remoteAddr.String()),
 				zap.Error(err),
 			)
 			return
@@ -208,7 +226,11 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	} else {
 		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
-			zap.L().Error("Cannot discover target service", zap.String("ip", ip.String()), zap.Int("port", port))
+			zap.L().Error("Cannot discover target service",
+				zap.String("ip", ip.String()),
+				zap.Int("port", port),
+				zap.String("Remote IP", remoteAddr.String()),
+			)
 			return
 		}
 
