@@ -29,6 +29,77 @@ type PolicyEngineEvent struct {
 	Pod     *corev1.Pod
 }
 
+// SimplePolicyEngineQueue queues events to the policy engine and processes them in serial
+type SimplePolicyEngineQueue struct {
+	queue            chan *PolicyEngineEvent
+	pc               *config.ProcessorConfig
+	netclsProgrammer extractors.PodNetclsProgrammer
+	recorder         record.EventRecorder
+}
+
+// Queue returns the channel that clients can use to send events to the policy engine
+func (q *SimplePolicyEngineQueue) Queue() chan<- *PolicyEngineEvent {
+	return q.queue
+}
+
+// Start starts the queue and will block until z is closed
+func (q *SimplePolicyEngineQueue) Start(z <-chan struct{}) error {
+	go q.loop(z)
+	<-z
+	return nil
+}
+
+func (q *SimplePolicyEngineQueue) loop(z <-chan struct{}) {
+loop:
+	for {
+		select {
+		case <-z:
+			break loop
+		case ev := <-q.queue:
+			q.process(ev)
+		}
+	}
+}
+
+func (q *SimplePolicyEngineQueue) process(ev *PolicyEngineEvent) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	switch ev.Event {
+	case common.EventCreate:
+		if err := q.pc.Policy.HandlePUEvent(ctx, string(ev.ID), common.EventCreate, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process create event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed create event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	case common.EventUpdate:
+		if err := q.pc.Policy.HandlePUEvent(ctx, string(ev.ID), common.EventUpdate, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process update event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed update event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	case common.EventStop:
+		if err := q.pc.Policy.HandlePUEvent(ctx, string(ev.ID), common.EventStop, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process stop event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed stop event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	case common.EventStart:
+		if err := q.pc.Policy.HandlePUEvent(ctx, string(ev.ID), common.EventStart, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process start event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed start event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	case common.EventDestroy:
+		if err := q.pc.Policy.HandlePUEvent(ctx, string(ev.ID), common.EventDestroy, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process destroy event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed destroy event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	case common.Event("netcls"):
+		if err := q.netclsProgrammer(ctx, ev.Pod, ev.Runtime); err != nil {
+			zap.L().Error("SimplePolicyEngineQueue: failed to process netcls event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)), zap.Error(err))
+		}
+		zap.L().Debug("SimplePolicyEngineQueue: successfully processed netcls event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	default:
+		zap.L().Error("SimplePolicyEngineQueue: unknown event", zap.String("id", string(ev.ID)), zap.String("event", string(ev.Event)))
+	}
+}
+
 // PerPodPolicyEngineQueue queues events to the policy engine and processes them in serial *per pod*
 type PerPodPolicyEngineQueue struct {
 	queue             chan *PolicyEngineEvent
@@ -40,16 +111,16 @@ type PerPodPolicyEngineQueue struct {
 
 // NewPolicyEngineQueue creates a new policy engine queue
 func NewPolicyEngineQueue(pc *config.ProcessorConfig, queueSize int, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) PolicyEngineQueue {
-	candidateDeleteChSize := 0.2 * float64(queueSize)
-	if candidateDeleteChSize < 10 {
-		candidateDeleteChSize = 10
-	}
-	return &PerPodPolicyEngineQueue{
-		pc:                pc,
-		netclsProgrammer:  netclsProgrammer,
-		recorder:          recorder,
-		queue:             make(chan *PolicyEngineEvent, queueSize),
-		candidateDeleteCh: make(chan types.UID, int(candidateDeleteChSize)),
+	//candidateDeleteChSize := 0.2 * float64(queueSize)
+	//if candidateDeleteChSize < 10 {
+	//	candidateDeleteChSize = 10
+	//}
+	return &SimplePolicyEngineQueue{
+		pc:               pc,
+		netclsProgrammer: netclsProgrammer,
+		recorder:         recorder,
+		queue:            make(chan *PolicyEngineEvent, queueSize),
+		//candidateDeleteCh: make(chan types.UID, int(candidateDeleteChSize)),
 	}
 }
 
