@@ -6,8 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
+	cripleg "go.aporeto.io/trireme-lib/monitor/internal/pod/internal/pleg"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"go.aporeto.io/trireme-lib/utils/cri"
 
@@ -18,7 +23,14 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/go-logr/zapr"
+)
+
+const (
+	criClientVersion string = "v1alpha2"
 )
 
 // PodMonitor implements a monitor that sends pod events upstream
@@ -116,6 +128,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 
 // Run starts the monitor.
 func (m *PodMonitor) Run(ctx context.Context) error {
+	log.SetLogger(zapr.NewLogger(zap.L()))
 	if m.kubeCfg == nil {
 		return errors.New("pod: missing kubeconfig")
 	}
@@ -146,6 +159,57 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
+	// if we have CRI, we are going to start a PLEG for event generation
+	var pleg cripleg.PodLifecycleEventGenerator
+	var plegSetupComplete bool
+	if m.criRuntimeService != nil {
+		// get the runtime name first
+		versResp, err := m.criRuntimeService.Version(criClientVersion)
+		if err != nil {
+			zap.L().Warn("failed to query CRI about the version, not going to start the CRI PLEG", zap.Error(err))
+		}
+		if err == nil {
+			pleg = cripleg.NewCRIPLEG(m.criRuntimeService, versResp.GetRuntimeName())
+			if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+				pleg.Start(s)
+				<-s
+				return nil
+			})); err != nil {
+				zap.L().Error("failed to add the CRI PLEG to the manager")
+			}
+			if err == nil {
+				if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+				loop:
+					for {
+						select {
+						case <-s:
+							break loop
+						case ev := <-pleg.Watch():
+							if ev != nil {
+								zap.L().Debug("received PLEG event", zap.String("ID", string(ev.ID)), zap.String("NamespacedName", ev.NamespacedName.String()), zap.String("Type", string(ev.Type)), zap.Any("data", ev.Data))
+								if ev.NamespacedName.Name == "" || ev.NamespacedName.Namespace == "" {
+									zap.L().Debug("received invalid PLEG event", zap.String("ID", string(ev.ID)), zap.String("NamespacedName", ev.NamespacedName.String()), zap.String("Type", string(ev.Type)), zap.Any("data", ev.Data))
+									break
+								}
+								m.eventsCh <- event.GenericEvent{
+									Meta: &metav1.ObjectMeta{
+										UID:       ev.ID,
+										Name:      ev.NamespacedName.Name,
+										Namespace: ev.NamespacedName.Namespace,
+									},
+								}
+							}
+						}
+					}
+					return nil
+				})); err != nil {
+					zap.L().Error("failed to add the PLEG watcher to the manager")
+				}
+				plegSetupComplete = true
+			}
+		}
+	}
+
 	nativeInformers := informers.NewSharedInformerFactory(nativeClient, syncPeriod)
 	if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
 		nativeInformers.Start(s)
@@ -163,7 +227,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 
 	// Create the main controller for the monitor
 	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
-	if err := addController(mgr, r, m.workers, m.eventsCh, nativeInformers); err != nil {
+	if err := addController(mgr, r, m.workers, m.eventsCh, nativeInformers, plegSetupComplete); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 

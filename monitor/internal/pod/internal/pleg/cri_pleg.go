@@ -130,8 +130,8 @@ func (g *CRIPLEG) Watch() chan *PodLifecycleEvent {
 }
 
 // Start spawns a goroutine to relist periodically.
-func (g *CRIPLEG) Start() {
-	go wait.Until(g.relist, g.relistPeriod, wait.NeverStop)
+func (g *CRIPLEG) Start(stopCh <-chan struct{}) {
+	go wait.Until(g.relist, g.relistPeriod, stopCh)
 }
 
 // Healthy check if PLEG work properly.
@@ -148,26 +148,42 @@ func (g *CRIPLEG) Healthy() (bool, error) {
 	return true, nil
 }
 
-func generateEvents(podID types.UID, cid string, oldState, newState plegContainerState) []*PodLifecycleEvent {
+func generateEvents(podID types.UID, cidID *ContainerID, oldPod, newPod *Pod) []*PodLifecycleEvent {
+	cid := cidID.ID
+	oldState := getContainerState(oldPod, cidID)
+	newState := getContainerState(newPod, cidID)
 	if newState == oldState {
 		return nil
 	}
+	var nn types.NamespacedName
+	if newPod != nil {
+		nn = types.NamespacedName{
+			Name:      newPod.Name,
+			Namespace: newPod.Namespace,
+		}
+	}
+	if nn.Name == "" && oldPod != nil && oldPod.Name != "" {
+		nn.Name = oldPod.Name
+	}
+	if nn.Namespace == "" && oldPod != nil && oldPod.Namespace != "" {
+		nn.Namespace = oldPod.Namespace
+	}
 
-	zap.L().Debug(fmt.Sprintf("CRIPLEG: %v/%v: %v -> %v", podID, cid, oldState, newState))
+	//zap.L().Debug(fmt.Sprintf("CRIPLEG: (%s) %v/%v: %v -> %v", nn, podID, cid, oldState, newState))
 	switch newState {
 	case plegContainerRunning:
-		return []*PodLifecycleEvent{{ID: podID, Type: ContainerStarted, Data: cid}}
+		return []*PodLifecycleEvent{{ID: podID, NamespacedName: nn, Type: ContainerStarted, Data: cid}}
 	case plegContainerExited:
-		return []*PodLifecycleEvent{{ID: podID, Type: ContainerDied, Data: cid}}
+		return []*PodLifecycleEvent{{ID: podID, NamespacedName: nn, Type: ContainerDied, Data: cid}}
 	case plegContainerUnknown:
-		return []*PodLifecycleEvent{{ID: podID, Type: ContainerChanged, Data: cid}}
+		return []*PodLifecycleEvent{{ID: podID, NamespacedName: nn, Type: ContainerChanged, Data: cid}}
 	case plegContainerNonExistent:
 		switch oldState {
 		case plegContainerExited:
 			// We already reported that the container died before.
-			return []*PodLifecycleEvent{{ID: podID, Type: ContainerRemoved, Data: cid}}
+			return []*PodLifecycleEvent{{ID: podID, NamespacedName: nn, Type: ContainerRemoved, Data: cid}}
 		default:
-			return []*PodLifecycleEvent{{ID: podID, Type: ContainerDied, Data: cid}, {ID: podID, Type: ContainerRemoved, Data: cid}}
+			return []*PodLifecycleEvent{{ID: podID, NamespacedName: nn, Type: ContainerDied, Data: cid}, {ID: podID, Type: ContainerRemoved, Data: cid}}
 		}
 	default:
 		panic(fmt.Sprintf("unrecognized container state: %v", newState))
@@ -189,7 +205,7 @@ func (g *CRIPLEG) updateRelistTime(timestamp time.Time) {
 // relist queries the container runtime for list of pods/containers, compare
 // with the internal pods/containers, and generates events accordingly.
 func (g *CRIPLEG) relist() {
-	zap.L().Debug("CRIPLEG: Relisting")
+	//zap.L().Debug("CRIPLEG: Relisting")
 
 	//if lastRelistTime := g.getRelistTime(); !lastRelistTime.IsZero() {
 	//	metrics.PLEGRelistInterval.Observe(metrics.SinceInSeconds(lastRelistTime))
@@ -340,9 +356,8 @@ func computeEvents(oldPod, newPod *Pod, cid *ContainerID) []*PodLifecycleEvent {
 	} else if newPod != nil {
 		pid = newPod.ID
 	}
-	oldState := getContainerState(oldPod, cid)
-	newState := getContainerState(newPod, cid)
-	return generateEvents(pid, cid.ID, oldState, newState)
+
+	return generateEvents(pid, cid, oldPod, newPod)
 }
 
 func (g *CRIPLEG) cacheEnabled() bool {
@@ -388,7 +403,7 @@ func (g *CRIPLEG) updateCache(pod *Pod, pid types.UID) error {
 	if pod == nil {
 		// The pod is missing in the current relist. This means that
 		// the pod has no visible (active or inactive) containers.
-		zap.L().Debug(fmt.Sprintf("CRIPLEG: Delete status for pod %q", string(pid)))
+		//zap.L().Debug(fmt.Sprintf("CRIPLEG: Delete status for pod %q", string(pid)))
 		g.cache.Delete(pid)
 		return nil
 	}
@@ -397,7 +412,7 @@ func (g *CRIPLEG) updateCache(pod *Pod, pid types.UID) error {
 	// GetPodStatus(pod *kubecontainer.Pod) so that Docker can avoid listing
 	// all containers again.
 	status, err := GetPodStatus(g.runtime, g.runtimeName, pod.ID, pod.Name, pod.Namespace)
-	zap.L().Debug(fmt.Sprintf("CRIPLEG: Write status for %s/%s: %#v (err: %v)", pod.Name, pod.Namespace, status, err))
+	//zap.L().Debug(fmt.Sprintf("CRIPLEG: Write status for %s/%s: %#v (err: %v)", pod.Name, pod.Namespace, status, err))
 	if err == nil {
 		// Preserve the pod IP across cache updates if the new IP is empty.
 		// When a pod is torn down, kubelet may race with PLEG and retrieve

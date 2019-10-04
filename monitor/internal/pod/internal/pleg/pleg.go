@@ -37,6 +37,8 @@ const (
 type PodLifecycleEvent struct {
 	// The pod ID.
 	ID types.UID
+	// NamespacedName is the namespaced name of the pod
+	NamespacedName types.NamespacedName
 	// The type of the event.
 	Type PodLifeCycleEventType
 	// The accompanied data which varies based on the event type.
@@ -47,7 +49,8 @@ type PodLifecycleEvent struct {
 
 // PodLifecycleEventGenerator contains functions for generating pod life cycle events.
 type PodLifecycleEventGenerator interface {
-	Start()
+	// Start has a slight modification to the original interface from the kubelet: it takes a stop channel
+	Start(stopCh <-chan struct{})
 	Watch() chan *PodLifecycleEvent
 	Healthy() (bool, error)
 }

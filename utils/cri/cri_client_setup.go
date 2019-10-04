@@ -23,11 +23,9 @@ const (
 func detectCRIRuntimeEndpoint() (string, error) {
 
 	testPath := func(path string) (string, error) {
-		fi, err := os.Stat(path)
+		_, err := os.Stat(path)
 		if err == nil {
-			if fi.Mode()&os.ModeSocket == 0 {
-				return "unix://" + path, nil
-			}
+			return "unix://" + path, nil
 		}
 		return "", fmt.Errorf("%s not a socket", path)
 	}
