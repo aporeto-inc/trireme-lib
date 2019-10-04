@@ -131,8 +131,8 @@ func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgr
 		id:                ev.ID,
 		rxEvCh:            make(chan *PolicyEngineEvent),
 		stopCh:            make(chan struct{}),
-		processCh:         make(chan struct{}, 1),
-		postProcessCh:     make(chan postProcessEvent),
+		processCh:         make(chan struct{}, 1000),
+		postProcessCh:     make(chan postProcessEvent, 1),
 		candidateDeleteCh: candidateDeleteCh,
 		pc:                pc,
 		netclsProgrammer:  netclsProgrammer,
@@ -144,7 +144,7 @@ func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgr
 }
 
 func (p *podevents) loop() {
-	var processing, needsProcesssing bool
+	var processing bool
 loop:
 	for {
 		select {
@@ -156,31 +156,29 @@ loop:
 			break loop
 		case ev := <-p.rxEvCh:
 			p.rxEvent(ev)
-			select {
-			case p.processCh <- struct{}{}:
-			default:
+			p.processCh <- struct{}{}
+		case <-time.After(time.Second * 1):
+			if processing {
+				break
 			}
+			processing = true
+			p.processEvent()
 		case <-p.processCh:
 			if processing {
-				needsProcesssing = true
 				break
 			}
 			processing = true
 			p.processEvent()
 		case ev := <-p.postProcessCh:
-			p.postProcessEvent(ev)
+			isFinished := p.postProcessEvent(ev)
 			processing = false
-			if needsProcesssing {
-				select {
-				case p.processCh <- struct{}{}:
-				default:
-				}
-				needsProcesssing = false
-			}
-			if p.hasNoEvents() {
+			if isFinished {
 				p.candidateDeleteCh <- p.id
 				close(p.stopCh)
 				break loop
+			}
+			if p.hasEvents() {
+				p.processCh <- struct{}{}
 			}
 		}
 	}
@@ -190,13 +188,17 @@ loop:
 	zap.L().Debug("shut down queue podevent monitor", zap.String("id", string(p.id)))
 }
 
-func (p *podevents) hasNoEvents() bool {
-	return !p.isCreated && !p.isStarted &&
-		p.create == nil && p.update == nil && p.start == nil && p.stop == nil && p.destroy == nil
+func (p *podevents) hasEvents() bool {
+	return p.create != nil || p.update != nil || p.start != nil || p.stop != nil || p.netcls != nil || p.destroy != nil
 }
 
 func (p *podevents) rxEvent(ev *PolicyEngineEvent) {
-	p.pod = p.pod.DeepCopy()
+	p.pod = ev.Pod.DeepCopy()
+	zap.L().Debug("podevents: rxEvent", zap.String("id", string(p.id)), zap.String("ev", string(ev.Event)))
+	if p.pod == nil && ev.Event != common.EventDestroy {
+		zap.L().Error("rxEvent with nil pod", zap.String("id", string(p.id)), zap.String("ev", string(ev.Event)))
+		return
+	}
 	switch ev.Event {
 	case common.EventCreate:
 		if !p.isCreated || p.stop != nil || p.destroy != nil {
@@ -239,6 +241,7 @@ func (p *podevents) processEvent() {
 				return
 			}
 			p.postProcessCh <- postProcessEvent{ev: common.EventDestroy}
+			return
 		}()
 		return
 	}
@@ -256,6 +259,7 @@ func (p *podevents) processEvent() {
 				return
 			}
 			p.postProcessCh <- postProcessEvent{ev: common.EventStop}
+			return
 		}()
 		return
 	}
@@ -273,6 +277,7 @@ func (p *podevents) processEvent() {
 				return
 			}
 			p.postProcessCh <- postProcessEvent{ev: common.EventCreate}
+			return
 		}()
 		return
 	}
@@ -281,15 +286,21 @@ func (p *podevents) processEvent() {
 		runtime := p.start
 		p.start = nil
 		go func() {
+			zap.L().Debug("podevents: before start event", zap.String("id", string(p.id)))
 			if err := p.pc.Policy.HandlePUEvent(context.Background(), string(p.id), common.EventStart, runtime); err != nil {
+				zap.L().Debug("podevents: after start event before postProcessing channel send (err)", zap.String("id", string(p.id)))
 				p.postProcessCh <- postProcessEvent{
 					err:     err,
 					ev:      common.EventStart,
 					runtime: runtime,
 				}
+				zap.L().Debug("podevents: after start event after postProcessing channel send (err)", zap.String("id", string(p.id)))
 				return
 			}
+			zap.L().Debug("podevents: after start event before postProcessing channel send", zap.String("id", string(p.id)))
 			p.postProcessCh <- postProcessEvent{ev: common.EventStart}
+			zap.L().Debug("podevents: after start event after postProcessing channel send", zap.String("id", string(p.id)))
+			return
 		}()
 		return
 	}
@@ -298,15 +309,21 @@ func (p *podevents) processEvent() {
 		runtime := p.netcls
 		p.netcls = nil
 		go func() {
-			if err := p.netclsProgrammer(context.Background(), p.pod, runtime); err != nil {
-				p.postProcessCh <- postProcessEvent{
-					err:     err,
-					ev:      common.Event("netcls"),
-					runtime: runtime,
+			pod := p.pod.DeepCopy()
+			if pod == nil {
+				zap.L().Error("processEvent pod is nil for netclsProgrammer", zap.String("id", string(p.id)))
+			} else {
+				if err := p.netclsProgrammer(context.Background(), pod, runtime); err != nil {
+					p.postProcessCh <- postProcessEvent{
+						err:     err,
+						ev:      common.Event("netcls"),
+						runtime: runtime,
+					}
+					return
 				}
-				return
 			}
 			p.postProcessCh <- postProcessEvent{ev: common.Event("netcls")}
+			return
 		}()
 		return
 	}
@@ -324,13 +341,19 @@ func (p *podevents) processEvent() {
 				return
 			}
 			p.postProcessCh <- postProcessEvent{ev: common.EventUpdate}
+			return
 		}()
 		return
 	}
 }
 
-func (p *podevents) postProcessEvent(ev postProcessEvent) {
+func (p *podevents) postProcessEvent(ev postProcessEvent) bool {
+	var ret bool
 	err := ev.err
+	pod := p.pod.DeepCopy()
+	if pod == nil {
+		zap.L().Warn("postProcessEvent pod is nil", zap.String("id", string(p.id)))
+	}
 	switch ev.ev {
 	case common.EventDestroy:
 		// nothing to do here if we failed, there is nothing that we can do
@@ -340,6 +363,13 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isStarted = false
 			p.isNetclsProgrammed = false
 			p.destroy = nil
+
+			if !p.hasEvents() {
+				zap.L().Debug("no events anymore, can stop the event monitor for the pod", zap.String("id", string(p.id)))
+				ret = true
+			} else {
+				zap.L().Debug("got new events in the meantime, keeping the event monitor for the pod", zap.String("id", string(p.id)))
+			}
 		}
 	case common.EventStop:
 		// nothing to do here if it failed
@@ -347,18 +377,27 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isStarted = false
 			p.isNetclsProgrammed = false
 			p.stop = nil
-			p.recorder.Eventf(p.pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", p.id)
+			if pod != nil {
+				p.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", p.id)
+			}
+
 		} else {
-			p.recorder.Eventf(p.pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", p.id, err.Error())
+			if pod != nil {
+				p.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", p.id, err.Error())
+			}
 		}
 	case common.EventCreate:
 		// again, nothing here that we can do if it fails
 		if err == nil {
 			p.isCreated = true
 			p.create = nil
-			p.recorder.Eventf(p.pod, "Normal", "PUCreate", "PU '%s' has been successfully created", p.id)
+			if pod != nil {
+				p.recorder.Eventf(pod, "Normal", "PUCreate", "PU '%s' has been successfully created", p.id)
+			}
 		} else {
-			p.recorder.Eventf(p.pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", p.id, err.Error())
+			if pod != nil {
+				p.recorder.Eventf(pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", p.id, err.Error())
+			}
 		}
 	case common.EventStart:
 		// we will try to retry the start
@@ -366,30 +405,43 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isCreated = true
 			p.isStarted = true
 			p.start = nil
-			p.recorder.Eventf(p.pod, "Normal", "PUStart", "PU '%s' started successfully", p.id)
-		} else {
-			if p.start == nil {
-				p.start = ev.runtime
+			if pod != nil {
+				p.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", p.id)
 			}
-			p.recorder.Eventf(p.pod, "Warning", "PUStart", "PU '%s' failed to start: %s", p.id, err.Error())
+		} else {
+			//if p.start == nil {
+			//	p.start = ev.runtime
+			//}
+			if pod != nil {
+				p.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", p.id, err.Error())
+			}
 		}
 	case common.Event("netcls"):
 		if err == nil {
 			p.isNetclsProgrammed = true
 			p.netcls = nil
-			p.recorder.Eventf(p.pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", p.id)
+			if pod != nil {
+				p.recorder.Eventf(pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", p.id)
+			}
 		} else {
 			if p.netcls == nil {
 				p.netcls = ev.runtime
 			}
-			p.recorder.Eventf(p.pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", p.id, err.Error())
+			if pod != nil {
+				p.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", p.id, err.Error())
+			}
 		}
 	case common.EventUpdate:
 		if err == nil {
 			p.isCreated = true
-			p.recorder.Eventf(p.pod, "Normal", "PUUpdate", "PU '%s' updated successfully", p.id)
+			if pod != nil {
+				p.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", p.id)
+			}
 		} else {
-			p.recorder.Eventf(p.pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", p.id, err.Error())
+			if pod != nil {
+				p.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", p.id, err.Error())
+			}
 		}
 	}
+	return ret
 }

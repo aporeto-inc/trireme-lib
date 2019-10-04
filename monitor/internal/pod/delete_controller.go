@@ -127,6 +127,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			//	// we don't really care, we just warn
 			//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 			//}
+			zap.L().Debug("DeleteController: sending delete event to queue (NotFound)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 			policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
 				ID:      types.UID(podUID),
 				Event:   common.EventDestroy,
@@ -168,6 +169,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		//	// we don't really care, we just warn
 		//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		//}
+		zap.L().Debug("DeleteController: sending delete event to queue (mismatched UIDs)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 		policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
 			ID:      types.UID(podUID),
 			Event:   common.EventDestroy,
@@ -216,6 +218,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			//	// we don't really care, we just warn
 			//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 			//}
+			zap.L().Debug("DeleteController: sending delete event to queue (sandbox changed)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 			policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
 				ID:      types.UID(podUID),
 				Event:   common.EventDestroy,
