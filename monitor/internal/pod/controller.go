@@ -5,12 +5,12 @@ import (
 	errs "errors"
 	"time"
 
+	"go.aporeto.io/trireme-lib/monitor/internal/pod/internal/queue"
+
 	"k8s.io/client-go/tools/record"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -42,14 +42,13 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, policyEngineQueue *queue.PolicyEngineQueue, metadataExtractor extractors.PodMetadataExtractor, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
 		recorder:          mgr.GetEventRecorderFor("trireme-pod-controller"),
-		handler:           handler,
+		policyEngineQueue: policyEngineQueue,
 		metadataExtractor: metadataExtractor,
-		netclsProgrammer:  netclsProgrammer,
 		sandboxExtractor:  sandboxExtractor,
 		nodeName:          nodeName,
 		enableHostPods:    enableHostPods,
@@ -122,9 +121,8 @@ type ReconcilePod struct {
 	client            client.Client
 	scheme            *runtime.Scheme
 	recorder          record.EventRecorder
-	handler           *config.ProcessorConfig
+	policyEngineQueue *queue.PolicyEngineQueue
 	metadataExtractor extractors.PodMetadataExtractor
-	netclsProgrammer  extractors.PodNetclsProgrammer
 	sandboxExtractor  extractors.PodSandboxExtractor
 	nodeName          string
 	enableHostPods    bool
@@ -213,19 +211,29 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 		// now create/update the PU
 		// every HandlePUEvent call gets done in this context
-		handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
-		defer handlePUCancel()
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventUpdate,
-			puRuntime,
-		); err != nil {
-			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
-			// return reconcile.Result{}, err
-		} else {
-			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		//handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
+		//defer handlePUCancel()
+		//if err := r.handler.Policy.HandlePUEvent(
+		//	handlePUCtx,
+		//	puID,
+		//	common.EventUpdate,
+		//	puRuntime,
+		//); err != nil {
+		//	zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+		//	r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+		//	// return reconcile.Result{}, err
+		//} else {
+		//	r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		//}
+		r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			ID:      pod.GetUID(),
+			Event:   common.EventCreate,
+			Runtime: puRuntime.Clone(),
+		}
+		r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			ID:      pod.GetUID(),
+			Event:   common.EventUpdate,
+			Runtime: puRuntime.Clone(),
 		}
 
 		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
@@ -252,42 +260,53 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 			// now start the PU
 			// every HandlePUEvent call gets done in this context
-			handlePUStartCtx, handlePUStartCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
-			defer handlePUStartCancel()
-			if err := r.handler.Policy.HandlePUEvent(
-				handlePUStartCtx,
-				puID,
-				common.EventStart,
-				puRuntime,
-			); err != nil {
-				if policy.IsErrPUAlreadyActivated(err) {
-					// abort early if this PU has already been activated before
-					zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-				} else {
-					zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-					r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
-				}
-			} else {
-				r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
+			//handlePUStartCtx, handlePUStartCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
+			//defer handlePUStartCancel()
+			//if err := r.handler.Policy.HandlePUEvent(
+			//	handlePUStartCtx,
+			//	puID,
+			//	common.EventStart,
+			//	puRuntime,
+			//); err != nil {
+			//	if policy.IsErrPUAlreadyActivated(err) {
+			//		// abort early if this PU has already been activated before
+			//		zap.L().Debug("PU has already been activated", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+			//	} else {
+			//		zap.L().Error("failed to handle start event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+			//		r.recorder.Eventf(pod, "Warning", "PUStart", "PU '%s' failed to start: %s", puID, err.Error())
+			//	}
+			//} else {
+			//	r.recorder.Eventf(pod, "Normal", "PUStart", "PU '%s' started successfully", puID)
+			//}
+			r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+				ID:      pod.GetUID(),
+				Event:   common.EventStart,
+				Runtime: puRuntime.Clone(),
 			}
 
 			// if this is a host network pod, we need to program the net_cls cgroup
 			if pod.Spec.HostNetwork {
-				netclsProgramCtx, netclsProgramCancel := context.WithTimeout(ctx, r.netclsProgramTimeout)
-				defer netclsProgramCancel()
-				if err := r.netclsProgrammer(netclsProgramCtx, pod, puRuntime); err != nil {
-					if extractors.IsErrNetclsAlreadyProgrammed(err) {
-						zap.L().Debug("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-					} else if extractors.IsErrNoHostNetworkPod(err) {
-						zap.L().Error("net_cls cgroup programmer told us that this is no host network pod.", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-					} else {
-						zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-						r.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", puID, err.Error())
-						return reconcile.Result{}, err
-					}
-				} else {
-					zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID), zap.String("namespacedName", nn))
-					r.recorder.Eventf(pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", puID)
+				//netclsProgramCtx, netclsProgramCancel := context.WithTimeout(ctx, r.netclsProgramTimeout)
+				//defer netclsProgramCancel()
+				//if err := r.netclsProgrammer(netclsProgramCtx, pod, puRuntime); err != nil {
+				//	if extractors.IsErrNetclsAlreadyProgrammed(err) {
+				//		zap.L().Debug("net_cls cgroup has already been programmed previously", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+				//	} else if extractors.IsErrNoHostNetworkPod(err) {
+				//		zap.L().Error("net_cls cgroup programmer told us that this is no host network pod.", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+				//	} else {
+				//		zap.L().Error("failed to program net_cls cgroup of pod", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+				//		r.recorder.Eventf(pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", puID, err.Error())
+				//		return reconcile.Result{}, err
+				//	}
+				//} else {
+				//	zap.L().Debug("net_cls cgroup has been successfully programmed for trireme", zap.String("puID", puID), zap.String("namespacedName", nn))
+				//	r.recorder.Eventf(pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", puID)
+				//}
+				r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+					ID:      pod.GetUID(),
+					Event:   common.Event("netcls"),
+					Runtime: puRuntime.Clone(),
+					Pod:     pod.DeepCopy(),
 				}
 			}
 		}
@@ -311,32 +330,41 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 
 		// every HandlePUEvent call gets done in this context
-		handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
-		defer handlePUCancel()
-
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventUpdate,
-			puRuntime,
-		); err != nil {
-			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
-			// return reconcile.Result{}, err
-		} else {
-			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		//handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
+		//defer handlePUCancel()
+		//if err := r.handler.Policy.HandlePUEvent(
+		//	handlePUCtx,
+		//	puID,
+		//	common.EventUpdate,
+		//	puRuntime,
+		//); err != nil {
+		//	zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+		//	r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+		//	// return reconcile.Result{}, err
+		//} else {
+		//	r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		//}
+		r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			ID:      pod.GetUID(),
+			Event:   common.EventUpdate,
+			Runtime: puRuntime.Clone(),
 		}
 
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventStop,
-			puRuntime,
-		); err != nil {
-			zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", puID, err.Error())
-		} else {
-			r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
+		//if err := r.handler.Policy.HandlePUEvent(
+		//	handlePUCtx,
+		//	puID,
+		//	common.EventStop,
+		//	puRuntime,
+		//); err != nil {
+		//	zap.L().Error("failed to handle stop event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+		//	r.recorder.Eventf(pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", puID, err.Error())
+		//} else {
+		//	r.recorder.Eventf(pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", puID)
+		//}
+		r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			ID:      pod.GetUID(),
+			Event:   common.EventStop,
+			Runtime: puRuntime.Clone(),
 		}
 
 		// we don't need to reconcile

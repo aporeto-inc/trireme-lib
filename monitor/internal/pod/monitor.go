@@ -221,7 +221,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// create the policy engine queue
-	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, 10000)
+	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, 10000, m.netclsProgrammer)
 	if err := mgr.Add(policyEngineQueue); err != nil {
 		return fmt.Errorf("pod: failed to add policy engine queue to manager: %s", err.Error())
 	}
@@ -235,13 +235,13 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create uncached client for delete controller")
 	}
-	dc := NewDeleteController(dcClient, m.handlers, m.sandboxExtractor, m.eventsCh)
+	dc := NewDeleteController(dcClient, policyEngineQueue, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
 	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
+	r := newReconciler(mgr, policyEngineQueue, m.metadataExtractor, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
 	if err := addController(mgr, r, m.workers, m.eventsCh, nativeInformers, plegSetupComplete); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
