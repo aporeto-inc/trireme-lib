@@ -42,7 +42,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, policyEngineQueue *queue.PolicyEngineQueue, metadataExtractor extractors.PodMetadataExtractor, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, policyEngineQueue queue.PolicyEngineQueue, metadataExtractor extractors.PodMetadataExtractor, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -121,7 +121,7 @@ type ReconcilePod struct {
 	client            client.Client
 	scheme            *runtime.Scheme
 	recorder          record.EventRecorder
-	policyEngineQueue *queue.PolicyEngineQueue
+	policyEngineQueue queue.PolicyEngineQueue
 	metadataExtractor extractors.PodMetadataExtractor
 	sandboxExtractor  extractors.PodSandboxExtractor
 	nodeName          string
@@ -229,11 +229,13 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			ID:      pod.GetUID(),
 			Event:   common.EventCreate,
 			Runtime: puRuntime.Clone(),
+			Pod:     pod.DeepCopy(),
 		}
 		r.policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
 			ID:      pod.GetUID(),
 			Event:   common.EventUpdate,
 			Runtime: puRuntime.Clone(),
+			Pod:     pod.DeepCopy(),
 		}
 
 		// NOTE: a pod that is terminating, is going to reconcile as well in the PodRunning phase,
@@ -282,6 +284,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 				ID:      pod.GetUID(),
 				Event:   common.EventStart,
 				Runtime: puRuntime.Clone(),
+				Pod:     pod.DeepCopy(),
 			}
 
 			// if this is a host network pod, we need to program the net_cls cgroup
@@ -348,6 +351,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			ID:      pod.GetUID(),
 			Event:   common.EventUpdate,
 			Runtime: puRuntime.Clone(),
+			Pod:     pod.DeepCopy(),
 		}
 
 		//if err := r.handler.Policy.HandlePUEvent(
@@ -365,6 +369,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 			ID:      pod.GetUID(),
 			Event:   common.EventStop,
 			Runtime: puRuntime.Clone(),
+			Pod:     pod.DeepCopy(),
 		}
 
 		// we don't need to reconcile

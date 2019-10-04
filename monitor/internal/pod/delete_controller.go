@@ -17,7 +17,7 @@ import (
 )
 
 // deleteControllerReconcileFunc is the reconciler function signature for the DeleteController
-type deleteControllerReconcileFunc func(context.Context, client.Client, *queue.PolicyEngineQueue, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent)
+type deleteControllerReconcileFunc func(context.Context, client.Client, queue.PolicyEngineQueue, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent)
 
 // DeleteController is responsible for cleaning up after Kubernetes because we
 // are missing our native ID on the last reconcile event where the pod has already
@@ -27,7 +27,7 @@ type deleteControllerReconcileFunc func(context.Context, client.Client, *queue.P
 // also only kicking in once a pod has *really* been deleted.
 type DeleteController struct {
 	client            client.Client
-	policyEngineQueue *queue.PolicyEngineQueue
+	policyEngineQueue queue.PolicyEngineQueue
 
 	deleteCh           chan DeleteEvent
 	reconcileCh        chan struct{}
@@ -46,7 +46,7 @@ type DeleteObject struct {
 }
 
 // NewDeleteController creates a new DeleteController.
-func NewDeleteController(c client.Client, policyEngineQueue *queue.PolicyEngineQueue, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) *DeleteController {
+func NewDeleteController(c client.Client, policyEngineQueue queue.PolicyEngineQueue, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) *DeleteController {
 	return &DeleteController{
 		client:             c,
 		policyEngineQueue:  policyEngineQueue,
@@ -97,13 +97,13 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 }
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
-func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, policyEngineQueue *queue.PolicyEngineQueue, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
+func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, policyEngineQueue queue.PolicyEngineQueue, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	for podUID, req := range m {
 		deleteControllerProcessItem(backgroundCtx, c, policyEngineQueue, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, policyEngineQueue *queue.PolicyEngineQueue, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, policyEngineQueue queue.PolicyEngineQueue, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	//var err error
 	var ok bool
 	var delObj DeleteObject

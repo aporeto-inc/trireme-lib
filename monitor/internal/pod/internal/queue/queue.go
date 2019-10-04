@@ -11,7 +11,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 )
+
+// PolicyEngineQueue defines the interface for interacting with a policy engine queue
+type PolicyEngineQueue interface {
+	Queue() chan<- *PolicyEngineEvent
+	Start(z <-chan struct{}) error
+}
 
 // PolicyEngineEvent holds all the event information for an event that we send to the policy engine
 type PolicyEngineEvent struct {
@@ -21,35 +28,37 @@ type PolicyEngineEvent struct {
 	Pod     *corev1.Pod
 }
 
-// PolicyEngineQueue queues events to the policy engine and processes them in serial *per pod*
-type PolicyEngineQueue struct {
+// PerPodPolicyEngineQueue queues events to the policy engine and processes them in serial *per pod*
+type PerPodPolicyEngineQueue struct {
 	queue            chan *PolicyEngineEvent
 	pc               *config.ProcessorConfig
 	netclsProgrammer extractors.PodNetclsProgrammer
+	recorder         record.EventRecorder
 }
 
 // NewPolicyEngineQueue creates a new policy engine queue
-func NewPolicyEngineQueue(pc *config.ProcessorConfig, queueSize int, netclsProgrammer extractors.PodNetclsProgrammer) *PolicyEngineQueue {
-	return &PolicyEngineQueue{
+func NewPolicyEngineQueue(pc *config.ProcessorConfig, queueSize int, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) PolicyEngineQueue {
+	return &PerPodPolicyEngineQueue{
 		pc:               pc,
 		netclsProgrammer: netclsProgrammer,
+		recorder:         recorder,
 		queue:            make(chan *PolicyEngineEvent, queueSize),
 	}
 }
 
 // Queue returns the channel that clients can use to send events to the policy engine
-func (q *PolicyEngineQueue) Queue() chan<- *PolicyEngineEvent {
+func (q *PerPodPolicyEngineQueue) Queue() chan<- *PolicyEngineEvent {
 	return q.queue
 }
 
 // Start starts the queue and will block until z is closed
-func (q *PolicyEngineQueue) Start(z <-chan struct{}) error {
+func (q *PerPodPolicyEngineQueue) Start(z <-chan struct{}) error {
 	go q.loop(z)
 	<-z
 	return nil
 }
 
-func (q *PolicyEngineQueue) loop(z <-chan struct{}) {
+func (q *PerPodPolicyEngineQueue) loop(z <-chan struct{}) {
 	m := make(map[types.UID]*podevents)
 loop:
 	for {
@@ -62,7 +71,7 @@ loop:
 		case ev := <-q.queue:
 			p, ok := m[ev.ID]
 			if !ok {
-				m[ev.ID] = newPodevents(ev, q.pc, q.netclsProgrammer)
+				m[ev.ID] = newPodevents(ev, q.pc, q.netclsProgrammer, q.recorder)
 				break
 			}
 			p.rxEvCh <- ev
@@ -93,6 +102,7 @@ type podevents struct {
 
 	pc               *config.ProcessorConfig
 	netclsProgrammer extractors.PodNetclsProgrammer
+	recorder         record.EventRecorder
 }
 
 type postProcessEvent struct {
@@ -102,7 +112,7 @@ type postProcessEvent struct {
 	pod     *corev1.Pod
 }
 
-func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer) *podevents {
+func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) *podevents {
 	ret := &podevents{
 		id:               ev.ID,
 		rxEvCh:           make(chan *PolicyEngineEvent),
@@ -111,6 +121,7 @@ func newPodevents(ev *PolicyEngineEvent, pc *config.ProcessorConfig, netclsProgr
 		postProcessCh:    make(chan postProcessEvent),
 		pc:               pc,
 		netclsProgrammer: netclsProgrammer,
+		recorder:         recorder,
 	}
 	go ret.loop()
 	ret.rxEvCh <- ev
@@ -301,6 +312,7 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 	switch ev.ev {
 	case common.EventDestroy:
 		// nothing to do here if we failed, there is nothing that we can do
+		// there is also no point in sending Kubernetes events as the pod is already gone
 		if err == nil {
 			p.isCreated = false
 			p.isStarted = false
@@ -313,12 +325,18 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isStarted = false
 			p.isNetclsProgrammed = false
 			p.stop = nil
+			p.recorder.Eventf(ev.pod, "Normal", "PUStop", "PU '%s' has been successfully stopped", p.id)
+		} else {
+			p.recorder.Eventf(ev.pod, "Warning", "PUStop", "PU '%s' failed to stop: %s", p.id, err.Error())
 		}
 	case common.EventCreate:
 		// again, nothing here that we can do if it fails
 		if err == nil {
 			p.isCreated = true
 			p.create = nil
+			p.recorder.Eventf(ev.pod, "Normal", "PUCreate", "PU '%s' has been successfully created", p.id)
+		} else {
+			p.recorder.Eventf(ev.pod, "Warning", "PUCreate", "PU '%s' failed to get created: %s", p.id, err.Error())
 		}
 	case common.EventStart:
 		// we will try to retry the start
@@ -326,25 +344,32 @@ func (p *podevents) postProcessEvent(ev postProcessEvent) {
 			p.isCreated = true
 			p.isStarted = true
 			p.start = nil
+			p.recorder.Eventf(ev.pod, "Normal", "PUStart", "PU '%s' started successfully", p.id)
 		} else {
 			if p.start == nil {
 				p.start = ev.runtime
 			}
+			p.recorder.Eventf(ev.pod, "Warning", "PUStart", "PU '%s' failed to start: %s", p.id, err.Error())
 		}
 	case common.Event("netcls"):
 		if err == nil {
 			p.isNetclsProgrammed = true
 			p.netcls = nil
 			p.netclsPod = nil
+			p.recorder.Eventf(ev.pod, "Normal", "PUStart", "Host Network PU '%s' has successfully programmed its net_cls cgroups", p.id)
 		} else {
 			if p.netcls == nil && p.netclsPod == nil {
 				p.netcls = ev.runtime
 				p.netclsPod = ev.pod
 			}
+			p.recorder.Eventf(ev.pod, "Warning", "PUStart", "Host Network PU '%s' failed to program its net_cls cgroups: %s", p.id, err.Error())
 		}
 	case common.EventUpdate:
 		if err == nil {
 			p.isCreated = true
+			p.recorder.Eventf(ev.pod, "Normal", "PUUpdate", "PU '%s' updated successfully", p.id)
+		} else {
+			p.recorder.Eventf(ev.pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", p.id, err.Error())
 		}
 	}
 }
