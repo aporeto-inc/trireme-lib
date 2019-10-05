@@ -280,7 +280,7 @@ func GetInterfaces() map[string]struct{} {
 
 	ifaces, err := netinterfaces.GetInterfacesInfo()
 	if err != nil {
-		zap.L().Debug("Unable to get interfaces info", zap.Error(err))
+		zap.L().Error("Unable to get interfaces info", zap.Error(err))
 	}
 
 	for _, iface := range ifaces {
