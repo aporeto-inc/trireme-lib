@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -232,6 +233,7 @@ func New(
 	cfg *runtime.Configuration,
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
+	aclmanager ipsetmanager.ACLManager,
 ) (Enforcer, error) {
 
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
@@ -260,6 +262,7 @@ func New(
 		tokenAccessor,
 		puFromContextID,
 		cfg,
+		aclmanager,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
@@ -283,6 +286,7 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	aclmanager ipsetmanager.ACLManager,
 ) Enforcer {
 	return nfqdatapath.NewWithDefaults(
 		serverID,
@@ -292,5 +296,6 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		targetNetworks,
+		aclmanager,
 	)
 }

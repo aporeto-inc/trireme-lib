@@ -15,6 +15,7 @@ import (
 	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
@@ -48,7 +49,8 @@ type Config struct {
 	service packetprocessor.PacketProcessor
 	// cfg is the mutable configuration
 	cfg *runtime.Configuration
-
+	// ipsetmanager is used to register external net
+	aclmanager ipsetmanager.ACLManager
 	sync.Mutex
 }
 
@@ -62,6 +64,7 @@ func NewSupervisor(
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
 	p packetprocessor.PacketProcessor,
+	aclmanager ipsetmanager.ACLManager,
 ) (Supervisor, error) {
 
 	// for certain modes we do not want to launch a supervisor at all, so we are going to launch a noop supervisor
@@ -79,7 +82,7 @@ func NewSupervisor(
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
@@ -92,6 +95,7 @@ func NewSupervisor(
 		filterQueue:    filterQueue,
 		service:        p,
 		cfg:            cfg,
+		aclmanager:     aclmanager,
 	}, nil
 }
 
@@ -163,6 +167,7 @@ func (s *Config) Unsupervise(contextID string) error {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
 	}
 
+	s.aclmanager.RemoveExternalNets(contextID)
 	return nil
 }
 
@@ -207,6 +212,17 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	// Version the policy so that we can do hitless policy changes
 	s.versionTracker.AddOrUpdate(contextID, c)
 
+	var iprules policy.IPRuleList
+
+	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
+	iprules = append(iprules, pu.Policy.NetworkACLs()...)
+
+	if err := s.aclmanager.RegisterExternalNets(contextID, iprules); err != nil {
+		s.Unlock()
+		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
+		return err
+	}
+
 	// Configure the rules
 	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
@@ -233,8 +249,18 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
-	c := data.(*cacheData)
+	var iprules policy.IPRuleList
 
+	iprules = append(iprules, pu.Policy.ApplicationACLs()...)
+	iprules = append(iprules, pu.Policy.NetworkACLs()...)
+
+	if err := s.aclmanager.RegisterExternalNets(contextID, iprules); err != nil {
+		s.Unlock()
+		zap.L().Error("Error creating ipsets for external networks", zap.Error(err))
+		return err
+	}
+
+	c := data.(*cacheData)
 	if err := s.impl.UpdateRules(c.version^1, contextID, pu, c.containerInfo); err != nil {
 		// Try to clean up, even though this is fatal and it will most likely fail
 		zap.L().Error("Update rules failed with error", zap.Error(err))
@@ -247,6 +273,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	// Updated the policy in the cached processing unit.
 	c.containerInfo.Policy = pu.Policy
+	s.aclmanager.DestroyUnusedIPsets()
 
 	s.Unlock()
 	return nil
