@@ -6,6 +6,7 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.uber.org/zap"
 )
 
@@ -43,6 +44,10 @@ func GetIPv6Impl() (IPImpl, error) {
 
 func (i *ipv6) GetIPSetPrefix() string {
 	return chainPrefix + ipv6String
+}
+
+func (i *ipv6) IPsetVersion() int {
+	return ipsetmanager.IPsetV6
 }
 
 func (i *ipv6) GetIPSetParam() *ipset.Params {

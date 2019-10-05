@@ -11,6 +11,8 @@ import (
 
 	"github.com/magiconair/properties/assert"
 	"go.aporeto.io/trireme-lib/collector"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -112,7 +114,8 @@ func TestDNS(t *testing.T) {
 	conntrack := &flowClientDummy{}
 	collector := &DNSCollector{}
 
-	proxy := New(puIDcache, conntrack, collector)
+	ips := provider.NewTestIpsetProvider()
+	proxy := New(puIDcache, conntrack, collector, ipsetmanager.CreateIPsetManager(ips, ips))
 
 	err := proxy.StartDNSServer("pu1", "53001")
 	assert.Equal(t, err == nil, true, "start dns server")
