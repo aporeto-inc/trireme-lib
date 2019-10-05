@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	envoy_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -82,7 +83,7 @@ func (d Direction) String() string {
 type AuthServer struct {
 	puID       string
 	puContexts cache.DataStore
-	secrets    secrets.LockedSecrets
+	secrets    secrets.Secrets
 	socketPath string
 	server     *grpc.Server
 	direction  Direction
@@ -90,7 +91,14 @@ type AuthServer struct {
 	collector  collector.EventCollector
 	auth       *apiauth.Processor
 	metadata   *metadata.Client
+	sync.RWMutex
 }
+
+// Secrets implements the LockedSecrets
+// func (e *AuthServer) Secrets() (secrets.Secrets, func()) {
+// 	e.RLock()
+// 	return e.secrets, e.RUnlock
+// }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
 func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collector.EventCollector, direction Direction,
@@ -113,7 +121,7 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 	s := &AuthServer{
 		puID:       puID,
 		puContexts: puContexts,
-		//secrets:    secrets,
+		secrets:    secrets,
 		socketPath: socketPath,
 		server:     grpc.NewServer(),
 		direction:  direction,
@@ -130,10 +138,10 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 
 	// TODO: figure out why an abstract unix socket path doesn't work
 	// Create a custom listener
-	//addr, err := net.ResolveUnixAddr("unix", s.socketPath)
-	//if err != nil {
-	//	return nil, err
-	//}
+	// addr, err := net.ResolveUnixAddr("unix", s.socketPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	//nl, err := net.ListenUnix("unix", addr)
 	addr, err := net.ResolveTCPAddr("tcp", s.socketPath)
 	if err != nil {
@@ -147,13 +155,13 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 	// 	fmt.Println("ABHI, envoy-reireme, failed to remove the udspath", err)
 	// 	return nil, err
 	// }
-	// fmt.Println("Start listening on UDS path: ", socketPath)
-	// nl, err := net.Listen("unix", socketPath)
+	// fmt.Println("Start listening on UDS path: ", addr)
+	// nl, err := net.ListenUnix("unix", addr)
 	// if err != nil {
 	// 	fmt.Println("cannot listen on the socketpath", err)
 	// 	return nil, err
 	// }
-	// make sure the socket path can be accessed.
+	//make sure the socket path can be accessed.
 	// if _, err := os.Stat(socketPath); err != nil {
 	// 	fmt.Println("SDS uds file doesn't exist", socketPath)
 	// 	return nil, fmt.Errorf("sds uds file %q doesn't exist", socketPath)
@@ -303,7 +311,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 			OkResponse: &ext_auth.OkHttpResponse{},
 		},
 	}, nil
-	return nil, nil
+	//return nil, nil
 }
 
 // egressCheck implements the AuthorizationServer for egress connections
@@ -367,9 +375,17 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	// now create the response and inject our identity
 	zap.L().Debug("ext_authz egress: injecting header", zap.String("puID", s.puID))
 	// build our identity token
-	secrets, unlockSecrets := s.secrets.Secrets()
-	defer unlockSecrets()
-	transmittedKey := secrets.TransmittedKey()
+	fmt.Println("\n\n **** ABHI ext-auth Egress check, need add key and token")
+	//var secrets secrets.Secrets
+	//var unlockSecrets func()
+	var transmittedKey []byte
+	if s.secrets != nil {
+		transmittedKey = s.secrets.TransmittedKey()
+		//defer unlockSecrets()
+	} else {
+		fmt.Println("the secrerts are nil")
+	}
+	//transmittedKey := s.secrets.TransmittedKey()
 
 	//flow.Action = policy.Accept
 	return &ext_auth.CheckResponse{

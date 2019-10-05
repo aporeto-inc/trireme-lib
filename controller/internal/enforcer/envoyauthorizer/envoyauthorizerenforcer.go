@@ -78,7 +78,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 		return nil, fmt.Errorf("error while adding provided CA")
 	}
 	// TODO: systemPool needs the same treatment as the AppProxy and a `processCertificateUpdates` and `expandCAPool` implementation as well
-	fmt.Println("ABHI ** New envoy auth")
+	fmt.Println("ABHI ** New envoy auth, the public secrets type is: ", secrets.PublicSecrets().SecretsType())
 	return &Enforcer{
 		mode:                   mode,
 		collector:              eventCollector,
@@ -143,11 +143,12 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			ingressServer.Stop()
 			return err
 		}
-		sdsServer, err := envoyproxy.NewSdsServer(puInfo)
-		if err != nil {
-			zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
-			return err
-		}
+		// sdsServer, err :=  //envoyproxy.NewSdsServer(contextID, puInfo, caPool)
+		// if err != nil {
+		// 	zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
+		// 	return err
+		// }
+		sdsServer := &envoyproxy.SdsServer{}
 		// Add the EnvoyServers to our cache
 		if err := e.clients.Add(contextID, &envoyServers{ingress: ingressServer, egress: egressServer, sds: sdsServer}); err != nil {
 			ingressServer.Stop()

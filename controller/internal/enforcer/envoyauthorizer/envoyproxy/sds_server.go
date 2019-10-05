@@ -117,10 +117,16 @@ type SdsServer struct {
 }
 
 // NewSdsServer creates a instance of a server.
-func NewSdsServer(puInfo *policy.PUInfo) (*SdsServer, error) {
+func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool) (*SdsServer, error) {
+	if puInfo == nil {
+		fmt.Println("\n\n puInfo NIL ")
+		return nil, fmt.Errorf("the puinfo cannot be nil")
+	}
+	fmt.Println("New sds server for : ", puInfo.Policy.Annotations(), " puID is : ", contextID)
 	sdsOptions := &Options{SocketPath: SdsSocketpath}
 	sdsServer := &SdsServer{
 		puInfo: puInfo,
+		ca:     caPool,
 		errCh:  make(chan error),
 	}
 	if err := sdsServer.CreateSdsService(sdsOptions); err != nil {
@@ -277,7 +283,10 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
 
 			secret := s.generateSecret(req)
-
+			if secret == nil {
+				fmt.Println("\n the Certs cannot be served so return nil")
+				return fmt.Errorf("the aporeto SDS server cannot generate server, the certs are nil")
+			}
 			// TODO: now call the metadata-lib function to fetch the secrets.
 			// TODO: once the secret is fetched create a discovery Response depending on the secret.
 
@@ -374,10 +383,13 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 	expTime := time.Time{}
 	var err error
 	pemCert := []byte{}
-
+	if s.puInfo.Policy == nil {
+		fmt.Println("\n\n *** The policy is nil, cannot be nil.")
+	}
+	fmt.Println("\n\n *** GENERATE cert in SDS, policy ptr: ", s.puInfo.Policy)
 	// now fetch the certificates for the PU/Service.
 	certPEM, keyPEM, caPEM := s.puInfo.Policy.ServiceCertificates()
-	if certPEM == "" || keyPEM == "" || caPEM == "" {
+	if certPEM == "" || keyPEM == "" {
 		fmt.Println("SDS server the certs are empty")
 		return nil
 	}
