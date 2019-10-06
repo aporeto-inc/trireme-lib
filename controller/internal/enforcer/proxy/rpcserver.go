@@ -32,6 +32,7 @@ func (r *ProxyRPCServer) PostStats(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	for _, record := range payload.Flows {
 		r.collector.CollectFlowEvent(record)
 	}
+	payload.Flows = nil
 
 	for _, record := range payload.Users {
 		r.collector.CollectUserEvent(record)
