@@ -37,6 +37,7 @@ func (r *ProxyRPCServer) PostStats(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	for _, record := range payload.Users {
 		r.collector.CollectUserEvent(record)
 	}
+	payload.Users = nil
 
 	return nil
 }
@@ -51,6 +52,7 @@ func (r *ProxyRPCServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrappe
 	for _, record := range payload.PacketRecords {
 		r.collector.CollectPacketEvent(record)
 	}
+	payload.PacketRecords = nil
 
 	return nil
 }
@@ -66,6 +68,8 @@ func (r *ProxyRPCServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapp
 		zap.L().Debug("Posting Remote counters")
 		r.collector.CollectCounterEvent(record)
 	}
+
+	payload.CounterReports = nil
 	return nil
 }
 
@@ -78,6 +82,8 @@ func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Res
 	payload := req.Payload.(rpcwrapper.DNSReportPayload)
 	zap.L().Debug("Posting DNS requests")
 	r.collector.CollectDNSRequests(payload.Report)
+
+	payload.Report = nil
 	return nil
 }
 
