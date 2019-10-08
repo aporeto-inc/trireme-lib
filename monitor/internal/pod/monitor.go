@@ -221,7 +221,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// create the policy engine queue
-	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, 10000, m.netclsProgrammer, mgr.GetEventRecorderFor("trireme-pod-controller"))
+	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, m.netclsProgrammer, mgr.GetEventRecorderFor("trireme-pod-controller"), "noqueue", 10000)
 	if err := mgr.Add(policyEngineQueue); err != nil {
 		return fmt.Errorf("pod: failed to add policy engine queue to manager: %s", err.Error())
 	}

@@ -36,12 +36,22 @@ type PolicyEngineEvent struct {
 }
 
 // NewPolicyEngineQueue creates a new policy engine queue
-func NewPolicyEngineQueue(pc *config.ProcessorConfig, queueSize int, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder) PolicyEngineQueue {
-
-	return &SimplePolicyEngineQueue{
-		pc:               pc,
-		netclsProgrammer: netclsProgrammer,
-		recorder:         recorder,
-		queue:            make(chan *PolicyEngineEvent, queueSize),
+func NewPolicyEngineQueue(pc *config.ProcessorConfig, netclsProgrammer extractors.PodNetclsProgrammer, recorder record.EventRecorder, queueName string, queueSize int) PolicyEngineQueue {
+	switch queueName {
+	case "simple":
+		return &SimplePolicyEngineQueue{
+			pc:               pc,
+			netclsProgrammer: netclsProgrammer,
+			recorder:         recorder,
+			queue:            make(chan *PolicyEngineEvent, queueSize),
+		}
+	case "noqueue":
+		fallthrough
+	default:
+		return &NoqueuePolicyEngineQueue{
+			pc:               pc,
+			netclsProgrammer: netclsProgrammer,
+			recorder:         recorder,
+		}
 	}
 }
