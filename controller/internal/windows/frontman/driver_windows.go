@@ -46,10 +46,16 @@ var (
 )
 
 const (
-	FilterActionAllow = iota + 1
+	FilterActionAllow = iota + 1 // see frontmanIO.h
 	FilterActionBlock
 	FilterActionProxy
 	FilterActionNfq
+)
+
+const (
+	BytesMatchStartIpHeader = iota + 1 // see frontmanIO.h
+	BytesMatchStartProtocolHeader
+	BytesMatchStartPayload
 )
 
 type DestInfo struct {
@@ -61,24 +67,24 @@ type DestInfo struct {
 }
 
 type PacketInfo struct {
-	Ipv4       uint8
-	Protocol   uint8
-	Outbound   uint8
-	Drop       uint8
-	IgnoreFlow uint8
-	Reserved1  uint8
-	Reserved2  uint8
-	Reserved3  uint8
-	LocalPort  uint16
-	RemotePort uint16
-	LocalAddr  [4]uint32
-	RemoteAddr [4]uint32
-	IfIdx      uint32
-	SubIfIdx   uint32
-	PacketSize uint32
-	Mark       uint32
-	StartTime  uint64
-	StartTime2 uint64
+	Ipv4                         uint8
+	Protocol                     uint8
+	Outbound                     uint8
+	Drop                         uint8
+	IgnoreFlow                   uint8
+	Reserved1                    uint8
+	Reserved2                    uint8
+	Reserved3                    uint8
+	LocalPort                    uint16
+	RemotePort                   uint16
+	LocalAddr                    [4]uint32
+	RemoteAddr                   [4]uint32
+	IfIdx                        uint32
+	SubIfIdx                     uint32
+	PacketSize                   uint32
+	Mark                         uint32
+	StartTimeReceivedFromNetwork uint64
+	StartTimeSentToUserLand      uint64
 }
 
 type LogPacketInfo struct {
@@ -101,19 +107,27 @@ type IpsetRuleSpec struct {
 }
 
 type RuleSpec struct {
-	Action       uint8
-	Log          uint8
-	Protocol     uint8
-	Reserved1    uint8
-	ProxyPort    int16
-	SrcPortStart uint16
-	SrcPortEnd   uint16
-	DstPortStart uint16
-	DstPortEnd   uint16
-	Reserved2    int16
-	Mark         uint32
-	GroupId      uint32
-	LogPrefix    uintptr // const wchar_t*
+	Action            uint8
+	Log               uint8
+	Protocol          uint8
+	Reserved1         uint8
+	IcmpType          uint8
+	IcmpTypeSpecified uint8
+	IcmpCode          uint8
+	IcmpCodeSpecified uint8
+	ProxyPort         uint16
+	SrcPortStart      uint16
+	SrcPortEnd        uint16
+	DstPortStart      uint16
+	DstPortEnd        uint16
+	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
+	BytesMatchOffset  int32
+	BytesMatchSize    int32
+	BytesMatch        *byte
+	Mark              uint32
+	GroupId           uint32
+	LogPrefix         uintptr // const wchar_t*
+	Application       uintptr // const wchar_t*
 }
 
 func GetDriverHandle() (uintptr, error) {

@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
@@ -43,9 +44,10 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		// Parse the packet
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
+		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{packetInfo}
 		var processError error
 		var tcpConn *connection.TCPConnection
-		//var udpConn *connection.UDPConnection
+		var udpConn *connection.UDPConnection
 		if err != nil {
 			parsedPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 		} else if parsedPacket.IPProto() == packet.IPProtocolTCP {
@@ -55,12 +57,12 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 				tcpConn, processError = d.processApplicationTCPPackets(parsedPacket)
 			}
 		} else if parsedPacket.IPProto() == packet.IPProtocolUDP {
-			/*if packetType == packet.PacketTypeNetwork {
+			// process udp packet
+			if packetType == packet.PacketTypeNetwork {
 				udpConn, processError = d.ProcessNetworkUDPPacket(parsedPacket)
 			} else {
 				udpConn, processError = d.ProcessApplicationUDPPacket(parsedPacket)
-			}*/
-			// TODO(windows): handle UDP
+			}
 		} else {
 			processError = fmt.Errorf("invalid ip protocol: %d", parsedPacket.IPProto())
 		}
@@ -78,14 +80,14 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 					network: packetType == packet.PacketTypeNetwork,
 				})
 			} else if parsedPacket.IPProto() == packet.IPProtocolUDP {
-				/*d.collectUDPPacket(&debugpacketmessage{
+				d.collectUDPPacket(&debugpacketmessage{
 					Mark:    mark,
 					p:       parsedPacket,
 					tcpConn: nil,
 					udpConn: udpConn,
 					err:     processError,
 					network: packetType == packet.PacketTypeNetwork,
-				})*/
+				})
 			}
 			// drop packet by not forwarding it
 			return 0
@@ -122,14 +124,14 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 				network: packetType == packet.PacketTypeNetwork,
 			})
 		} else if parsedPacket.IPProto() == packet.IPProtocolUDP {
-			/*d.collectUDPPacket(&debugpacketmessage{
+			d.collectUDPPacket(&debugpacketmessage{
 				Mark:    mark,
 				p:       parsedPacket,
 				tcpConn: nil,
 				udpConn: udpConn,
 				err:     nil,
 				network: packetType == packet.PacketTypeNetwork,
-			})*/
+			})
 		}
 
 		return 0

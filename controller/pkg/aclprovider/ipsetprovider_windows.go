@@ -123,6 +123,7 @@ func NewGoIPsetProvider() IpsetProvider {
 }
 
 func (w *winIpSet) Add(entry string, timeout int) error {
+	zap.L().Debug(fmt.Sprintf("add ipset entry %s to %s", entry, w.name))
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)

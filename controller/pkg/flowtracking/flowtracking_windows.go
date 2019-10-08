@@ -33,7 +33,7 @@ func (c *Client) Close() error {
 
 // ShouldIgnoreFlow checks map to see if we should tell Frontman to ignore flow.
 func (c *Client) ShouldIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16) bool {
-	key := fmt.Sprintf("%d %s %d %s %d", protonum, ipSrc, srcport, ipDst, dstport)
+	key := c.makeKey(protonum, srcport, dstport)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.ignoreFlows[key]
@@ -41,7 +41,7 @@ func (c *Client) ShouldIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, 
 
 // ClearIgnoreFlow deletes entry from map.
 func (c *Client) ClearIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16) {
-	key := fmt.Sprintf("%d %s %d %s %d", protonum, ipSrc, srcport, ipDst, dstport)
+	key := c.makeKey(protonum, srcport, dstport)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.ignoreFlows, key)
@@ -50,7 +50,7 @@ func (c *Client) ClearIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, d
 // UpdateMark adds an entry to the map.
 func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, network bool) error {
 	if newmark == constants.DefaultConnMark {
-		key := fmt.Sprintf("%d %s %d %s %d", protonum, ipSrc, srcport, ipDst, dstport)
+		key := c.makeKey(protonum, srcport, dstport)
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		c.ignoreFlows[key] = true
@@ -68,4 +68,9 @@ func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, 
 
 func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
 	return nil, 0, 0, nil
+}
+
+func (c *Client) makeKey(protocol uint8, sourcePort, destPort uint16) string {
+	// map is only for in-flight packets, so make a simple key. flow state is kept in the driver.
+	return fmt.Sprintf("%d %d %d", protocol, sourcePort, destPort)
 }

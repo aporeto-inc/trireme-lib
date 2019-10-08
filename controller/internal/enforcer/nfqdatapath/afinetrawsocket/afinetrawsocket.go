@@ -37,7 +37,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver) error
+	WriteSocket(buf []byte, version packet.IPver, data interface{}) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -110,7 +110,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	}, nil
 }
 
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interface{}) error {
 	// copy the dest addr
 	if version == packet.V4 {
 		copy(sock.insockv4.insock.Addr[:], buf[16:20])

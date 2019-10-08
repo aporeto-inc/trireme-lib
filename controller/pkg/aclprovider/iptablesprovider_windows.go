@@ -93,6 +93,8 @@ type windowsRuleSpec struct {
 	log               bool
 	logPrefix         string
 	groupId           int
+	matchBytes        []byte
+	matchBytesOffset  int
 	matchSet          []*windowsRuleMatchSet
 }
 
@@ -107,6 +109,8 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 	actionOpt := opt.StringSlice("j", 1, 10, opt.Required())
 	modeOpt := opt.StringSlice("m", 1, 10)
 	matchSetOpt := opt.StringSlice("match-set", 2, 10)
+	matchStringOpt := opt.String("string", "")
+	matchStringOffsetOpt := opt.Int("offset", 0)
 	redirectPortOpt := opt.Int("to-ports", 0)
 
 	_, err := opt.Parse(rulespec)
@@ -121,6 +125,8 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 		result.protocol = packet.IPProtocolTCP
 	} else if strings.EqualFold(*protocolOpt, "udp") {
 		result.protocol = packet.IPProtocolUDP
+	} else if *protocolOpt != "" {
+		return nil, errors.New("rulespec not valid: invalid protocol")
 	}
 
 	// src/dest port: either port or port range
@@ -156,49 +162,56 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 	}
 
 	// match ipset
-	for i, modeOptNum := 0, 0; i < len(*modeOpt); {
-		m := (*modeOpt)[i]
-		if m != "set" {
+	for i, modeOptSetNum := 0, 0; i < len(*modeOpt); i++ {
+		switch (*modeOpt)[i] {
+		case "set":
+			matchSet := &windowsRuleMatchSet{}
+			// see if negate of --match-set occurred
+			if i+1 < len(*modeOpt) && (*modeOpt)[i+1] == "!" {
+				matchSet.matchSetNegate = true
+				i++
+			}
+			// now check corresponding match-set by index
+			matchSetIndex := 2 * modeOptSetNum
+			modeOptSetNum++
+			if matchSetIndex+1 >= len(*matchSetOpt) {
+				return nil, errors.New("rulespec not valid: --match-set not found for -m set")
+			}
+			// first part is the ipset name
+			matchSet.matchSetName = (*matchSetOpt)[matchSetIndex]
+			// second part is the dst/src match specifier
+			ipPortSpecLower := strings.ToLower((*matchSetOpt)[matchSetIndex+1])
+			if strings.HasPrefix(ipPortSpecLower, "dstip") {
+				matchSet.matchSetDstIp = true
+			} else if strings.HasPrefix(ipPortSpecLower, "srcip") {
+				matchSet.matchSetSrcIp = true
+			}
+			if strings.HasSuffix(ipPortSpecLower, "dstport") {
+				matchSet.matchSetDstPort = true
+				if result.protocol == 0 {
+					return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
+				}
+			} else if strings.HasSuffix(ipPortSpecLower, "srcport") {
+				matchSet.matchSetSrcPort = true
+				if result.protocol == 0 {
+					return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
+				}
+			}
+			if !matchSet.matchSetDstIp && !matchSet.matchSetDstPort && !matchSet.matchSetSrcIp && !matchSet.matchSetSrcPort {
+				return nil, errors.New("rulespec not valid: ipset match needs ip/port specifier")
+			}
+			result.matchSet = append(result.matchSet, matchSet)
+
+		case "string":
+			if *matchStringOpt == "" {
+				return nil, errors.New("rulespec not valid: no match string given")
+			}
+			result.matchBytes = []byte(*matchStringOpt)
+			result.matchBytesOffset = *matchStringOffsetOpt
+
+		default:
 			return nil, errors.New("rulespec not valid: unknown -m option")
 		}
-		matchSet := &windowsRuleMatchSet{}
-		// see if negate of --match-set occurred
-		if i+1 < len(*modeOpt) && (*modeOpt)[i+1] == "!" {
-			matchSet.matchSetNegate = true
-			i++
-		}
-		// now check corresponding match-set by index
-		matchSetIndex := 2 * modeOptNum
-		if matchSetIndex+1 >= len(*matchSetOpt) {
-			return nil, errors.New("rulespec not valid: --match-set not found for -m set")
-		}
-		// first part is the ipset name
-		matchSet.matchSetName = (*matchSetOpt)[matchSetIndex]
-		// second part is the dst/src match specifier
-		ipPortSpecLower := strings.ToLower((*matchSetOpt)[matchSetIndex+1])
-		if strings.HasPrefix(ipPortSpecLower, "dstip") {
-			matchSet.matchSetDstIp = true
-		} else if strings.HasPrefix(ipPortSpecLower, "srcip") {
-			matchSet.matchSetSrcIp = true
-		}
-		if strings.HasSuffix(ipPortSpecLower, "dstport") {
-			matchSet.matchSetDstPort = true
-			if result.protocol == 0 {
-				return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
-			}
-		} else if strings.HasSuffix(ipPortSpecLower, "srcport") {
-			matchSet.matchSetSrcPort = true
-			if result.protocol == 0 {
-				return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
-			}
-		}
-		if !matchSet.matchSetDstIp && !matchSet.matchSetDstPort && !matchSet.matchSetSrcIp && !matchSet.matchSetSrcPort {
-			return nil, errors.New("rulespec not valid: ipset match needs ip/port specifier")
-		}
-		result.matchSet = append(result.matchSet, matchSet)
-		// advance to next -m set
-		i++
-		modeOptNum++
 	}
 
 	// action: required, either NFQUEUE, REDIRECT, MARK, ACCEPT, DROP, NFLOG
@@ -227,6 +240,9 @@ func parseRuleSpec(rulespec ...string) (*windowsRuleSpec, error) {
 			return nil, errors.New("rulespec not valid: invalid action")
 		}
 	}
+	if result.action == frontman.FilterActionNfq && result.mark == 0 {
+		return nil, errors.New("rulespec not valid: nfq action needs to set mark")
+	}
 
 	// redirect port
 	result.proxyPort = *redirectPortOpt
@@ -248,6 +264,9 @@ func boolToUint8(b bool) uint8 {
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
+
+	zap.L().Debug(fmt.Sprintf("add rule %s to table/chain %s/%s", strings.Join(rulespec, " "), table, chain))
+
 	winRuleSpec, err := parseRuleSpec(rulespec...)
 	if err != nil {
 		return err
@@ -263,12 +282,18 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		Action:       uint8(winRuleSpec.action),
 		Log:          boolToUint8(winRuleSpec.log),
 		Protocol:     uint8(winRuleSpec.protocol),
-		ProxyPort:    int16(winRuleSpec.proxyPort),
+		ProxyPort:    uint16(winRuleSpec.proxyPort),
 		SrcPortStart: uint16(winRuleSpec.matchSrcPortBegin),
 		SrcPortEnd:   uint16(winRuleSpec.matchSrcPortEnd),
 		DstPortStart: uint16(winRuleSpec.matchDstPortBegin),
 		DstPortEnd:   uint16(winRuleSpec.matchDstPortEnd),
 		Mark:         uint32(winRuleSpec.mark),
+	}
+	if len(winRuleSpec.matchBytes) > 0 {
+		argRuleSpec.BytesMatchStart = frontman.BytesMatchStartPayload
+		argRuleSpec.BytesMatchOffset = int32(winRuleSpec.matchBytesOffset)
+		argRuleSpec.BytesMatchSize = int32(len(winRuleSpec.matchBytes))
+		argRuleSpec.BytesMatch = &winRuleSpec.matchBytes[0]
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.matchSet))
 	for i, matchSet := range winRuleSpec.matchSet {

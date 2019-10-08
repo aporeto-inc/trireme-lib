@@ -1,4 +1,4 @@
-// +build !linux
+// +build darwin
 
 package afinetrawsocket
 
@@ -17,7 +17,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver) error
+	WriteSocket(buf []byte, version packet.IPver, data interface{}) error
 	CloseSocket() error
 }
 
@@ -32,7 +32,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 }
 
 // WriteSocket writes data into raw socket.
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interface{}) error {
 	//This is an IP frame dest address at byte[16]
 
 	return nil
