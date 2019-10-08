@@ -154,6 +154,8 @@ type TCPConnection struct {
 	MarkForDeletion bool
 
 	RetransmittedSynAck bool
+
+	Packet *packet.Packet
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -233,6 +235,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
+		Packet: p,
 	}
 }
 

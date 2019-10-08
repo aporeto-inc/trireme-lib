@@ -220,9 +220,9 @@ func New(
 		puFromContextID: puFromContextID,
 
 		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appOrigConnectionTracker:  cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, removeFlowFromBpf),
 		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:  cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, removeFlowFromBpf),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),

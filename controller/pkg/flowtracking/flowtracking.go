@@ -54,19 +54,13 @@ func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstpor
 // UpdateNetworkFlowMark will update the mark for a flow based on packet information received
 // from the network. It will use the reverse tables in conntrack for that.
 func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
-
-	f := newReplyFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, newmark)
-
-	return c.conn.Update(f)
+	return nil
 }
 
 // UpdateApplicationFlowMark will update the mark for a flow based on the packet information
 // received from an application. It will use the forward entries of conntrack for that.
 func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
-
-	f := conntrack.NewFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, newmark)
-
-	return c.conn.Update(f)
+	return nil
 }
 
 // newReplyFlow will create a flow based on the reply tuple only. This will help us
