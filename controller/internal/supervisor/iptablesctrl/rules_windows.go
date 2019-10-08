@@ -34,7 +34,7 @@ var cgroupCaptureTemplate = `
 {{else}}
 -A HostSvcRules-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
 -A HostSvcRules-INPUT -p tcp --dport {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
--A HostSvcRules-INPUT -p udp --dport {{.UDPPorts}} -j NFQUEUE -j MARK {{.Mark}}
+-A HostSvcRules-INPUT -p udp --dport {{.UDPPorts}} -m string --string {{.UDPSignature}} --offset 2 -j NFQUEUE -j MARK {{.Mark}}
 -A HostSvcRules-OUTPUT -p tcp --sport {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
 -A HostSvcRules-OUTPUT -p udp --sport {{.UDPPorts}} -j NFQUEUE -j MARK {{.Mark}}
 {{end}}
