@@ -116,29 +116,20 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 	pod := &corev1.Pod{}
 	if err := c.Get(ctx, req, pod); err != nil {
 		if errors.IsNotFound(err) {
-			// this is the normal case: a pod is gone
-			// so just send a destroy event
-			//if err := pc.Policy.HandlePUEvent(
-			//	ctx,
-			//	podUID,
-			//	common.EventDestroy,
-			//	policy.NewPURuntimeWithDefaults(),
-			//); err != nil {
-			//	// we don't really care, we just warn
-			//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
-			//}
 			zap.L().Debug("DeleteController: sending delete event to queue (NotFound)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
-			policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			if err := policyEngineQueue.Enqueue(ctx, &queue.PolicyEngineEvent{
 				ID:      types.UID(podUID),
 				Event:   common.EventDestroy,
 				Runtime: policy.NewPURuntimeWithDefaults(),
+			}); err != nil {
+				zap.L().Warn("DeleteController: failed to queue destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 			}
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
 			delete(m, podUID)
 		} else {
 			// we don't really care, we just warn
-			zap.L().Warn("DeleteController: Failed to get pod from Kubernetes API", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
+			zap.L().Warn("DeleteController: failed to get pod from Kubernetes API", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
 		return
 	}
@@ -158,22 +149,14 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 
 	// 1st case, simple if the pod UID don't match then just call the destroy PU event and delete the map entry with the old key.
 	if string(pod.UID) != delObj.podUID {
-
 		zap.L().Warn("DeleteController: Pod does not have expected native ID, we must have missed an event and the same pod was recreated. Trying to destroy PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("podUID", string(pod.GetUID())))
-		//if err := pc.Policy.HandlePUEvent(
-		//	ctx,
-		//	podUID,
-		//	common.EventDestroy,
-		//	policy.NewPURuntimeWithDefaults(),
-		//); err != nil {
-		//	// we don't really care, we just warn
-		//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
-		//}
 		zap.L().Debug("DeleteController: sending delete event to queue (mismatched UIDs)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
-		policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+		if err := policyEngineQueue.Enqueue(ctx, &queue.PolicyEngineEvent{
 			ID:      types.UID(podUID),
 			Event:   common.EventDestroy,
 			Runtime: policy.NewPURuntimeWithDefaults(),
+		}); err != nil {
+			zap.L().Warn("DeleteController: failed to queue destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
 		// we only fire events away, we don't really care about the error anyway
 		// it is up to the policy engine to make sense of that
@@ -209,20 +192,13 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
 		if oldSandboxID != currentSandboxID {
 			zap.L().Warn("DeleteController: Pod SandboxID changed, destroying PU now", zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
-			//if err := pc.Policy.HandlePUEvent(
-			//	ctx,
-			//	podUID,
-			//	common.EventDestroy,
-			//	policy.NewPURuntimeWithDefaults(),
-			//); err != nil {
-			//	// we don't really care, we just warn
-			//	zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
-			//}
 			zap.L().Debug("DeleteController: sending delete event to queue (sandbox changed)", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
-			policyEngineQueue.Queue() <- &queue.PolicyEngineEvent{
+			if err := policyEngineQueue.Enqueue(ctx, &queue.PolicyEngineEvent{
 				ID:      types.UID(podUID),
 				Event:   common.EventDestroy,
 				Runtime: policy.NewPURuntimeWithDefaults(),
+			}); err != nil {
+				zap.L().Warn("DeleteController: failed to queue destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 			}
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
