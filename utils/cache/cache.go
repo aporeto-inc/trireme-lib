@@ -23,6 +23,7 @@ type DataStore interface {
 	RemoveWithDelay(u interface{}, duration time.Duration) (err error)
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 	SetTimeOut(u interface{}, timeout time.Duration) (err error)
+	KeyList() []interface{}
 	ToString() string
 }
 
@@ -280,6 +281,18 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	return c.data[u].value, nil
 }
 
+// KeyList returns all the keys that are currently stored in the cache.
+func (c *Cache) KeyList() []interface{} {
+	c.Lock()
+	defer c.Unlock()
+
+	list := []interface{}{}
+	for k := range c.data {
+		list = append(list, k)
+	}
+	return list
+}
+
 // removeNotify removes the entry from the cache and optionally notifies.
 // returns error if not there
 func (c *Cache) removeNotify(u interface{}, notify bool) (err error) {
@@ -358,7 +371,7 @@ func (c *Cache) SizeOf() int {
 	return len(c.data)
 }
 
-// LockedModify  locks the data store
+// LockedModify locks the data store
 func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error) {
 
 	var timer *time.Timer

@@ -10,10 +10,16 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// HostPU is a host wrapping PU
+	HostPU
+	// HostNetworkPU is a PU for a network service in a host
+	HostNetworkPU
 	// KubernetesPU indicates that this is KubernetesPod
 	KubernetesPU
 	// UIDLoginPU -- PU representing a user session
 	UIDLoginPU
+	// SSHSessionPU -- PU representing a ssh session
+	SSHSessionPU
 	// TransientPU PU -- placeholder to run processing. This should not
 	// be inserted in any cache. This is valid only for processing a packet
 	TransientPU
@@ -25,6 +31,9 @@ const (
 
 	// TriremeUIDCgroupPath is the standard path for UID based activations
 	TriremeUIDCgroupPath = "/trireme_uid/"
+
+	// TriremeDockerHostNetwork is the path for Docker HostNetwork container based activations
+	TriremeDockerHostNetwork = "/trireme_docker_hostnet/"
 
 	// TriremeSocket is the standard API server Trireme socket path
 	TriremeSocket = "/var/run/trireme.sock"
@@ -46,6 +55,9 @@ type EventInfo struct {
 	// The Name is a user-friendly name for the Processing Unit.
 	Name string `json:"name,omitempty"`
 
+	// The Executable is the executable name  for the Processing Unit.
+	Executable string `json:"executable,omitempty"`
+
 	// Tags represents the set of MetadataTags associated with this PUID.
 	Tags []string `json:"tags,omitempty"`
 
@@ -66,6 +78,9 @@ type EventInfo struct {
 
 	// HostService indicates that the request is for the root namespace
 	HostService bool `json:"hostservice,omitempty"`
+
+	// AutoPort indicates that the PU will have auto port feature enabled
+	AutoPort bool `json:"autoport,omitempty"`
 
 	// NetworkOnlyTraffic indicates that traffic towards the applications must be controlled.
 	NetworkOnlyTraffic bool `json:"networktrafficonly,omitempty"`

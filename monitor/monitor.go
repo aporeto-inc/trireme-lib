@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
-
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/internal/cni"
-	"go.aporeto.io/trireme-lib/monitor/internal/docker"
-	"go.aporeto.io/trireme-lib/monitor/internal/linux"
-	"go.aporeto.io/trireme-lib/monitor/internal/uid"
+	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
+	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
+	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
+	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
 	"go.uber.org/zap"
@@ -81,6 +81,14 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 			}
 			m.monitors[config.Kubernetes] = mon
 
+		case config.Pod:
+			mon := podmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(nil, v); err != nil {
+				return nil, fmt.Errorf("pod: %s", err.Error())
+			}
+			m.monitors[config.Pod] = mon
+
 		case config.LinuxProcess:
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Common)
@@ -88,6 +96,14 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
 			m.monitors[config.LinuxProcess] = mon
+
+		case config.SSH:
+			mon := linuxmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Process: %s", err.Error())
+			}
+			m.monitors[config.SSH] = mon
 
 		case config.LinuxHost:
 			mon := linuxmonitor.New()

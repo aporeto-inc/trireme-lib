@@ -7,11 +7,14 @@ package mockenforcer
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	portset "go.aporeto.io/trireme-lib/controller/internal/portset"
+	constants "go.aporeto.io/trireme-lib/controller/constants"
 	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	runtime "go.aporeto.io/trireme-lib/controller/runtime"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -84,20 +87,6 @@ func (mr *MockEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilterQueue", reflect.TypeOf((*MockEnforcer)(nil).GetFilterQueue))
 }
 
-// GetPortSetInstance mocks base method
-// nolint
-func (m *MockEnforcer) GetPortSetInstance() portset.PortSet {
-	ret := m.ctrl.Call(m, "GetPortSetInstance")
-	ret0, _ := ret[0].(portset.PortSet)
-	return ret0
-}
-
-// GetPortSetInstance indicates an expected call of GetPortSetInstance
-// nolint
-func (mr *MockEnforcerMockRecorder) GetPortSetInstance() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPortSetInstance", reflect.TypeOf((*MockEnforcer)(nil).GetPortSetInstance))
-}
-
 // Run mocks base method
 // nolint
 func (m *MockEnforcer) Run(ctx context.Context) error {
@@ -124,4 +113,129 @@ func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
 // nolint
 func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockEnforcer)(nil).UpdateSecrets), secrets)
+}
+
+// SetTargetNetworks mocks base method
+// nolint
+func (m *MockEnforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetTargetNetworks indicates an expected call of SetTargetNetworks
+// nolint
+func (mr *MockEnforcerMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), cfg)
+}
+
+// SetLogLevel mocks base method
+// nolint
+func (m *MockEnforcer) SetLogLevel(level constants.LogLevel) error {
+	ret := m.ctrl.Call(m, "SetLogLevel", level)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLogLevel indicates an expected call of SetLogLevel
+// nolint
+func (mr *MockEnforcerMockRecorder) SetLogLevel(level interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogLevel", reflect.TypeOf((*MockEnforcer)(nil).SetLogLevel), level)
+}
+
+// CleanUp mocks base method
+// nolint
+func (m *MockEnforcer) CleanUp() error {
+	ret := m.ctrl.Call(m, "CleanUp")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanUp indicates an expected call of CleanUp
+// nolint
+func (mr *MockEnforcerMockRecorder) CleanUp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockEnforcer)(nil).CleanUp))
+}
+
+// EnableDatapathPacketTracing mocks base method
+// nolint
+func (m *MockEnforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
+// nolint
+func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
+}
+
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockEnforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockEnforcerMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
+}
+
+// MockDebugInfo is a mock of DebugInfo interface
+// nolint
+type MockDebugInfo struct {
+	ctrl     *gomock.Controller
+	recorder *MockDebugInfoMockRecorder
+}
+
+// MockDebugInfoMockRecorder is the mock recorder for MockDebugInfo
+// nolint
+type MockDebugInfoMockRecorder struct {
+	mock *MockDebugInfo
+}
+
+// NewMockDebugInfo creates a new mock instance
+// nolint
+func NewMockDebugInfo(ctrl *gomock.Controller) *MockDebugInfo {
+	mock := &MockDebugInfo{ctrl: ctrl}
+	mock.recorder = &MockDebugInfoMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+// nolint
+func (m *MockDebugInfo) EXPECT() *MockDebugInfoMockRecorder {
+	return m.recorder
+}
+
+// EnableDatapathPacketTracing mocks base method
+// nolint
+func (m *MockDebugInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
+// nolint
+func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
+}
+
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }

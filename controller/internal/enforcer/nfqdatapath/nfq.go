@@ -13,3 +13,5 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {}
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (d *Datapath) startApplicationInterceptor(ctx context.Context) {}
+
+func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {}

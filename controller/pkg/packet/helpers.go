@@ -7,29 +7,30 @@ import (
 	"fmt"
 	"strconv"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/ipv4"
 )
 
 // Helpher functions for the package, mainly for debugging and validation
 // They are not used by the main package
 
-// VerifyIPChecksum returns true if the IP header checksum is correct
+// VerifyIPv4Checksum returns true if the IP header checksum is correct
 // for this packet, false otherwise. Note that the checksum is not
 // modified.
-func (p *Packet) VerifyIPChecksum() bool {
+func (p *Packet) VerifyIPv4Checksum() bool {
 
-	sum := p.computeIPChecksum()
+	sum := p.computeIPv4Checksum()
 
-	return sum == p.ipChecksum
+	return sum == p.ipHdr.ipChecksum
 }
 
-// UpdateIPChecksum computes the IP header checksum and updates the
+// UpdateIPv4Checksum computes the IP header checksum and updates the
 // packet with the value.
-func (p *Packet) UpdateIPChecksum() {
+func (p *Packet) UpdateIPv4Checksum() {
 
-	p.ipChecksum = p.computeIPChecksum()
+	p.ipHdr.ipChecksum = p.computeIPv4Checksum()
 
-	binary.BigEndian.PutUint16(p.Buffer[ipChecksumPos:ipChecksumPos+2], p.ipChecksum)
+	binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.ipHdr.ipChecksum)
 }
 
 // VerifyTCPChecksum returns true if the TCP header checksum is correct
@@ -39,21 +40,21 @@ func (p *Packet) VerifyTCPChecksum() bool {
 
 	sum := p.computeTCPChecksum()
 
-	return sum == p.TCPChecksum
+	return sum == p.tcpHdr.tcpChecksum
 }
 
 // UpdateTCPChecksum computes the TCP header checksum and updates the
 // packet with the value.
 func (p *Packet) UpdateTCPChecksum() {
-
-	p.TCPChecksum = p.computeTCPChecksum()
-
-	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+	p.tcpHdr.tcpChecksum = p.computeTCPChecksum()
+	binary.BigEndian.PutUint16(buffer[tcpChecksumPos:tcpChecksumPos+2], p.tcpHdr.tcpChecksum)
 }
 
 // UpdateTCPFlags
 func (p *Packet) updateTCPFlags(tcpFlags uint8) {
-	p.Buffer[tcpFlagsOffsetPos] = tcpFlags
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+	buffer[tcpFlagsOffsetPos] = tcpFlags
 }
 
 // ConvertAcktoFinAck function removes the data from the packet
@@ -66,88 +67,96 @@ func (p *Packet) ConvertAcktoFinAck() error {
 	tcpFlags = tcpFlags | TCPAckMask
 
 	p.updateTCPFlags(tcpFlags)
-	p.TCPFlags = tcpFlags
+	p.tcpHdr.tcpFlags = tcpFlags
+
 	if err := p.TCPDataDetach(0); err != nil {
 		return fmt.Errorf("ack packet in wrong format")
 	}
-	p.DropDetachedBytes()
+	p.DropTCPDetachedBytes()
 	return nil
 }
 
-// String returns a string representation of fields contained in this packet.
-func (p *Packet) String() string {
+//PacketToStringTCP returns a string representation of fields contained in this packet.
+func (p *Packet) PacketToStringTCP() string {
 
 	var buf bytes.Buffer
 	buf.WriteString("(error)")
 
-	header, err := ipv4.ParseHeader(p.Buffer)
+	header, err := ipv4.ParseHeader(p.ipHdr.Buffer)
 
 	if err == nil {
 		buf.Reset()
 		buf.WriteString(header.String())
 		buf.WriteString(" srcport=")
-		buf.WriteString(strconv.Itoa(int(p.SourcePort)))
+		buf.WriteString(strconv.Itoa(int(p.SourcePort())))
 		buf.WriteString(" dstport=")
-		buf.WriteString(strconv.Itoa(int(p.DestinationPort)))
+		buf.WriteString(strconv.Itoa(int(p.DestPort())))
 		buf.WriteString(" tcpcksum=")
-		buf.WriteString(fmt.Sprintf("0x%0x", p.TCPChecksum))
+		buf.WriteString(fmt.Sprintf("0x%0x", p.tcpHdr.tcpChecksum))
 		buf.WriteString(" data")
-		buf.WriteString(hex.EncodeToString(p.GetBytes()))
+		buf.WriteString(hex.EncodeToString(p.GetTCPBytes()))
 	}
 	return buf.String()
 }
 
 // Computes the IP header checksum. The packet is not modified.
-func (p *Packet) computeIPChecksum() uint16 {
+func (p *Packet) computeIPv4Checksum() uint16 {
 
 	// IP packet checksum is computed with the checksum value set to zero
-	binary.BigEndian.PutUint16(p.Buffer[ipChecksumPos:ipChecksumPos+2], uint16(0))
+	p.ipHdr.Buffer[ipv4ChecksumPos] = 0
+	p.ipHdr.Buffer[ipv4ChecksumPos+1] = 0
 
 	// Compute checksum, over IP header only
-	sum := checksum(p.Buffer[0 : p.ipHeaderLen*4])
+	sum := checksum(p.ipHdr.Buffer[:p.ipHdr.ipHeaderLen])
 
 	// Restore the previous checksum (whether correct or not, as this function doesn't change it)
-	binary.BigEndian.PutUint16(p.Buffer[ipChecksumPos:ipChecksumPos+2], p.ipChecksum)
+	binary.BigEndian.PutUint16(p.ipHdr.Buffer[ipv4ChecksumPos:ipv4ChecksumPos+2], p.ipHdr.ipChecksum)
 
 	return sum
 }
 
 // Computes the TCP header checksum. The packet is not modified.
 func (p *Packet) computeTCPChecksum() uint16 {
+	var csum uint32
+	var buf [2]byte
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+	tcpBufSize := uint16(len(buffer) + len(p.tcpHdr.tcpData) + len(p.tcpHdr.tcpOptions))
 
-	var pseudoHeaderLen uint16 = 12
-	tcpSize := uint16(len(p.Buffer)) - p.l4BeginPos
-	bufLen := pseudoHeaderLen + tcpSize
-	buf := make([]byte, bufLen)
+	oldCsumLow := buffer[tcpChecksumPos]
+	oldCsumHigh := buffer[tcpChecksumPos+1]
 
-	// Construct the pseudo-header for TCP checksum computation:
+	// Put 0 to calculate the checksum. We will reset it back after the checksum
+	buffer[tcpChecksumPos] = 0
+	buffer[tcpChecksumPos+1] = 0
 
-	// bytes 0-3: Source IP address
-	copy(buf[0:4], p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4])
+	if p.ipHdr.version == V4 {
+		csum = partialChecksum(0, p.ipHdr.Buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4])
+		csum = partialChecksum(csum, p.ipHdr.Buffer[ipv4DestAddrPos:ipv4DestAddrPos+4])
+	} else {
+		csum = partialChecksum(0, p.ipHdr.Buffer[ipv6SourceAddrPos:ipv6SourceAddrPos+16])
+		csum = partialChecksum(csum, p.ipHdr.Buffer[ipv6DestAddrPos:ipv6DestAddrPos+16])
+	}
 
-	// bytes 4-7: Destination IP address
-	copy(buf[4:8], p.Buffer[ipDestAddrPos:ipDestAddrPos+4])
+	// reserved 0 byte
+	buf[0] = 0
+	// tcp option 6
+	buf[1] = 6
 
-	// byte 8: Constant zero
-	buf[8] = 0
+	csum = partialChecksum(csum, buf[:])
+	binary.BigEndian.PutUint16(buf[:], tcpBufSize)
+	csum = partialChecksum(csum, buf[:])
 
-	// byte 9: Protocol (6==TCP)
-	buf[9] = 6
+	csum = partialChecksum(csum, buffer)
+	csum = partialChecksum(csum, p.tcpHdr.tcpOptions)
+	csum = partialChecksum(csum, p.tcpHdr.tcpData)
 
-	// bytes 10,11: TCP buffer size (real header + payload)
-	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOptions)))
+	csum16 := finalizeChecksum(csum)
 
-	// bytes 12+: The TCP buffer (real header + payload)
-	copy(buf[12:], p.Buffer[p.l4BeginPos:])
+	// restore the checksum
+	buffer[tcpChecksumPos] = oldCsumLow
+	buffer[tcpChecksumPos+1] = oldCsumHigh
 
-	// Set current checksum to zero (in buf, not changing packet)
-	buf[pseudoHeaderLen+16] = 0
-	buf[pseudoHeaderLen+17] = 0
-
-	buf = append(buf, p.tcpOptions...)
-	buf = append(buf, p.tcpData...)
-
-	return checksum(buf)
+	return csum16
 }
 
 // incCsum16 implements rfc1624, equation 3.
@@ -164,27 +173,235 @@ func incCsum16(start, old, new uint16) uint16 {
 	return uint16(csum)
 }
 
-// Computes a sum of 16 bit numbers
-func checksumDelta(buf []byte) uint16 {
+func csumConvert32To16bit(sum uint32) uint16 {
+	for sum > 0xffff {
+		sum = (sum >> 16) + (sum & 0xffff)
+	}
 
-	sum := uint32(0)
+	return uint16(sum)
+}
+
+// Computes a sum of 16 bit numbers
+func checksumDelta(init uint32, buf []byte) uint32 {
+
+	sum := init
 
 	for ; len(buf) >= 2; buf = buf[2:] {
 		sum += uint32(buf[0])<<8 | uint32(buf[1])
 	}
+
 	if len(buf) > 0 {
 		sum += uint32(buf[0]) << 8
 	}
-	for sum > 0xffff {
-		sum = (sum >> 16) + (sum & 0xffff)
-	}
-	return uint16(sum)
+
+	return sum
 }
 
 // Computes a checksum over the given slice.
 func checksum(buf []byte) uint16 {
+	sum32 := checksumDelta(0, buf)
+	sum16 := csumConvert32To16bit(sum32)
 
-	sum := checksumDelta(buf)
-	csum := ^sum
+	csum := ^sum16
 	return csum
+}
+
+func partialChecksum(csum uint32, buf []byte) uint32 {
+	return checksumDelta(csum, buf)
+}
+
+func finalizeChecksum(csum32 uint32) uint16 {
+	csum16 := csumConvert32To16bit(csum32)
+	csum := ^csum16
+
+	return csum
+}
+
+func (p *Packet) updateUDPv6Checksum() {
+	var csum uint32
+	var tmp [4]byte
+
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+
+	csum = partialChecksum(0, p.ipHdr.sourceAddress)
+	csum = partialChecksum(csum, p.ipHdr.destinationAddress)
+
+	binary.BigEndian.PutUint32(tmp[:], uint32(len(buffer)))
+	csum = partialChecksum(csum, tmp[:])
+
+	tmp = [4]byte{0, 0, 0, 17}
+	csum = partialChecksum(csum, tmp[:])
+
+	buffer[udpChecksumPos] = 0
+	buffer[udpChecksumPos+1] = 0
+	csum = partialChecksum(csum, buffer[:])
+
+	p.udpHdr.udpChecksum = finalizeChecksum(csum)
+	// update checksum
+	binary.BigEndian.PutUint16(buffer[udpChecksumPos:udpChecksumPos+2], p.udpHdr.udpChecksum)
+}
+
+func (p *Packet) fixupUDPHdr() {
+	// checksum set to 0, ignored by the stack
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+	binary.BigEndian.PutUint16(buffer[udpLengthPos:udpLengthPos+2], uint16(len(buffer)))
+}
+
+func (p *Packet) fixupUDPChecksum() {
+	if p.ipHdr.version == V4 {
+		buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+
+		buffer[udpChecksumPos] = 0
+		buffer[udpChecksumPos+1] = 0
+	} else {
+		p.updateUDPv6Checksum()
+	}
+}
+
+// ReadUDPToken returnthe UDP token. Gets called only during the handshake process.
+func (p *Packet) ReadUDPToken() []byte {
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
+	// 8 byte udp header, 20 byte udp marker
+	if len(buffer) <= udpJwtTokenOffset {
+		return []byte{}
+	}
+	return buffer[udpJwtTokenOffset:]
+}
+
+// UDPTokenAttach attached udp packet signature and tokens.
+func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
+
+	udpData := []byte{}
+	udpData = append(udpData, udpdata...)
+	udpData = append(udpData, udptoken...)
+
+	p.udpHdr.udpData = udpData
+
+	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
+
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
+
+	// Attach Data @ the end of current buffer
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpData...)
+
+	p.fixupUDPHdr()
+	p.fixupUDPChecksum()
+}
+
+// UDPDataAttach Attaches UDP data post encryption.
+func (p *Packet) UDPDataAttach(header, udpdata []byte) {
+
+	// Attach Data @ the end of current buffer
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, header...)
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpdata...)
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(len(p.ipHdr.Buffer)))
+
+	p.fixupUDPHdr()
+	p.fixupUDPChecksum()
+}
+
+// UDPDataDetach detaches UDP payload from the Buffer. Called only during Encrypt/Decrypt.
+func (p *Packet) UDPDataDetach() {
+	// Create constants for IP header + UDP header. copy ?
+	p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.ipHeaderLen+UDPDataPos]
+}
+
+// CreateReverseFlowPacket modifies the packet for reverse flow.
+func (p *Packet) CreateReverseFlowPacket() {
+
+	buffer := p.ipHdr.Buffer
+
+	// reverse ip addresses
+	if p.ipHdr.version == V4 {
+		copy(buffer[ipv4SourceAddrPos:ipv4SourceAddrPos+4], p.ipHdr.destinationAddress)
+		copy(buffer[ipv4DestAddrPos:ipv4DestAddrPos+4], p.ipHdr.sourceAddress)
+	} else {
+		copy(buffer[ipv6SourceAddrPos:ipv6SourceAddrPos+16], p.ipHdr.destinationAddress)
+		copy(buffer[ipv6DestAddrPos:ipv6DestAddrPos+16], p.ipHdr.sourceAddress)
+	}
+
+	buffer = buffer[p.ipHdr.ipHeaderLen:]
+
+	// reverse ports
+	binary.BigEndian.PutUint16(buffer[udpSourcePortPos:udpSourcePortPos+2], p.udpHdr.destinationPort)
+	binary.BigEndian.PutUint16(buffer[udpDestPortPos:udpDestPortPos+2], p.udpHdr.sourcePort)
+
+	// swap in our packet structures
+	p.ipHdr.sourceAddress, p.ipHdr.destinationAddress = p.ipHdr.destinationAddress, p.ipHdr.sourceAddress
+	p.udpHdr.sourcePort, p.udpHdr.destinationPort = p.udpHdr.destinationPort, p.udpHdr.sourcePort
+
+	// Just get the IP/UDP header. Ignore the rest. No need for packet
+	p.ipHdr.Buffer = p.ipHdr.Buffer[:p.ipHdr.ipHeaderLen+UDPDataPos]
+
+	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, uint16(p.ipHdr.ipHeaderLen+UDPDataPos))
+
+	if p.ipHdr.version == V4 {
+		p.UpdateIPv4Checksum()
+	}
+
+	p.fixupUDPHdr()
+	p.fixupUDPChecksum()
+}
+
+// GetUDPType returns udp type of packet.
+func (p *Packet) GetUDPType() byte {
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5,6 represent udp packet type,
+	//          Bit 7 represents encryption. (currently unused).
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+	return GetUDPTypeFromBuffer(p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:])
+}
+
+// GetUDPTypeFromBuffer gets the UDP packet from a raw buffer.,
+func GetUDPTypeFromBuffer(buffer []byte) byte {
+	if len(buffer) < (UDPDataPos + UDPSignatureLen) {
+		return 0
+	}
+
+	marker := buffer[UDPDataPos:udpSignatureEnd]
+
+	// check for packet signature.
+	if !bytes.Equal(buffer[udpAuthMarkerOffset:udpSignatureEnd], []byte(UDPAuthMarker)) {
+		zap.L().Debug("Not an Aporeto control Packet")
+		return 0
+	}
+	// control packet. byte 0 has packet type information.
+	return marker[0] & UDPPacketMask
+}
+
+//GetTCPFlags returns the tcp flags from the packet
+func (p *Packet) GetTCPFlags() uint8 {
+	return p.tcpHdr.tcpFlags
+}
+
+//SetTCPFlags allows to set the tcp flags on the packet
+func (p *Packet) SetTCPFlags(flags uint8) {
+	p.tcpHdr.tcpFlags = flags
+}
+
+// CreateUDPAuthMarker creates a UDP auth marker.
+func CreateUDPAuthMarker(packetType uint8) []byte {
+
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5, 6, 7 represent udp packet type,
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+
+	marker := make([]byte, UDPSignatureLen)
+	// ignore version info as of now.
+	marker[0] |= packetType // byte 0
+	marker[1] = 0           // byte 1
+	// byte 2 - 19
+	copy(marker[2:], []byte(UDPAuthMarker))
+
+	return marker
 }

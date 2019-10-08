@@ -3,7 +3,6 @@ package extractors
 import (
 	"crypto/md5"
 	"debug/elf"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	portspec "go.aporeto.io/trireme-lib/utils/portspec"
@@ -44,10 +44,11 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, options), nil
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
+// TODO: Remove OLDTAGS
 func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
@@ -57,25 +58,25 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
-		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+		key, value := parts[0], parts[1]
+
+		if strings.HasPrefix(key, "@app:linux:") {
+			runtimeTags.AppendKeyValue(key, value)
+			continue
+		}
+
+		runtimeTags.AppendKeyValue("@usr:"+key, value)
 	}
 
 	userdata := ProcessInfo(event.PID)
 
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
+		runtimeTags.AppendKeyValue("@app:linux:"+u, "true")
 	}
 
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
-
-	if fileMd5, err := computeFileMd5(event.Name); err == nil {
-		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
-	}
-
-	depends := libs(event.Name)
-	for _, lib := range depends {
-		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
-	}
+	runtimeTags.AppendKeyValue("@os:hostname", findFQDN(time.Second))
 
 	options := policy.OptionsType{}
 	for index, s := range event.Services {
@@ -91,10 +92,11 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 	options.Services = event.Services
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
 	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options.AutoPort = event.AutoPort
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, &options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
 }
 
 // ProcessInfo returns all metadata captured by a process
@@ -153,10 +155,11 @@ func ProcessInfo(pid int32) []string {
 	return userdata
 }
 
-// computeFileMd5 computes the Md5 of a file
-func computeFileMd5(filePath string) ([]byte, error) {
+// ComputeFileMd5 computes the Md5 of a file
+func ComputeFileMd5(filePath string) ([]byte, error) {
 
 	var result []byte
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return result, err
@@ -188,20 +191,18 @@ func findFQDN(expiration time.Duration) string {
 		}
 
 		for _, addr := range addrs {
-			if ipv4 := addr.To4(); ipv4 != nil {
-				ip, err := ipv4.MarshalText()
-				if err != nil {
-					globalHostname <- hostname
-					return
-				}
-				hosts, err := net.LookupAddr(string(ip))
-				if err != nil || len(hosts) == 0 {
-					globalHostname <- hostname
-					return
-				}
-				fqdn := hosts[0]
-				globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
+			ip, err := addr.MarshalText()
+			if err != nil {
+				globalHostname <- hostname
+				return
 			}
+			hosts, err := net.LookupAddr(string(ip))
+			if err != nil || len(hosts) == 0 {
+				globalHostname <- hostname
+				return
+			}
+			fqdn := hosts[0]
+			globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
 		}
 	}()
 
@@ -214,12 +215,59 @@ func findFQDN(expiration time.Duration) string {
 	}
 }
 
-// libs returns the list of dynamic library dependencies of an executable
-func libs(binpath string) []string {
+// Libs returns the list of dynamic library dependencies of an executable
+func Libs(binpath string) []string {
+
 	f, err := elf.Open(binpath)
 	if err != nil {
 		return []string{}
 	}
+
 	libraries, _ := f.ImportedLibraries()
 	return libraries
+}
+
+// policyExtensions retrieves policy extensions. Moving this function from extractor package.
+func policyExtensions(runtime policy.RuntimeReader) (extensions policy.ExtendedMap) {
+
+	if runtime == nil {
+		return nil
+	}
+
+	if runtime.Options().PolicyExtensions == nil {
+		return nil
+	}
+
+	if extensions, ok := runtime.Options().PolicyExtensions.(policy.ExtendedMap); ok {
+		return extensions
+	}
+	return nil
+}
+
+// IsHostmodePU returns true if puType stored by policy extensions is hostmode PU
+func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
+
+	if runtime == nil {
+		return false
+	}
+
+	if mode != constants.LocalServer {
+		return false
+	}
+
+	return runtime.PUType() == common.HostPU || runtime.PUType() == common.HostNetworkPU
+}
+
+// IsHostPU returns true if puType stored by policy extensions is host PU
+func IsHostPU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
+
+	if runtime == nil {
+		return false
+	}
+
+	if mode != constants.LocalServer {
+		return false
+	}
+
+	return runtime.PUType() == common.HostPU
 }

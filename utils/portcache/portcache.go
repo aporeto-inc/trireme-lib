@@ -30,10 +30,25 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 	if s.Min == s.Max {
 		p.ports.AddOrUpdate(s.Min, s)
 	} else {
+		// Remove the range if it exists
+		p.Remove(s) // nolint
+		// Insert the portspec
 		p.Lock()
-		p.ranges = append(p.ranges, s)
+		p.ranges = append([]*portspec.PortSpec{s}, p.ranges...)
 		p.Unlock()
 	}
+}
+
+// AddPortSpecToEnd adds a range at the end of the cache
+func (p *PortCache) AddPortSpecToEnd(s *portspec.PortSpec) {
+
+	// Remove the range if it exists
+	p.Remove(s) // nolint
+
+	p.Lock()
+	p.ranges = append(p.ranges, s)
+	p.Unlock()
+
 }
 
 // AddUnique adds a port spec into the cache and makes sure its unique
@@ -109,7 +124,7 @@ func (p *PortCache) GetAllSpecValueFromPort(port uint16) ([]interface{}, error) 
 func (p *PortCache) Remove(s *portspec.PortSpec) error {
 
 	if s.Min == s.Max {
-		return p.ports.Remove(uint16(s.Min))
+		return p.ports.Remove(s.Min)
 	}
 
 	p.Lock()

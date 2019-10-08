@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -10,16 +11,22 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
+	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/allocator"
-
 	"go.uber.org/zap"
 )
+
+type traceTrigger struct {
+	duration time.Duration
+	expiry   time.Time
+}
 
 // trireme contains references to all the different components of the controller.
 // Depending on the configuration we might have multiple supervisor and enforcer types.
@@ -29,24 +36,29 @@ type trireme struct {
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
-	port                 allocator.Allocator
-	rpchdl               rpcwrapper.RPCClient
+	enablingTrace        chan *traceTrigger
 	locks                sync.Map
 }
 
 // New returns a trireme interface implementation based on configuration provided.
-func New(serverID string, opts ...Option) TriremeController {
+func New(serverID string, mode constants.ModeType, opts ...Option) TriremeController {
 
 	c := &config{
 		serverID:               serverID,
 		collector:              collector.NewDefaultCollector(),
-		mode:                   constants.RemoteContainer,
+		mode:                   mode,
 		fq:                     fqconfig.NewFilterQueueWithDefaults(),
 		mutualAuth:             true,
-		validity:               time.Hour * 8760,
+		validity:               constants.DatapathTokenValidity,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
-		proxyPort:              5000,
+		remoteParameters: &env.RemoteParameters{
+			LogToConsole:   true,
+			LogFormat:      "console",
+			LogLevel:       "info",
+			LogWithID:      false,
+			CompressedTags: claimsheader.CompressionTypeV1,
+		},
 	}
 
 	for _, opt := range opts {
@@ -76,7 +88,7 @@ func (t *trireme) Run(ctx context.Context) error {
 			return fmt.Errorf("unable to start the enforcer: %s", err)
 		}
 	}
-
+	go t.runIPTraceCollector(ctx)
 	return nil
 }
 
@@ -84,6 +96,10 @@ func (t *trireme) Run(ctx context.Context) error {
 func (t *trireme) CleanUp() error {
 	for _, s := range t.supervisors {
 		s.CleanUp() // nolint
+	}
+
+	for _, e := range t.enforcers {
+		e.CleanUp() // nolint
 	}
 	return nil
 }
@@ -109,14 +125,24 @@ func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUP
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
-	lock, ok := t.locks.Load(puID)
-	if !ok {
-		return nil
-	}
-
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 	return t.doUpdatePolicy(puID, plc, runtime)
+}
+
+func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
+	return t.doHandleEnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval)
+}
+
+func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
+	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
 // UpdateSecrets updates the secrets of the controllers.
@@ -131,20 +157,34 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 
 // UpdateConfiguration updates the configuration of the controller. Only
 // a limited number of parameters can be updated at run time.
-func (t *trireme) UpdateConfiguration(networks []string) error {
+func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 
 	failure := false
 
 	for _, s := range t.supervisors {
-		err := s.SetTargetNetworks(networks)
+		err := s.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in supervisor")
+			zap.L().Error("Failed to update target networks in supervisor", zap.Error(err))
+			failure = true
+		}
+	}
+
+	for _, e := range t.enforcers {
+		if cfg.LogLevel != "" {
+			if err := e.SetLogLevel(cfg.LogLevel); err != nil {
+				zap.L().Error("unable to set log level", zap.Error(err))
+			}
+		}
+
+		err := e.SetTargetNetworks(cfg)
+		if err != nil {
+			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))
 			failure = true
 		}
 	}
 
 	if failure {
-		return fmt.Errorf("Configuration update failed")
+		return fmt.Errorf("configuration update failed")
 	}
 
 	return nil
@@ -154,9 +194,6 @@ func (t *trireme) UpdateConfiguration(networks []string) error {
 func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
-	newOptions := containerInfo.Runtime.Options()
-	newOptions.ProxyPort = t.port.Allocate()
-	containerInfo.Runtime.SetOptions(newOptions)
 
 	logEvent := &collector.ContainerRecord{
 		ContextID: contextID,
@@ -175,13 +212,15 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -196,7 +235,12 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 }
 
 // doHandleDelete is the detailed implementation of the delete event.
-func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+func (t *trireme) doHandleDelete(contextID string, policyInfo *policy.PUPolicy, runtime *policy.PURuntime) error {
+
+	modeType := t.modeTypeFromPolicy(policyInfo, runtime)
+
+	errS := t.supervisors[modeType].Unsupervise(contextID)
+	errE := t.enforcers[modeType].Unenforce(contextID)
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
@@ -204,12 +248,6 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 		Tags:      nil,
 		Event:     collector.ContainerDelete,
 	})
-
-	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
-	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
-	if runtime.Options().ProxyPort != "" {
-		t.port.Release(runtime.Options().ProxyPort)
-	}
 
 	if errS != nil || errE != nil {
 		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
@@ -229,36 +267,21 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		return nil
 	}
 
-	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
+	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
+
+	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-		zap.L().Warn("Re-initializing enforcers - connection lost", zap.Error(err))
-		if containerInfo.Runtime.PUType() == common.ContainerPU {
-			//The unsupervise and unenforce functions just make changes to the proxy structures
-			//and do not depend on the remote instance running and can be called here
-			switch t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].(type) {
-			case *enforcerproxy.ProxyInfo:
-				if lerr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); lerr != nil {
-					return lerr
-				}
-
-				if lerr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); lerr != nil {
-					return lerr
-				}
-
-				if lerr := t.doHandleCreate(contextID, newPolicy, runtime); lerr != nil {
-					return err
-				}
-			default:
-				return err
-			}
-			return nil
+		if werr := t.supervisors[modeType].Unsupervise(contextID); werr != nil {
+			zap.L().Warn("Failed to clean up after enforcerments failures",
+				zap.String("contextID", contextID),
+				zap.Error(werr),
+			)
 		}
-
-		return fmt.Errorf("enforcer failed to update policy for pu %s: %s", contextID, err)
+		return fmt.Errorf("unable to update policy for pu %s: %s", contextID, err)
 	}
 
-	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -275,4 +298,105 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 	})
 
 	return nil
+}
+
+//Debug Handlers
+func (t *trireme) doHandleEnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
+
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].EnableDatapathPacketTracing(ctx, puID, direction, interval)
+}
+
+func (t *trireme) doHandleEnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
+
+	modeType := t.modeTypeFromPolicy(policy, runtime)
+
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		return fmt.Errorf("sysctl command not found")
+	}
+
+	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_log_all_netns=1")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("remote container iptables tracing will not work %s", err)
+	}
+
+	t.enablingTrace <- &traceTrigger{
+		duration: interval,
+		expiry:   time.Now().Add(interval),
+	}
+
+	if err := t.supervisors[modeType].EnableIPTablesPacketTracing(ctx, puID, interval); err != nil {
+		return err
+	}
+
+	return t.enforcers[modeType].EnableIPTablesPacketTracing(ctx, puID, interval)
+}
+
+func (t *trireme) runIPTraceCollector(ctx context.Context) {
+	//Run dmesg once to establish baseline
+	expiry := time.Now()
+	hdl := dmesgparser.New()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case traceparams := <-t.enablingTrace:
+			if !traceparams.expiry.After(expiry) {
+				//if we already have a request expiring later drop this
+				continue
+			}
+
+			expiry = traceparams.expiry
+		case <-time.After(1 * time.Second):
+			if !time.Now().After(expiry) {
+				messages, err := hdl.RunDmesgCommand()
+				if err != nil {
+					zap.L().Warn("Unable to run dmesg", zap.Error(err))
+					continue
+				}
+				t.config.collector.CollectTraceEvent(messages)
+
+			}
+		}
+	}
+
+}
+
+func (t *trireme) modeTypeFromPolicy(policyInfo *policy.PUPolicy, runtime *policy.PURuntime) constants.ModeType {
+	if policyInfo == nil {
+		// there are edge cases when policyInfo really can be nil - and it is fine
+		// let's just fall back to the normal enforcertype mapping if this is the case
+		//
+		// Here is an example: when a PU Create event failed, but the PU gets destroyed afterwards, there is a stop
+		// event generated which will call UnEnforce. However, in this case there is no guarantee that PUPolicy has
+		// actually ever been set.
+		zap.L().Debug("modeTypeFromPolicy received no PU policy", zap.String("name", runtime.Name()))
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
+
+	switch policyInfo.EnforcerType() {
+	case policy.EnforcerMapping:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	case policy.EnvoyAuthorizerEnforcer:
+		switch runtime.PUType() {
+		case common.KubernetesPU:
+			fallthrough
+		case common.ContainerPU:
+			return constants.RemoteContainerEnvoyAuthorizer
+		case common.UIDLoginPU:
+			fallthrough
+		case common.HostPU:
+			fallthrough
+		case common.HostNetworkPU:
+			fallthrough
+		case common.SSHSessionPU:
+			fallthrough
+		case common.LinuxProcessPU:
+			return constants.LocalEnvoyAuthorizer
+		default:
+			return t.puTypeToEnforcerType[runtime.PUType()]
+		}
+	default:
+		return t.puTypeToEnforcerType[runtime.PUType()]
+	}
 }

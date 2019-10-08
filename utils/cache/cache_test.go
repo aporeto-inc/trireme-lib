@@ -10,7 +10,7 @@ import (
 
 func TestConstructorNewCache(t *testing.T) {
 
-	t.Parallel()
+	//	t.Parallel()
 
 	Convey("Given I call the method NewCache, I should a new cache", t, func() {
 
@@ -24,7 +24,7 @@ func TestConstructorNewCache(t *testing.T) {
 
 func TestElements(t *testing.T) {
 
-	t.Parallel()
+	//	t.Parallel()
 
 	c := NewCache("cache")
 	id := xid.New()
@@ -107,7 +107,7 @@ func TestElements(t *testing.T) {
 
 func Test_CacheTimer(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given a new cache with an expiration timer ", t, func() {
 		c := NewCacheWithExpiration("cache", 3*time.Second)
@@ -158,7 +158,7 @@ func add(a, b interface{}) interface{} {
 
 func TestLockedModify(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given a new cache", t, func() {
 		c := NewCache("cache")
@@ -182,7 +182,7 @@ func TestLockedModify(t *testing.T) {
 
 func TestTimerExpirationWithUpdate(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given that I instantiate 1 objects with 2 second timers", t, func() {
 		i := 1
@@ -208,7 +208,7 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 
 func TestGetReset(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
 		c := NewCacheWithExpiration("cache", 2*time.Second)
@@ -246,7 +246,7 @@ func TestGetReset(t *testing.T) {
 
 func TestSetTimeOut(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
 		c := NewCacheWithExpiration("cache", 2*time.Second)
@@ -285,7 +285,7 @@ func TestSetTimeOut(t *testing.T) {
 
 func TestCacheWithExpirationNotifier(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	finished := make(chan bool)
 
@@ -314,11 +314,11 @@ func TestCacheWithExpirationNotifier(t *testing.T) {
 
 func TestThousandsOfTimers(t *testing.T) {
 
-	t.Parallel()
+	//t.Parallel()
 
 	Convey("Given that I instantiate 10K objects with 2 second timers", t, func() {
 		c := NewCacheWithExpiration("cache", 2*time.Second)
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			err := c.Add(i, i)
 			So(err, ShouldBeNil)
 		}

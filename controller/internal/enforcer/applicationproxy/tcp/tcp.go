@@ -14,19 +14,19 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 const (
@@ -38,10 +38,8 @@ type Proxy struct {
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
 
-	puContext string
-	puFromID  cache.DataStore
-	portCache map[int]string
-
+	puContext   string
+	registry    *serviceregistry.Registry
 	certificate *tls.Certificate
 	ca          *x509.CertPool
 
@@ -67,19 +65,19 @@ type proxyFlowProperties struct {
 func NewTCPProxy(
 	tp tokenaccessor.TokenAccessor,
 	c collector.EventCollector,
-	puFromID cache.DataStore,
 	puContext string,
+	registry *serviceregistry.Registry,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
 ) *Proxy {
 
-	localIPs := connproc.GetInterfaces()
+	localIPs := markedconn.GetInterfaces()
 
 	return &Proxy{
 		collector:     c,
 		tokenaccessor: tp,
-		puFromID:      puFromID,
 		puContext:     puContext,
+		registry:      registry,
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
@@ -124,21 +122,31 @@ func (p *Proxy) ShutDown() error {
 	return nil
 }
 
-// UpdatePortCache updates the port cache
-func (p *Proxy) UpdatePortCache(portCache map[int]string) {
-	p.Lock()
-	defer p.Unlock()
-	p.portCache = portCache
-}
-
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
-
 	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
 
-	downConn, err := p.downConnection(ip, port)
+	downConn, err := p.downConnection(ctx, ip, port)
 	if err != nil {
+
+		flowproperties := &proxyFlowProperties{
+			DestIP:     ip.String(),
+			DestPort:   uint16(port),
+			SourceIP:   upConn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			DestType:   collector.EndPointTypeExternalIP,
+			SourceType: collector.EnpointTypePU,
+		}
+
+		puContext, perr := p.puContextFromContextID(p.puContext)
+		if perr != nil {
+			zap.L().Error("Unable to find policy context for tcp connection",
+				zap.String("Context", p.puContext),
+				zap.Error(perr))
+			return
+		}
+
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), "default", puContext, collector.UnableToDial, nil, nil)
 		return
 	}
 	defer downConn.Close() // nolint
@@ -150,48 +158,52 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		return
 	}
 
-	if isEncrypted {
-		if err := p.handleEncryptedData(ctx, upConn, downConn, ip); err != nil {
-			zap.L().Error("Failed to process connection - aborting", zap.Error(err))
-		}
-		return
-	}
-
-	if err := connproc.Pipe(ctx, upConn, downConn); err != nil {
-		zap.L().Error("Failed to handle data pipe - aborting", zap.Error(err))
+	if err := p.proxyData(ctx, isEncrypted, upConn, downConn); err != nil {
+		zap.L().Debug("Error will proxying data", zap.Error(err))
 	}
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn, ip net.IP) error {
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, isEncrypted bool, downConn net.Conn, serverConn net.Conn) error {
 
-	p.RLock()
-	ca := p.ca
-	p.RUnlock()
+	if isEncrypted {
+		p.RLock()
+		ca := p.ca
+		p.RUnlock()
 
-	tlsConn := tls.Client(downConn, &tls.Config{
-		InsecureSkipVerify: true,
-		ClientCAs:          ca,
-	})
-	defer tlsConn.Close() // nolint errcheck
+		tlsConn := tls.Client(downConn, &tls.Config{
+			InsecureSkipVerify: true,
+			ClientCAs:          ca,
+		})
+		defer tlsConn.Close() // nolint errcheck
+		downConn = tlsConn
+	}
 
 	// TLS will automatically start negotiation on write. Nothing to do for us.
-	p.copyData(ctx, serverConn, tlsConn)
+	p.copyData(ctx, serverConn, downConn)
 	return nil
 }
 
-func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, isEncrypted bool, downConn net.Conn, serverConn net.Conn) error {
 
-	p.RLock()
-	certs := []tls.Certificate{*p.certificate}
-	p.RUnlock()
+	if isEncrypted {
+		p.RLock()
+		if p.certificate == nil {
+			zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
+			p.RUnlock()
+			return fmt.Errorf("Failed to start encryption")
+		}
+		certs := []tls.Certificate{*p.certificate}
+		p.RUnlock()
 
-	tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
-		Certificates: certs,
-	})
-	defer tlsConn.Close() // nolint errcheck
+		tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
+			Certificates: certs,
+		})
+		defer tlsConn.Close() // nolint errcheck
+		serverConn = tlsConn
+	}
 
 	// TLS will automatically start negotiation on write. Nothing to for us.
-	p.copyData(ctx, tlsConn, downConn)
+	p.copyData(ctx, serverConn, downConn)
 	return nil
 }
 
@@ -209,79 +221,64 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 	wg.Wait()
 }
 
-func dataprocessor(ctx context.Context, source, dest net.Conn) {
+type readwithContext func(p []byte) (n int, err error)
+
+func (r readwithContext) Read(p []byte) (int, error) { return r(p) }
+
+func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 	defer func() {
-		switch dest.(type) {
+		switch connType := dest.(type) {
 		case *tls.Conn:
-			dest.(*tls.Conn).CloseWrite() // nolint errcheck
+			connType.CloseWrite() // nolint errcheck
 		case *net.TCPConn:
-			dest.(*net.TCPConn).CloseWrite() // nolint errcheck
+			connType.CloseWrite() // nolint errcheck
 		case *markedconn.ProxiedConnection:
-			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
+			connType.GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
-	b := make([]byte, 16384)
-	for {
-		// Setting a read deadline here. TODO: We need to account for keep-alives.
-		if err := source.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			n, err := source.Read(b)
-			if err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
+
+	if _, err := io.Copy(dest, readwithContext(
+		func(p []byte) (int, error) {
+			select {
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			default:
+				return source.Read(p)
 			}
-			if err = dest.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-				return
-			}
-			if _, err = dest.Write(b[:n]); err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
-			}
-		}
+		},
+	),
+	); err != nil { // nolint
+		logErr(err)
 	}
 }
 
-func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
+func (p *Proxy) proxyData(ctx context.Context, isEncrypted bool, upConn net.Conn, downConn net.Conn) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
-	if _, ok := p.localIPs[ip.String()]; !ok {
-		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
+	if p.isLocal(upConn) {
+		return p.startEncryptedClientDataPath(ctx, isEncrypted, downConn, upConn)
 	}
-	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
+	return p.startEncryptedServerDataPath(ctx, isEncrypted, downConn, upConn)
 }
 
 func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error) {
 
-	ctx, err := p.puFromID.Get(puID)
+	sctx, err := p.registry.RetrieveServiceByID(puID)
 	if err != nil {
 		return nil, fmt.Errorf("Context not found %s", puID)
 	}
 
-	puContext, ok := ctx.(*pucontext.PUContext)
-	if !ok {
-		return nil, fmt.Errorf("Context not converted %s", puID)
-	}
-
-	return puContext, nil
+	return sctx.PUContext, nil
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
+func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Conn, error) {
 
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
 	}
 
-	return markedconn.DialMarkedTCP("tcp", nil, raddr, proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), proxyMarkInt)
 
 }
 
@@ -289,10 +286,8 @@ func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
 
-	backendip := downIP.String()
-
 	// If the backend is not a local IP it means that we are a client.
-	if _, ok := p.localIPs[backendip]; !ok {
+	if p.isLocal(upConn) {
 		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
@@ -325,10 +320,10 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
+	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP, uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Application ACLs")
 	}
 
 	for {
@@ -356,13 +351,24 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
 			report, packet := puContext.SearchTxtRules(claims.T, false)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
+			}
+			// NOTE: For backward compatibility, remove this check later
+			if claims.H != nil {
+				if claims.H.ToClaimsHeader().Encrypt() != packet.Action.Encrypted() {
+					// Here we report If the encrypt flag is mismatched between pus
+					// TODO: This will be removed once we upgrade the connection in future
+					puFlowProperties := flowproperties
+					puFlowProperties.DestType = collector.EnpointTypePU
+					p.reportRejectedFlow(puFlowProperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.EncryptionMismatch, nil, nil)
+					return isEncrypted, errors.New("dropping because of encryption mismatch")
+				}
 			}
 			if packet.Action.Encrypted() {
 				isEncrypted = true
@@ -386,19 +392,22 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, upConn net.Conn) (bool, error) {
+func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
 
-	puContext, err := p.puContextFromContextID(p.puContext)
+	pctx, err := p.registry.RetrieveExposedServiceContext(ip, backendport, "")
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Service not found")
 	}
+
+	service := pctx.Service
+	puContext := pctx.PUContext
 	isEncrypted := false
 
 	flowProperties := &proxyFlowProperties{
 		DestIP:     ip.String(),
 		DestPort:   uint16(backendport),
 		SourceIP:   getIP(upConn),
-		ServiceID:  p.portCache[backendport],
+		ServiceID:  service.ID,
 		DestType:   collector.EnpointTypePU,
 		SourceType: collector.EnpointTypePU,
 	}
@@ -406,11 +415,11 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
+	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		flowProperties.SourceType = collector.EndPointTypeExternalIP
-		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowProperties, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Network ACLs")
 	}
 
 	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
@@ -431,14 +440,14 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, tokens.CodeFromErr(err), nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
-			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
+			tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(backendport)))
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)
 			}
 
@@ -454,7 +463,10 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
+			claimsHeader := claimsheader.NewClaimsHeader(
+				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
+			)
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeader)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}
@@ -473,16 +485,17 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
 			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
-			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+			p.reportAcceptedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 			return isEncrypted, nil
 		}
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -498,46 +511,59 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 			Type: flowproperties.DestType,
 		},
 		Tags:        context.Annotations(),
-		Action:      packetAction.Action,
+		Action:      actual.Action,
 		DropReason:  mode,
-		PolicyID:    reportAction.PolicyID,
+		PolicyID:    actual.PolicyID,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
+		Namespace:   context.ManagementNamespace(),
 	}
 
-	if reportAction.ObserveAction.Observed() {
-		c.ObservedAction = packetAction.Action
-		c.ObservedPolicyID = packetAction.PolicyID
+	if report.ObserveAction.Observed() {
+		c.ObservedAction = report.Action
+		c.ObservedPolicyID = report.PolicyID
 	}
 
 	p.collector.CollectFlowEvent(c)
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
-	p.reportFlow(flowproperties, conn, sourceID, destID, context, "N/A", report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
 		packet = report
 	}
-	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, mode, report, packet)
+}
+
+func (p *Proxy) isLocal(conn net.Conn) bool {
+	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		return false
+	}
+
+	if _, ok := p.localIPs[host]; ok {
+		return true
+	}
+	return false
 }
 
 func readMsg(reader io.Reader) ([]byte, error) {
 
 	lread := io.LimitReader(reader, 2)
 	lbuf := make([]byte, 2)
-	if _, err := lread.Read(lbuf); err != nil && err != io.EOF {
+	if _, err := lread.Read(lbuf); err != nil {
 		return nil, fmt.Errorf("Invalid length: %s", err)
 	}
 
@@ -545,10 +571,9 @@ func readMsg(reader io.Reader) ([]byte, error) {
 
 	dread := io.LimitReader(reader, int64(dataLength))
 	data := make([]byte, dataLength)
-	if _, err := dread.Read(data); err != nil && err != io.EOF {
+	if _, err := dread.Read(data); err != nil {
 		return nil, fmt.Errorf("Not enough data to read: %s", err)
 	}
-
 	return data, nil
 }
 
@@ -559,19 +584,9 @@ func writeMsg(conn io.Writer, data []byte) (n int, err error) {
 	return conn.Write(data)
 }
 
-func checkErr(err error) bool {
-	if err == io.EOF {
-		return false
-	}
-	switch t := err.(type) {
-	case net.Error:
-		if t.Timeout() {
-			return true
-		}
+func logErr(err error) bool {
+	switch err.(type) {
 	case syscall.Errno:
-		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
-			return false
-		}
 		zap.L().Error("Connection error to destination", zap.Error(err))
 	default:
 		zap.L().Error("Connection terminated", zap.Error(err))

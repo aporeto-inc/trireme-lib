@@ -1,8 +1,8 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  name = "github.com/bvandewalle/go-ipset"
-  revision = "0ee897a6d8bc6095299e9c03293ece091ef871de"
+  branch = "master"
+  name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
   name = "github.com/docker/docker"
@@ -12,18 +12,70 @@ required = ["github.com/docker/distribution"]
   name = "github.com/docker/distribution"
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
+# Conntrack dependencies from forked branches
+[[override]]
+  name = "github.com/mdlayher/netlink"
+  source = "https://github.com/aporeto-inc/netlink.git"
+  revision = "7e948d4190d773b1315fb031a8ae83d8a302f7c9"
+  
+[[constraint]]
+  name = "github.com/ti-mo/conntrack"
+  source = "https://github.com/aporeto-inc/conntrack.git"
+  revision = "309d2d6a30782ae8f0c68f2dda0774966523e469"
+  
+#
+# The most significant dependency for the Kubernetes monitor: the controller-runtime
+# NOTE: change with care and always adjust the Kubernetes dependencies below
+#
+[[override]]
+  name = "sigs.k8s.io/controller-runtime"
+  version = "v0.1.10"
+
+#
+# Kubernetes dependencies
+# NOTE: always match exactly to what controller-runtime uses
+#
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.13.1"
 
-[[constraint]]
+[[override]]
+  name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.13.1"
+
+[[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.13.1"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.13.1"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "7.0.0"
+  version = "kubernetes-1.13.1"
+
+[[override]]
+  name = "k8s.io/code-generator"
+  version = "kubernetes-1.13.1"
+
+[[override]]
+  name = "k8s.io/gengo"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/aporeto-inc/oxy"
+  branch = "sirupsen"
+
+[[constraint]]
+  name = "go.aporeto.io/netlink-go"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-version"
+  version = "v1.0.0"
 
 [prune]
   go-tests = true
   unused-packages = true
+

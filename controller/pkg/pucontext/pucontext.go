@@ -8,9 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minio/minio/pkg/wildcard"
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -27,62 +30,108 @@ type policies struct {
 
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
-	id                string
-	managementID      string
-	identity          *policy.TagStore
-	annotations       *policy.TagStore
-	txt               *policies
-	rcv               *policies
-	applicationACLs   *acls.ACLCache
-	networkACLs       *acls.ACLCache
-	externalIPCache   cache.DataStore
-	mark              string
-	ProxyPort         string
-	ports             []string
-	puType            common.PUType
-	synToken          []byte
-	synServiceContext []byte
-	synExpiration     time.Time
-	jwt               string
-	jwtExpiration     time.Time
-	scopes            []string
-	Extension         interface{}
+	id                  string
+	hashID              string
+	username            string
+	autoport            bool
+	managementID        string
+	managementNamespace string
+	identity            *policy.TagStore
+	annotations         *policy.TagStore
+	compressedTags      *policy.TagStore
+	txt                 *policies
+	rcv                 *policies
+	ApplicationACLs     *acls.ACLCache
+	networkACLs         *acls.ACLCache
+	externalIPCache     cache.DataStore
+	DNSACLs             policy.DNSRuleList
+	DNSProxyPort        string
+	mark                string
+	tcpPorts            []string
+	udpPorts            []string
+	puType              common.PUType
+	synToken            []byte
+	synServiceContext   []byte
+	synExpiration       time.Time
+	jwt                 string
+	jwtExpiration       time.Time
+	scopes              []string
+	Extension           interface{}
+	counters            []uint32
+
 	sync.RWMutex
+}
+
+// Bad PU to hold counters for packets we know nothing about. We cant figure out context
+var unknownPU = &PUContext{
+	counters: make([]uint32, len(countedEvents)),
 }
 
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
 
+	hashID, err := policy.Fnv32Hash(contextID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to hash contextID: %v", err)
+	}
+
 	pu := &PUContext{
-		id:              contextID,
-		managementID:    puInfo.Policy.ManagementID(),
-		puType:          puInfo.Runtime.PUType(),
-		identity:        puInfo.Policy.Identity(),
-		annotations:     puInfo.Policy.Annotations(),
-		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
-		applicationACLs: acls.NewACLCache(),
-		networkACLs:     acls.NewACLCache(),
-		mark:            puInfo.Runtime.Options().CgroupMark,
-		scopes:          puInfo.Policy.Scopes(),
+		id:                  contextID,
+		hashID:              hashID,
+		username:            puInfo.Runtime.Options().UserID,
+		autoport:            puInfo.Runtime.Options().AutoPort,
+		managementID:        puInfo.Policy.ManagementID(),
+		managementNamespace: puInfo.Policy.ManagementNamespace(),
+		puType:              puInfo.Runtime.PUType(),
+		identity:            puInfo.Policy.Identity(),
+		annotations:         puInfo.Policy.Annotations(),
+		compressedTags:      puInfo.Policy.CompressedTags(),
+		externalIPCache:     cache.NewCacheWithExpiration("External IP Cache", timeout),
+		ApplicationACLs:     acls.NewACLCache(),
+		networkACLs:         acls.NewACLCache(),
+		DNSACLs:             puInfo.Policy.DNSNameACLs(),
+		mark:                puInfo.Runtime.Options().CgroupMark,
+		scopes:              puInfo.Policy.Scopes(),
+		counters:            make([]uint32, len(countedEvents)),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
 
 	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())
 
-	ports := common.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
-	pu.ports = strings.Split(ports, ",")
+	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
+	pu.tcpPorts = strings.Split(tcpPorts, ",")
+	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
+	if err := pu.UpdateApplicationACLs(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
 	}
 
-	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLs()); err != nil {
+	if err := pu.UpdateNetworkACLs(puInfo.Policy.NetworkACLs()); err != nil {
 		return nil, err
 	}
 
 	return pu, nil
+}
 
+// GetPolicyFromFQDN gets the list of policies that are mapped with the hostname
+func (p *PUContext) GetPolicyFromFQDN(fqdn string) ([]policy.PortProtocolPolicy, error) {
+	p.RLock()
+	defer p.RUnlock()
+
+	// If we find a direct match, return policy
+	if v, ok := p.DNSACLs[fqdn]; ok {
+		return v, nil
+	}
+
+	// Try if there is a wildcard match
+	for policyName, policy := range p.DNSACLs {
+		if wildcard.MatchSimple(policyName, fqdn) {
+			return policy, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Policy doesn't exist")
 }
 
 // ID returns the ID of the PU
@@ -90,9 +139,29 @@ func (p *PUContext) ID() string {
 	return p.id
 }
 
+// HashID returns the hash of the ID of the PU
+func (p *PUContext) HashID() string {
+	return p.hashID
+}
+
+// Username returns the ID of the PU
+func (p *PUContext) Username() string {
+	return p.username
+}
+
+// Autoport returns if auto port feature is set on the PU
+func (p *PUContext) Autoport() bool {
+	return p.autoport
+}
+
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
+}
+
+// ManagementNamespace returns the management namespace
+func (p *PUContext) ManagementNamespace() string {
+	return p.managementNamespace
 }
 
 // Type return the pu type
@@ -110,14 +179,24 @@ func (p *PUContext) Mark() string {
 	return p.mark
 }
 
-// Ports returns the PU ports
-func (p *PUContext) Ports() []string {
-	return p.ports
+// TCPPorts returns the PU TCP ports
+func (p *PUContext) TCPPorts() []string {
+	return p.tcpPorts
+}
+
+// UDPPorts returns the PU UDP ports
+func (p *PUContext) UDPPorts() []string {
+	return p.udpPorts
 }
 
 // Annotations returns the annotations
 func (p *PUContext) Annotations() *policy.TagStore {
 	return p.annotations
+}
+
+// CompressedTags returns the compressed tags.
+func (p *PUContext) CompressedTags() *policy.TagStore {
+	return p.compressedTags
 }
 
 // RetrieveCachedExternalFlowPolicy returns the policy for an external IP
@@ -127,32 +206,56 @@ func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, er
 
 // NetworkACLPolicy retrieves the policy based on ACLs
 func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
+	defer p.RUnlock()
+	p.RLock()
+
+	return p.networkACLs.GetMatchingAction(packet.SourceAddress(), packet.DestPort())
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.networkACLs.GetMatchingAction(addr, port)
-}
+	defer p.RUnlock()
+	p.RLock()
 
-// ApplicationACLPolicy retrieves the policy based on ACLs
-func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
+	return p.networkACLs.GetMatchingAction(addr, port)
 }
 
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(addr, port)
+	defer p.RUnlock()
+	p.RLock()
+	return p.ApplicationACLs.GetMatchingAction(addr, port)
+}
+
+// UpdateApplicationACLs updates the application ACL policy
+func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
+	defer p.Unlock()
+	p.Lock()
+	return p.ApplicationACLs.AddRuleList(rules)
+}
+
+// RemoveApplicationACL removes the application ACLs which are indexed with (ip, mask) key
+func (p *PUContext) RemoveApplicationACL(addr net.IP, mask int) {
+	defer p.Unlock()
+	p.Lock()
+	p.ApplicationACLs.RemoveIPMask(addr, mask)
+}
+
+// UpdateNetworkACLs updates the network ACL policy
+func (p *PUContext) UpdateNetworkACLs(rules policy.IPRuleList) error {
+	defer p.Unlock()
+	p.Lock()
+	return p.networkACLs.AddRuleList(rules)
 }
 
 // CacheExternalFlowPolicy will cache an external flow
 func (p *PUContext) CacheExternalFlowPolicy(packet *packet.Packet, plc interface{}) {
-	p.externalIPCache.AddOrUpdate(packet.SourceAddress.String()+":"+strconv.Itoa(int(packet.SourcePort)), plc)
+	p.externalIPCache.AddOrUpdate(packet.SourceAddress().String()+":"+strconv.Itoa(int(packet.SourcePort())), plc)
 }
 
 // GetProcessKeys returns the cache keys for a process
-func (p *PUContext) GetProcessKeys() (string, []string) {
-	return p.mark, p.ports
+func (p *PUContext) GetProcessKeys() (string, []string, []string) {
+	return p.mark, p.tcpPorts, p.udpPorts
 }
 
 // SynServiceContext returns synServiceContext
@@ -191,7 +294,7 @@ func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceCont
 	p.Lock()
 
 	p.synToken = token
-	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+	p.synExpiration = time.Now().Add(constants.SynTokenCacheValiditity)
 	p.synServiceContext = serviceContext
 
 	p.Unlock()
@@ -290,16 +393,14 @@ func (p *PUContext) searchRules(
 		if observeIndex >= 0 {
 			reportingAction = observeAction.(*policy.FlowPolicy)
 		}
-		// TODO: Is this if case required ?
-		if packetAction == nil {
-			index, action := policies.rejectRules.Search(tags)
-			if index >= 0 {
-				packetAction = action.(*policy.FlowPolicy)
-				if reportingAction == nil {
-					reportingAction = packetAction
-				}
-				return reportingAction, packetAction
+
+		index, action := policies.rejectRules.Search(tags)
+		if index >= 0 {
+			packetAction = action.(*policy.FlowPolicy)
+			if reportingAction == nil {
+				reportingAction = packetAction
 			}
+			return reportingAction, packetAction
 		}
 	}
 
@@ -311,26 +412,24 @@ func (p *PUContext) searchRules(
 		}
 	}
 
-	if packetAction == nil {
-		index, action := policies.acceptRules.Search(tags)
-		if index >= 0 {
-			packetAction = action.(*policy.FlowPolicy)
-			// Look for encrypt rules
-			encryptIndex, _ := policies.encryptRules.Search(tags)
-			if encryptIndex >= 0 {
-				// Do not overwrite the action for accept rules.
-				finalAction := action.(*policy.FlowPolicy)
-				packetAction = &policy.FlowPolicy{
-					Action:    policy.Accept | policy.Encrypt,
-					PolicyID:  finalAction.PolicyID,
-					ServiceID: finalAction.ServiceID,
-				}
+	index, action := policies.acceptRules.Search(tags)
+	if index >= 0 {
+		packetAction = action.(*policy.FlowPolicy)
+		// Look for encrypt rules
+		encryptIndex, _ := policies.encryptRules.Search(tags)
+		if encryptIndex >= 0 {
+			// Do not overwrite the action for accept rules.
+			finalAction := action.(*policy.FlowPolicy)
+			packetAction = &policy.FlowPolicy{
+				Action:    policy.Accept | policy.Encrypt,
+				PolicyID:  finalAction.PolicyID,
+				ServiceID: finalAction.ServiceID,
 			}
-			if reportingAction == nil {
-				reportingAction = packetAction
-			}
-			return reportingAction, packetAction
 		}
+		if reportingAction == nil {
+			reportingAction = packetAction
+		}
+		return reportingAction, packetAction
 	}
 
 	// Look for observe apply rules
@@ -344,11 +443,9 @@ func (p *PUContext) searchRules(
 	}
 
 	// Handle default if nothing provides to drop with no policyID.
-	if packetAction == nil {
-		packetAction = &policy.FlowPolicy{
-			Action:   policy.Reject,
-			PolicyID: "default",
-		}
+	packetAction = &policy.FlowPolicy{
+		Action:   policy.Reject,
+		PolicyID: "default",
 	}
 
 	if reportingAction == nil {

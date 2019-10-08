@@ -3,7 +3,7 @@ package nflog
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 )
 
 // NFLogger provides an interface for NFLog
@@ -11,5 +11,5 @@ type NFLogger interface {
 	Run(ctx context.Context)
 }
 
-// GetPUInfoFunc provides PU information given the id
-type GetPUInfoFunc func(id string) (string, *policy.TagStore)
+// GetPUContextFunc provides PU information given the id
+type GetPUContextFunc func(hash string) (*pucontext.PUContext, error)

@@ -7,24 +7,20 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
-
-	"go.uber.org/zap"
-
 	"net"
 	"net/http"
+	"net/rpc"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"net/rpc"
-
 	"github.com/mitchellh/hashstructure"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 // RPCHdl is a per client handle
@@ -37,8 +33,6 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
-	contextList  []string
-
 	sync.Mutex
 }
 
@@ -49,7 +43,6 @@ func NewRPCWrapper() *RPCWrapper {
 
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache("RPCWrapper"),
-		contextList:  []string{},
 	}
 }
 
@@ -60,6 +53,9 @@ const (
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
+
+	r.Lock()
+	defer r.Unlock()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -79,16 +75,17 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		client, err = rpc.DialHTTP("unix", channel)
 	}
 
-	r.Lock()
-	r.contextList = append(r.contextList, contextID)
-	r.Unlock()
+	r.rpcClientMap.AddOrUpdate(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
-	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
+	return nil
 
 }
 
 // GetRPCClient gets a handle to the rpc client for the contextID( enforcer in the container)
 func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
+
+	r.Lock()
+	defer r.Unlock()
 
 	val, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
@@ -196,6 +193,8 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 
 // DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
+	r.Lock()
+	defer r.Unlock()
 
 	rpcHdl, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
@@ -226,9 +225,14 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 // ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
-	r.Lock()
-	defer r.Unlock()
-	return r.contextList
+	keylist := r.rpcClientMap.KeyList()
+	contextArray := []string{}
+	for _, key := range keylist {
+		if kstring, ok := key.(string); ok {
+			contextArray = append(contextArray, kstring)
+		}
+	}
+	return contextArray
 }
 
 // ProcessMessage checks if the given request is valid
@@ -253,19 +257,20 @@ func payloadHash(payload interface{}) ([]byte, error) {
 func RegisterTypes() {
 
 	gob.Register(&secrets.CompactPKIPublicSecrets{})
-	gob.Register(&secrets.PKIPublicSecrets{})
-	gob.Register(&secrets.PSKPublicSecrets{})
 	gob.Register(&pkitokens.PKIJWTVerifier{})
 	gob.Register(&oidc.TokenVerifier{})
-	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
-	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
-	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))
-
-	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
-	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
-
-	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
-	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
-	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
-	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.DebugPacket_Payload", *(&DebugPacketPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.CounterReport_Payload", *(&CounterReportPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetLogLevel_Payload", *(&SetLogLevelPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.DNSReport_Payload", *(&DNSReportPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenRequest_Payload", *(&TokenRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenResponse_Payload", *(&TokenResponsePayload{}))
 }

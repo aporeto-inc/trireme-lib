@@ -18,7 +18,7 @@ func TestNewRPCClient(t *testing.T) {
 	//Test without  a rpc server
 	rpchdl := NewRPCWrapper()
 	resp := make(chan error, 1)
-	go asyncRpcclient(defaultchannel, resp, rpchdl)
+	go asyncRpcclient(resp, rpchdl)
 	select {
 	case r := <-resp:
 		if r == nil {

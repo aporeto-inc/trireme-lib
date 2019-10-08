@@ -33,11 +33,7 @@ func (u *UIDMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("uid: %s", err)
 	}
 
-	if err := u.Resync(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return u.Resync(ctx)
 }
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
@@ -65,8 +61,8 @@ func (u *UIDMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 
 	// Setup config
 	u.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeUIDCgroupPath, uidConfig.ReleasePath)
-	u.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
-	u.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+	u.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_]{1,11}$")
+	u.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_]{1,11}$")
 	u.proc.putoPidMap = cache.NewCache("putoPidMap")
 	u.proc.pidToPU = cache.NewCache("pidToPU")
 	u.proc.metadataExtractor = uidConfig.EventMetadataExtractor

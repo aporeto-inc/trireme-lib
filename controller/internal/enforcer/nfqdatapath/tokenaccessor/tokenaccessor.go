@@ -6,11 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	"go.uber.org/zap"
 )
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
@@ -19,12 +21,22 @@ type tokenAccessor struct {
 	tokens   tokens.TokenEngine
 	serverID string
 	validity time.Duration
+	binary   bool
 }
 
 // New creates a new instance of TokenAccessor interface
-func New(serverID string, validity time.Duration, secret secrets.Secrets) (TokenAccessor, error) {
+func New(serverID string, validity time.Duration, secret secrets.Secrets, binary bool) (TokenAccessor, error) {
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
+	var tokenEngine tokens.TokenEngine
+	var err error
+
+	if binary {
+		zap.L().Info("Enabling Trireme Datapath v2.0")
+		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
+	} else {
+		zap.L().Info("Enabling Trireme Datapath v1.0")
+		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +45,7 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets) (Token
 		tokens:   tokenEngine,
 		serverID: serverID,
 		validity: validity,
+		binary:   binary,
 	}, nil
 }
 
@@ -44,16 +57,27 @@ func (t *tokenAccessor) getToken() tokens.TokenEngine {
 	return t.tokens
 }
 
-// SetToken updates sthe stored token in the struct
+// SetToken updates the stored token in the struct
 func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error {
 
 	t.Lock()
 	defer t.Unlock()
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
-	if err != nil {
-		return err
+
+	var tokenEngine tokens.TokenEngine
+	var err error
+
+	if t.binary {
+		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
+	} else {
+		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
 	}
+
+	if err != nil {
+		panic("unable to update token engine")
+	}
+
 	t.tokens = tokenEngine
+
 	return nil
 }
 
@@ -71,11 +95,12 @@ func (t *tokenAccessor) GetTokenServerID() string {
 func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
-		LCL: auth.LocalContext,
-		RMT: auth.RemoteContext,
+		ID:       context.ManagementID(),
+		RMT:      auth.RemoteContext,
+		RemoteID: auth.RemoteContextID,
 	}
 
-	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext)
+	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader())
 	if err != nil {
 		return []byte{}, err
 	}
@@ -89,6 +114,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
+		// FIX:we do nothing on error !!!
 		err = t.getToken().Randomize(token, auth.LocalContext)
 		if err == nil {
 			return token, nil
@@ -97,11 +123,14 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T:  context.Identity(),
-		EK: auth.LocalServiceContext,
+		LCL: auth.LocalContext,
+		EK:  auth.LocalServiceContext,
+		T:   context.Identity(),
+		CT:  context.CompressedTags(),
+		ID:  context.ManagementID(),
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader()); err != nil {
 		return []byte{}, nil
 	}
 
@@ -112,15 +141,19 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
 // We need to sign the received token. No caching possible here
-func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
-		T:   context.Identity(),
-		RMT: auth.RemoteContext,
-		EK:  auth.LocalServiceContext,
+		T:        context.Identity(),
+		CT:       context.CompressedTags(),
+		LCL:      auth.LocalContext,
+		RMT:      auth.RemoteContext,
+		EK:       auth.LocalServiceContext,
+		ID:       context.ManagementID(),
+		RemoteID: auth.RemoteContextID,
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
 		return []byte{}, nil
 	}
 
@@ -138,6 +171,9 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	}
 
 	// We always a need a valid remote context ID
+	if claims.T == nil {
+		return nil, errors.New("no claims found")
+	}
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
 		return nil, errors.New("no transmitter label")
@@ -155,16 +191,20 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 // and it needs to be recovered
 func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
+	gt := t.getToken()
+	if gt == nil {
+		return nil, errors.New("token is nil")
+	}
+	if auth == nil {
+		return nil, errors.New("auth is nil")
+	}
 	// Validate the certificate and parse the token
 	claims, _, _, err := t.getToken().Decode(true, data, auth.RemotePublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Compare the incoming random context with the stored context
-	matchLocal := bytes.Compare(claims.RMT, auth.LocalContext)
-	matchRemote := bytes.Compare(claims.LCL, auth.RemoteContext)
-	if matchLocal != 0 || matchRemote != 0 {
+	if !bytes.Equal(claims.RMT, auth.LocalContext) {
 		return nil, errors.New("failed to match context in ack packet")
 	}
 

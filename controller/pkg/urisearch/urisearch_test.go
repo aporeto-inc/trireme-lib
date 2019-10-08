@@ -3,78 +3,77 @@ package urisearch
 import (
 	"testing"
 
-	"go.aporeto.io/trireme-lib/policy"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 func initTrieRules() []*policy.HTTPRule {
 
 	return []*policy.HTTPRule{
-		&policy.HTTPRule{
+		{
 			Methods: []string{"GET", "PUT"},
 			URIs: []string{
 				"/users/?/name",
 				"/things/?",
 			},
-			Scopes: []string{"policy1"},
+			ClaimMatchingRules: [][]string{{"policy1"}},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"PATCH"},
 			URIs: []string{
 				"/users/?/name",
 				"/things/?",
 			},
-			Scopes: []string{"policy2"},
+			ClaimMatchingRules: [][]string{{"policy2"}},
 		},
-		&policy.HTTPRule{
+		{
 			Methods: []string{"POST"},
 			URIs: []string{
 				"/v1/users/?/name",
 				"/v1/things/?",
 			},
-			Public: true,
-			Scopes: []string{"policy3"},
+			Public:             true,
+			ClaimMatchingRules: [][]string{{"policy3"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"POST"},
-			URIs:    []string{"/"},
-			Scopes:  []string{"policy4"},
+		{
+			Methods:            []string{"POST"},
+			URIs:               []string{"/"},
+			ClaimMatchingRules: [][]string{{"policy4"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"PATCH"},
-			URIs:    []string{"/?"},
-			Scopes:  []string{"policy5"},
+		{
+			Methods:            []string{"PATCH"},
+			URIs:               []string{"/?"},
+			ClaimMatchingRules: [][]string{{"policy5"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/*"},
-			Scopes:  []string{"policy7"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/*"},
+			ClaimMatchingRules: [][]string{{"policy7"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/a/?/c/d"},
-			Scopes:  []string{"policy8"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/a/?/c/d"},
+			ClaimMatchingRules: [][]string{{"policy8"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/a/b/?/e"},
-			Scopes:  []string{"policy9"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/a/b/?/e"},
+			ClaimMatchingRules: [][]string{{"policy9"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/a/*/c/x"},
-			Scopes:  []string{"policy10"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/a/*/c/x"},
+			ClaimMatchingRules: [][]string{{"policy10"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/a/b/?/w"},
-			Scopes:  []string{"policy11"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/a/b/?/w"},
+			ClaimMatchingRules: [][]string{{"policy11"}},
 		},
-		&policy.HTTPRule{
-			Methods: []string{"HEAD"},
-			URIs:    []string{"/a/b/?/y/*"},
-			Scopes:  []string{"policy12"},
+		{
+			Methods:            []string{"HEAD"},
+			URIs:               []string{"/a/b/?/y/*"},
+			ClaimMatchingRules: [][]string{{"policy12"}, {"policy13"}, {"policy14", "policy15"}},
 		},
 	}
 }
@@ -198,7 +197,7 @@ func TestAPICacheFind(t *testing.T) {
 			found, rule := c.FindRule("GET", "/users/bob/name")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy1")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy1"})
 
 			found, rule = c.FindRule("BADVERB", "/users/bob/name")
 			So(found, ShouldBeFalse)
@@ -207,12 +206,12 @@ func TestAPICacheFind(t *testing.T) {
 			found, rule = c.FindRule("PUT", "/users/bob/name")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy1")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy1"})
 
 			found, rule = c.FindRule("GET", "/things/something")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy1")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy1"})
 
 			found, rule = c.FindRule("GET", "/prefix/things/something")
 			So(found, ShouldBeFalse)
@@ -222,28 +221,28 @@ func TestAPICacheFind(t *testing.T) {
 			found, rule = c.FindRule("PATCH", "/things/something")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy2")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy2"})
 
 			found, rule = c.FindRule("PATCH", "/users/bob/name")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy2")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy2"})
 
 			// POST rule
 			found, rule = c.FindRule("POST", "/v1/users/123/name")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy3")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy3"})
 
 			found, rule = c.FindRule("POST", "/v1/things/123454656")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy3")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy3"})
 
 			found, rule = c.FindRule("POST", "/")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy4")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy4"})
 
 			// HEAD Rules
 			found, rule = c.FindRule("HEAD", "/users/123/name")
@@ -253,22 +252,22 @@ func TestAPICacheFind(t *testing.T) {
 			found, rule = c.FindRule("PATCH", "/users/123/name")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy2")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy2"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/c/d")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy8")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy8"})
 
 			found, rule = c.FindRule("HEAD", "/a/x/c/d")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy8")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy8"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/x/e")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy9")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy9"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/x")
 			So(found, ShouldBeTrue)
@@ -277,27 +276,27 @@ func TestAPICacheFind(t *testing.T) {
 			found, rule = c.FindRule("HEAD", "/a/b/c/d/e/c/x")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy10")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy10"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/c/w")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy11")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy11"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/c/z")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy7")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy7"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/c/d/e/f/w")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy7")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy7"})
 
 			found, rule = c.FindRule("HEAD", "/a/b/c/y/d/e/f/g/g")
 			So(found, ShouldBeTrue)
 			So(rule, ShouldNotBeNil)
-			So(rule.Scopes, ShouldContain, "policy12")
+			So(rule.ClaimMatchingRules, ShouldContain, []string{"policy12"})
 		})
 
 		Convey("When I search for bad URIs, I should get not found", func() {
@@ -350,6 +349,26 @@ func TestFindAndMachScope(t *testing.T) {
 
 		Convey("When I search for public rule and good scopes it should always return true", func() {
 			found, _ := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy3"})
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I search for public rule and multiple scopes in an array it should always return true", func() {
+			found, _ := c.FindAndMatchScope("HEAD", "/a/b/c/y/z", []string{"policy12", "policy13"})
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I search for public rule and need to match the right and clause it should return true", func() {
+			found, _ := c.FindAndMatchScope("HEAD", "/a/b/c/y/z", []string{"policy14", "policy15"})
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I search for public rule at the and clause fails, it should return false", func() {
+			found, _ := c.FindAndMatchScope("HEAD", "/a/b/c/y/z", []string{"policy1", "policy15"})
+			So(found, ShouldBeFalse)
+		})
+
+		Convey("When I search for public rule at the and clause fails with several labels, but it matched it should return true", func() {
+			found, _ := c.FindAndMatchScope("HEAD", "/a/b/c/y/z", []string{"x", "y", "z", "policy14", "a", "b", "c", "policy15", "k", "l", "m"})
 			So(found, ShouldBeTrue)
 		})
 	})

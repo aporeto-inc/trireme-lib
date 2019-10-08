@@ -10,12 +10,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/processor/mockprocessor"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
-
-	"github.com/golang/mock/gomock"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewEventServer(t *testing.T) {
@@ -116,11 +115,22 @@ func TestValidateTypes(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 
-		Convey("If the event name has bad charaters, it should error.", func() {
+		Convey("If the event name has utf8 charaters and it is NOT UIDPAM PU, it should succeed.", func() {
 			event := &common.EventInfo{
 				EventType: common.EventStart,
 				PUType:    common.ContainerPU,
-				Name:      "^^^",
+				Name:      "utf8-_!@#%&\" (*)+.,/$!:;<>=?{}~",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("If the event name has utf8 charaters and it is UIDPAM PU, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.UIDLoginPU,
+				Name:      "utf8-_!@#%&\" (*)+.,/$!:;<>=?{}~",
 			}
 
 			err := validateTypes(event)
@@ -251,7 +261,7 @@ func TestValidateEvent(t *testing.T) {
 
 			err := validateEvent(event)
 			So(err, ShouldBeNil)
-			So(event.PUID, ShouldResemble, "myservice")
+			So(event.PUID, ShouldResemble, "mypu")
 		})
 
 		Convey("If I get a Stop event and cgroup is in the right format, it should return nil.", func() {
@@ -336,7 +346,7 @@ func TestCreate(t *testing.T) {
 				Name:      "^^^^",
 				Cgroup:    "/trireme/123",
 				NS:        "/var/run/docker/netns/6f7287cc342b",
-				IPs:       map[string]string{"bridge": "172.17.0.1"},
+				IPs:       map[string]string{"bridge": "172.17.0.1", "ip": "thisisnotip"},
 			}
 
 			b := new(bytes.Buffer)

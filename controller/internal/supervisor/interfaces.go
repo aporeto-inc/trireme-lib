@@ -2,7 +2,11 @@ package supervisor
 
 import (
 	"context"
+	"time"
 
+	"go.aporeto.io/trireme-lib/common"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -19,10 +23,13 @@ type Supervisor interface {
 	Run(ctx context.Context) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// CleanUp requests the supervisor to clean up all ACLs
 	CleanUp() error
+
+	// EnableIPTablesPacketTracing enables ip tables packet tracing
+	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
@@ -35,14 +42,17 @@ type Implementor interface {
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, port string, mark string, uid string, proxyPort string) error
+	DeleteRules(version int, context string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, dnsProxyPort string, puType common.PUType) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string, []string) error
+	SetTargetNetworks(cfg *runtime.Configuration) error
 
 	// Start initializes any defaults
 	Run(ctx context.Context) error
 
 	// CleanUp requests the implementor to clean up all ACLs
 	CleanUp() error
+
+	// ACLProvider returns the ACL provider used by the implementor
+	ACLProvider() []provider.IptablesProvider
 }

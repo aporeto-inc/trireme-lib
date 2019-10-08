@@ -1,12 +1,14 @@
 package constants
 
+import "time"
+
 const (
-	//DefaultProxyPort  the default port the l4 proxy listens on
-	DefaultProxyPort = "5000"
-	//DefaultProcMountPoint The default proc mountpoint
+	// DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
-	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	// DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
 	DefaultAporetoProcMountPoint = "/aporetoproc"
+	// DefaultSecretsPath is the default path for the secrets proxy.
+	DefaultSecretsPath = "@secrets"
 )
 
 const (
@@ -14,6 +16,8 @@ const (
 	DefaultRemoteArg = "enforce"
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
+	// DeleteConnmark is the mark used to trigger udp handshake.
+	DeleteConnmark = uint32(0xABCD)
 )
 
 const (
@@ -21,11 +25,17 @@ const (
 	// EnvMountPoint is an environment variable which will contain the mount point
 	EnvMountPoint = "TRIREME_ENV_PROC_MOUNTPOINT"
 
+	// EnvEnforcerType is an environment variable which will indicate what enforcer type we want to use
+	EnvEnforcerType = "TRIREME_ENV_ENFORCER_TYPE"
+
 	// EnvContextSocket stores the path to the context specific socket
 	EnvContextSocket = "TRIREME_ENV_SOCKET_PATH"
 
 	// EnvStatsChannel stores the path to the stats channel
 	EnvStatsChannel = "TRIREME_ENV_STATS_CHANNEL_PATH"
+
+	// EnvDebugChannel stores the path to the debug channel
+	EnvDebugChannel = "TRIREME_ENV_DEBUG_CHANNEL_PATH"
 
 	// EnvRPCClientSecret is the secret used between RPC client/server
 	EnvRPCClientSecret = "TRIREME_ENV_SECRET"
@@ -59,6 +69,12 @@ const (
 
 	// EnvLogID store the context Id for the log file to be used.
 	EnvLogID = "TRIREME_ENV_LOG_ID"
+
+	// EnvCompressedTags stores whether we should be using compressed tags.
+	EnvCompressedTags = "TRIREME_ENV_COMPRESSED_TAGS"
+
+	// EnvDisableLogWrite tells us if we are running in kubernetes, if true don't write the logs to a file.
+	EnvDisableLogWrite = "TRIREME_ENV_DISABLE_LOG_WRITE"
 )
 
 // ModeType defines the mode of the enforcement and supervisor.
@@ -70,4 +86,59 @@ const (
 	RemoteContainer ModeType = iota
 	// LocalServer indicates that the Supervisor applies to Linux processes
 	LocalServer
+	// Sidecar indicates the controller to be in sidecar mode
+	Sidecar
+	// LocalEnvoyAuthorizer indicates to use a local envoyproxy as enforcer/authorizer
+	LocalEnvoyAuthorizer
+	// RemoteContainerEnvoyAuthorizer indicates to use the envoyproxy enforcer/authorizer for containers
+	RemoteContainerEnvoyAuthorizer
+)
+
+// LogLevel corresponds to log level of any logger. eg: zap.
+type LogLevel string
+
+// Various log levels.
+const (
+	Info  LogLevel = "Info"
+	Debug LogLevel = "Debug"
+	Trace LogLevel = "Trace"
+	Error LogLevel = "Error"
+	Warn  LogLevel = "Warn"
+)
+
+// API service related constants
+const (
+	CallbackURIExtension = "/aporeto/oidc/callback"
+)
+
+// Protocol constants
+const (
+	TCPProtoNum    = "6"
+	UDPProtoNum    = "17"
+	TCPProtoString = "TCP"
+	UDPProtoString = "UDP"
+	AllProtoString = "ALL"
+)
+
+// sockets
+const (
+	StatsChannel = "/var/run/statschannel.sock"
+	DebugChannel = "/var/run/debugchannel.sock"
+)
+
+// PortNumberLabelString is the label to use for port numbers
+const (
+	PortNumberLabelString = "@sys:port"
+)
+
+// Token and cache default validities. These have performance implications.
+// The faster the datapath issues new tokens it affects performance. However,
+// making it too slow can potentially allow reuse of the tokens. The
+// token issuance rate must be always faster than the expiration rate.
+const (
+	// SynTokenCacheValiditity determines how often the data path creates new tokens.
+	SynTokenCacheValiditity = 10 * time.Second
+
+	// DatapathTokenValidity determines how long the tokens are valid.
+	DatapathTokenValidity = 1 * time.Minute
 )

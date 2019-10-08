@@ -4,61 +4,59 @@ import (
 	"net"
 	"testing"
 
-	"go.aporeto.io/trireme-lib/policy"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 var (
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address:  "172.0.0.0/8",
-			Port:     "400:500",
-			Protocol: "tcp",
+			Addresses: []string{"172.0.0.0/8"},
+			Ports:     []string{"400:500"},
+			Protocols: []string{constants.TCPProtoNum},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172/8"},
 		},
 		policy.IPRule{
-			Address:  "172.17.0.0/16",
-			Port:     "400:500",
-			Protocol: "tcp",
+			Addresses: []string{"172.17.0.0/16"},
+			Ports:     []string{"400:500"},
+			Protocols: []string{constants.TCPProtoNum},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp172.17/16"},
 		},
 		policy.IPRule{
-			Address:  "192.168.100.0/24",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"192.168.100.0/24"},
+			Protocols: []string{constants.TCPProtoNum},
+			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp192.168.100/24"},
 		},
 		policy.IPRule{
-			Address:  "10.1.1.1",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.1.1.1"},
+			Protocols: []string{constants.TCPProtoNum},
+			Ports:     []string{"80"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp10.1.1.1"}},
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Protocol: "tcp",
-			Port:     "443",
+			Addresses: []string{"0.0.0.0/0"},
+			Protocols: []string{constants.TCPProtoNum},
+			Ports:     []string{"443"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "tcp0/0"}},
 		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Protocol: "udp",
-			Port:     "443",
+			Addresses: []string{"0.0.0.0/0"},
+			Protocols: []string{"udp"},
+			Ports:     []string{"443"},
 			Policy: &policy.FlowPolicy{
 				Action:   policy.Accept,
 				PolicyID: "udp0/0"}},
 	}
-	// rulesPrefixLens holds unique prefix lens in rules above.
-	rulesPrefixLens = 5
 )
 
 func TestLookup(t *testing.T) {
@@ -71,8 +69,6 @@ func TestLookup(t *testing.T) {
 			err := a.addRule(r)
 			So(err, ShouldBeNil)
 		}
-		a.reverseSort()
-		So(len(a.prefixLenMap), ShouldEqual, rulesPrefixLens)
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")
@@ -140,37 +136,38 @@ func TestLookup(t *testing.T) {
 
 func TestObservedLookup(t *testing.T) {
 
+	ip1 := "200.17.0.0/17"
+	ip2 := "200.18.0.0/17"
+	ip3 := "200.0.0.0/9"
 	var (
 		rulesWithObservation = policy.IPRuleList{
 			policy.IPRule{
-				Address:  "200.0.0.0/9",
-				Port:     "401",
-				Protocol: "tcp",
-				Policy: &policy.FlowPolicy{
-					Action:   policy.Accept,
-					PolicyID: "tcp200/9"},
-			},
-			policy.IPRule{
-				Address:  "200.17.0.0/17",
-				Port:     "401",
-				Protocol: "tcp",
+				Addresses: []string{ip1},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveContinue,
 					PolicyID:      "observed-continue-tcp200.17/17"},
 			},
 			policy.IPRule{
-				Address:  "200.18.0.0/17",
-				Port:     "401",
-				Protocol: "tcp",
+				Addresses: []string{ip2},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
 				Policy: &policy.FlowPolicy{
 					Action:        policy.Accept,
 					ObserveAction: policy.ObserveApply,
 					PolicyID:      "observed-applied-tcp200.18/17"},
 			},
+			policy.IPRule{
+				Addresses: []string{ip3},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "tcp200/9"},
+			},
 		}
-		// rulesWithObservationPrefixLens holds unique prefix lens in rules above.
-		rulesWithObservationPrefixLens = 2
 	)
 
 	Convey("Given a good DB", t, func() {
@@ -180,8 +177,16 @@ func TestObservedLookup(t *testing.T) {
 			err := a.addRule(r)
 			So(err, ShouldBeNil)
 		}
-		a.reverseSort()
-		So(len(a.prefixLenMap), ShouldEqual, rulesWithObservationPrefixLens)
+
+		// Ensure all the elements are there in the cache
+		cidrs := []string{ip1, ip2, ip3}
+
+		for _, cidr := range cidrs {
+			ip, ipnet, _ := net.ParseCIDR(cidr)
+			size, _ := ipnet.Mask.Size()
+			_, ok := a.cache.Get(ip, size)
+			So(ok, ShouldEqual, true)
+		}
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action and observed action", func() {
 			ip := net.ParseIP("200.17.0.1")
@@ -215,7 +220,7 @@ func TestObservedLookup(t *testing.T) {
 			r, p, err := a.getMatchingAction(ip.To4(), port, preReported)
 			So(err, ShouldBeNil)
 			So(p.Action, ShouldEqual, policy.Accept)
-			So(p.PolicyID, ShouldEqual, "tcp200/9")
+			So(p.PolicyID, ShouldEqual, "observed-applied-tcp200.18/17")
 			So(r.Action, ShouldEqual, policy.Reject)
 			So(r.PolicyID, ShouldEqual, "preReportedPolicyID")
 		})

@@ -2,16 +2,12 @@ package pkitokens
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/x509"
+	"crypto"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net/url"
 
-	"github.com/dgrijalva/jwt-go"
-
-	"go.aporeto.io/tg/tglib"
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 )
 
@@ -20,31 +16,31 @@ import (
 // This is a simple and stateless verifier that doesn't depend on central server
 // for validating the tokens. The public key is provided out-of-band.
 type PKIJWTVerifier struct {
-	JWTCertPEM        []byte
-	jwtCert           *x509.Certificate
-	RedirectOnFail    bool
-	RedirectOnNoToken bool
-	RedirectURL       string
+	JWTCertPEM  []byte
+	keys        []crypto.PublicKey
+	RedirectURL string
 }
 
 // NewVerifierFromFile assumes that the input is provided as file path.
 func NewVerifierFromFile(jwtcertPath string, redirectURI string, redirectOnFail, redirectOnNoToken bool) (*PKIJWTVerifier, error) {
 	jwtCertPEM, err := ioutil.ReadFile(jwtcertPath)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read jwt signing certificate from file: %s", err)
+		return nil, fmt.Errorf("failed to read JWT signing certificates or public keys from file: %s", err)
 	}
 	return NewVerifierFromPEM(jwtCertPEM, redirectURI, redirectOnFail, redirectOnNoToken)
 }
 
 // NewVerifierFromPEM assumes that the input is a PEM byte array.
 func NewVerifierFromPEM(jwtCertPEM []byte, redirectURI string, redirectOnFail, redirectOnNoToken bool) (*PKIJWTVerifier, error) {
-	jwtCertificate, err := tglib.ParseCertificate(jwtCertPEM)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read jwt signing certificate from PEM: %s", err)
+	keys, err := parsePublicKeysFromPEM(jwtCertPEM)
+	// pay attention to the return format of parsePublicKeysFromPEM
+	// when checking for an error here
+	if keys == nil && err != nil {
+		return nil, fmt.Errorf("failed to read JWT signing certificates or public keys from PEM: %s", err)
 	}
 	return &PKIJWTVerifier{
 		JWTCertPEM:  jwtCertPEM,
-		jwtCert:     jwtCertificate,
+		keys:        keys,
 		RedirectURL: redirectURI,
 	}, nil
 }
@@ -54,48 +50,78 @@ func NewVerifier(v *PKIJWTVerifier) (*PKIJWTVerifier, error) {
 	if len(v.JWTCertPEM) == 0 {
 		return v, nil
 	}
-	jwtCertificate, err := tglib.ParseCertificate(v.JWTCertPEM)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse certificate: %s", err)
+	keys, err := parsePublicKeysFromPEM(v.JWTCertPEM)
+	// pay attention to the return format of parsePublicKeysFromPEM
+	// when checking for an error here
+	if keys == nil && err != nil {
+		return nil, fmt.Errorf("failed to parse JWT signing certificates or public keys from PEM: %s", err)
 	}
-	v.jwtCert = jwtCertificate
+	v.keys = keys
 	return v, nil
 }
 
 // Validate parses a generic JWT token and flattens the claims in a normalized form. It
-// assumes that the JWT signing certificate will validate the token.
-func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]string, bool, error) {
+// assumes that any of the JWT signing certs or public keys will validate the token.
+func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]string, bool, string, error) {
 	if len(tokenString) == 0 {
-		return []string{}, j.RedirectOnNoToken, fmt.Errorf("Empty token")
+		return []string{}, false, tokenString, fmt.Errorf("Empty token")
 	}
-	claims := &jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if j.jwtCert == nil {
-			return nil, fmt.Errorf("Nil certificate - ignore")
-		}
-		switch token.Method {
-		case token.Method.(*jwt.SigningMethodECDSA):
-			if rcert, ok := j.jwtCert.PublicKey.(*ecdsa.PublicKey); ok {
-				return rcert, nil
-			}
-		case token.Method.(*jwt.SigningMethodRSA):
-			if rcert, ok := j.jwtCert.PublicKey.(*rsa.PublicKey); ok {
-				return rcert, nil
-			}
-		default:
-			return nil, fmt.Errorf("Unknown signing method")
-		}
-		return nil, fmt.Errorf("Signing method does not match certificate")
-	})
-	if err != nil || token == nil || !token.Valid {
-		return []string{}, j.RedirectOnFail, fmt.Errorf("Invalid token")
+	if len(j.keys) == 0 {
+		return []string{}, false, tokenString, fmt.Errorf("No public keys loaded into verifier")
 	}
 
-	attributes := []string{}
-	for k, v := range *claims {
-		attributes = append(attributes, common.FlattenClaim(k, v)...)
+	// iterate over all public keys that we have and try to validate the token
+	// the first one to succeed will be used
+	var errs []error
+	for _, key := range j.keys {
+		claims := &jwt.MapClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			switch token.Method.(type) {
+			case *jwt.SigningMethodECDSA:
+				if isECDSAPublicKey(key) {
+					return key, nil
+				}
+			case *jwt.SigningMethodRSA:
+				if isRSAPublicKey(key) {
+					return key, nil
+				}
+			default:
+				return nil, fmt.Errorf("unsupported signing method '%T'", token.Method)
+			}
+			return nil, fmt.Errorf("signing method '%T' and public key type '%T' mismatch", token.Method, key)
+		})
+
+		// cover all error cases after parsing/verifying
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if token == nil {
+			errs = append(errs, fmt.Errorf("no token was parsed"))
+			continue
+		}
+		if !token.Valid {
+			errs = append(errs, fmt.Errorf("token failed to verify against public key"))
+			continue
+		}
+
+		// return successful on match/verification with the first key
+		attributes := []string{}
+		for k, v := range *claims {
+			attributes = append(attributes, common.FlattenClaim(k, v)...)
+		}
+		return attributes, false, tokenString, nil
 	}
-	return attributes, false, nil
+
+	// generate a detailed error
+	var detailedError string
+	for i, err := range errs {
+		detailedError += err.Error()
+		if i+1 < len(errs) {
+			detailedError += "; "
+		}
+	}
+	return []string{}, false, tokenString, fmt.Errorf("Invalid token - errors: [%s]", detailedError)
 }
 
 // VerifierType returns the type of the verifier.
@@ -104,7 +130,7 @@ func (j *PKIJWTVerifier) VerifierType() common.JWTType {
 }
 
 // Callback is called by an IDP. Not implemented here. No central authorizer for the tokens.
-func (j *PKIJWTVerifier) Callback(r *http.Request) (string, string, int, error) {
+func (j *PKIJWTVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
 	return "", "", 0, nil
 }
 

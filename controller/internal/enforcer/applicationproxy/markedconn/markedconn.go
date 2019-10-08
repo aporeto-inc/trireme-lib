@@ -3,122 +3,71 @@
 package markedconn
 
 import (
+	"context"
 	"fmt"
 	"net"
-	"os"
-	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
 
-	"github.com/rs/xid"
+	"go.aporeto.io/trireme-lib/utils/netinterfaces"
+	"go.uber.org/zap"
 )
 
 const (
 	sockOptOriginalDst = 80
 )
 
-// DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
-func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Conn, error) {
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+// DialMarkedWithContext will dial a TCP connection to the provide address and mark the socket
+// with the provided mark.
+func DialMarkedWithContext(ctx context.Context, network string, addr string, mark int) (net.Conn, error) {
+	d := net.Dialer{
+		Control: func(_, _ string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+
+				if err := syscall.SetNonblock(int(fd), false); err != nil {
+					zap.L().Error("unable to set socket options", zap.Error(err))
+				}
+				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
+					zap.L().Error("Failed to assing mark to socket", zap.Error(err))
+				}
+				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 30, 1); err != nil {
+					zap.L().Debug("Failed to set fast open socket option", zap.Error(err))
+				}
+			})
+		},
+	}
+
+	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create socket: %s", err)
+		zap.L().Error("Failed to dial to downstream node",
+			zap.Error(err),
+			zap.String("Address", addr),
+			zap.String("Network type", network),
+		)
 	}
-
-	f := os.NewFile(uintptr(fd), xid.New().String())
-	defer f.Close() // nolint
-
-	conn, err := net.FileConn(f)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create downstream connection: %s", err)
-	}
-
-	address := &syscall.SockaddrInet4{
-		Port: raddr.Port,
-	}
-	copy(address.Addr[:], raddr.IP.To4())
-
-	if err = syscall.SetNonblock(fd, false); err != nil {
-		conn.Close() // nolint
-		return nil, fmt.Errorf("unable to set socket options: %s", err)
-	}
-
-	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
-	if err != nil {
-		conn.Close() // nolint
-		return nil, fmt.Errorf("Failed to assing mark to socket: %s", err)
-	}
-
-	if err := setSocketTimeout(fd, time.Second*5); err != nil {
-		return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
-	}
-
-	if err := syscall.Connect(fd, address); err != nil {
-		conn.Close() // nolint
-		return nil, fmt.Errorf("Unable to connect: %s", err)
-	}
-
-	// if err := setSocketTimeout(fd, 0); err != nil {
-	// 	return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
-	// }
-
-	return conn, nil
+	return conn, err
 }
 
-// MarkConnection marks an existing connection with a mark
-func MarkConnection(conn net.Conn, mark int) error {
-	setMark := func(fd uintptr) {
-		syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark) // nolint
+// NewSocketListener will create a listener and mark the socket with the provided mark.
+func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
+	listenerCfg := net.ListenConfig{
+		Control: func(_, _ string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
+					zap.L().Error("Failed to mark connection", zap.Error(err))
+				}
+				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, 23, 16*1024); err != nil {
+					zap.L().Error("Cannot set tcp fast open options", zap.Error(err))
+				}
+			})
+		},
 	}
 
-	rawconn, err := conn.(*net.TCPConn).SyscallConn()
+	listener, err := listenerCfg.Listen(ctx, "tcp", port)
+
 	if err != nil {
-		return err
-	}
-
-	return rawconn.Control(setMark)
-}
-
-// SocketListener creates a TCP listener through system calls giving us more
-// control over the specific parameters that we need.
-func SocketListener(port string, mark int) (net.Listener, error) {
-
-	addr, err := net.ResolveTCPAddr("tcp4", port)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot resolve v4 IP: %s", err)
-	}
-
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
-		return nil, fmt.Errorf("cannot set SO_REUSEADDR: %s", err)
-	}
-
-	if len(addr.IP) == 0 {
-		addr.IP = net.IPv4zero
-	}
-	socketAddress := &syscall.SockaddrInet4{Port: addr.Port}
-	copy(socketAddress.Addr[:], addr.IP.To4())
-
-	if err = syscall.Bind(fd, socketAddress); err != nil {
-		syscall.Close(fd) // nolint errcheck
-		return nil, err
-	}
-
-	if err = syscall.Listen(fd, 256); err != nil {
-		syscall.Close(fd) // nolint errcheck
-		return nil, err
-	}
-
-	f := os.NewFile(uintptr(fd), addr.String())
-	defer f.Close() // nolint errcheck
-
-	listener, err := net.FileListener(f)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot bind listener: %s", err)
+		return nil, fmt.Errorf("Failed to create listener: %s", err)
 	}
 
 	return ProxiedListener{netListener: listener, mark: mark}, nil
@@ -127,7 +76,6 @@ func SocketListener(port string, mark int) (net.Listener, error) {
 // ProxiedConnection is a proxied connection where we can recover the
 // original destination.
 type ProxiedConnection struct {
-	net.Conn
 	originalIP            net.IP
 	originalPort          int
 	originalTCPConnection *net.TCPConn
@@ -147,12 +95,45 @@ func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
 // address.
 func (p *ProxiedConnection) LocalAddr() net.Addr {
 
-	addr, err := net.ResolveTCPAddr("tcp", p.originalIP.String()+":"+strconv.Itoa(p.originalPort))
-	if err != nil {
-		return nil
+	return &net.TCPAddr{
+		IP:   p.originalIP,
+		Port: p.originalPort,
 	}
+}
 
-	return addr
+// RemoteAddr returns the remote address
+func (p *ProxiedConnection) RemoteAddr() net.Addr {
+	return p.originalTCPConnection.RemoteAddr()
+}
+
+// Read reads data from the connection.
+func (p *ProxiedConnection) Read(b []byte) (n int, err error) {
+	return p.originalTCPConnection.Read(b)
+}
+
+// Write writes data to the connection.
+func (p *ProxiedConnection) Write(b []byte) (n int, err error) {
+	return p.originalTCPConnection.Write(b)
+}
+
+// Close closes the connection.
+func (p *ProxiedConnection) Close() error {
+	return p.originalTCPConnection.Close()
+}
+
+// SetDeadline passes the read deadline to the original TCP connection.
+func (p *ProxiedConnection) SetDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetDeadline(t)
+}
+
+// SetReadDeadline implements the call by passing it to the original connection.
+func (p *ProxiedConnection) SetReadDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetReadDeadline(t)
+}
+
+// SetWriteDeadline implements the call by passing it to the original connection.
+func (p *ProxiedConnection) SetWriteDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetWriteDeadline(t)
 }
 
 // ProxiedListener is a proxied listener that uses proxied connections.
@@ -168,16 +149,23 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, err
 	}
 
-	ip, port, err := GetOriginalDestination(nc)
+	tcpConn, ok := nc.(*net.TCPConn)
+	if !ok {
+		zap.L().Error("Received a non-TCP connection - this should never happen", zap.Error(err))
+		return nil, fmt.Errorf("Not a tcp connection - ignoring")
+	}
+
+	ip, port, err := GetOriginalDestination(tcpConn)
 	if err != nil {
+		zap.L().Error("Failed to discover original destination - aborting", zap.Error(err))
 		return nil, err
 	}
 
-	if err := MarkConnection(nc, l.mark); err != nil {
-		return nil, err
-	}
-
-	return &ProxiedConnection{nc, ip, port, nc.(*net.TCPConn)}, nil
+	return &ProxiedConnection{
+		originalIP:            ip,
+		originalPort:          port,
+		originalTCPConnection: tcpConn,
+	}, nil
 }
 
 // Addr implements the Addr method of net.Listener.
@@ -190,52 +178,116 @@ func (l ProxiedListener) Close() error {
 	return l.netListener.Close()
 }
 
-type sockaddr struct {
+type sockaddr4 struct {
 	family uint16
 	data   [14]byte
 }
 
+type sockaddr6 struct {
+	family   uint16
+	port     [2]byte
+	flowInfo [4]byte //nolint
+	ip       [16]byte
+	scopeID  [4]byte //nolint
+}
+
+type origDest func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
+type passFD interface {
+	Control(func(uintptr)) error
+}
+
+func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest) (net.IP, int, error) { // nolint interfacer{
+	var getsockopt func(fd uintptr)
+	var netIP net.IP
+	var port int
+	var err error
+
+	getsockopt4 := func(fd uintptr) {
+		var addr sockaddr4
+		size := uint32(unsafe.Sizeof(addr))
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+
+		if e1 != 0 {
+			err = fmt.Errorf("Failed to get original destination: %s", e1)
+			return
+		}
+
+		if addr.family != syscall.AF_INET {
+			err = fmt.Errorf("invalid address family. Expected AF_INET")
+			return
+		}
+
+		netIP = addr.data[2:6]
+		port = int(addr.data[0])<<8 + int(addr.data[1])
+	}
+
+	getsockopt6 := func(fd uintptr) {
+		var addr sockaddr6
+		size := uint32(unsafe.Sizeof(addr))
+
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+		if e1 != 0 {
+			err = fmt.Errorf("Failed to get original destination: %s", e1)
+			return
+		}
+
+		if addr.family != syscall.AF_INET6 {
+			err = fmt.Errorf("invalid address family. Expected AF_INET6")
+			return
+		}
+
+		netIP = addr.ip[:]
+		port = int(addr.port[0])<<8 + int(addr.port[1])
+	}
+
+	if v4Proto {
+		getsockopt = getsockopt4
+	} else {
+		getsockopt = getsockopt6
+	}
+
+	if err1 := rawConn.Control(getsockopt); err1 != nil {
+		return nil, 0, fmt.Errorf("Failed to get original destination: %s", err)
+	}
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return netIP, port, nil
+}
+
 // GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
-	var addr sockaddr
-	size := uint32(unsafe.Sizeof(addr))
+func GetOriginalDestination(conn *net.TCPConn) (net.IP, int, error) { // nolint interfacer
 
-	inFile, err := conn.(*net.TCPConn).File()
+	rawconn, err := conn.SyscallConn()
 	if err != nil {
-		return []byte{}, 0, err
+		return nil, 0, err
 	}
 
-	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
+	localIPString, _, err := net.SplitHostPort(conn.LocalAddr().String())
 	if err != nil {
-		return []byte{}, 0, err
+		return nil, 0, err
 	}
 
-	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("invalid address family")
-	}
-
-	var ip net.IP
-	ip = addr.data[2:6]
-	port := int(addr.data[0])<<8 + int(addr.data[1])
-
-	return ip, port, nil
+	localIP := net.ParseIP(localIPString)
+	return getOriginalDestInternal(rawconn, localIP.To4() != nil, syscall.Syscall6)
 }
 
-func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
+// GetInterfaces retrieves all the local interfaces.
+func GetInterfaces() map[string]struct{} {
+	ipmap := map[string]struct{}{}
 
-// setSocketTimeout sets the receive and send timeouts on the given socket.
-func setSocketTimeout(fd int, timeout time.Duration) error {
-	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
-	for _, opt := range []int{syscall.SO_RCVTIMEO, syscall.SO_SNDTIMEO} {
-		if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, opt, &tv); err != nil {
-			return os.NewSyscallError("setsockopt", err)
+	ifaces, err := netinterfaces.GetInterfacesInfo()
+	if err != nil {
+		zap.L().Error("Unable to get interfaces info", zap.Error(err))
+	}
+
+	for _, iface := range ifaces {
+		for _, ip := range iface.IPs {
+			ipmap[ip.String()] = struct{}{}
 		}
 	}
-	return nil
+
+	return ipmap
 }

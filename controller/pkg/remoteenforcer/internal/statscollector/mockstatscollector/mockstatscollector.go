@@ -92,6 +92,48 @@ func (mr *MockCollectorReaderMockRecorder) FlushUserCache() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushUserCache", reflect.TypeOf((*MockCollectorReader)(nil).FlushUserCache))
 }
 
+// GetAllDataPathPacketRecords mocks base method
+// nolint
+func (m *MockCollectorReader) GetAllDataPathPacketRecords() []*collector.PacketReport {
+	ret := m.ctrl.Call(m, "GetAllDataPathPacketRecords")
+	ret0, _ := ret[0].([]*collector.PacketReport)
+	return ret0
+}
+
+// GetAllDataPathPacketRecords indicates an expected call of GetAllDataPathPacketRecords
+// nolint
+func (mr *MockCollectorReaderMockRecorder) GetAllDataPathPacketRecords() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllDataPathPacketRecords", reflect.TypeOf((*MockCollectorReader)(nil).GetAllDataPathPacketRecords))
+}
+
+// GetAllCounterReports mocks base method
+// nolint
+func (m *MockCollectorReader) GetAllCounterReports() []*collector.CounterReport {
+	ret := m.ctrl.Call(m, "GetAllCounterReports")
+	ret0, _ := ret[0].([]*collector.CounterReport)
+	return ret0
+}
+
+// GetAllCounterReports indicates an expected call of GetAllCounterReports
+// nolint
+func (mr *MockCollectorReaderMockRecorder) GetAllCounterReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllCounterReports", reflect.TypeOf((*MockCollectorReader)(nil).GetAllCounterReports))
+}
+
+// GetDNSReports mocks base method
+// nolint
+func (m *MockCollectorReader) GetDNSReports() chan *collector.DNSRequestReport {
+	ret := m.ctrl.Call(m, "GetDNSReports")
+	ret0, _ := ret[0].(chan *collector.DNSRequestReport)
+	return ret0
+}
+
+// GetDNSReports indicates an expected call of GetDNSReports
+// nolint
+func (mr *MockCollectorReaderMockRecorder) GetDNSReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollectorReader)(nil).GetDNSReports))
+}
+
 // MockCollector is a mock of Collector interface
 // nolint
 type MockCollector struct {
@@ -173,6 +215,48 @@ func (mr *MockCollectorMockRecorder) FlushUserCache() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushUserCache", reflect.TypeOf((*MockCollector)(nil).FlushUserCache))
 }
 
+// GetAllDataPathPacketRecords mocks base method
+// nolint
+func (m *MockCollector) GetAllDataPathPacketRecords() []*collector.PacketReport {
+	ret := m.ctrl.Call(m, "GetAllDataPathPacketRecords")
+	ret0, _ := ret[0].([]*collector.PacketReport)
+	return ret0
+}
+
+// GetAllDataPathPacketRecords indicates an expected call of GetAllDataPathPacketRecords
+// nolint
+func (mr *MockCollectorMockRecorder) GetAllDataPathPacketRecords() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllDataPathPacketRecords", reflect.TypeOf((*MockCollector)(nil).GetAllDataPathPacketRecords))
+}
+
+// GetAllCounterReports mocks base method
+// nolint
+func (m *MockCollector) GetAllCounterReports() []*collector.CounterReport {
+	ret := m.ctrl.Call(m, "GetAllCounterReports")
+	ret0, _ := ret[0].([]*collector.CounterReport)
+	return ret0
+}
+
+// GetAllCounterReports indicates an expected call of GetAllCounterReports
+// nolint
+func (mr *MockCollectorMockRecorder) GetAllCounterReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllCounterReports", reflect.TypeOf((*MockCollector)(nil).GetAllCounterReports))
+}
+
+// GetDNSReports mocks base method
+// nolint
+func (m *MockCollector) GetDNSReports() chan *collector.DNSRequestReport {
+	ret := m.ctrl.Call(m, "GetDNSReports")
+	ret0, _ := ret[0].(chan *collector.DNSRequestReport)
+	return ret0
+}
+
+// GetDNSReports indicates an expected call of GetDNSReports
+// nolint
+func (mr *MockCollectorMockRecorder) GetDNSReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollector)(nil).GetDNSReports))
+}
+
 // CollectFlowEvent mocks base method
 // nolint
 func (m *MockCollector) CollectFlowEvent(record *collector.FlowRecord) {
@@ -207,4 +291,52 @@ func (m *MockCollector) CollectUserEvent(record *collector.UserRecord) {
 // nolint
 func (mr *MockCollectorMockRecorder) CollectUserEvent(record interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectUserEvent", reflect.TypeOf((*MockCollector)(nil).CollectUserEvent), record)
+}
+
+// CollectTraceEvent mocks base method
+// nolint
+func (m *MockCollector) CollectTraceEvent(records []string) {
+	m.ctrl.Call(m, "CollectTraceEvent", records)
+}
+
+// CollectTraceEvent indicates an expected call of CollectTraceEvent
+// nolint
+func (mr *MockCollectorMockRecorder) CollectTraceEvent(records interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectTraceEvent", reflect.TypeOf((*MockCollector)(nil).CollectTraceEvent), records)
+}
+
+// CollectPacketEvent mocks base method
+// nolint
+func (m *MockCollector) CollectPacketEvent(report *collector.PacketReport) {
+	m.ctrl.Call(m, "CollectPacketEvent", report)
+}
+
+// CollectPacketEvent indicates an expected call of CollectPacketEvent
+// nolint
+func (mr *MockCollectorMockRecorder) CollectPacketEvent(report interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPacketEvent", reflect.TypeOf((*MockCollector)(nil).CollectPacketEvent), report)
+}
+
+// CollectCounterEvent mocks base method
+// nolint
+func (m *MockCollector) CollectCounterEvent(counterReport *collector.CounterReport) {
+	m.ctrl.Call(m, "CollectCounterEvent", counterReport)
+}
+
+// CollectCounterEvent indicates an expected call of CollectCounterEvent
+// nolint
+func (mr *MockCollectorMockRecorder) CollectCounterEvent(counterReport interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectCounterEvent", reflect.TypeOf((*MockCollector)(nil).CollectCounterEvent), counterReport)
+}
+
+// CollectDNSRequests mocks base method
+// nolint
+func (m *MockCollector) CollectDNSRequests(request *collector.DNSRequestReport) {
+	m.ctrl.Call(m, "CollectDNSRequests", request)
+}
+
+// CollectDNSRequests indicates an expected call of CollectDNSRequests
+// nolint
+func (mr *MockCollectorMockRecorder) CollectDNSRequests(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDNSRequests", reflect.TypeOf((*MockCollector)(nil).CollectDNSRequests), request)
 }

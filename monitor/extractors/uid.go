@@ -20,7 +20,9 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
-		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+		// TODO: Remove OLDTAGS
+		runtimeTags.AppendKeyValue("@sys:"+parts[0], parts[1])
+		runtimeTags.AppendKeyValue("@app:linux:"+parts[0], parts[1])
 	}
 
 	if event.Name == "" {

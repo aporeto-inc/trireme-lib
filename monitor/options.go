@@ -4,11 +4,12 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/monitor/internal/cni"
-	"go.aporeto.io/trireme-lib/monitor/internal/docker"
-	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
-	"go.aporeto.io/trireme-lib/monitor/internal/linux"
-	"go.aporeto.io/trireme-lib/monitor/internal/uid"
+	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
+	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
+	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
+	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -27,6 +28,9 @@ type DockerMonitorOption func(*dockermonitor.Config)
 // KubernetesMonitorOption is provided using functional arguments.
 type KubernetesMonitorOption func(*kubernetesmonitor.Config)
 
+// PodMonitorOption is provided using functional arguments.
+type PodMonitorOption func(*podmonitor.Config)
+
 // LinuxMonitorOption is provided using functional arguments.
 type LinuxMonitorOption func(*linuxmonitor.Config)
 
@@ -42,7 +46,7 @@ func optionMonitorLinux(
 	host bool,
 	opts ...LinuxMonitorOption,
 ) Options {
-	lc := linuxmonitor.DefaultConfig(host)
+	lc := linuxmonitor.DefaultConfig(host, false)
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(lc)
@@ -112,6 +116,27 @@ func OptionMonitorUID(
 	}
 }
 
+// SubOptionMonitorSSHExtractor provides a way to specify metadata extractor for SSH monitors.
+func SubOptionMonitorSSHExtractor(extractor extractors.EventMetadataExtractor) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
+	}
+}
+
+// OptionMonitorSSH provides a way to add a SSH monitor and related configuration to be used with New().
+func OptionMonitorSSH(
+	opts ...LinuxMonitorOption,
+) Options {
+	sshc := linuxmonitor.DefaultConfig(false, true)
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(sshc)
+	}
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.SSH] = sshc
+	}
+}
+
 // SubOptionMonitorDockerExtractor provides a way to specify metadata extractor for docker.
 func SubOptionMonitorDockerExtractor(extractor extractors.DockerMetadataExtractor) DockerMonitorOption {
 	return func(cfg *dockermonitor.Config) {
@@ -132,6 +157,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+
+	}
+}
+
+// SubOptionMonitorDockerDestroyStoppedContainers sets the option to destroy stopped containers.
+func SubOptionMonitorDockerDestroyStoppedContainers(f bool) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.DestroyStoppedContainers = f
 	}
 }
 
@@ -199,19 +232,82 @@ func SubOptionMonitorKubernetesDockerExtractor(extractor extractors.DockerMetada
 	}
 }
 
+// OptionMonitorPod provides a way to add a Pod monitor and related configuration to be used with New().
+func OptionMonitorPod(opts ...PodMonitorOption) Options {
+	kc := podmonitor.DefaultConfig()
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(kc)
+	}
+
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.Pod] = kc
+	}
+}
+
+// SubOptionMonitorPodKubeconfig provides a way to specify a kubeconfig to use to connect to Kubernetes.
+// In case of an in-cluter config, leave the kubeconfig field blank
+func SubOptionMonitorPodKubeconfig(kubeconfig string) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Kubeconfig = kubeconfig
+	}
+}
+
+// SubOptionMonitorPodNodename provides a way to specify the kubernetes node name.
+// This is useful for filtering
+func SubOptionMonitorPodNodename(nodename string) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Nodename = nodename
+	}
+}
+
+// SubOptionMonitorPodActivateHostPods provides a way to specify if we want to activate Pods launched in host mode.
+func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.EnableHostPods = enableHostPods
+	}
+}
+
+// SubOptionMonitorPodWorkers provides a way to specify the maximum number of workers that are used in the controller.
+func SubOptionMonitorPodWorkers(workers int) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Workers = workers
+	}
+}
+
+// SubOptionMonitorPodMetadataExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.MetadataExtractor = extractor
+	}
+}
+
+// SubOptionMonitorSandboxExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorSandboxExtractor(extractor extractors.PodSandboxExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.SandboxExtractor = extractor
+	}
+}
+
+// SubOptionMonitorPodNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
+func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.NetclsProgrammer = netclsprogrammer
+	}
+}
+
+// SubOptionMonitorPodResetNetcls provides a way to reset all net_cls cgroups on resync
+func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.ResetNetcls = resetnetcls
+	}
+}
+
 // OptionMergeTags provides a way to add merge tags to be used with New().
 func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
 		cfg.MergeTags = tags
 		cfg.Common.MergeTags = tags
-	}
-}
-
-// OptionApplicationProxyPort is to provide the application proxy port
-func OptionApplicationProxyPort(proxyPort int) Options {
-	return func(cfg *config.MonitorConfig) {
-		cfg.ApplicationProxyPort = proxyPort
-		cfg.Common.ApplicationProxyPort = proxyPort
 	}
 }
 

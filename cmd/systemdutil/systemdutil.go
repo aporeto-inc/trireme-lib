@@ -1,9 +1,9 @@
 package systemdutil
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -12,15 +12,11 @@ import (
 	"syscall"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
-
-var stderrlogger *log.Logger
-
-func init() {
-	stderrlogger = log.New(os.Stderr, "", 0)
-}
 
 // ExecuteCommandFromArguments processes the command from the arguments
 func ExecuteCommandFromArguments(arguments map[string]interface{}) error {
@@ -69,6 +65,8 @@ type CLIRequest struct {
 	NetworkOnly bool
 	// UIDPOlicy indicates that the request is for a UID policy
 	UIDPolicy bool
+	// AutoPort indicates that auto port feature is enabled for the PU
+	AutoPort bool
 }
 
 // RequestProcessor is an instance of the processor
@@ -185,6 +183,10 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		c.Services = services
 	}
 
+	if value, ok := arguments["--autoport"]; ok && value != nil {
+		c.AutoPort = value.(bool)
+	}
+
 	if value, ok := arguments["--networkonly"]; ok && value != nil {
 		c.NetworkOnly = value.(bool)
 	}
@@ -212,17 +214,29 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		}
 	}
 
+	puType := common.LinuxProcessPU
+	if c.NetworkOnly {
+		puType = common.HostNetworkPU
+	} else if c.HostPolicy {
+		puType = common.HostPU
+	}
+
+	exeTags := executableTags(c)
+	c.Labels = append(c.Labels, exeTags...)
+
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
-		PUType:             common.LinuxProcessPU,
+		PUType:             puType,
 		Name:               c.ServiceName,
+		Executable:         c.Executable,
 		Tags:               c.Labels,
 		PID:                int32(os.Getpid()),
 		EventType:          common.EventStart,
 		Services:           c.Services,
 		NetworkOnlyTraffic: c.NetworkOnly,
 		HostService:        c.HostPolicy,
+		AutoPort:           c.AutoPort,
 	}
 
 	if err := sendRequest(r.address, request); err != nil {
@@ -233,7 +247,9 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		return nil
 	}
 
-	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), os.Environ())
+	env := os.Environ()
+	env = append(env, "APORETO_WRAP=1")
+	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), env)
 }
 
 // DeleteService will issue a delete command
@@ -264,7 +280,7 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 // DeleteCgroup will issue a delete command based on the cgroup
 // This is used mainly by the cleaner.
 func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
-	regexCgroup := regexp.MustCompile(`^/trireme/[a-zA-Z0-9_\-:.$%]{1,64}$`)
+	regexCgroup := regexp.MustCompile(`^/trireme/(ssh-)?[a-zA-Z0-9_\-:.$%]{1,64}$`)
 	regexUser := regexp.MustCompile(`^/trireme_uid/[a-zA-Z0-9_\-]{1,32}(/[0-9]{1,32}){0,1}$`)
 
 	if !regexCgroup.Match([]byte(c.Cgroup)) && !regexUser.Match([]byte(c.Cgroup)) {
@@ -277,6 +293,9 @@ func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
 	if strings.HasPrefix(c.Cgroup, common.TriremeUIDCgroupPath) {
 		eventType = common.UIDLoginPU
 		eventPUID = c.Cgroup[len(common.TriremeUIDCgroupPath):]
+	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath+"ssh-") {
+		eventType = common.SSHSessionPU
+		eventPUID = c.Cgroup[len(common.TriremeCgroupPath)+4:]
 	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
 		eventType = common.LinuxProcessPU
 		eventPUID = c.Cgroup[len(common.TriremeCgroupPath):]
@@ -328,6 +347,22 @@ func sendRequest(address string, event *common.EventInfo) error {
 	return client.SendRequest(event)
 }
 
+func executableTags(c *CLIRequest) []string {
+
+	tags := []string{}
+
+	if fileMd5, err := extractors.ComputeFileMd5(c.Executable); err == nil {
+		tags = append(tags, fmt.Sprintf("@app:linux:filechecksum=%s", hex.EncodeToString(fileMd5)))
+	}
+
+	depends := extractors.Libs(c.ServiceName)
+	for _, lib := range depends {
+		tags = append(tags, fmt.Sprintf("@app:linux:lib:%s=true", lib))
+	}
+
+	return tags
+}
+
 // ParseServices parses strings with the services and returns them in an
 // validated slice
 func ParseServices(ports []string) ([]common.Service, error) {
@@ -339,14 +374,32 @@ func ParseServices(ports []string) ([]common.Service, error) {
 
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []common.Service{}
+	protocol := packet.IPProtocolTCP
+
 	for _, p := range ports {
-		s, err := portspec.NewPortSpecFromString(p, nil)
+		// check for port string of form port#/udp eg 8085/udp
+		portProtocolPair := strings.Split(p, "/")
+		if len(portProtocolPair) > 2 || len(portProtocolPair) <= 0 {
+			return nil, fmt.Errorf("Invalid port format. Expected format is of form 80 or 8085/udp")
+		}
+
+		if len(portProtocolPair) == 2 {
+			if portProtocolPair[1] == "tcp" {
+				protocol = packet.IPProtocolTCP
+			} else if portProtocolPair[1] == "udp" {
+				protocol = packet.IPProtocolUDP
+			} else {
+				return nil, fmt.Errorf("Invalid protocol specified. Only tcp/udp accepted")
+			}
+		}
+
+		s, err := portspec.NewPortSpecFromString(portProtocolPair[0], nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
 
 		services = append(services, common.Service{
-			Protocol: uint8(6),
+			Protocol: uint8(protocol),
 			Ports:    s,
 		})
 	}

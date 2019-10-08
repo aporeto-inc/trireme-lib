@@ -10,6 +10,9 @@ type CollectorReader interface {
 	GetAllRecords() map[string]*collector.FlowRecord
 	GetUserRecords() map[string]*collector.UserRecord
 	FlushUserCache()
+	GetAllDataPathPacketRecords() []*collector.PacketReport
+	GetAllCounterReports() []*collector.CounterReport
+	GetDNSReports() chan *collector.DNSRequestReport
 }
 
 // Collector interface implements

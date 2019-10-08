@@ -1,11 +1,11 @@
 package packetprocessor
 
 import (
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
 
@@ -13,8 +13,8 @@ import (
 // as encryption, deep packet inspection, etc. These functions are run inline during packet
 // processing. A services processor must implement this interface.
 type PacketProcessor interface {
-	// Initialize  initializes the secrets of the processor
-	Initialize(s secrets.Secrets, fq *fqconfig.FilterQueue)
+	// Initialize  initializes any ACLs that the processor requires
+	Initialize(fq *fqconfig.FilterQueue, p []provider.IptablesProvider)
 
 	// Stop stops the packet processor
 	Stop() error
@@ -30,4 +30,16 @@ type PacketProcessor interface {
 
 	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
 	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.TCPConnection) bool
+
+	// PreProcessUDPAppPacket will be called for application packets and return value of false means drop packet
+	PreProcessUDPAppPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection, packetType uint8) bool
+
+	// PostProcessUDPAppPacket will be called for application packets and return value of false means drop packet.
+	PostProcessUDPAppPacket(p *packet.Packet, action interface{}, context *pucontext.PUContext, conn *connection.UDPConnection) bool
+
+	// PreProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+	PreProcessUDPNetPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) bool
+
+	// PostProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+	PostProcessUDPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.UDPConnection) bool
 }

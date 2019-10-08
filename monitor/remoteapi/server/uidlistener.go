@@ -97,6 +97,11 @@ type UIDListener struct {
 	nl *net.UnixListener
 }
 
+// NewUIDListener creates a new UID listener.
+func NewUIDListener(nl *net.UnixListener) *UIDListener {
+	return &UIDListener{nl: nl}
+}
+
 // Accept implements the accept method of the interface.
 func (l UIDListener) Accept() (c net.Conn, err error) {
 	nc, err := l.nl.AcceptUnix()

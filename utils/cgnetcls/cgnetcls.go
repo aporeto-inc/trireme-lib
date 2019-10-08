@@ -16,14 +16,13 @@ import (
 	"syscall"
 
 	"github.com/kardianos/osext"
-
+	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
 )
 
-//Initialize only ince
-func init() {
-	mountCgroupController()
-}
+var (
+	mounted = false
+)
 
 // Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 // To add a new process to this cgroup we need to write to the cgroup file
@@ -72,6 +71,23 @@ func (s *netCls) Creategroup(cgroupname string) error {
 
 	return nil
 
+}
+
+// AssignRootMark assings the mark at the root of the file system.
+func (s *netCls) AssignRootMark(mark uint64) error {
+	_, err := os.Stat(basePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("cgroup does not exist: %s", err)
+	}
+
+	//16 is the base since the mark file expects hexadecimal values
+	markval := "0x" + (strconv.FormatUint(mark, 16))
+
+	if err := ioutil.WriteFile(filepath.Join(basePath, markFile), []byte(markval), 0644); err != nil {
+		return fmt.Errorf("failed to write to net_cls.classid file for the root cgroup: %s", err)
+	}
+
+	return nil
 }
 
 //AssignMark writes the mark value to net_cls.classid file.
@@ -186,7 +202,7 @@ func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	for _, line := range strings.Split(string(data), "\n") {
 		if len(line) > 0 {
-			procs = append(procs, string(line))
+			procs = append(procs, line)
 		}
 	}
 
@@ -209,11 +225,10 @@ func (s *netCls) ListAllCgroups(path string) []string {
 	return names
 }
 
-func mountCgroupController() {
+func mountCgroupController() error {
 	mounts, err := ioutil.ReadFile("/proc/mounts")
-
 	if err != nil {
-		zap.L().Fatal(err.Error())
+		return fmt.Errorf("Failed to read /proc/mount: %s", err)
 	}
 
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
@@ -225,40 +240,38 @@ func mountCgroupController() {
 			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
-				netCls = true
-				return
+				return nil
 			}
 		}
 
 	}
 
 	if len(cgroupMount) == 0 {
-		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
-		return
+		return fmt.Errorf("Failed to get mount points: %s", err)
 	}
 
 	if !netCls {
 		basePath = cgroupMount + "/net_cls"
 
 		if err := os.MkdirAll(basePath, 0700); err != nil {
-			zap.L().Fatal(err.Error())
+			return fmt.Errorf("Fail to create net_cls directory: %s", err)
 		}
 
 		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
-			zap.L().Fatal(err.Error())
+			return fmt.Errorf("Fail to mount net_cls group: %s", err)
 		}
-
-		return
 	}
+	return nil
 }
 
 // CgroupMemberCount -- Returns the cound of the number of processes in a cgroup
+// TODO: looks like dead code
 func CgroupMemberCount(cgroupName string) int {
-	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupName))
+	_, err := os.Stat(filepath.Join(basePath, cgroupName))
 	if os.IsNotExist(err) {
 		return 0
 	}
-	data, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, "cgroup.procs"))
+	data, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, "cgroup.procs"))
 	if err != nil {
 		return 0
 	}
@@ -271,7 +284,7 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: "",
-		TriremePath:      "",
+		TriremePath:      common.TriremeDockerHostNetwork,
 	}
 
 	return controller
@@ -279,6 +292,13 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls {
+	if !mounted {
+		mounted = true
+		if err := mountCgroupController(); err != nil {
+			zap.L().Error("Unable to mount net_cls controller - Linux process isolation not possible",
+				zap.Error(err))
+		}
+	}
 	binpath, _ := osext.Executable()
 	controller := &netCls{
 		markchan:         make(chan uint64),

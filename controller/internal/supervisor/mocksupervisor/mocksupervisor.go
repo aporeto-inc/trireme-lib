@@ -7,8 +7,12 @@ package mocksupervisor
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
+	aclprovider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	runtime "go.aporeto.io/trireme-lib/controller/runtime"
 	policy "go.aporeto.io/trireme-lib/policy"
 )
 
@@ -83,16 +87,16 @@ func (mr *MockSupervisorMockRecorder) Run(ctx interface{}) *gomock.Call {
 
 // SetTargetNetworks mocks base method
 // nolint
-func (m *MockSupervisor) SetTargetNetworks(arg0 []string) error {
-	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0)
+func (m *MockSupervisor) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockSupervisorMockRecorder) SetTargetNetworks(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), arg0)
+func (mr *MockSupervisorMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), cfg)
 }
 
 // CleanUp mocks base method
@@ -107,6 +111,20 @@ func (m *MockSupervisor) CleanUp() error {
 // nolint
 func (mr *MockSupervisorMockRecorder) CleanUp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockSupervisor)(nil).CleanUp))
+}
+
+// EnableIPTablesPacketTracing mocks base method
+// nolint
+func (m *MockSupervisor) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
+// nolint
+func (mr *MockSupervisorMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockSupervisor)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }
 
 // MockImplementor is a mock of Implementor interface
@@ -166,30 +184,30 @@ func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, container
 
 // DeleteRules mocks base method
 // nolint
-func (m *MockImplementor) DeleteRules(version int, context, port, mark, uid, proxyPort string) error {
-	ret := m.ctrl.Call(m, "DeleteRules", version, context, port, mark, uid, proxyPort)
+func (m *MockImplementor) DeleteRules(version int, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort string, puType common.PUType) error {
+	ret := m.ctrl.Call(m, "DeleteRules", version, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort, puType)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRules indicates an expected call of DeleteRules
 // nolint
-func (mr *MockImplementorMockRecorder) DeleteRules(version, context, port, mark, uid, proxyPort interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, port, mark, uid, proxyPort)
+func (mr *MockImplementorMockRecorder) DeleteRules(version, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort, puType interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, tcpPorts, udpPorts, mark, uid, proxyPort, dnsProxyPort, puType)
 }
 
 // SetTargetNetworks mocks base method
 // nolint
-func (m *MockImplementor) SetTargetNetworks(arg0, arg1 []string) error {
-	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0, arg1)
+func (m *MockImplementor) SetTargetNetworks(cfg *runtime.Configuration) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockImplementorMockRecorder) SetTargetNetworks(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockImplementor)(nil).SetTargetNetworks), arg0, arg1)
+func (mr *MockImplementorMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockImplementor)(nil).SetTargetNetworks), cfg)
 }
 
 // Run mocks base method
@@ -218,4 +236,18 @@ func (m *MockImplementor) CleanUp() error {
 // nolint
 func (mr *MockImplementorMockRecorder) CleanUp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockImplementor)(nil).CleanUp))
+}
+
+// ACLProvider mocks base method
+// nolint
+func (m *MockImplementor) ACLProvider() []aclprovider.IptablesProvider {
+	ret := m.ctrl.Call(m, "ACLProvider")
+	ret0, _ := ret[0].([]aclprovider.IptablesProvider)
+	return ret0
+}
+
+// ACLProvider indicates an expected call of ACLProvider
+// nolint
+func (mr *MockImplementorMockRecorder) ACLProvider() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACLProvider", reflect.TypeOf((*MockImplementor)(nil).ACLProvider))
 }

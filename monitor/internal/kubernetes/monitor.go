@@ -4,17 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
-
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-
-	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 )
 
 // KubernetesMonitor implements a monitor that sends pod events upstream
@@ -98,7 +95,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 	m.podControllerStop = make(chan struct{})
 
-	zap.L().Debug("Pod Controller created")
+	zap.L().Warn("Using deprecated Kubernetes Monitor")
 
 	return nil
 }

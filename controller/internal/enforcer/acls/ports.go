@@ -9,6 +9,9 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
+// ErrNoMatch is error returned when no match is found.
+var ErrNoMatch = errors.New("No Match")
+
 // portAction captures the minimum and maximum ports for an action
 type portAction struct {
 	min    uint16
@@ -20,13 +23,13 @@ type portAction struct {
 type portActionList []*portAction
 
 // newPortAction parses a port spec and creates the action
-func newPortAction(rule policy.IPRule) (*portAction, error) {
+func newPortAction(tcpport string, policy *policy.FlowPolicy) (*portAction, error) {
 
 	p := &portAction{}
-	if strings.Contains(rule.Port, ":") {
-		parts := strings.Split(rule.Port, ":")
+	if strings.Contains(tcpport, ":") {
+		parts := strings.Split(tcpport, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid port: %s", rule.Port)
+			return nil, fmt.Errorf("invalid port: %s", tcpport)
 		}
 
 		port, err := strconv.Atoi(parts[0])
@@ -42,7 +45,7 @@ func newPortAction(rule policy.IPRule) (*portAction, error) {
 		p.max = uint16(port)
 
 	} else {
-		port, err := strconv.Atoi(rule.Port)
+		port, err := strconv.Atoi(tcpport)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +58,7 @@ func newPortAction(rule policy.IPRule) (*portAction, error) {
 		return nil, errors.New("min port is greater than max port")
 	}
 
-	p.policy = rule.Policy
+	p.policy = policy
 
 	return p, nil
 }
@@ -70,14 +73,13 @@ func (p *portActionList) lookup(port uint16, preReported *policy.FlowPolicy) (re
 
 			// Check observed policies.
 			if pa.policy.ObserveAction.Observed() {
-				if report != nil {
-					continue
+				if report == nil {
+					report = pa.policy
 				}
-				report = pa.policy
 				if pa.policy.ObserveAction.ObserveContinue() {
 					continue
 				}
-				packet = report
+				packet = pa.policy
 				return report, packet, nil
 			}
 
@@ -89,5 +91,5 @@ func (p *portActionList) lookup(port uint16, preReported *policy.FlowPolicy) (re
 		}
 	}
 
-	return report, packet, errors.New("No match")
+	return report, packet, ErrNoMatch
 }

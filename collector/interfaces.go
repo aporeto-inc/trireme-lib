@@ -2,7 +2,9 @@ package collector
 
 import (
 	"fmt"
+	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -18,6 +20,10 @@ const (
 	InvalidToken = "token"
 	// InvalidFormat indicates that the packet metadata were not correct
 	InvalidFormat = "format"
+	// InvalidHeader indicates that the TCP header was not there.
+	InvalidHeader = "header"
+	// InvalidPayload indicates that the TCP payload was not there or bad.
+	InvalidPayload = "payload"
 	// InvalidContext indicates that there was no context in the metadata
 	InvalidContext = "context"
 	// InvalidConnection indicates that there was no connection found
@@ -30,6 +36,16 @@ const (
 	PolicyDrop = "policy"
 	// APIPolicyDrop indicates that the request was dropped because of failed API validation.
 	APIPolicyDrop = "api"
+	// UnableToDial indicates that the proxy cannot dial out the connection
+	UnableToDial = "dial"
+	// CompressedTagMismatch indicates that the compressed tag version is dissimilar
+	CompressedTagMismatch = "compressedtagmismatch"
+	// EncryptionMismatch indicates that the policy encryption varies between client and server enforcer
+	EncryptionMismatch = "encryptionmismatch"
+	// DatapathVersionMismatch indicates that the datapath version is dissimilar
+	DatapathVersionMismatch = "datapathversionmismatch"
+	// PacketDrop indicate a single packet drop
+	PacketDrop = "packetdrop"
 )
 
 // Container event description
@@ -72,6 +88,18 @@ type EventCollector interface {
 
 	// CollectUserEvent  collects a user event
 	CollectUserEvent(record *UserRecord)
+
+	// CollectTraceEvent collects a set of trace messages generated with Iptables trace command
+	CollectTraceEvent(records []string)
+
+	// CollectPacketEvent collects packet event from nfqdatapath
+	CollectPacketEvent(report *PacketReport)
+
+	// CollectCounterEvent collects the counters from
+	CollectCounterEvent(counterReport *CounterReport)
+
+	// CollectDNSRequests collects the dns requests
+	CollectDNSRequests(request *DNSRequestReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -114,6 +142,7 @@ type EndPoint struct {
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
 	ContextID        string
+	Namespace        string
 	Source           *EndPoint
 	Destination      *EndPoint
 	Tags             *policy.TagStore
@@ -129,8 +158,9 @@ type FlowRecord struct {
 }
 
 func (f *FlowRecord) String() string {
-	return fmt.Sprintf("<flowrecord contextID:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
+	return fmt.Sprintf("<flowrecord contextID:%s namespace:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
 		f.ContextID,
+		f.Namespace,
 		f.Count,
 		f.Source.ID,
 		f.Destination.ID,
@@ -153,6 +183,51 @@ type ContainerRecord struct {
 // UserRecord reports a new user access. These will be reported
 // periodically.
 type UserRecord struct {
-	ID     string
-	Claims []string
+	ID        string
+	Namespace string
+	Claims    []string
+}
+
+// PacketReport is the struct which is used to report packets captured in datapath
+type PacketReport struct {
+	TCPFlags        int
+	Claims          []string
+	DestinationIP   string
+	DestinationPort int
+	DropReason      string
+	Encrypt         bool
+	Event           packettracing.PacketEvent
+	Length          int
+	Mark            int
+	Namespace       string
+	PacketID        int
+	Protocol        int
+	PUID            string
+	SourceIP        string
+	SourcePort      int
+	TriremePacket   bool
+	Payload         []byte
+}
+
+// DNSRequestReport object is used to report dns requests being made by PU's
+type DNSRequestReport struct {
+	Namespace  string
+	Source     *EndPoint
+	NameLookup string
+	Error      string
+	Count      int
+	Ts         time.Time
+}
+
+// Counters represent a single entry with name and current val
+type Counters struct {
+	Name  string
+	Value uint32
+}
+
+// CounterReport is called from the PU which reports Counters from the datapath
+type CounterReport struct {
+	Namespace string
+	ContextID string
+	Counters  []Counters
 }

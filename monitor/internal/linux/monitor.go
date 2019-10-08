@@ -32,20 +32,15 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
-	if err := l.Resync(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return l.Resync(ctx)
 }
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
 func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
-	defaultConfig := DefaultConfig(false)
 	if cfg == nil {
-		cfg = defaultConfig
+		cfg = DefaultConfig(false, false)
 	}
 
 	linuxConfig, ok := cfg.(*Config)
@@ -54,8 +49,20 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
-			return err
+		if linuxConfig.SSH {
+			if err := registerer.RegisterProcessor(common.SSHSessionPU, l.proc); err != nil {
+				return err
+			}
+		} else {
+			if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
+				return err
+			}
+			if err := registerer.RegisterProcessor(common.HostPU, l.proc); err != nil {
+				return err
+			}
+			if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -64,10 +71,11 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 
 	// Setup config
 	l.proc.host = linuxConfig.Host
+	l.proc.ssh = linuxConfig.SSH
 	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 
-	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
-	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_]{1,11}$")
+	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_]{1,11}$")
 
 	l.proc.metadataExtractor = linuxConfig.EventMetadataExtractor
 	if l.proc.metadataExtractor == nil {

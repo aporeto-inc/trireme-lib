@@ -1,6 +1,10 @@
 package secrets
 
-import "github.com/dgrijalva/jwt-go"
+import (
+	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+)
 
 // This is a NULL secrets implementation only for performance testing
 // ATTENTION *** ONLY FOR TESTING
@@ -35,17 +39,9 @@ func (p *NullPKI) PublicKey() interface{} {
 	return nil
 }
 
-// DecodingKey returns the public key
-func (p *NullPKI) DecodingKey(server string, ackKey interface{}, prevKey interface{}) (interface{}, error) {
-
-	return jwt.UnsafeAllowNoneSignatureType, nil
-}
-
-// VerifyPublicKey verifies if the inband public key is correct.
-func (p *NullPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
-
-	return jwt.UnsafeAllowNoneSignatureType, nil
-
+//KeyAndClaims returns both the key and any attributes associated with the public key.
+func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error) {
+	return jwt.UnsafeAllowNoneSignatureType, []string{}, time.Now(), nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI
@@ -59,25 +55,10 @@ func (p *NullPKI) AckSize() uint32 {
 	return uint32(235)
 }
 
-// AuthPEM returns the Certificate Authority PEM
-func (p *NullPKI) AuthPEM() []byte {
-	return p.AuthorityPEM
-}
-
-// TransmittedPEM returns the PEM certificate that is transmitted
-func (p *NullPKI) TransmittedPEM() []byte {
-	return p.PublicKeyPEM
-}
-
-// EncodingPEM returns the certificate PEM that is used for encoding
-func (p *NullPKI) EncodingPEM() []byte {
-	return p.PrivateKeyPEM
-}
-
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.
 func (p *NullPKI) PublicSecrets() PublicSecrets {
 	return &NullPublicSecrets{
-		Type: PKIType,
+		Type: PKINull,
 	}
 }
 

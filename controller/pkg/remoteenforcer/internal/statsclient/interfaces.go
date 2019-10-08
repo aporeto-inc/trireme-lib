@@ -7,4 +7,5 @@ import "context"
 // stats events stored by datapath and ship them to the master enforcer.
 type StatsClient interface {
 	Run(ctx context.Context) error
+	SendStats()
 }

@@ -6,33 +6,27 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
+	tcommon "go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
+	httpproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
-
 	"go.uber.org/zap"
 )
 
 const (
 	proxyMarkInt = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
-
 )
 
 // ServerInterface describes the methods required by an application processor.
@@ -44,52 +38,55 @@ type ServerInterface interface {
 
 type clientData struct {
 	protomux  *protomux.MultiplexedListener
-	netserver map[protomux.ListenerType]ServerInterface
+	netserver map[common.ListenerType]ServerInterface
 }
 
 // AppProxy maintains state for proxies connections from listen to backend.
 type AppProxy struct {
 	cert *tls.Certificate
 
-	tokenaccessor      tokenaccessor.TokenAccessor
-	collector          collector.EventCollector
-	authProcessorCache cache.DataStore
-	serviceMap         cache.DataStore
-	puFromID           cache.DataStore
-	dependentAPICache  cache.DataStore
-	systemCAPool       *x509.CertPool
-	secrets            secrets.Secrets
+	tokenaccessor tokenaccessor.TokenAccessor
+	collector     collector.EventCollector
+	puFromID      cache.DataStore
+	systemCAPool  *x509.CertPool
+	secrets       secrets.Secrets
 
-	clients cache.DataStore
+	registry *serviceregistry.Registry
+
+	clients     cache.DataStore
+	tokenIssuer tcommon.ServiceTokenIssuer
 	sync.RWMutex
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
+func NewAppProxy(
+	tp tokenaccessor.TokenAccessor,
+	c collector.EventCollector,
+	puFromID cache.DataStore,
+	certificate *tls.Certificate,
+	s secrets.Secrets,
+	t tcommon.ServiceTokenIssuer,
+) (*AppProxy, error) {
 
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err
 	}
 
-	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
-	if s.PublicSecrets().SecretsType() != secrets.PSKType {
-		if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
-			return nil, fmt.Errorf("error while adding provided CA")
-		}
+	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
+		return nil, fmt.Errorf("error while adding provided CA")
 	}
 
 	return &AppProxy{
-		collector:          c,
-		tokenaccessor:      tp,
-		secrets:            s,
-		puFromID:           puFromID,
-		cert:               certificate,
-		authProcessorCache: cache.NewCache("authprocessors"),
-		serviceMap:         cache.NewCache("servicemap"),
-		clients:            cache.NewCache("clients"),
-		dependentAPICache:  cache.NewCache("dependencies"),
-		systemCAPool:       systemPool,
+		collector:     c,
+		tokenaccessor: tp,
+		secrets:       s,
+		puFromID:      puFromID,
+		cert:          certificate,
+		clients:       cache.NewCache("clients"),
+		systemCAPool:  systemPool,
+		registry:      serviceregistry.NewServiceRegistry(),
+		tokenIssuer:   t,
 	}, nil
 }
 
@@ -108,68 +105,84 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.Lock()
 	defer p.Unlock()
 
-	// First update the caches with the new policy information.
-	authProcessor := auth.NewProcessor(p.secrets, nil)
-	serviceMap, portCache := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
-	dependentCache, caPoolPEM := buildDependentCaches(puInfo.Policy.DependentServices())
-	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
-	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
-	p.serviceMap.AddOrUpdate(puID, serviceMap)
+	if puInfo.Policy.ServicesListeningPort() == "0" {
+		zap.L().Warn("Services listening port not specified - not activating proxy")
+		return nil
+	}
 
-	caPool := p.expandCAPool(caPoolPEM)
+	data, err := p.puFromID.Get(puID)
+	if err != nil || data == nil {
+		return fmt.Errorf("undefined PU - Context not found: %s", puID)
+	}
+
+	puContext, ok := data.(*pucontext.PUContext)
+	if !ok {
+		return fmt.Errorf("bad data types for puContext")
+	}
+
+	sctx, err := p.registry.Register(puID, puInfo, puContext, p.secrets)
+	if err != nil {
+		return fmt.Errorf("policy conflicts detected: %s", err)
+	}
+
+	caPool := p.expandCAPool(sctx.RootCA)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPoolPEM)
+		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPool)
 		if perr != nil {
+			zap.L().Error("unable to update certificates and services", zap.Error(perr))
 			return perr
 		}
-		return p.registerServices(c.(*clientData), puInfo)
+		return nil
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
-	l, err := p.createNetworkListener(":" + puInfo.Runtime.Options().ProxyPort)
+	l, err := p.createNetworkListener(ctx, ":"+puInfo.Policy.ServicesListeningPort())
 	if err != nil {
-		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Runtime.Options().ProxyPort, err)
+		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
 
 	// Create a new client entry and start the servers.
 	client := &clientData{
-		netserver: map[protomux.ListenerType]ServerInterface{},
+		netserver: map[common.ListenerType]ServerInterface{},
 	}
-	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt)
+	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt, p.registry, puID)
 
 	// Listen to HTTP requests from the clients
-	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, caPool, true)
+	client.netserver[common.HTTPApplication], err = p.registerAndRun(ctx, puID, common.HTTPApplication, client.protomux, caPool, true)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPApplication, err)
+		return fmt.Errorf("Cannot create listener type %d: %s", common.HTTPApplication, err)
 	}
 
-	// Listen to HTTPS requests only on the network side.
-	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, caPool, false)
+	// Listen to HTTPS requests on the network side.
+	client.netserver[common.HTTPSNetwork], err = p.registerAndRun(ctx, puID, common.HTTPSNetwork, client.protomux, caPool, false)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPSNetwork, err)
+		return fmt.Errorf("Cannot create listener type %d: %s", common.HTTPSNetwork, err)
+	}
+
+	// Listen to HTTP requests on the network side - mainly used for health probes - completely insecure for
+	// anything else.
+	client.netserver[common.HTTPNetwork], err = p.registerAndRun(ctx, puID, common.HTTPNetwork, client.protomux, caPool, false)
+	if err != nil {
+		return fmt.Errorf("Cannot create listener type %d: %s", common.HTTPNetwork, err)
 	}
 
 	// TCP Requests for clients
-	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, caPool, true)
+	client.netserver[common.TCPApplication], err = p.registerAndRun(ctx, puID, common.TCPApplication, client.protomux, caPool, true)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPApplication, err)
+		return fmt.Errorf("Cannot create listener type %d: %s", common.TCPApplication, err)
 	}
 
 	// TCP Requests from the network side
-	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, caPool, false)
+	client.netserver[common.TCPNetwork], err = p.registerAndRun(ctx, puID, common.TCPNetwork, client.protomux, caPool, false)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
-	}
-	client.netserver[protomux.TCPNetwork].(*tcp.Proxy).UpdatePortCache(portCache)
-
-	if err := p.registerServices(client, puInfo); err != nil {
-		return fmt.Errorf("Unable to register services: %s ", err)
+		return fmt.Errorf("Cannot create listener type %d: %s", common.TCPNetwork, err)
 	}
 
-	if _, err := p.processCertificateUpdates(puInfo, client, caPoolPEM); err != nil {
+	if _, err := p.processCertificateUpdates(puInfo, client, caPool); err != nil {
+		zap.L().Error("Failed to update certificates", zap.Error(err))
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
@@ -188,12 +201,9 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	p.Lock()
 	defer p.Unlock()
 
-	if err := p.authProcessorCache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the API cache")
-	}
-
-	if err := p.dependentAPICache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the Dependent API cache")
+	// Remove pu from registry
+	if err := p.registry.Unregister(puID); err != nil {
+		return err
 	}
 
 	// Find the correct client.
@@ -209,7 +219,7 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 			zap.L().Error("Unable to unregister client", zap.Int("type", int(t)), zap.Error(err))
 		}
 		if err := server.ShutDown(); err != nil {
-			zap.L().Error("Unable to shutdown client server", zap.Error(err))
+			zap.L().Debug("Unable to shutdown client server", zap.Error(err))
 		}
 	}
 
@@ -225,11 +235,6 @@ func (p *AppProxy) GetFilterQueue() *fqconfig.FilterQueue {
 	return nil
 }
 
-// GetPortSetInstance returns nil for the proxy
-func (p *AppProxy) GetPortSetInstance() portset.PortSet {
-	return nil
-}
-
 // UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will
 // get the secret updates with the next policy push.
 func (p *AppProxy) UpdateSecrets(secret secrets.Secrets) error {
@@ -239,68 +244,8 @@ func (p *AppProxy) UpdateSecrets(secret secrets.Secrets) error {
 	return nil
 }
 
-// registerServices register the services with the multiplexer
-func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) error {
-
-	register := client.protomux.NewServiceRegistry()
-
-	// Support for deprecated model. TODO : Remove
-	proxiedServices := puInfo.Policy.ProxiedServices()
-	for _, pair := range proxiedServices.PublicIPPortPair {
-		service, err := serviceFromProxySet(pair)
-		if err != nil {
-			return err
-		}
-		if err := register.Add(service, protomux.TCPApplication, false); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
-		}
-	}
-
-	for _, pair := range proxiedServices.PrivateIPPortPair {
-		parts := strings.Split(pair, ",")
-		if len(parts) != 2 {
-			return fmt.Errorf("Invalid service: %s", pair)
-		}
-		ports, err := portspec.NewPortSpecFromString(parts[1], nil)
-		if err != nil {
-			return fmt.Errorf("Invalid service port: %s", err)
-		}
-		service := &common.Service{
-			Ports:     ports,
-			Protocol:  6,
-			Addresses: []*net.IPNet{},
-		}
-		if err != nil {
-			return err
-		}
-		if err := register.Add(service, protomux.TCPNetwork, true); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
-		}
-	}
-
-	// Register the ExposedServices with the multiplexer.
-	for _, service := range puInfo.Policy.ExposedServices() {
-		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
-			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
-		}
-	}
-
-	// Register the DependentServices with the multiplexer.
-	for _, service := range puInfo.Policy.DependentServices() {
-		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
-			continue
-		}
-		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type), false); err != nil {
-			return fmt.Errorf("Duplicate dependent service: %s", err)
-		}
-	}
-
-	client.protomux.SetServiceRegistry(register)
-	return nil
-}
-
 // registerAndRun registers a new listener of the given type and runs the corresponding server
-func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, appproxy bool) (ServerInterface, error) {
+func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype common.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, appproxy bool) (ServerInterface, error) {
 	var listener net.Listener
 	var err error
 
@@ -312,30 +257,29 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 
 	// If the protocol is encrypted, wrapp it with TLS.
 	encrypted := false
-	if ltype == protomux.HTTPSNetwork {
+	if ltype == common.HTTPSNetwork {
 		encrypted = true
 	}
 
 	// Start the corresponding proxy
 	switch ltype {
-	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
+	case common.HTTPApplication, common.HTTPSApplication, common.HTTPNetwork, common.HTTPSNetwork:
+		c := httpproxy.NewHTTPProxy(p.collector, puID, caPool, appproxy, proxyMarkInt, p.secrets, p.registry, p.tokenIssuer)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, puID, p.registry, p.cert, caPool)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
 
 // createNetworkListener starts a network listener (traffic from network to PUs)
-func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
-
-	return markedconn.SocketListener(port, proxyMarkInt)
+func (p *AppProxy) createNetworkListener(ctx context.Context, port string) (net.Listener, error) {
+	return markedconn.NewSocketListener(ctx, port, proxyMarkInt)
 }
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
-func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, externalCAs [][]byte) (bool, error) {
+func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, caPool *x509.CertPool) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
 	// services. If the certificates are nil, we ignore them.
@@ -345,16 +289,9 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	}
 
 	// Process any updates on the cert pool
-	var caPool *x509.CertPool
 	if caPEM != "" {
-		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
-	} else {
-		caPool = p.systemCAPool
-	}
-
-	for _, caCert := range externalCAs {
-		if !caPool.AppendCertsFromPEM(caCert) {
-			zap.L().Warn("Failed to add CA certificate to chain")
+		if !caPool.AppendCertsFromPEM([]byte(caPEM)) {
+			zap.L().Warn("Failed to add Services CA")
 		}
 	}
 
@@ -370,127 +307,20 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	return true, nil
 }
 
-func serviceTypeToNetworkListenerType(serviceType policy.ServiceType) protomux.ListenerType {
-	switch serviceType {
-	case policy.ServiceHTTP:
-		return protomux.HTTPSNetwork
-	default:
-		return protomux.TCPNetwork
-	}
-}
-
-func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protomux.ListenerType {
-	switch serviceType {
-	case policy.ServiceHTTP:
-		return protomux.HTTPApplication
-	default:
-		return protomux.TCPApplication
-	}
-}
-
-// buildExposedServices builds the caches for the exposed services. It assumes that an authorization
-// processor has already been created. It return two maps. The first has a mapping between
-// destination rhost values and service IDs. The second has map between destination ports
-// and service IDs.
-// TODO:
-// We just need the port mapping and not the rhost mapping since we know the original port. This will
-// be simplified farther.
-func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[string]string, map[int]string) {
-	serviceMap := map[string]string{}
-	portCache := map[int]string{}
-
-	for _, service := range exposedServices {
-		if service.Type == policy.ServiceTCP {
-			if port, err := service.PrivateNetworkInfo.Ports.SinglePort(); err == nil {
-				portCache[int(port)] = service.ID
-			}
-			continue
-		}
-		if service.Type != policy.ServiceHTTP {
-			continue
-		}
-		if service.NetworkInfo.Ports.IsMultiPort() {
-			zap.L().Error("Multiport HTTP services are not supported")
-			continue
-		}
-		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
-		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler)
-		for _, fqdn := range service.NetworkInfo.FQDNs {
-			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
-			serviceMap[rhost] = service.ID
-		}
-		for _, addr := range service.NetworkInfo.Addresses {
-			rhost := addr.IP.String() + ":" + service.NetworkInfo.Ports.String()
-			serviceMap[rhost] = service.ID
-		}
-	}
-	return serviceMap, portCache
-}
-
-// buildDependentCaches builds the caches for the dependent services.
-// It returns a map of API caches based on destination rhost values and
-// and array of public CAs for accessing external services.
-func buildDependentCaches(dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, [][]byte) {
-	dependentCache := map[string]*urisearch.APICache{}
-	caPool := [][]byte{}
-
-	for _, service := range dependentServices {
-		if service.Type != policy.ServiceHTTP {
-			continue
-		}
-		if service.NetworkInfo.Ports.IsMultiPort() {
-			zap.L().Error("Multiport services are not supported")
-			continue
-		}
-		uricache := urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
-		for _, fqdn := range service.NetworkInfo.FQDNs {
-			dependentCache[fqdn+":"+service.NetworkInfo.Ports.String()] = uricache
-		}
-		for _, addr := range service.NetworkInfo.Addresses {
-			dependentCache[addr.IP.String()+":"+service.NetworkInfo.Ports.String()] = uricache
-		}
-		if len(service.CACert) > 0 {
-			caPool = append(caPool, service.CACert)
-		}
-	}
-	return dependentCache, caPool
-}
-
-func serviceFromProxySet(pair string) (*common.Service, error) {
-	parts := strings.Split(pair, ",")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("Invalid service: %s", pair)
-	}
-
-	_, ip, err := net.ParseCIDR(parts[0] + "/32")
-	if err != nil {
-		return nil, fmt.Errorf("Invalid service IP: %s", err)
-	}
-	ports, err := portspec.NewPortSpecFromString(parts[1], nil)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid service port: %s", err)
-	}
-
-	return &common.Service{
-		Ports:     ports,
-		Protocol:  6,
-		Addresses: []*net.IPNet{ip},
-	}, nil
-}
-
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
+		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool
 	}
-	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
-	if p.secrets.PublicSecrets().SecretsType() != secrets.PSKType {
-		if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
-			return p.systemCAPool
-		}
+	if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
+		zap.L().Error("cannot appen system CA", zap.Error(err))
+		return p.systemCAPool
 	}
 	for _, ca := range externalCAs {
-		systemPool.AppendCertsFromPEM(ca)
+		if ok := systemPool.AppendCertsFromPEM(ca); !ok {
+			zap.L().Error("cannot append external service ca", zap.String("CA", string(ca)))
+		}
 	}
 	return systemPool
 }

@@ -81,6 +81,34 @@ func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string
 
 }
 
+// deletePUIDCache deletes puid corresponding entries from the cache.
+func (c *cache) deletePUIDCache(puID string) {
+	c.Lock()
+	defer c.Unlock()
+
+	// Remove from pod cache.
+	puidEntry, ok := c.puidCache[puID]
+	if !ok {
+		return
+	}
+	kubeIdentifier := puidEntry.kubeIdentifier
+
+	podEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		return
+	}
+
+	delete(podEntry.puIDs, puID)
+
+	// if no more containers in the pod, delete the podEntry.
+	if len(podEntry.puIDs) == 0 {
+		delete(c.podCache, kubeIdentifier)
+	}
+
+	// delete entry in puidcache
+	delete(c.puidCache, puID)
+}
+
 // getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
 func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
 	c.RLock()
@@ -121,7 +149,7 @@ func (c *cache) getKubernetesRuntimeByPUID(puid string) policy.RuntimeReader {
 	return puidEntry.kubernetesRuntime
 }
 
-// deletePod locks the cache in order to return the pod cache entry if found, or create it if not found
+// deletePodEntry locks the cache in order to deletes pod cache entry.
 func (c *cache) deletePodEntry(podNamespace string, podName string) {
 	c.Lock()
 	defer c.Unlock()
@@ -131,7 +159,7 @@ func (c *cache) deletePodEntry(podNamespace string, podName string) {
 	delete(c.podCache, kubeIdentifier)
 }
 
-// deletePUID locks the cache in order to return the pod cache entry if found, or create it if not found
+// deletePUID locks the cache in order to delete the puid from puidcache.
 func (c *cache) deletePUIDEntry(puid string) {
 	c.Lock()
 	defer c.Unlock()

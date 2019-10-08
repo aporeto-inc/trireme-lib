@@ -2,9 +2,12 @@ package policy
 
 import (
 	"errors"
+	"fmt"
+	"hash/fnv"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
+	"go.uber.org/zap"
 )
 
 const (
@@ -158,17 +161,67 @@ type FlowPolicy struct {
 	Action        ActionType
 	ServiceID     string
 	PolicyID      string
+	Labels        []string
+}
+
+// DefaultAcceptLogPrefix return the prefix used in nf-log action for default rule.
+func DefaultAcceptLogPrefix(contextID string) string {
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":default:default:3"
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
 func (f *FlowPolicy) LogPrefix(contextID string) string {
-	prefix := contextID + ":" + f.PolicyID + ":" + f.ServiceID + f.EncodedActionString()
-	return prefix
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + f.EncodedActionString()
+}
+
+// LogPrefixAction is the prefix used in nf-log action with the given action.
+// NOTE: If 0 or empty action is passed, the default is reject (6).
+func (f *FlowPolicy) LogPrefixAction(contextID string, action string) string {
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	if len(action) == 0 || action == "0" {
+		action = "6"
+	}
+
+	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + action
 }
 
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
 func DefaultLogPrefix(contextID string) string {
-	return contextID + ":default:default" + "6"
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":default:default:6"
+}
+
+// DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
+func DefaultDroppedPacketLogPrefix(contextID string) string {
+
+	hash, err := Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	return hash + ":default:default:10"
 }
 
 // EncodedActionString is used to encode observed action as well as action
@@ -233,14 +286,36 @@ func EncodedStringToAction(e string) (ActionType, ObserveActionType, error) {
 
 // IPRule holds IP rules to external services
 type IPRule struct {
-	Address  string
-	Port     string
-	Protocol string
-	Policy   *FlowPolicy
+	Addresses  []string
+	Ports      []string
+	Protocols  []string
+	Extensions []string
+	Policy     *FlowPolicy
 }
 
 // IPRuleList is a list of IP rules
 type IPRuleList []IPRule
+
+// PortProtocolPolicy holds the assicated ports, protocols and policy
+type PortProtocolPolicy struct {
+	Ports     []string
+	Protocols []string
+	Policy    *FlowPolicy
+}
+
+// DNSRuleList is a map from fqdns to a list of policies.
+type DNSRuleList map[string][]PortProtocolPolicy
+
+// Copy creates a clone of DNS rule list
+func (l DNSRuleList) Copy() DNSRuleList {
+	dnsRuleList := DNSRuleList{}
+
+	for k, v := range l {
+		dnsRuleList[k] = v
+	}
+
+	return dnsRuleList
+}
 
 // Copy creates a clone of the IP rule list
 func (l IPRuleList) Copy() IPRuleList {
@@ -256,6 +331,7 @@ type KeyValueOperator struct {
 	Key      string
 	Value    []string
 	Operator Operator
+	ID       string
 }
 
 // TagSelector info describes a tag selector key Operator value
@@ -307,35 +383,46 @@ type OptionsType struct {
 	// UserID is the user ID if it exists
 	UserID string
 
+	// AutoPort option is set if auto port is enabled
+	AutoPort bool
+
 	// Services is the list of services of interest
 	Services []common.Service
-
-	// ProxyPort is the port on which the proxy listens
-	ProxyPort string
 
 	// PolicyExtensions is policy resolution extensions
 	PolicyExtensions interface{}
 
 	// PortMap maps container port -> host ports.
 	PortMap map[nat.Port][]string
+
+	// ConvertedDockerPU is set when a docker PU is converted to LinuxProcess
+	// in order to implement host network containers.
+	ConvertedDockerPU bool
 }
 
-// ProxiedServicesInfo holds the info for a proxied service.
-type ProxiedServicesInfo struct {
-	// PublicIPPortPair  is an array public ip,port  of load balancer or passthrough object per pu
-	PublicIPPortPair []string
-	// PrivateIPPortPair is an array of private ip,port of load balancer or passthrough object per pu
-	PrivateIPPortPair []string
+// RuntimeError is an error detected by the TriremeController that has to be
+// returned at a later time to the policy engine to take action.
+type RuntimeError struct {
+	ContextID string
+	Error     error
 }
 
-// AddPublicIPPortPair add a ip port pair to proxied services
-func (p *ProxiedServicesInfo) AddPublicIPPortPair(ipportpair string) {
-	p.PublicIPPortPair = append(p.PublicIPPortPair, ipportpair)
+// Fnv32Hash hash the given data by Fnv32-bit algorithm.
+func Fnv32Hash(data ...string) (string, error) {
 
-}
+	if len(data) == 0 {
+		return "", fmt.Errorf("no data to hash")
+	}
 
-// AddPrivateIPPortPair adds a private ip port pair
-func (p *ProxiedServicesInfo) AddPrivateIPPortPair(ipportpair string) {
-	p.PrivateIPPortPair = append(p.PrivateIPPortPair, ipportpair)
+	aggregatedData := ""
+	for _, ed := range data {
+		aggregatedData += ed
+	}
 
+	hash := fnv.New32()
+	if _, err := hash.Write([]byte(aggregatedData)); err != nil {
+		return "", fmt.Errorf("unable to hash data: %v", err)
+	}
+
+	return fmt.Sprintf("%d", hash.Sum32()), nil
 }

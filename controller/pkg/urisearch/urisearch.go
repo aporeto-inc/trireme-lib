@@ -18,8 +18,7 @@ type APICache struct {
 }
 
 type scopeRule struct {
-	rule   *policy.HTTPRule
-	scopes map[string]struct{}
+	rule *policy.HTTPRule
 }
 
 // NewAPICache creates a new API cache
@@ -32,11 +31,7 @@ func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 
 	for _, rule := range rules {
 		sc := &scopeRule{
-			rule:   rule,
-			scopes: map[string]struct{}{},
-		}
-		for _, term := range rule.Scopes {
-			sc.scopes[term] = struct{}{}
+			rule: rule,
 		}
 		for _, method := range rule.Methods {
 			if _, ok := a.methodRoots[method]; !ok {
@@ -79,12 +74,31 @@ func (c *APICache) FindAndMatchScope(verb, uri string, attributes []string) (boo
 	if policyRule.rule.Public {
 		return true, true
 	}
-	for _, attr := range attributes {
-		if _, ok := policyRule.scopes[attr]; ok {
-			return true, false
+	return c.MatchClaims(policyRule.rule.ClaimMatchingRules, attributes), false
+}
+
+// MatchClaims receives a set of claim matchibg rules and a set of claims
+// and returns true of the claims match the rules.
+func (c *APICache) MatchClaims(rules [][]string, claims []string) bool {
+
+	claimsMap := map[string]struct{}{}
+	for _, claim := range claims {
+		claimsMap[claim] = struct{}{}
+	}
+
+	var matched int
+	for _, clause := range rules {
+		matched = len(clause)
+		for _, claim := range clause {
+			if _, ok := claimsMap[claim]; ok {
+				matched--
+			}
+			if matched == 0 {
+				return true
+			}
 		}
 	}
-	return false, false
+	return false
 }
 
 // Find finds a URI in the cache and returns true and the data if found.
@@ -104,7 +118,7 @@ func parse(s string) (string, string) {
 	}
 	for i := 1; i < len(s); i++ {
 		if s[i] == '/' {
-			return s[0:i], s[i:len(s)]
+			return s[0:i], s[i:]
 		}
 	}
 

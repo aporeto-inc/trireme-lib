@@ -19,14 +19,15 @@ const (
 	LinuxHost
 	UID
 	Kubernetes
+	SSH
+	Pod
 )
 
 // MonitorConfig specifies the configs for monitors.
 type MonitorConfig struct {
-	Common               *ProcessorConfig
-	MergeTags            []string
-	Monitors             map[Type]interface{}
-	ApplicationProxyPort int
+	Common    *ProcessorConfig
+	MergeTags []string
+	Monitors  map[Type]interface{}
 }
 
 // String returns the configuration in string
@@ -43,10 +44,9 @@ func (c *MonitorConfig) String() string {
 
 // ProcessorConfig holds configuration for the processors
 type ProcessorConfig struct {
-	Collector            collector.EventCollector
-	Policy               policy.Resolver
-	MergeTags            []string
-	ApplicationProxyPort int
+	Collector collector.EventCollector
+	Policy    policy.Resolver
+	MergeTags []string
 }
 
 // IsComplete checks if configuration is complete

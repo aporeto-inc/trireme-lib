@@ -3,11 +3,10 @@ package statscollector
 import (
 	"testing"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewCollector(t *testing.T) {
@@ -103,6 +102,35 @@ func TestCollectFlowEvent(t *testing.T) {
 					So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 33)
 				})
 			})
+		})
+	})
+}
+
+func TestGetAllDataPathPacketRecords(t *testing.T) {
+	Convey("Given i collect a new collector", t, func() {
+		c := NewCollector()
+		Convey("I trace single packet", func() {
+			c.CollectPacketEvent(&collector.PacketReport{
+				DestinationIP: "1.2.3.4",
+			})
+			records := c.GetAllDataPathPacketRecords()
+			So(len(records), ShouldEqual, 1)
+		})
+
+	})
+
+}
+
+func TestAllCounterReports(t *testing.T) {
+	Convey("Given i collect a new collector", t, func() {
+		c := NewCollector()
+		Convey("I trace a single packet", func() {
+			c.CollectCounterEvent(&collector.CounterReport{})
+			records := c.GetAllCounterReports()
+			So(len(records), ShouldEqual, 1)
+			c.CollectCounterEvent(&collector.CounterReport{})
+			records = c.GetAllCounterReports()
+			So(len(records), ShouldEqual, 1)
 		})
 	})
 }

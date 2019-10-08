@@ -11,10 +11,9 @@ func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{"172.17.0.0/16"}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
-				So(p.triremeNetworks, ShouldResemble, []string{"172.17.0.0/16"})
 				So(p.applicationACLs, ShouldNotBeNil)
 				So(p.networkACLs, ShouldNotBeNil)
 				So(p.triremeAction, ShouldEqual, AllowAll)
@@ -22,7 +21,6 @@ func TestNewPolicy(t *testing.T) {
 				So(p.receiverRules, ShouldNotBeNil)
 				So(p.identity, ShouldNotBeNil)
 				So(p.ips, ShouldNotBeNil)
-				So(p.excludedNetworks, ShouldNotBeNil)
 			})
 		})
 
@@ -32,9 +30,9 @@ func TestNewPolicy(t *testing.T) {
 					Action:   Accept,
 					PolicyID: "1",
 				},
-				Address:  "10.0.0.0/8",
-				Protocol: "tcp",
-				Port:     "80",
+				Addresses: []string{"10.0.0.0/8"},
+				Protocols: []string{"tcp"},
+				Ports:     []string{"80"},
 			}
 
 			netACL := IPRule{
@@ -42,9 +40,9 @@ func TestNewPolicy(t *testing.T) {
 					Action:   Accept,
 					PolicyID: "2",
 				},
-				Address:  "20.0.0.0/8",
-				Protocol: "tcp",
-				Port:     "80",
+				Addresses: []string{"20.0.0.0/8"},
+				Protocols: []string{"tcp"},
+				Ports:     []string{"80"},
 			}
 
 			clause := KeyValueOperator{
@@ -74,25 +72,26 @@ func TestNewPolicy(t *testing.T) {
 			annotations.AppendKeyValue("server", "local")
 
 			ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-			triremeNetworks := []string{"10.1.1.0/24"}
-			excludedNetworks := []string{"10.1.1.1"}
 
 			p := NewPUPolicy(
-				"id1",
+				"id",
+				"/abc",
 				AllowAll,
 				IPRuleList{appACL},
 				IPRuleList{netACL},
+				nil,
 				txtags,
 				rxtags,
 				identity,
 				annotations,
+				nil,
 				ips,
-				triremeNetworks,
-				excludedNetworks,
-				&ProxiedServicesInfo{},
+				0,
+				0,
 				nil,
 				nil,
 				[]string{},
+				EnforcerMapping,
 			)
 
 			Convey("Then I should get the right policy", func() {
@@ -105,8 +104,6 @@ func TestNewPolicy(t *testing.T) {
 				So(p.identity, ShouldResemble, identity)
 				So(p.annotations, ShouldResemble, annotations)
 				So(p.ips, ShouldResemble, ips)
-				So(p.triremeNetworks, ShouldResemble, triremeNetworks)
-				So(p.excludedNetworks, ShouldResemble, excludedNetworks)
 			})
 		})
 	})
@@ -117,7 +114,6 @@ func TestNewPolicyWithDefaults(t *testing.T) {
 		p := NewPUPolicyWithDefaults()
 		Convey("I shpuld get an empty policy", func() {
 			So(p, ShouldNotBeNil)
-			So(p.triremeNetworks, ShouldResemble, []string{})
 			So(p.applicationACLs, ShouldNotBeNil)
 			So(p.networkACLs, ShouldNotBeNil)
 			So(p.triremeAction, ShouldEqual, AllowAll)
@@ -125,7 +121,6 @@ func TestNewPolicyWithDefaults(t *testing.T) {
 			So(p.receiverRules, ShouldNotBeNil)
 			So(p.identity, ShouldNotBeNil)
 			So(p.ips, ShouldNotBeNil)
-			So(p.excludedNetworks, ShouldNotBeNil)
 		})
 	})
 }
@@ -137,9 +132,9 @@ func TestFuncClone(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "1",
 			},
-			Address:  "10.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		netACL := IPRule{
@@ -147,9 +142,9 @@ func TestFuncClone(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "2",
 			},
-			Address:  "20.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"20.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		clause := KeyValueOperator{
@@ -179,25 +174,26 @@ func TestFuncClone(t *testing.T) {
 		annotations.AppendKeyValue("server", "local")
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-		triremeNetworks := []string{"10.1.1.0/24"}
-		excludedNetworks := []string{"10.1.1.1"}
 
 		d := NewPUPolicy(
-			"id1",
+			"id",
+			"/abc",
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
+			nil,
 			txtags,
 			rxtags,
 			identity,
 			annotations,
+			nil,
 			ips,
-			triremeNetworks,
-			excludedNetworks,
-			&ProxiedServicesInfo{},
+			0,
+			0,
 			nil,
 			nil,
 			[]string{},
+			EnforcerMapping,
 		)
 		Convey("If I clone the policy", func() {
 			p := d.Clone()
@@ -211,8 +207,6 @@ func TestFuncClone(t *testing.T) {
 				So(p.identity, ShouldResemble, identity)
 				So(p.annotations, ShouldResemble, annotations)
 				So(p.ips, ShouldResemble, ips)
-				So(p.triremeNetworks, ShouldResemble, triremeNetworks)
-				So(p.excludedNetworks, ShouldResemble, excludedNetworks)
 			})
 		})
 	})
@@ -225,9 +219,9 @@ func TestAllLockedSetGet(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "1",
 			},
-			Address:  "10.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"10.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		netACL := IPRule{
@@ -235,9 +229,9 @@ func TestAllLockedSetGet(t *testing.T) {
 				Action:   Accept,
 				PolicyID: "2",
 			},
-			Address:  "20.0.0.0/8",
-			Protocol: "tcp",
-			Port:     "80",
+			Addresses: []string{"20.0.0.0/8"},
+			Protocols: []string{"tcp"},
+			Ports:     []string{"80"},
 		}
 
 		clause := KeyValueOperator{
@@ -267,30 +261,36 @@ func TestAllLockedSetGet(t *testing.T) {
 		annotations.AppendKeyValue("server", "local")
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-		triremeNetworks := []string{"10.1.1.0/24"}
-		excludedNetworks := []string{"10.1.1.1"}
 
 		p := NewPUPolicy(
 			"id1",
+			"/abc",
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
+			nil,
 			txtags,
 			rxtags,
 			identity,
 			annotations,
+			nil,
 			ips,
-			triremeNetworks,
-			excludedNetworks,
-			&ProxiedServicesInfo{},
+			0,
+			0,
 			nil,
 			nil,
 			[]string{},
+			EnvoyAuthorizerEnforcer,
 		)
 
 		Convey("I should be able to retrieve the management ID ", func() {
 			id := p.ManagementID()
 			So(id, ShouldResemble, "id1")
+		})
+
+		Convey("I should be able to retrieve the management namespace ", func() {
+			ns := p.ManagementNamespace()
+			So(ns, ShouldResemble, "/abc")
 		})
 
 		Convey("I should be able to retrieve the Action", func() {
@@ -326,16 +326,12 @@ func TestAllLockedSetGet(t *testing.T) {
 			So(p.Annotations(), ShouldResemble, annotations)
 		})
 
-		Convey("I should be able to retrive the IPAddresses", func() {
+		Convey("I should be able to retrieve the IPAddresses", func() {
 			So(p.IPAddresses(), ShouldResemble, ips)
 		})
 
-		Convey("I should be able to retrieve the Trireme networks", func() {
-			So(p.TriremeNetworks(), ShouldResemble, []string{"10.1.1.0/24"})
-		})
-
-		Convey("I should be able to retrieve the external networks", func() {
-			So(p.ExcludedNetworks(), ShouldResemble, []string{"10.1.1.1"})
+		Convey("I should be able to retrieve the EnforcerType", func() {
+			So(p.EnforcerType(), ShouldEqual, EnvoyAuthorizerEnforcer)
 		})
 
 		Convey("If I add an identity key/value pair, it should succeed", func() {
@@ -348,16 +344,6 @@ func TestAllLockedSetGet(t *testing.T) {
 		Convey("If I update the IPS, it should succeed", func() {
 			p.SetIPAddresses(ExtendedMap{DefaultNamespace: "40.0.0.0/8"})
 			So(p.IPAddresses(), ShouldResemble, ExtendedMap{DefaultNamespace: "40.0.0.0/8"})
-		})
-
-		Convey("If I update the trireme networks it should succeed", func() {
-			p.UpdateTriremeNetworks([]string{"123.0.0.0/8"})
-			So(p.TriremeNetworks(), ShouldResemble, []string{"123.0.0.0/8"})
-		})
-
-		Convey("If I update the excluded networks it should succeed", func() {
-			p.UpdateExcludedNetworks([]string{"90.0.0.0"})
-			So(p.ExcludedNetworks(), ShouldResemble, []string{"90.0.0.0"})
 		})
 
 		newclause := KeyValueOperator{
@@ -393,8 +379,8 @@ func TestAllLockedSetGet(t *testing.T) {
 
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
-		puInfor := NewPUInfo("123", common.ContainerPU)
-		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+		puInfor := NewPUInfo("123", "/abc", common.ContainerPU)
+		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
 		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")

@@ -2,6 +2,7 @@ package acls
 
 import (
 	"errors"
+	"net"
 
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -14,11 +15,6 @@ type ACLCache struct {
 	reject  *acl
 	accept  *acl
 	observe *acl
-}
-
-type prefixRules struct {
-	mask  uint32
-	rules map[uint32]portActionList
 }
 
 // NewACLCache creates a new ACL cache
@@ -53,14 +49,20 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 		}
 	}
 
-	c.reject.reverseSort()
-	c.accept.reverseSort()
-	c.observe.reverseSort()
 	return
 }
 
+// RemoveIPMask removes the entries indexed with (ip, mask). This is an idempotent operation
+// and thus does not returns an error
+func (c *ACLCache) RemoveIPMask(ip net.IP, mask int) {
+
+	c.reject.removeIPMask(ip, mask)
+	c.accept.removeIPMask(ip, mask)
+	c.observe.removeIPMask(ip, mask)
+}
+
 // GetMatchingAction gets the matching action
-func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
+func (c *ACLCache) GetMatchingAction(ip net.IP, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
 	report, packet, err = c.reject.getMatchingAction(ip, port, report)
 	if err == nil {

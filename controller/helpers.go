@@ -1,64 +1,17 @@
 package controller
 
 import (
-	"os"
-
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/processmon"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
-// SetLogParameters sets up environment to be passed to the remote trireme instances.
-func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string) {
-
-	h := processmon.GetProcessManagerHdl()
-	if h == nil {
-		panic("Unable to find process manager handle")
-	}
-
-	h.SetLogParameters(logToConsole, logWithID, logLevel, logFormat)
-}
-
-// GetLogParameters retrieves log parameters for Remote Enforcer.
-func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string) {
-
-	logLevel = os.Getenv(constants.EnvLogLevel)
-	if logLevel == "" {
-		logLevel = "info"
-	}
-	logFormat = os.Getenv(constants.EnvLogFormat)
-	if logLevel == "" {
-		logFormat = "json"
-	}
-
-	if console := os.Getenv(constants.EnvLogToConsole); console == constants.EnvLogToConsoleEnable {
-		logToConsole = true
-	}
-
-	logID = os.Getenv(constants.EnvLogID)
-	return
-}
-
 // LaunchRemoteEnforcer launches a remote enforcer instance.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
 
-	return remoteenforcer.LaunchRemoteEnforcer(service)
-}
-
-// CleanOldState ensures all state in trireme is cleaned up.
-func CleanOldState() {
-
-	ipt, _ := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, nil)
-
-	if err := ipt.CleanAllSynAckPacketCaptures(); err != nil {
-		zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
-	}
+	return remoteenforcer.LaunchRemoteEnforcer(service, zapConfig)
 }
 
 // addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.

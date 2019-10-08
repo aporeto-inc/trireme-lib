@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.uber.org/zap"
 )
 
 // EventServer is a new event server
@@ -85,12 +85,15 @@ func (e *EventServer) Run(ctx context.Context) error {
 // before calling the actual monitor handlers to process the event.
 func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	event := &common.EventInfo{}
+	defer r.Body.Close() // nolint
+
 	if err := json.NewDecoder(r.Body).Decode(event); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	if err := validateTypes(event); err != nil {
+		zap.L().Error("Error in validating types", zap.Error(err), zap.Reflect("Event", event))
 		http.Error(w, fmt.Sprintf("Invalid request fields: %s", err), http.StatusBadRequest)
 		return
 	}
@@ -106,6 +109,7 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := e.processEvent(r.Context(), event); err != nil {
+		zap.L().Error("Error in processing event", zap.Error(err), zap.Reflect("Event", event))
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
 		return
 	}
@@ -125,11 +129,7 @@ func (e *EventServer) processEvent(ctx context.Context, eventInfo *common.EventI
 		return fmt.Errorf("Handler not found: %s", err)
 	}
 
-	if err := f(ctx, eventInfo); err != nil {
-		return err
-	}
-
-	return nil
+	return f(ctx, eventInfo)
 }
 
 // validateUser validates that the originating user is not sending a request
@@ -177,7 +177,7 @@ func validateUser(r *http.Request, event *common.EventInfo) error {
 // validateTypes validates the various types and prevents any bad strings.
 func validateTypes(event *common.EventInfo) error {
 
-	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%/-]{0,64}$")
+	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%/-]{0,256}$")
 	regexNS := regexp.MustCompile("^[a-zA-Z0-9/-]{0,128}$")
 	regexCgroup := regexp.MustCompile("^/trireme/(uid/){0,1}[a-zA-Z0-9_:.$%]{1,64}$")
 
@@ -189,8 +189,10 @@ func validateTypes(event *common.EventInfo) error {
 		return fmt.Errorf("invalid pu type %v", event.PUType)
 	}
 
-	if !regexStrings.Match([]byte(event.Name)) {
-		return fmt.Errorf("Name is not of the right format")
+	if event.PUType == common.UIDLoginPU {
+		if !regexStrings.Match([]byte(event.Name)) {
+			return fmt.Errorf("Name is not of the right format")
+		}
 	}
 
 	if len(event.Cgroup) > 0 && !regexCgroup.Match([]byte(event.Cgroup)) {
@@ -224,7 +226,6 @@ func validateEvent(event *common.EventInfo) error {
 				if event.Name == "" {
 					return fmt.Errorf("Service name must be provided and must not be default")
 				}
-				event.PUID = event.Name
 			}
 		} else {
 			if event.PUID == "" {
@@ -234,7 +235,7 @@ func validateEvent(event *common.EventInfo) error {
 	}
 
 	if event.EventType == common.EventStop || event.EventType == common.EventDestroy {
-		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_]{1,11}$")
 		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
 			return fmt.Errorf("Cgroup is not of the right format")
 		}

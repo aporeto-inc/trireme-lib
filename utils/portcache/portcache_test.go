@@ -3,9 +3,8 @@ package portcache
 import (
 	"testing"
 
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 func TestNewPortCache(t *testing.T) {

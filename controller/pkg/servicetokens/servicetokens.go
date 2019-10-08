@@ -8,17 +8,22 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	"github.com/dgrijalva/jwt-go"
-
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
+)
+
+var (
+	localCache = cache.NewCacheWithExpiration("tokens", time.Second*10)
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
 type JWTClaims struct {
 	jwt.StandardClaims
-	SourceID string
-	Scopes   []string
-	Profile  []string
+	Scopes  []string
+	Profile []string
+	Data    map[string]string
 }
 
 // Verifier keeps all the structures for processing tokens.
@@ -41,7 +46,7 @@ func NewVerifier(s secrets.Secrets, globalCertificate *x509.Certificate) *Verifi
 }
 
 // ParseToken parses and validates the JWT token, give the publicKey. It returns the scopes
-// the identity and the sourceID of the provided token. These tokens are strictly
+// the identity and the subject of the provided token. These tokens are strictly
 // signed with EC.
 // TODO: We can be more flexible with the algorithm selection here.
 func (p *Verifier) ParseToken(token string, publicKey string) (string, []string, []string, error) {
@@ -50,21 +55,24 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 
 	if data, _ := p.tokenCache.Get(token); data != nil {
 		claims := data.(*JWTClaims)
-		return claims.SourceID, claims.Scopes, claims.Profile, nil
+		return claims.Subject, claims.Scopes, claims.Profile, nil
 	}
 
 	// if a public key is transmitted in the wire, we need to verify its validity and use it.
 	// Otherwise we use the public key of the stored secrets.
 	var key *ecdsa.PublicKey
 	var ok bool
+	var enforcerclaims []string
+
 	if len(publicKey) > 0 {
 		// Public keys are cached and verified and they are the compact keys
 		// that we transmit in all other requests signed by the CA. These keys
 		// are not full certificates.
-		gKey, err := p.secrets.VerifyPublicKey([]byte(publicKey))
+		gKey, rootClaims, _, err := p.secrets.KeyAndClaims([]byte(publicKey))
 		if err != nil {
 			return "", nil, nil, fmt.Errorf("Cannot validate public key: %s", err)
 		}
+		enforcerclaims = rootClaims
 		key, ok = gKey.(*ecdsa.PublicKey)
 		if !ok {
 			return "", nil, nil, fmt.Errorf("Provided public key not supported")
@@ -80,12 +88,20 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	}
 
 	claims := &JWTClaims{}
-	if _, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+	if _, err := jwt.ParseWithClaims(token, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
 		return key, nil
 	}); err != nil {
 		return "", nil, nil, err
 	}
-	return claims.SourceID, claims.Scopes, claims.Profile, nil
+	claims.Profile = append(claims.Profile, enforcerclaims...)
+	if err := p.tokenCache.Set(token, claims); err != nil {
+		zap.L().Error("Failed to cache token", zap.Error(err))
+	}
+
+	for k, v := range claims.Data {
+		claims.Scopes = append(claims.Scopes, "data:"+k+"="+v)
+	}
+	return claims.Subject, claims.Scopes, claims.Profile, nil
 }
 
 // UpdateSecrets updates the secrets of the token Verifier.
@@ -103,14 +119,24 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 	if !ok {
 		return "", fmt.Errorf("Not a valid private key format")
 	}
+	if token, err := localCache.Get(id); err == nil {
+		return token.(string), nil
+	}
 	claims := &JWTClaims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    server,
 			ExpiresAt: time.Now().Add(validity).Unix(),
+			Subject:   id,
 		},
-		Profile:  profile,
-		Scopes:   scopes,
-		SourceID: id,
+		Profile: profile,
+		Scopes:  scopes,
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
+
+	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
+	if err != nil {
+		return "", err
+	}
+
+	localCache.AddOrUpdate(id, token)
+	return token, nil
 }

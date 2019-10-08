@@ -43,7 +43,7 @@ func CreateResourceController(client kubecache.Getter, resource string, namespac
 func (m *KubernetesMonitor) CreateLocalPodController(namespace string,
 	addFunc func(addedApiStruct *api.Pod) error, deleteFunc func(deletedApiStruct *api.Pod) error, updateFunc func(oldApiStruct, updatedApiStruct *api.Pod) error) (kubecache.Store, kubecache.Controller) {
 
-	return CreateResourceController(m.kubeClient.Core().RESTClient(), "pods", namespace, &api.Pod{}, m.localNodeSelector(),
+	return CreateResourceController(m.kubeClient.CoreV1().RESTClient(), "pods", namespace, &api.Pod{}, m.localNodeSelector(),
 		func(addedApiStruct interface{}) {
 			if err := addFunc(addedApiStruct.(*api.Pod)); err != nil {
 				zap.L().Error("Error while handling Add Pod", zap.Error(err))
@@ -69,7 +69,7 @@ func (m *KubernetesMonitor) localNodeSelector() fields.Selector {
 
 // Pod returns the full pod object.
 func (m *KubernetesMonitor) Pod(podName string, namespace string) (*api.Pod, error) {
-	targetPod, err := m.kubeClient.Core().Pods(namespace).Get(podName, metav1.GetOptions{})
+	targetPod, err := m.kubeClient.CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting Kubernetes labels & IP for pod %v : %v ", podName, err)
 	}

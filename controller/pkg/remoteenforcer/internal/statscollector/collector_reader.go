@@ -1,6 +1,8 @@
 package statscollector
 
-import "go.aporeto.io/trireme-lib/collector"
+import (
+	"go.aporeto.io/trireme-lib/collector"
+)
 
 // Count returns the current number of flows.
 func (c *collectorImpl) Count() int {
@@ -44,4 +46,27 @@ func (c *collectorImpl) FlushUserCache() {
 	defer c.Unlock()
 
 	c.ProcessedUsers = map[string]bool{}
+}
+
+// GetAllDataPathPacketRecords returns all datapath packet tracing records
+func (c *collectorImpl) GetAllDataPathPacketRecords() []*collector.PacketReport {
+	c.Lock()
+	defer c.Unlock()
+
+	record := c.DatapathPacketReports
+	c.DatapathPacketReports = []*collector.PacketReport{}
+	return record
+}
+
+func (c *collectorImpl) GetAllCounterReports() []*collector.CounterReport {
+	c.Lock()
+	defer c.Unlock()
+
+	records := c.CounterReports
+	c.CounterReports = []*collector.CounterReport{}
+	return records
+}
+
+func (c *collectorImpl) GetDNSReports() chan *collector.DNSRequestReport {
+	return c.DNSReport
 }

@@ -75,7 +75,7 @@ func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {
 
 // hasSynced sends an event on the Sync chan when the attachedController finished syncing.
 func hasSynced(sync chan struct{}, controller kubecache.Controller) {
-	for true {
+	for {
 		if controller.HasSynced() {
 			sync <- struct{}{}
 			return

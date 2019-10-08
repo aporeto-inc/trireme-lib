@@ -3,22 +3,17 @@
 package markedconn
 
 import (
+	"context"
 	"net"
 )
 
-// DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
-func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Conn, error) {
-
+// DialMarkedWithContext dials a TCP connection and associates a mark. Propagates the context.
+func DialMarkedWithContext(ctx context.Context, network string, addr string, mark int) (net.Conn, error) {
 	return nil, nil
 }
 
-// MarkConnection is an OSX mock
-func MarkConnection(conn net.Conn, mark int) error {
-	return nil
-}
-
-// SocketListener creates a socket listener with SO_REUSEADDR.
-func SocketListener(port string, mark int) (net.Listener, error) {
+// NewSocketListener creates a socket listener with marked connections.
+func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener, error) {
 	return nil, nil
 }
 
@@ -62,4 +57,9 @@ func (l ProxiedListener) Addr() net.Addr {
 // Close implements the Close method of the net.Listener.
 func (l ProxiedListener) Close() error {
 	return l.netListener.Close()
+}
+
+// GetInterfaces retrieves all the local interfaces.
+func GetInterfaces() map[string]struct{} {
+	return nil
 }
