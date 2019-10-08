@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/dns"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -26,6 +27,7 @@ type Proxy struct {
 	collector         collector.EventCollector
 	contextIDToServer map[string]*dns.Server
 	chreports         chan dnsReport
+	updateIPsets      ipsetmanager.ACLManager
 	sync.RWMutex
 }
 
@@ -130,6 +132,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	ps, err1 := puCtx.GetPolicyFromFQDN(r.Question[0].Name)
 	if err1 == nil {
 		for _, p := range ps {
+			s.updateIPsets.UpdateIPsets(ips, p.Policy.ServiceID)
 			if err1 := puCtx.UpdateApplicationACLs(policy.IPRuleList{{Addresses: ips,
 				Ports:     p.Ports,
 				Protocols: p.Protocols,
@@ -185,9 +188,9 @@ func (p *Proxy) ShutdownDNS(contextID string) {
 }
 
 // New creates an instance of the dns proxy
-func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector) *Proxy {
+func New(puFromID cache.DataStore, conntrack flowtracking.FlowClient, c collector.EventCollector, aclmanager ipsetmanager.ACLManager) *Proxy {
 	ch := make(chan dnsReport)
-	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}}
+	p := &Proxy{chreports: ch, puFromID: puFromID, collector: c, conntrack: conntrack, contextIDToServer: map[string]*dns.Server{}, updateIPsets: aclmanager}
 	go p.reportDNSRequests(ch)
 	return p
 }

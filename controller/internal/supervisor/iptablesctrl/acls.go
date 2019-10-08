@@ -202,7 +202,7 @@ func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
 func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules []aclIPset) {
 
 	for _, rule := range rules {
-		for _, proto := range rule.protocols {
+		for _, proto := range rule.Protocols {
 
 			if proto != constants.AllProtoString {
 				otherRules = append(otherRules, rule)
@@ -302,7 +302,7 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 	reverseRules := [][]string{}
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
-	observeContinue := rule.policy.ObserveAction.ObserveContinue()
+	observeContinue := rule.Policy.ObserveAction.ObserveContinue()
 	contextID := cfg.ContextID
 
 	baseRule := func(proto string) []string {
@@ -326,7 +326,7 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 
 		// port match is required only for tcp and udp protocols
 		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
-			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.ports, ",")}
+			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.Ports, ",")}
 			iptRule = append(iptRule, portMatchSet...)
 		}
 
@@ -339,31 +339,31 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 		)
 	}
 
-	if rule.policy.Action&policy.Log > 0 || observeContinue {
+	if rule.Policy.Action&policy.Log > 0 || observeContinue {
 		state := []string{}
 		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
 			state = []string{"-m", "state", "--state", "NEW"}
 		}
 
-		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}...)
+		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefix(contextID)}...)
 		nfLogRule := append(baseRule(proto), nflog...)
 
 		iptRules = append(iptRules, nfLogRule)
 	}
 
 	if !observeContinue {
-		if (rule.policy.Action & policy.Accept) != 0 {
+		if (rule.Policy.Action & policy.Accept) != 0 {
 			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
 			iptRules = append(iptRules, acceptRule)
 		}
 
-		if rule.policy.Action&policy.Reject != 0 {
+		if rule.Policy.Action&policy.Reject != 0 {
 			reject := []string{"-j", "DROP"}
 			rejectRule := append(baseRule(proto), reject...)
 			iptRules = append(iptRules, rejectRule)
 		}
 
-		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+		if rule.Policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
 			reverseRules = append(reverseRules, []string{
 				appPacketIPTableContext,
 				reverseChain,
@@ -386,8 +386,8 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
 	}
 
-	for _, ext := range rule.extensions {
-		if rule.policy.Action&policy.Log > 0 {
+	for _, ext := range rule.Extensions {
+		if rule.Policy.Action&policy.Log > 0 {
 			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
 				return fmt.Errorf("unable to program nflog extension: %v", err)
 			}
@@ -432,7 +432,7 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 	}
 
 	defaultNflogSuffix := []string{"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefixAction(contextID, action)}
+		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefixAction(contextID, action)}
 	filterArgs = append(filterArgs, defaultNflogSuffix...)
 
 	nflogRulesspec := append(rulesspec, filterArgs...)
@@ -467,7 +467,7 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 
 	for _, rule := range rules {
 
-		for _, proto := range rule.protocols {
+		for _, proto := range rule.Protocols {
 
 			if !i.impl.ProtocolAllowed(proto) {
 				continue
@@ -476,27 +476,27 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
-			if testReject(rule.policy) && testObserveApply(rule.policy) {
+			if testReject(rule.Policy) && testObserveApply(rule.Policy) {
 				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, acls...)
 			}
 
-			if testReject(rule.policy) && testNotObserved(rule.policy) {
+			if testReject(rule.Policy) && testNotObserved(rule.Policy) {
 				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, acls...)
 			}
 
-			if testReject(rule.policy) && testObserveContinue(rule.policy) {
+			if testReject(rule.Policy) && testObserveContinue(rule.Policy) {
 				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, acls...)
 			}
 
-			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
+			if testAccept(rule.Policy) && testObserveContinue(rule.Policy) {
 				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, acls...)
 			}
 
-			if testAccept(rule.policy) && testNotObserved(rule.policy) {
+			if testAccept(rule.Policy) && testNotObserved(rule.Policy) {
 				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, acls...)
 			}
 
-			if testAccept(rule.policy) && testObserveApply(rule.policy) {
+			if testAccept(rule.Policy) && testObserveApply(rule.Policy) {
 				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, acls...)
 			}
 		}

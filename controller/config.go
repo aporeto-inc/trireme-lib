@@ -14,6 +14,7 @@ import (
 	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
 	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
@@ -46,10 +47,18 @@ type config struct {
 	remoteParameters       *env.RemoteParameters
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
+	aclmanager             ipsetmanager.ACLManager
 }
 
 // Option is provided using functional arguments.
 type Option func(*config)
+
+//OptionIPSetManager is an option to provide ipsetmanager
+func OptionIPSetManager(manager ipsetmanager.ACLManager) Option {
+	return func(cfg *config) {
+		cfg.aclmanager = manager
+	}
+}
 
 // OptionCollector is an option to provide an external collector implementation.
 func OptionCollector(c collector.EventCollector) Option {
@@ -162,6 +171,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
@@ -181,6 +191,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
@@ -227,6 +238,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -247,6 +259,7 @@ func (t *trireme) newSupervisors() error {
 			constants.LocalServer,
 			t.config.runtimeCfg,
 			t.config.service,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -267,6 +280,7 @@ func (t *trireme) newSupervisors() error {
 			constants.Sidecar,
 			t.config.runtimeCfg,
 			t.config.service,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)
