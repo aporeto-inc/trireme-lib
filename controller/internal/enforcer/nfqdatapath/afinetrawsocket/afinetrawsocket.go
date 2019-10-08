@@ -44,21 +44,24 @@ type SocketWriter interface {
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	createSocketv4 := func() (*socketv4, error) {
 
-		fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+		fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+		if err != nil {
+			return nil, fmt.Errorf("received error %s while open ipv4 socket", err)
+		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option SO_MARK", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option SO_MARK", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 0); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option IP_HDRINCL", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option IP_HDRINCL", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DONT); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option IP_PMTUDISC_DONT", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option IP_PMTUDISC_DONT", err)
 		}
 
 		return &socketv4{
@@ -71,21 +74,24 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 
 	createSocketv6 := func() (*socketv6, error) {
 
-		fd, _ := syscall.Socket(syscall.AF_INET6, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+		fd, err := syscall.Socket(syscall.AF_INET6, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+		if err != nil {
+			return nil, fmt.Errorf("received error %s while open ipv6 socket", err)
+		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option SO_MARK", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option SO_MARK", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IP_HDRINCL, 0); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option IP_HDRINCL", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option IP_HDRINCL", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER, syscall.IPV6_PMTUDISC_DONT); err != nil {
 			syscall.Close(fd) // nolint
-			return nil, fmt.Errorf("Received error %s while setting socket Option IP_PMTUDISC_DONT ipv6", err)
+			return nil, fmt.Errorf("received error %s while setting socket Option IP_PMTUDISC_DONT ipv6", err)
 		}
 
 		return &socketv6{
