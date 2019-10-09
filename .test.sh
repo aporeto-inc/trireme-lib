@@ -5,7 +5,9 @@ export GO111MODULE=on
 set -e
 echo "" > coverage.txt
 
-./mockgen.sh
+# temporarily for debugging travis build
+# how did this even work all this time? '-source_package' is not an option for a long time
+#./mockgen.sh
 
 for d in $(go list ./... | grep -v mock); do
     go test -race -tags test -coverprofile=profile.out -covermode=atomic $d
