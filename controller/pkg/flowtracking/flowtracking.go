@@ -42,13 +42,13 @@ func (c *Client) Close() error {
 
 // UpdateMark updates the mark of the flow. Caller must indicate if this is an application
 // flow or a network flow.
-func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, network bool) error {
+func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}, network bool) error {
 
 	if network {
-		return c.UpdateNetworkFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark)
+		return c.UpdateNetworkFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark, data)
 	}
 
-	return c.UpdateApplicationFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark)
+	return c.UpdateApplicationFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark, data)
 }
 
 // GetOriginalDest gets the original destination ip, port and the mark on the packet
@@ -61,7 +61,7 @@ func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, p
 
 // UpdateNetworkFlowMark will update the mark for a flow based on packet information received
 // from the network. It will use the reverse tables in conntrack for that.
-func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
+func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}) error {
 
 	f := newReplyFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, newmark)
 
@@ -70,7 +70,7 @@ func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcp
 
 // UpdateApplicationFlowMark will update the mark for a flow based on the packet information
 // received from an application. It will use the forward entries of conntrack for that.
-func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
+func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}) error {
 
 	f := conntrack.NewFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, newmark)
 

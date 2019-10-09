@@ -502,6 +502,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			udpPacket.SourcePort(),
 			udpPacket.DestPort(),
 			constants.DefaultConnMark,
+			udpPacket.WindowsMetadata,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table for UDP flow at transmitter",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -611,6 +612,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 			udpPacket.SourcePort(),
 			udpPacket.DestPort(),
 			constants.DefaultConnMark,
+			udpPacket.WindowsMetadata,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table after ack packet")
 		}
@@ -669,6 +671,7 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 		udpPacket.SourcePort(),
 		udpPacket.DestPort(),
 		constants.DeleteConnmark,
+		udpPacket.WindowsMetadata,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table for flow to terminate connection",
 			zap.String("app-conn", udpPacket.L4FlowHash()),

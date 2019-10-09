@@ -12,7 +12,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
@@ -44,7 +43,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		// Parse the packet
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
-		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{packetInfo}
+		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
 		var processError error
 		var tcpConn *connection.TCPConnection
 		var udpConn *connection.UDPConnection
@@ -66,8 +65,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 		} else {
 			processError = fmt.Errorf("invalid ip protocol: %d", parsedPacket.IPProto())
 		}
-
-		defer d.conntrack.(*flowtracking.Client).ClearIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort())
 
 		if processError != nil {
 			if parsedPacket.IPProto() == packet.IPProtocolTCP {
@@ -106,7 +103,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
-		if d.conntrack.(*flowtracking.Client).ShouldIgnoreFlow(parsedPacket.SourceAddress(), parsedPacket.DestinationAddress(), parsedPacket.IPProto(), parsedPacket.SourcePort(), parsedPacket.DestPort()) {
+		if parsedPacket.WindowsMetadata.(*afinetrawsocket.WindowsPacketMetadata).IgnoreFlow {
 			packetInfo.IgnoreFlow = 1
 		}
 		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))

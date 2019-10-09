@@ -368,6 +368,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
+			tcpPacket.WindowsMetadata,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -459,6 +460,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					tcpPacket.SourcePort(),
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
+					tcpPacket.WindowsMetadata,
 				); err != nil {
 					zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 						zap.String("context", string(conn.Auth.LocalContext)),
@@ -485,6 +487,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
+			tcpPacket.WindowsMetadata,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -510,6 +513,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					tcpPacket.SourcePort(),
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
+					tcpPacket.WindowsMetadata,
 				); err != nil {
 					zap.L().Error("Failed to update conntrack table for flow after ack packet",
 						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -697,6 +701,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			tcpPacket.DestPort(),
 			tcpPacket.SourcePort(),
 			uint32(1), // We cannot put it back to zero. We need something other value.
+			tcpPacket.WindowsMetadata,
 		); cerr != nil {
 			zap.L().Error("Failed to update conntrack table for flow after synack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -823,6 +828,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
+			tcpPacket.WindowsMetadata,
 		); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -881,6 +887,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 					tcpPacket.SourcePort(),
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
+					tcpPacket.WindowsMetadata,
 				); err != nil {
 					zap.L().Error("Failed to update conntrack table after ack packet",
 						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()))
@@ -1122,6 +1129,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
 		constants.DefaultConnMark,
+		tcpPacket.WindowsMetadata,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table",
 			zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -1142,6 +1150,7 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
 		constants.DefaultConnMark,
+		tcpPacket.WindowsMetadata,
 	); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}

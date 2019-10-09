@@ -23,19 +23,19 @@ func (c *Client) Close() error {
 
 // UpdateMark updates the mark of the flow. Caller must indicate if this is an application
 // flow or a network flow.
-func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, network bool) error {
+func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}, network bool) error {
 	return nil
 }
 
 // UpdateNetworkFlowMark will update the mark for a flow based on packet information received
 // from the network. It will use the reverse tables in conntrack for that.
-func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
+func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}) error {
 	return nil
 }
 
 // UpdateApplicationFlowMark will update the mark for a flow based on the packet information
 // received from an application. It will use the forward entries of conntrack for that.
-func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
+func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32, data interface{}) error {
 	return nil
 }
 

@@ -15,6 +15,7 @@ type rawsocket struct {
 
 type WindowsPacketMetadata struct {
 	PacketInfo frontman.PacketInfo
+	IgnoreFlow bool
 }
 
 const (
