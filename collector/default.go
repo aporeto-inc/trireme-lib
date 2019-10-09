@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	xxhash "github.com/cespare/xxhash/v2"
+	"github.com/cespare/xxhash"
 )
 
 // DefaultCollector implements a default collector infrastructure to syslog
