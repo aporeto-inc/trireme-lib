@@ -3,14 +3,17 @@ module go.aporeto.io/trireme-lib
 go 1.12
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
-	github.com/aporeto-inc/conntrack v0.0.0-20190319215345-309d2d6a3078
 	github.com/aporeto-inc/go-ipset v0.0.0-20191002024208-fab1debc861a
 	github.com/aporeto-inc/oxy v1.1.0
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/cespare/xxhash/v2 v2.1.0
+	github.com/containerd/containerd v1.3.0 // indirect
+	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -26,7 +29,7 @@ require (
 	github.com/gogo/googleapis v1.3.0
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
-	github.com/golang/mock v1.2.0
+	github.com/golang/mock v1.3.1
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20190915194858-d3ddacdb130f // indirect
@@ -42,9 +45,11 @@ require (
 	github.com/miekg/dns v1.1.22
 	github.com/minio/minio v0.0.0-20191008225043-d2a8be6fc228
 	github.com/mitchellh/hashstructure v1.0.0
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
@@ -57,12 +62,14 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/ti-mo/conntrack v0.0.0-20190323132511-733fb77b6071 // indirect
+	github.com/ti-mo/conntrack v0.0.0-20190323132511-733fb77b6071
+	github.com/ti-mo/netfilter v0.2.0 // indirect
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f // indirect
 	github.com/vulcand/oxy v1.0.0 // indirect
 	go.aporeto.io/netlink-go v1.40.0
 	go.aporeto.io/tg v1.32.0
+	go.etcd.io/bbolt v1.3.3 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc // indirect
@@ -75,6 +82,7 @@ require (
 	google.golang.org/grpc v1.24.0
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
+	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
@@ -84,3 +92,7 @@ require (
 	k8s.io/utils v0.0.0-20190923111123-69764acb6e8e // indirect
 	sigs.k8s.io/controller-runtime v0.2.2
 )
+
+replace github.com/docker/docker => github.com/docker/engine v0.0.0-20191007211215-3e077fc8667a
+
+replace github.com/ti-mo/conntrack => github.com/aporeto-inc/conntrack v0.0.0-20190319215345-309d2d6a3078

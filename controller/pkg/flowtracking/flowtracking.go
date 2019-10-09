@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/mdlayher/netlink"
-	"github.com/aporeto-inc/conntrack"
+	"github.com/ti-mo/conntrack"
 )
 
 // Client is a flow update client
