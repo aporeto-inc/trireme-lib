@@ -3,8 +3,8 @@ module go.aporeto.io/trireme-lib
 go 1.12
 
 require (
-	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/aporeto-inc/go-ipset v0.0.0-20191002024208-fab1debc861a
 	github.com/aporeto-inc/oxy v1.1.0
@@ -12,6 +12,7 @@ require (
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/cespare/xxhash v1.1.0
 	github.com/containerd/containerd v1.3.0 // indirect
+	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -67,6 +68,7 @@ require (
 	github.com/vulcand/oxy v1.0.0 // indirect
 	go.aporeto.io/netlink-go v1.40.0
 	go.aporeto.io/tg v1.32.0
+	go.etcd.io/bbolt v1.3.3 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc // indirect
@@ -79,7 +81,6 @@ require (
 	google.golang.org/grpc v1.24.0
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible

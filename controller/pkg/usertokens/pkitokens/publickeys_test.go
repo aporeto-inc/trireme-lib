@@ -149,7 +149,6 @@ kwIDAQAB
 			So(keys, ShouldNotBeNil)
 			So(err, ShouldNotBeNil)
 			So(len(keys), ShouldEqual, 2)
-			So(err.Error(), ShouldEqual, "[unsupported key type *dsa.PublicKey; asn1: structure error: tags don't match (2 vs {class:0 tag:16 length:13 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:0 set:false omitEmpty:false}  @2]")
 			So(keys[0], ShouldHaveSameTypeAs, &ecdsa.PublicKey{})
 			So(keys[1], ShouldHaveSameTypeAs, &rsa.PublicKey{})
 		})
