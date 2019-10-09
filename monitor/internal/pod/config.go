@@ -2,6 +2,7 @@ package podmonitor
 
 import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/utils/cri"
 )
 
 // Config is the config for the Kubernetes monitor
@@ -10,6 +11,8 @@ type Config struct { // nolint
 	Nodename       string
 	EnableHostPods bool
 	Workers        int
+
+	CRIRuntimeService cri.ExtendedRuntimeService
 
 	MetadataExtractor extractors.PodMetadataExtractor
 	NetclsProgrammer  extractors.PodNetclsProgrammer
@@ -28,6 +31,7 @@ func DefaultConfig() *Config {
 		Kubeconfig:        "",
 		Nodename:          "",
 		Workers:           4,
+		CRIRuntimeService: nil,
 	}
 }
 

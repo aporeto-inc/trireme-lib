@@ -6,16 +6,32 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
+	cripleg "go.aporeto.io/trireme-lib/monitor/internal/pod/internal/pleg"
+	"go.aporeto.io/trireme-lib/monitor/internal/pod/internal/queue"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cri"
 
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/go-logr/zapr"
+)
+
+const (
+	criClientVersion string = "v1alpha2"
 )
 
 // PodMonitor implements a monitor that sends pod events upstream
@@ -34,6 +50,7 @@ type PodMonitor struct {
 	kubeCfg           *rest.Config
 	kubeClient        client.Client
 	eventsCh          chan event.GenericEvent
+	criRuntimeService cri.ExtendedRuntimeService
 }
 
 // New returns a new kubernetes monitor.
@@ -55,18 +72,18 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		cfg = defaultConfig
 	}
 
-	kubernetesconfig, ok := cfg.(*Config)
+	monitorconfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified (type '%T')", cfg)
 	}
 
-	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
+	monitorconfig = SetupDefaultConfig(monitorconfig)
 
 	// build kubernetes config
 	var kubeCfg *rest.Config
-	if len(kubernetesconfig.Kubeconfig) > 0 {
+	if len(monitorconfig.Kubeconfig) > 0 {
 		var err error
-		kubeCfg, err = clientcmd.BuildConfigFromFlags("", kubernetesconfig.Kubeconfig)
+		kubeCfg, err = clientcmd.BuildConfigFromFlags("", monitorconfig.Kubeconfig)
 		if err != nil {
 			return err
 		}
@@ -78,44 +95,52 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		}
 	}
 
-	if kubernetesconfig.MetadataExtractor == nil {
+	if monitorconfig.MetadataExtractor == nil {
 		return fmt.Errorf("missing metadata extractor")
 	}
 
-	if kubernetesconfig.NetclsProgrammer == nil {
+	if monitorconfig.NetclsProgrammer == nil {
 		return fmt.Errorf("missing net_cls programmer")
 	}
 
-	if kubernetesconfig.ResetNetcls == nil {
+	if monitorconfig.ResetNetcls == nil {
 		return fmt.Errorf("missing reset net_cls implementation")
 	}
-	if kubernetesconfig.SandboxExtractor == nil {
+	if monitorconfig.SandboxExtractor == nil {
 		return fmt.Errorf("missing SandboxExtractor implementation")
 	}
-	if kubernetesconfig.Workers < 1 {
+	if monitorconfig.Workers < 1 {
 		return fmt.Errorf("number of Kubernetes monitor workers must be at least 1")
 	}
+
 	// Setting up Kubernetes
 	m.kubeCfg = kubeCfg
-	m.localNode = kubernetesconfig.Nodename
-	m.enableHostPods = kubernetesconfig.EnableHostPods
-	m.metadataExtractor = kubernetesconfig.MetadataExtractor
-	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
-	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
-	m.resetNetcls = kubernetesconfig.ResetNetcls
-	m.workers = kubernetesconfig.Workers
+	m.localNode = monitorconfig.Nodename
+	m.enableHostPods = monitorconfig.EnableHostPods
+	m.metadataExtractor = monitorconfig.MetadataExtractor
+	m.netclsProgrammer = monitorconfig.NetclsProgrammer
+	m.sandboxExtractor = monitorconfig.SandboxExtractor
+	m.resetNetcls = monitorconfig.ResetNetcls
+	m.workers = monitorconfig.Workers
+	m.criRuntimeService = monitorconfig.CRIRuntimeService
 
 	return nil
 }
 
 // Run starts the monitor.
 func (m *PodMonitor) Run(ctx context.Context) error {
+	log.SetLogger(zapr.NewLogger(zap.L()))
 	if m.kubeCfg == nil {
 		return errors.New("pod: missing kubeconfig")
 	}
 
 	if err := m.handlers.IsComplete(); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
+	}
+
+	nativeClient, err := kubernetes.NewForConfig(m.kubeCfg)
+	if err != nil {
+		return fmt.Errorf("pod: failed to create native kubernetes client: %s", err.Error())
 	}
 
 	// ensure to run the reset net_cls
@@ -127,7 +152,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: failed to reset net_cls cgroups: %s", err.Error())
 	}
 
-	syncPeriod := time.Second * 30
+	syncPeriod := time.Hour * 6
 	mgr, err := manager.New(m.kubeCfg, manager.Options{
 		SyncPeriod: &syncPeriod,
 	})
@@ -135,15 +160,89 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
+	// if we have CRI, we are going to start a PLEG for event generation
+	var pleg cripleg.PodLifecycleEventGenerator
+	var plegSetupComplete bool
+	if m.criRuntimeService != nil {
+		// get the runtime name first
+		versResp, err := m.criRuntimeService.Version(criClientVersion)
+		if err != nil {
+			zap.L().Warn("failed to query CRI about the version, not going to start the CRI PLEG", zap.Error(err))
+		}
+		if err == nil {
+			pleg = cripleg.NewCRIPLEG(m.criRuntimeService, versResp.GetRuntimeName())
+			if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+				pleg.Start(s)
+				<-s
+				return nil
+			})); err != nil {
+				zap.L().Error("failed to add the CRI PLEG to the manager")
+			}
+			if err == nil {
+				if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+				loop:
+					for {
+						select {
+						case <-s:
+							break loop
+						case ev := <-pleg.Watch():
+							if ev != nil {
+								zap.L().Debug("received PLEG event", zap.String("ID", string(ev.ID)), zap.String("NamespacedName", ev.NamespacedName.String()), zap.String("Type", string(ev.Type)), zap.Any("data", ev.Data))
+								if ev.NamespacedName.Name == "" || ev.NamespacedName.Namespace == "" {
+									zap.L().Debug("received invalid PLEG event", zap.String("ID", string(ev.ID)), zap.String("NamespacedName", ev.NamespacedName.String()), zap.String("Type", string(ev.Type)), zap.Any("data", ev.Data))
+									break
+								}
+								m.eventsCh <- event.GenericEvent{
+									Meta: &metav1.ObjectMeta{
+										UID:       ev.ID,
+										Name:      ev.NamespacedName.Name,
+										Namespace: ev.NamespacedName.Namespace,
+									},
+								}
+							}
+						}
+					}
+					return nil
+				})); err != nil {
+					zap.L().Error("failed to add the PLEG watcher to the manager")
+				}
+				plegSetupComplete = true
+			}
+		}
+	}
+
+	nativeInformers := informers.NewSharedInformerFactory(nativeClient, syncPeriod)
+	if err := mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		nativeInformers.Start(s)
+		<-s
+		return nil
+	})); err != nil {
+		return fmt.Errorf("pod: failed to add native informers to manager: %s", err.Error())
+	}
+
+	// create the policy engine queue
+	policyEngineQueue := queue.NewPolicyEngineQueue(m.handlers, m.netclsProgrammer, mgr.GetEventRecorderFor("trireme-pod-controller"), "noqueue", 10000)
+	if err := mgr.Add(policyEngineQueue); err != nil {
+		return fmt.Errorf("pod: failed to add policy engine queue to manager: %s", err.Error())
+	}
+
 	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.handlers, m.sandboxExtractor, m.eventsCh)
+	// NOTE: we don't want to rely on a cache here, _always_ read from the API directly
+	dcClient, err := client.New(m.kubeCfg, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create uncached client for delete controller")
+	}
+	dc := NewDeleteController(dcClient, policyEngineQueue, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
 	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
-	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
+	r := newReconciler(mgr, policyEngineQueue, m.metadataExtractor, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
+	if err := addController(mgr, r, m.workers, m.eventsCh, nativeInformers, plegSetupComplete); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
