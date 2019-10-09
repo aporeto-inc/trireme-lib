@@ -45,7 +45,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
-		recorder:          mgr.GetRecorder("trireme-pod-controller"),
+		recorder:          mgr.GetEventRecorderFor("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		netclsProgrammer:  netclsProgrammer,
