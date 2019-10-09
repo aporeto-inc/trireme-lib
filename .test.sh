@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export GO111MODULE=on
+
 set -e
 echo "" > coverage.txt
 

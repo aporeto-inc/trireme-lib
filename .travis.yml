@@ -23,11 +23,9 @@ env:
 
 before_install:
   - GO111MODULE=on go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
-  - go get -u github.com/golang/dep/cmd/dep
 
 install:
-  - dep ensure
-  - dep status || true
+  - go list -m all || true
 
 script:
   - ./.test.sh
