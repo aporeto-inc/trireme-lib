@@ -106,26 +106,35 @@ type IpsetRuleSpec struct {
 	IpsetName    uintptr // const wchar_t*
 }
 
+type PortRange struct {
+	PortStart uint16
+	PortEnd   uint16
+}
+
 type RuleSpec struct {
 	Action            uint8
 	Log               uint8
 	Protocol          uint8
-	Reserved1         uint8
+	ProtocolSpecified uint8
 	IcmpType          uint8
 	IcmpTypeSpecified uint8
 	IcmpCode          uint8
 	IcmpCodeSpecified uint8
+	AleAuthConnect    uint8 // not used by us
+	Reserved1         uint8
+	Reserved2         uint8
+	Reserved3         uint8
 	ProxyPort         uint16
-	SrcPortStart      uint16
-	SrcPortEnd        uint16
-	DstPortStart      uint16
-	DstPortEnd        uint16
 	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
 	BytesMatchOffset  int32
 	BytesMatchSize    int32
 	BytesMatch        *byte
 	Mark              uint32
 	GroupId           uint32
+	SrcPortCount      int32
+	DstPortCount      int32
+	SrcPorts          *PortRange
+	DstPorts          *PortRange
 	LogPrefix         uintptr // const wchar_t*
 	Application       uintptr // const wchar_t*
 }

@@ -128,8 +128,10 @@ func TestFrontmanStructLayout(t *testing.T) {
 			index++
 			So("Protocol", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(RuleSpec{}.Protocol), ShouldEqual, layout.Members[index].Offset)
-			// skip reserved
+			// UINT8 ProtocolSpecified
 			index++
+			So("ProtocolSpecified", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.ProtocolSpecified), ShouldEqual, layout.Members[index].Offset)
 			// UINT8 IcmpType
 			index++
 			So("IcmpType", ShouldEqual, layout.Members[index].Name)
@@ -146,26 +148,16 @@ func TestFrontmanStructLayout(t *testing.T) {
 			index++
 			So("IcmpCodeSpecified", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(RuleSpec{}.IcmpCodeSpecified), ShouldEqual, layout.Members[index].Offset)
+			// UINT8 AleAuthConnect
+			index++
+			So("AleAuthConnect", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.AleAuthConnect), ShouldEqual, layout.Members[index].Offset)
+			// skip reserved
+			index++
 			// UINT16 ProxyPort
 			index++
 			So("ProxyPort", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(RuleSpec{}.ProxyPort), ShouldEqual, layout.Members[index].Offset)
-			// UINT16 SrcPortStart
-			index++
-			So("SrcPortStart", ShouldEqual, layout.Members[index].Name)
-			So(unsafe.Offsetof(RuleSpec{}.SrcPortStart), ShouldEqual, layout.Members[index].Offset)
-			// UINT16 SrcPortEnd
-			index++
-			So("SrcPortEnd", ShouldEqual, layout.Members[index].Name)
-			So(unsafe.Offsetof(RuleSpec{}.SrcPortEnd), ShouldEqual, layout.Members[index].Offset)
-			// UINT16 DstPortStart
-			index++
-			So("DstPortStart", ShouldEqual, layout.Members[index].Name)
-			So(unsafe.Offsetof(RuleSpec{}.DstPortStart), ShouldEqual, layout.Members[index].Offset)
-			// UINT16 DstPortEnd
-			index++
-			So("DstPortEnd", ShouldEqual, layout.Members[index].Name)
-			So(unsafe.Offsetof(RuleSpec{}.DstPortEnd), ShouldEqual, layout.Members[index].Offset)
 			// INT16 BytesMatchStart
 			index++
 			So("BytesMatchStart", ShouldEqual, layout.Members[index].Name)
@@ -190,6 +182,22 @@ func TestFrontmanStructLayout(t *testing.T) {
 			index++
 			So("GroupId", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(RuleSpec{}.GroupId), ShouldEqual, layout.Members[index].Offset)
+			// INT32 SrcPortCount
+			index++
+			So("SrcPortCount", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.SrcPortCount), ShouldEqual, layout.Members[index].Offset)
+			// INT32 DstPortCount
+			index++
+			So("DstPortCount", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.DstPortCount), ShouldEqual, layout.Members[index].Offset)
+			// PPORT_RANGE SrcPorts
+			index++
+			So("SrcPorts", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.SrcPorts), ShouldEqual, layout.Members[index].Offset)
+			// PPORT_RANGE DstPorts
+			index++
+			So("DstPorts", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(RuleSpec{}.DstPorts), ShouldEqual, layout.Members[index].Offset)
 			// LPCWCH LogPrefix
 			index++
 			So("LogPrefix", ShouldEqual, layout.Members[index].Name)
@@ -200,7 +208,7 @@ func TestFrontmanStructLayout(t *testing.T) {
 			So(unsafe.Offsetof(RuleSpec{}.Application), ShouldEqual, layout.Members[index].Offset)
 		})
 
-		Convey("The layout of IpseRuleSpec and IPSET_RULE_SPEC should be the same", func() {
+		Convey("The layout of IpsetRuleSpec and IPSET_RULE_SPEC should be the same", func() {
 			layout, err := pdb.GetStructLayout("IPSET_RULE_SPEC")
 			So(err, ShouldBeNil)
 			So(unsafe.Sizeof(IpsetRuleSpec{}), ShouldEqual, layout.Size)
@@ -230,6 +238,20 @@ func TestFrontmanStructLayout(t *testing.T) {
 			index++
 			So("IpsetName", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(IpsetRuleSpec{}.IpsetName), ShouldEqual, layout.Members[index].Offset)
+		})
+
+		Convey("The layout of PortRange and PORT_RANGE should be the same", func() {
+			layout, err := pdb.GetStructLayout("PORT_RANGE")
+			So(err, ShouldBeNil)
+			So(unsafe.Sizeof(PortRange{}), ShouldEqual, layout.Size)
+			// UINT16 PortStart
+			index := 0
+			So("PortStart", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(PortRange{}.PortStart), ShouldEqual, layout.Members[index].Offset)
+			// UINT16 PortEnd
+			index++
+			So("PortEnd", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(PortRange{}.PortEnd), ShouldEqual, layout.Members[index].Offset)
 		})
 
 		Convey("The layout of LogPacketInfo and FRONTMAN_LOG_PACKET_INFO should be the same", func() {
