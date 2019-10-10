@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/mdlayher/netlink"
 	"github.com/pkg/errors"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -823,7 +822,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
 			constants.DefaultConnMark,
-		); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
+		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -1142,7 +1141,7 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
 		constants.DefaultConnMark,
-	); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
+	); err != nil {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}
 }
