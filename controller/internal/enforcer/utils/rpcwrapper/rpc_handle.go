@@ -100,7 +100,6 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
-		fmt.Println("Didn' find the client")
 		return err
 	}
 
