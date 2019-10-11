@@ -25,7 +25,7 @@ var globalRules = `
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
 {{end}}
-{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -m connmark ! --mark {{.DefaultExternalConnmark}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
+{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
 {{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.TriremeInput}}
@@ -40,7 +40,7 @@ var globalRules = `
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.UIDOutput}}{{end}}
 {{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}
-{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}} --queue-bypass
+{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m connmark ! --mark {{.DefaultExternalConnmark}} -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}} --queue-bypass
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.TriremeOutput}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.NetworkSvcOutput}}
