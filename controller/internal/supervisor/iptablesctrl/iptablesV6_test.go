@@ -142,7 +142,7 @@ var (
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m connmark ! --mark 61167 -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
+			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
 			"-j TRI-Pid-App",
 			"-j TRI-Svc-App",
 			"-j TRI-Hst-App",
