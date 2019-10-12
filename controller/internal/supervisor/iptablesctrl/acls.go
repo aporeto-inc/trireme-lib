@@ -475,6 +475,8 @@ func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain stri
 		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
 
+	aclRules = transformACLRules(aclRules, cfg, rulesBucket, isAppAcls)
+
 	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
 		return fmt.Errorf("unable to install rules - mode :%s %v", err, isAppAcls)
 	}

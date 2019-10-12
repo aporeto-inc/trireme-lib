@@ -45,7 +45,35 @@ var containerChainTemplate = ``
 
 var uidChainTemplate = ``
 
-var acls = ``
+var acls = `
+{{range .RejectObserveContinue}}
+{{joinRule .}}
+{{end}}
+
+{{range .RejectNotObserved}}
+{{joinRule .}}
+{{end}}
+
+{{range .RejectObserveApply}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptObserveContinue}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptNotObserved}}
+{{joinRule .}}
+{{end}}
+
+{{range .AcceptObserveApply}}
+{{joinRule .}}
+{{end}}
+
+{{range .ReverseRules}}
+{{joinRule .}}
+{{end}}
+`
 
 // packetCaptureTemplate are the rules that trap traffic towards the user space.
 var packetCaptureTemplate = ``
