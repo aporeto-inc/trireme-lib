@@ -69,18 +69,19 @@ type ACLInfo struct {
 	NetSection string
 
 	// common info
-	DefaultConnmark       string
-	QueueBalanceAppSyn    string
-	QueueBalanceAppSynAck string
-	QueueBalanceAppAck    string
-	QueueBalanceNetSyn    string
-	QueueBalanceNetSynAck string
-	QueueBalanceNetAck    string
-	InitialMarkVal        string
-	RawSocketMark         string
-	TargetTCPNetSet       string
-	TargetUDPNetSet       string
-	ExclusionsSet         string
+	DefaultConnmark         string
+	DefaultExternalConnmark string
+	QueueBalanceAppSyn      string
+	QueueBalanceAppSynAck   string
+	QueueBalanceAppAck      string
+	QueueBalanceNetSyn      string
+	QueueBalanceNetSynAck   string
+	QueueBalanceNetAck      string
+	InitialMarkVal          string
+	RawSocketMark           string
+	TargetTCPNetSet         string
+	TargetUDPNetSet         string
+	ExclusionsSet           string
 
 	// IPv4 IPv6
 	DefaultIP     string
@@ -208,18 +209,19 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		NetSection: netSection,
 
 		// common info
-		DefaultConnmark:       strconv.Itoa(int(constants.DefaultConnMark)),
-		QueueBalanceAppSyn:    i.fqc.GetApplicationQueueSynStr(),
-		QueueBalanceAppSynAck: i.fqc.GetApplicationQueueSynAckStr(),
-		QueueBalanceAppAck:    i.fqc.GetApplicationQueueAckStr(),
-		QueueBalanceNetSyn:    i.fqc.GetNetworkQueueSynStr(),
-		QueueBalanceNetSynAck: i.fqc.GetNetworkQueueSynAckStr(),
-		QueueBalanceNetAck:    i.fqc.GetNetworkQueueAckStr(),
-		InitialMarkVal:        strconv.Itoa(cgnetcls.Initialmarkval - 1),
-		RawSocketMark:         strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
-		TargetTCPNetSet:       ipsetPrefix + targetTCPNetworkSet,
-		TargetUDPNetSet:       ipsetPrefix + targetUDPNetworkSet,
-		ExclusionsSet:         ipsetPrefix + excludedNetworkSet,
+		DefaultConnmark:         strconv.Itoa(int(constants.DefaultConnMark)),
+		DefaultExternalConnmark: strconv.Itoa(int(constants.DefaultExternalConnMark)),
+		QueueBalanceAppSyn:      i.fqc.GetApplicationQueueSynStr(),
+		QueueBalanceAppSynAck:   i.fqc.GetApplicationQueueSynAckStr(),
+		QueueBalanceAppAck:      i.fqc.GetApplicationQueueAckStr(),
+		QueueBalanceNetSyn:      i.fqc.GetNetworkQueueSynStr(),
+		QueueBalanceNetSynAck:   i.fqc.GetNetworkQueueSynAckStr(),
+		QueueBalanceNetAck:      i.fqc.GetNetworkQueueAckStr(),
+		InitialMarkVal:          strconv.Itoa(cgnetcls.Initialmarkval - 1),
+		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
+		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
+		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
 
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
