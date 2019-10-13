@@ -367,7 +367,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
+			constants.DefaultExternalConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -484,7 +484,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
+			constants.DefaultExternalConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -822,7 +822,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
+			constants.DefaultExternalConnMark,
 		); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -1121,7 +1121,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		tcpPacket.IPProto(),
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
-		constants.DefaultConnMark,
+		constants.DefaultExternalConnMark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table",
 			zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -1141,7 +1141,7 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 		tcpPacket.IPProto(),
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
-		constants.DefaultConnMark,
+		constants.DefaultExternalConnMark,
 	); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}
