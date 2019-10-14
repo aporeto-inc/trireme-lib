@@ -249,7 +249,29 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	b.Lock()
 	defer b.Unlock()
 
-	return b.ipt.ListChains(table)
+	chains, err := b.ipt.ListChains(table)
+	if err != nil {
+		return []string{}, err
+	}
+
+	if _, ok := b.batchTables[table]; !ok || b.rules[table] == nil {
+		return chains, nil
+	}
+
+	for _, chain := range chains {
+		if _, ok := b.rules[table][chain]; !ok {
+			b.rules[table][chain] = []string{}
+		}
+	}
+
+	allChains := make([]string, len(b.rules[table]))
+	i := 0
+	for chain := range b.rules[table] {
+		allChains[i] = chain
+		i++
+	}
+
+	return allChains, nil
 }
 
 // ClearChain will clear the chains.
