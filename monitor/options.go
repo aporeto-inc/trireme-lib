@@ -41,6 +41,13 @@ func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor)
 	}
 }
 
+// SubOptionMonitorLinuxRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorLinuxRealeaseAgentPath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // optionMonitorLinux provides a way to add a linux monitor and related configuration to be used with New().
 func optionMonitorLinux(
 	host bool,
@@ -95,6 +102,13 @@ func OptionMonitorCNI(
 	}
 }
 
+// SubOptionMonitorUIDRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorUIDRealeaseAgentPath(releasePath string) UIDMonitorOption {
+	return func(cfg *uidmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // SubOptionMonitorUIDExtractor provides a way to specify metadata extractor for UID monitors.
 func SubOptionMonitorUIDExtractor(extractor extractors.EventMetadataExtractor) UIDMonitorOption {
 	return func(cfg *uidmonitor.Config) {
@@ -113,6 +127,13 @@ func OptionMonitorUID(
 	}
 	return func(cfg *config.MonitorConfig) {
 		cfg.Monitors[config.UID] = uc
+	}
+}
+
+// SubOptionMonitorSSHRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorSSHRealeaseAgentPath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
 	}
 }
 
