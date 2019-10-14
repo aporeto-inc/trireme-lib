@@ -88,7 +88,14 @@ type PacketInfo struct {
 }
 
 type LogPacketInfo struct {
-	Outbound   int32
+	Ipv4       uint8
+	Protocol   uint8
+	Outbound   uint8
+	Reserved1  uint8
+	LocalPort  uint16
+	RemotePort uint16
+	LocalAddr  [4]uint32
+	RemoteAddr [4]uint32
 	PacketSize uint32
 	GroupId    uint32
 	LogPrefix  [64]uint16

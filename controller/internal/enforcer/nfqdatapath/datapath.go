@@ -563,8 +563,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector)
 	}
 
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	d.startInterceptors(ctx)
 
 	go d.nflogger.Run(ctx)
 	go d.counterCollector(ctx)

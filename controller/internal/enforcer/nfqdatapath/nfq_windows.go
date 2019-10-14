@@ -10,17 +10,20 @@ import (
 	"unsafe"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
 
-func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
+func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
 	}
+
+	nflogWin := nflogger.(*nflog.NfLogWindows)
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
@@ -135,16 +138,20 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 	}
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
-		// TODO(windows)
 
-		/*logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
+		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
 		packetBytes := make([]byte, logPacketInfo.PacketSize)
 
 		ptr := uintptr(unsafe.Pointer(dataPtr))
 		for i := uint32(0); i < logPacketInfo.PacketSize; i++ {
 			packetBytes[i] = *(*byte)(unsafe.Pointer(ptr))
 			ptr++
-		}*/
+		}
+
+		err := nflogWin.NfLogHandler(&logPacketInfo, packetBytes)
+		if err != nil {
+			zap.L().Error("error in log callback", zap.Error(err))
+		}
 
 		return 0
 	}
@@ -155,21 +162,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// startApplicationInterceptor will create a interceptor that processes
-// packets originated from a local application
-func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
-	err := d.startFrontmanPacketFilter(ctx)
-	if err != nil {
-		zap.L().Fatal("Unable to initialize windows packet proxy", zap.Error(err))
-	}
-}
-
-// startNetworkInterceptor will the process that processes  packets from the network
-func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
-	// for Windows, we do nothing here since our packet proxy sends outbound and inbound
-	// and startApplicationInterceptor is called in tandem
 }
 
 // cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down

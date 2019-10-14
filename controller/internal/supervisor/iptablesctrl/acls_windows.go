@@ -78,6 +78,7 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 	} else if cfg.PUType == common.HostNetworkPU {
 		if isAppAcls {
 			chain = "HostSvcRules-OUTPUT"
+			// TODO(windows): do we need to set source port based on PU?
 		} else {
 			chain = "HostSvcRules-INPUT"
 			// in Windows, our host svc chain is for all host svc PUs, so we need to set destination port

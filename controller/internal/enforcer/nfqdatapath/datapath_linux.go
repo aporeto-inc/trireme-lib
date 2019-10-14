@@ -3,6 +3,7 @@
 package nfqdatapath
 
 import (
+	"context"
 	"os/exec"
 
 	"go.aporeto.io/trireme-lib/buildflags"
@@ -27,4 +28,9 @@ func adjustConntrack() {
 			zap.L().Fatal("Failed to set early demux options", zap.Error(err))
 		}
 	}
+}
+
+func (d *Datapath) startInterceptors(ctx context.Context) {
+	d.startApplicationInterceptor(ctx)
+	d.startNetworkInterceptor(ctx)
 }

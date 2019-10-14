@@ -96,6 +96,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	argRuleSpec := frontman.RuleSpec{
 		Action:    uint8(winRuleSpec.Action),
 		Log:       boolToUint8(winRuleSpec.Log),
+		GroupId:   uint32(winRuleSpec.GroupId),
 		ProxyPort: uint16(winRuleSpec.ProxyPort),
 		Mark:      uint32(winRuleSpec.Mark),
 	}
@@ -124,6 +125,9 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.BytesMatchOffset = int32(winRuleSpec.MatchBytesOffset)
 		argRuleSpec.BytesMatchSize = int32(len(winRuleSpec.MatchBytes))
 		argRuleSpec.BytesMatch = &winRuleSpec.MatchBytes[0]
+	}
+	if winRuleSpec.LogPrefix != "" {
+		argRuleSpec.LogPrefix = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(winRuleSpec.LogPrefix)))
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.MatchSet))
 	for i, matchSet := range winRuleSpec.MatchSet {

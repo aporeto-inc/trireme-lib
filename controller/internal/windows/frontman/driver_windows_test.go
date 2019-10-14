@@ -254,6 +254,7 @@ func TestFrontmanStructLayout(t *testing.T) {
 			So(unsafe.Offsetof(PortRange{}.PortEnd), ShouldEqual, layout.Members[index].Offset)
 		})
 
+		/* TODO(windows)
 		Convey("The layout of LogPacketInfo and FRONTMAN_LOG_PACKET_INFO should be the same", func() {
 			layout, err := pdb.GetStructLayout("FRONTMAN_LOG_PACKET_INFO")
 			So(err, ShouldBeNil)
@@ -275,6 +276,7 @@ func TestFrontmanStructLayout(t *testing.T) {
 			So("LogPrefix", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(LogPacketInfo{}.LogPrefix), ShouldEqual, layout.Members[index].Offset)
 		})
+		*/
 
 	})
 
