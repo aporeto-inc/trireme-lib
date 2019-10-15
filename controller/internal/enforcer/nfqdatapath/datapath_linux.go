@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func adjustConntrack() {
+func adjustConntrack(mode constants.ModeType) {
 	sysctlCmd, err := exec.LookPath("sysctl")
 	if err != nil {
 		zap.L().Fatal("sysctl command must be installed", zap.Error(err))

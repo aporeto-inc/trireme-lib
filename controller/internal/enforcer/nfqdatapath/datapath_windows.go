@@ -5,10 +5,11 @@ package nfqdatapath
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.uber.org/zap"
 )
 
-func adjustConntrack() {
+func adjustConntrack(mode constants.ModeType) {
 }
 
 func (d *Datapath) startInterceptors(ctx context.Context) {

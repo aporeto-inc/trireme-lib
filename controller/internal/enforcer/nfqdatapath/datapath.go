@@ -185,7 +185,7 @@ func New(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-		adjustConntrack()
+		adjustConntrack(mode)
 	}
 
 	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")

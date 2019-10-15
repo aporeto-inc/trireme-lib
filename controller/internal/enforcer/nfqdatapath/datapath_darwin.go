@@ -2,9 +2,13 @@
 
 package nfqdatapath
 
-import "context"
+import (
+	"context"
 
-func adjustConntrack() {
+	"go.aporeto.io/trireme-lib/controller/constants"
+)
+
+func adjustConntrack(mode constants.ModeType) {
 }
 
 func (d *Datapath) startInterceptors(ctx context.Context) {
