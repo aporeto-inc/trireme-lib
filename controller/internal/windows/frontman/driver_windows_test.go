@@ -2,13 +2,12 @@
 
 package frontman
 
-/*
 import (
 	"testing"
 	"unsafe"
 
+	"github.com/aporeto-inc/windows/go-frontman/abi"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/windows/go-frontman/abi"
 )
 
 func TestFrontmanStructLayout(t *testing.T) {
@@ -258,10 +257,36 @@ func TestFrontmanStructLayout(t *testing.T) {
 			layout, err := pdb.GetStructLayout("FRONTMAN_LOG_PACKET_INFO")
 			So(err, ShouldBeNil)
 			So(unsafe.Sizeof(LogPacketInfo{}), ShouldEqual, layout.Size)
-			// INT32 Outbound
+			// UINT8 Ipv4
 			index := 0
+			So("Ipv4", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.Ipv4), ShouldEqual, layout.Members[index].Offset)
+			// UINT8 Protocol
+			index++
+			So("Protocol", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.Protocol), ShouldEqual, layout.Members[index].Offset)
+			// UINT8 Outbound
+			index++
 			So("Outbound", ShouldEqual, layout.Members[index].Name)
 			So(unsafe.Offsetof(LogPacketInfo{}.Outbound), ShouldEqual, layout.Members[index].Offset)
+			// skip reserved
+			index++
+			// UINT16 LocalPort
+			index++
+			So("LocalPort", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.LocalPort), ShouldEqual, layout.Members[index].Offset)
+			// UINT16 RemotePort
+			index++
+			So("RemotePort", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.RemotePort), ShouldEqual, layout.Members[index].Offset)
+			// UINT32 LocalAddr[4]
+			index++
+			So("LocalAddr", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.LocalAddr), ShouldEqual, layout.Members[index].Offset)
+			// // UINT32 RemoteAddr[4]
+			index++
+			So("RemoteAddr", ShouldEqual, layout.Members[index].Name)
+			So(unsafe.Offsetof(LogPacketInfo{}.RemoteAddr), ShouldEqual, layout.Members[index].Offset)
 			// UINT32 PacketSize
 			index++
 			So("PacketSize", ShouldEqual, layout.Members[index].Name)
@@ -498,4 +523,3 @@ func TestFrontmanFunctionArguments(t *testing.T) {
 	})
 
 }
-*/
