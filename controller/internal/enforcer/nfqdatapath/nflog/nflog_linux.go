@@ -4,7 +4,6 @@ package nflog
 
 import (
 	"context"
-	"net"
 	"sync"
 
 	"go.aporeto.io/netlink-go/nflog"
@@ -88,9 +87,9 @@ func (a *nfLog) nflogErrorHandler(err error) {
 }
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
-	return recordFromNFLogData(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIp, buf.SrcPort, buf.DstPort, a.getPUContext, puIsSource)
+	return recordFromNFLogData(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, puIsSource)
 }
 
-func (a *nfLog) recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, srcPort, dstPort uint16, pu *pucontext.PUContext) (*collector.PacketReport, error) {
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) (*collector.PacketReport, error) {
 	return recordDroppedPacket(buf.Payload, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, pu)
 }
