@@ -28,13 +28,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
 		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
-		packetBytes := make([]byte, packetInfo.PacketSize)
-
-		ptr := uintptr(unsafe.Pointer(dataPtr))
-		for i := uint32(0); i < packetInfo.PacketSize; i++ {
-			packetBytes[i] = *(*byte)(unsafe.Pointer(ptr))
-			ptr++
-		}
+		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize]
 
 		var packetType int
 		if packetInfo.Outbound != 0 {
@@ -140,15 +134,9 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
 
 		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
-		packetBytes := make([]byte, logPacketInfo.PacketSize)
+		packetHeaderBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:logPacketInfo.PacketSize:logPacketInfo.PacketSize]
 
-		ptr := uintptr(unsafe.Pointer(dataPtr))
-		for i := uint32(0); i < logPacketInfo.PacketSize; i++ {
-			packetBytes[i] = *(*byte)(unsafe.Pointer(ptr))
-			ptr++
-		}
-
-		err := nflogWin.NfLogHandler(&logPacketInfo, packetBytes)
+		err := nflogWin.NfLogHandler(&logPacketInfo, packetHeaderBytes)
 		if err != nil {
 			zap.L().Error("error in log callback", zap.Error(err))
 		}
