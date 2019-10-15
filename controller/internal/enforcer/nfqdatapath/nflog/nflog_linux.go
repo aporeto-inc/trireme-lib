@@ -53,7 +53,7 @@ func (a *nfLog) Run(ctx context.Context) {
 
 func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, _ interface{}) {
 
-	record, packetEvent, err := a.recordFromNFLogBuffer(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, false)
+	record, packetEvent, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
 		return
@@ -68,7 +68,7 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, _ interface{}) {
 
 func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, _ interface{}) {
 
-	record, packetEvent, err := a.recordFromNFLogBuffer(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, true)
+	record, packetEvent, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
 		return
