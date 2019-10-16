@@ -6,10 +6,11 @@ import (
 
 // Config is the config for the Kubernetes monitor
 type Config struct { // nolint
-	Kubeconfig     string
-	Nodename       string
-	EnableHostPods bool
-	Workers        int
+	Kubeconfig              string
+	Nodename                string
+	EnableHostPods          bool
+	IgnoreStoppedContainers bool
+	Workers                 int
 
 	MetadataExtractor extractors.PodMetadataExtractor
 	NetclsProgrammer  extractors.PodNetclsProgrammer
@@ -20,14 +21,15 @@ type Config struct { // nolint
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		MetadataExtractor: nil,
-		NetclsProgrammer:  nil,
-		ResetNetcls:       nil,
-		SandboxExtractor:  nil,
-		EnableHostPods:    false,
-		Kubeconfig:        "",
-		Nodename:          "",
-		Workers:           4,
+		MetadataExtractor:       nil,
+		NetclsProgrammer:        nil,
+		ResetNetcls:             nil,
+		SandboxExtractor:        nil,
+		EnableHostPods:          false,
+		IgnoreStoppedContainers: false,
+		Kubeconfig:              "",
+		Nodename:                "",
+		Workers:                 4,
 	}
 }
 

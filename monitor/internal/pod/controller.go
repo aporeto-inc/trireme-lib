@@ -41,19 +41,20 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods, ignoreStoppedContainers bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
 	return &ReconcilePod{
-		client:            mgr.GetClient(),
-		scheme:            mgr.GetScheme(),
-		recorder:          mgr.GetRecorder("trireme-pod-controller"),
-		handler:           handler,
-		metadataExtractor: metadataExtractor,
-		netclsProgrammer:  netclsProgrammer,
-		sandboxExtractor:  sandboxExtractor,
-		nodeName:          nodeName,
-		enableHostPods:    enableHostPods,
-		deleteCh:          deleteCh,
-		deleteReconcileCh: deleteReconcileCh,
+		client:                  mgr.GetClient(),
+		scheme:                  mgr.GetScheme(),
+		recorder:                mgr.GetRecorder("trireme-pod-controller"),
+		handler:                 handler,
+		metadataExtractor:       metadataExtractor,
+		netclsProgrammer:        netclsProgrammer,
+		sandboxExtractor:        sandboxExtractor,
+		nodeName:                nodeName,
+		enableHostPods:          enableHostPods,
+		ignoreStoppedContainers: ignoreStoppedContainers,
+		deleteCh:                deleteCh,
+		deleteReconcileCh:       deleteReconcileCh,
 
 		// TODO: should move into configuration
 		handlePUEventTimeout:   60 * time.Second,
@@ -110,17 +111,18 @@ type DeleteEvent struct {
 type ReconcilePod struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client            client.Client
-	scheme            *runtime.Scheme
-	recorder          record.EventRecorder
-	handler           *config.ProcessorConfig
-	metadataExtractor extractors.PodMetadataExtractor
-	netclsProgrammer  extractors.PodNetclsProgrammer
-	sandboxExtractor  extractors.PodSandboxExtractor
-	nodeName          string
-	enableHostPods    bool
-	deleteCh          chan<- DeleteEvent
-	deleteReconcileCh chan<- struct{}
+	client                  client.Client
+	scheme                  *runtime.Scheme
+	recorder                record.EventRecorder
+	handler                 *config.ProcessorConfig
+	metadataExtractor       extractors.PodMetadataExtractor
+	netclsProgrammer        extractors.PodNetclsProgrammer
+	sandboxExtractor        extractors.PodSandboxExtractor
+	nodeName                string
+	enableHostPods          bool
+	ignoreStoppedContainers bool
+	deleteCh                chan<- DeleteEvent
+	deleteReconcileCh       chan<- struct{}
 
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
@@ -305,17 +307,19 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		handlePUCtx, handlePUCancel := context.WithTimeout(ctx, r.handlePUEventTimeout)
 		defer handlePUCancel()
 
-		if err := r.handler.Policy.HandlePUEvent(
-			handlePUCtx,
-			puID,
-			common.EventUpdate,
-			puRuntime,
-		); err != nil {
-			zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
-			r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
-			// return reconcile.Result{}, err
-		} else {
-			r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+		if !r.ignoreStoppedContainers {
+			if err := r.handler.Policy.HandlePUEvent(
+				handlePUCtx,
+				puID,
+				common.EventUpdate,
+				puRuntime,
+			); err != nil {
+				zap.L().Error("failed to handle update event", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
+				r.recorder.Eventf(pod, "Warning", "PUUpdate", "failed to handle update event for PU '%s': %s", puID, err.Error())
+				// return reconcile.Result{}, err
+			} else {
+				r.recorder.Eventf(pod, "Normal", "PUUpdate", "PU '%s' updated successfully", puID)
+			}
 		}
 
 		if err := r.handler.Policy.HandlePUEvent(

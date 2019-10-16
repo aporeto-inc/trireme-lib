@@ -23,17 +23,18 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type PodMonitor struct {
-	localNode         string
-	handlers          *config.ProcessorConfig
-	metadataExtractor extractors.PodMetadataExtractor
-	netclsProgrammer  extractors.PodNetclsProgrammer
-	resetNetcls       extractors.ResetNetclsKubepods
-	sandboxExtractor  extractors.PodSandboxExtractor
-	enableHostPods    bool
-	workers           int
-	kubeCfg           *rest.Config
-	kubeClient        client.Client
-	eventsCh          chan event.GenericEvent
+	localNode               string
+	handlers                *config.ProcessorConfig
+	metadataExtractor       extractors.PodMetadataExtractor
+	netclsProgrammer        extractors.PodNetclsProgrammer
+	resetNetcls             extractors.ResetNetclsKubepods
+	sandboxExtractor        extractors.PodSandboxExtractor
+	enableHostPods          bool
+	ignoreStoppedContainers bool
+	workers                 int
+	kubeCfg                 *rest.Config
+	kubeClient              client.Client
+	eventsCh                chan event.GenericEvent
 }
 
 // New returns a new kubernetes monitor.
@@ -99,6 +100,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
 	m.enableHostPods = kubernetesconfig.EnableHostPods
+	m.ignoreStoppedContainers = kubernetesconfig.IgnoreStoppedContainers
 	m.metadataExtractor = kubernetesconfig.MetadataExtractor
 	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
 	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
@@ -142,7 +144,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, m.ignoreStoppedContainers, dc.GetDeleteCh(), dc.GetReconcileCh())
 	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}

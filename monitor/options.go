@@ -268,6 +268,13 @@ func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
 	}
 }
 
+// SubOptionMonitorPodIgnoreStoppedContainers provides a way to specify if we want to ignore stopped containers/pods.
+func SubOptionMonitorPodIgnoreStoppedContainers(ignoreStoppedContainers bool) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.IgnoreStoppedContainers = ignoreStoppedContainers
+	}
+}
+
 // SubOptionMonitorPodWorkers provides a way to specify the maximum number of workers that are used in the controller.
 func SubOptionMonitorPodWorkers(workers int) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
