@@ -1,4 +1,4 @@
-// +build windows !linux
+// +build windows
 
 package applicationproxy
 
