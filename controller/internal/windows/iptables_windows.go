@@ -315,6 +315,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 				return nil, errors.New("rulespec not valid: mark should be int32")
 			}
 		case "NFLOG":
+			// if no other action specified, it will default to 'continue' action (zero)
 			result.Log = true
 			result.LogPrefix = *logPrefixOpt
 			result.GroupId = *groupIdOpt

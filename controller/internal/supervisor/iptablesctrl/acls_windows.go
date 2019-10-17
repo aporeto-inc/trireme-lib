@@ -96,13 +96,8 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 	return append([]string{table, chain}, strings.Split(rulespec, " ")...), nil
 }
 
-// transform generated iptables acl rules for consumption by our Windows driver.
-// for linux, nflog rules are non-terminating rules. our Windows driver needs terminating rules.
-// so we enforce the contract that in Windows our rules must have an action.
-// so for log rules, in Windows we allow either log+accept or log+drop.
+// while not strictly necessary now for Windows, we still try to combine a log (non-terminating rule) and another terminating rule.
 func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo, isAppAcls bool) [][]string {
-
-	// TODO(windows) should we ignore observe-continue buckets?
 
 	var result [][]string
 

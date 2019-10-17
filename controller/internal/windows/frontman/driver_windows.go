@@ -46,7 +46,8 @@ var (
 )
 
 const (
-	FilterActionAllow = iota + 1 // see frontmanIO.h
+	FilterActionContinue = iota // see frontmanIO.h
+	FilterActionAllow
 	FilterActionBlock
 	FilterActionProxy
 	FilterActionNfq
