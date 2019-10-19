@@ -135,8 +135,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 	}
 
 	if p.GetTCPFlags()&packet.TCPRstMask != 0 {
+		// Seen a RST packet. Remove cache entries related to this connection
 		zap.L().Debug("Received early reset from network and cleaning up state", zap.String("Flow", p.L4FlowHash()))
-		// Seen a RST packet. Remove cache entries abbout this packet.
 		if err := d.netOrigConnectionTracker.Remove(p.L4FlowHash()); err != nil {
 			zap.L().Debug("Received early reset from network failed to clean net origin tracker", zap.String("Flow", p.L4FlowHash()))
 		}
@@ -278,8 +278,8 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 	}
 
 	if p.GetTCPFlags()&packet.TCPRstMask != 0 {
+		// Seen a RST packet. Remove cache entries related to this connection
 		zap.L().Debug("Received early reset by application and cleaning up state", zap.String("Flow", p.L4FlowHash()))
-		// Seen a RST packet. Remove cache entries abbout this packet.
 		if err := d.sourcePortConnectionCache.Remove(p.SourcePortHash(packet.PacketTypeApplication)); err != nil {
 			zap.L().Debug("Received early reset by application and failed in source port cache", zap.String("Flow", p.L4FlowHash()))
 		}
