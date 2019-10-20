@@ -87,10 +87,6 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 		return fmt.Errorf("missing net_cls programmer")
 	}
 
-	if kubernetesconfig.PidsSetMaxProcsProgrammer == nil {
-		return fmt.Errorf("missing pids programmer")
-	}
-
 	if kubernetesconfig.ResetNetcls == nil {
 		return fmt.Errorf("missing reset net_cls implementation")
 	}
