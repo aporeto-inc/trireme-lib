@@ -23,17 +23,18 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type PodMonitor struct {
-	localNode         string
-	handlers          *config.ProcessorConfig
-	metadataExtractor extractors.PodMetadataExtractor
-	netclsProgrammer  extractors.PodNetclsProgrammer
-	resetNetcls       extractors.ResetNetclsKubepods
-	sandboxExtractor  extractors.PodSandboxExtractor
-	enableHostPods    bool
-	workers           int
-	kubeCfg           *rest.Config
-	kubeClient        client.Client
-	eventsCh          chan event.GenericEvent
+	localNode                 string
+	handlers                  *config.ProcessorConfig
+	metadataExtractor         extractors.PodMetadataExtractor
+	netclsProgrammer          extractors.PodNetclsProgrammer
+	pidsSetMaxProcsProgrammer extractors.PodPidsSetMaxProcsProgrammer
+	resetNetcls               extractors.ResetNetclsKubepods
+	sandboxExtractor          extractors.PodSandboxExtractor
+	enableHostPods            bool
+	workers                   int
+	kubeCfg                   *rest.Config
+	kubeClient                client.Client
+	eventsCh                  chan event.GenericEvent
 }
 
 // New returns a new kubernetes monitor.
@@ -101,6 +102,7 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.metadataExtractor = kubernetesconfig.MetadataExtractor
 	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
+	m.pidsSetMaxProcsProgrammer = kubernetesconfig.PidsSetMaxProcsProgrammer
 	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
 	m.resetNetcls = kubernetesconfig.ResetNetcls
 	m.workers = kubernetesconfig.Workers
