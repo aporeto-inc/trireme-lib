@@ -11,11 +11,14 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
+	"go.aporeto.io/trireme-lib/controller/internal/windows"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
+
+var timer = &windows.Timer{}
 
 func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
 	driverHandle, err := frontman.GetDriverHandle()
@@ -26,6 +29,8 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 	nflogWin := nflogger.(*nflog.NfLogWindows)
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
+
+		timer.Start()
 
 		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
 		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize]
@@ -84,6 +89,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 				})
 			}
 			// drop packet by not forwarding it
+			timer.Stop()
 			return 0
 		}
 
@@ -128,6 +134,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 			})
 		}
 
+		timer.Stop()
 		return 0
 	}
 
@@ -154,8 +161,15 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 
 // cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down
 func (d *Datapath) cleanupPlatform() {
+
 	dllRet, _, err := frontman.PacketFilterCloseProc.Call()
 	if dllRet == 0 {
 		zap.L().Error("Failed to close packet proxy", zap.Error(err))
 	}
+
+	// TODO(windows): change the log to Debug?
+	avgMicro := timer.GetAverageMicroSeconds()
+	zap.L().Info(fmt.Sprintf("avg time per packet: %d microseconds", avgMicro))
+	totalDiff, totalCount := timer.GetTotals()
+	zap.L().Error(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d", totalDiff, totalCount))
 }
