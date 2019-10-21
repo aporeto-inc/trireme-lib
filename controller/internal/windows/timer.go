@@ -53,6 +53,9 @@ func (t *Timer) Stop() {
 }
 
 func (t *Timer) GetAverageMicroSeconds() int64 {
+	if t.count == 0 {
+		return 0
+	}
 	if t.freq == 0 {
 		t.freq = QueryPerformanceFrequency()
 		if t.freq == 0 {
