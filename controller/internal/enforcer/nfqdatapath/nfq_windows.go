@@ -170,6 +170,7 @@ func (d *Datapath) cleanupPlatform() {
 	// TODO(windows): change the log to Debug?
 	avgMicro := timer.GetAverageMicroSeconds()
 	zap.L().Info(fmt.Sprintf("avg time per packet: %d microseconds", avgMicro))
-	totalDiff, totalCount := timer.GetTotals()
-	zap.L().Error(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d", totalDiff, totalCount))
+	totalDiff, totalCount, quickest, slowest := timer.GetTotals()
+	zap.L().Error(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d, quickest is %d, slowest is %d",
+		totalDiff, totalCount, quickest, slowest))
 }
