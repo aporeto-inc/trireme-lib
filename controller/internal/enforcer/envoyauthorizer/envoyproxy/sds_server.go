@@ -1,6 +1,7 @@
 package envoyproxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -27,34 +28,52 @@ import (
 
 // for testing/POC purpose just add the manually created certificates.
 var (
-	defaultPEM = `
+	sleepPEM = `
 -----BEGIN CERTIFICATE-----
-MIIBcjCCARigAwIBAgIRANdSVgeGQ1MmZNBLBAsTPbswCgYIKoZIzj0EAwIwHjEN
-MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTA5MTcwMDM4MDdaFw0y
-OTA3MjYwMDM4MDdaMCAxDTALBgNVBAoTBGFjbWUxDzANBgNVBAMTBnNlcnZlcjBZ
-MBMGByqGSM49AgEGCCqGSM49AwEHA0IABMssoKX7OnfBXttYTf3TtFE7uJwveyED
-xDrZzffzXCXvgkhEA8Llri32e+uJk0OKEzFrS0gsH5tNPwYkSa0zaJ6jNTAzMA4G
-A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
-MAoGCCqGSM49BAMCA0gAMEUCIQCPWNVRhmfHsctDfbRrRz9kcwr2jpPSm68A4P9P
-0AMlSAIgOmoxQS3EVJGkYgUap6aHM+82u1RBrRXgzu9jMuWdsMo=
+MIIBcDCCARegAwIBAgIQemVbvfpmCUzI7nbrImDe7DAKBggqhkjOPQQDAjAeMQ0w
+CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTgyM1oXDTI5
+MDgyNzAxMTgyM1owIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGY2xpZW50MFkw
+EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh52
+7Gxf7B8Rwo+g2M+0BE13ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqqM1MDMwDgYD
+VR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
+CgYIKoZIzj0EAwIDRwAwRAIgdAEzOqPsDF3+nrmCZZPaZSEzcuApDD/UoAOu96lb
+EVICIF+utXDYgIeE7OqSmrtFXaif8fM+n/OgrIonF4RV8+jA
 -----END CERTIFICATE-----`
-	defaultKey = `
+	sleeepKey = `
 -----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIBe4TlWfJnq3VWLy+uHLg4zd1EsdRTJkOVCI4Mf8EwdyoAoGCCqGSM49
-AwEHoUQDQgAEyyygpfs6d8Fe21hN/dO0UTu4nC97IQPEOtnN9/NcJe+CSEQDwuWu
-LfZ764mTQ4oTMWtLSCwfm00/BiRJrTNong==
+MHcCAQEEIJ496pypyXGSXHZEcMl8OiDR7hGl9xRWCodugRfscOm8oAoGCCqGSM49
+AwEHoUQDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh527Gxf7B8Rwo+g2M+0BE13
+ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqg==
+-----END EC PRIVATE KEY-----`
+	serverPEM = `
+-----BEGIN CERTIFICATE-----
+MIIBcjCCARigAwIBAgIRALZyIRzfKP2tr0gjIUhJqOEwCgYIKoZIzj0EAwIwHjEN
+MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTEwMTkwMTIxMDdaFw0y
+OTA4MjcwMTIxMDdaMCAxDTALBgNVBAoTBGFjbWUxDzANBgNVBAMTBnNlcnZlcjBZ
+MBMGByqGSM49AgEGCCqGSM49AwEHA0IABB7qdtSzXWiof/nfzYclTKxQ+U0CRnro
+Gc0cB7CEkaV/tsKacLegSxibtckDi1w8S0mBzUIotKBfnjTD5Ii1TmajNTAzMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MAoGCCqGSM49BAMCA0gAMEUCIQCZidLIKKJY/R2EeGJNwCL9vYrtqPSPKJyxLrHY
+Z4qe2AIgbARCHGwv53KKKElLy7tnBMnTpd4vo8BWcAOnppwXHSs=
+-----END CERTIFICATE-----`
+	serverKEY = `
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIBs8xKuuJ7SKVnr4QWmVmC1kJ6uIcdJ5DESr8zmZz6FQoAoGCCqGSM49
+AwEHoUQDQgAEHup21LNdaKh/+d/NhyVMrFD5TQJGeugZzRwHsISRpX+2wppwt6BL
+GJu1yQOLXDxLSYHNQii0oF+eNMPkiLVOZg==
 -----END EC PRIVATE KEY-----`
 	rootPEM = `
 -----BEGIN CERTIFICATE-----
-MIIBXTCCAQSgAwIBAgIRANHUhGwjacv0a/34X5D9cJEwCgYIKoZIzj0EAwIwHjEN
-MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTA5MTYxODQzMDFaFw0y
-OTA3MjUxODQzMDFaMB4xDTALBgNVBAoTBGFjbWUxDTALBgNVBAMTBHJvb3QwWTAT
-BgcqhkjOPQIBBggqhkjOPQMBBwNCAARJI8STC0WVw5sQ/Ija0nrYKIBZO43iifs0
-tsk7coRZwaYM7MEEr1qIOk+LmtR3DIGQTWva19u/56inYCTwDA7UoyMwITAOBgNV
-HQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiBO
-DMNgviNbjkZPE4RcldmEEBfHpPgMDir4jJhRGS624QIgMojinDUARNuyzQA4/B98
-pnICnBfAt0aiZojITEqCDDc=
+MIIBXjCCAQOgAwIBAgIQKd8Ypc10ti3tUZWpdYVzqTAKBggqhkjOPQQDAjAeMQ0w
+CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTc0MloXDTI5
+MDgyNzAxMTc0MlowHjENMAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDBZMBMG
+ByqGSM49AgEGCCqGSM49AwEHA0IABPujmM2L3DqDMlWkQIVASZS3kZA9harmnWNS
+f7ji9wGmmd1hTAicja2YQxGWoy42M1Tc9Wrl+h0Lrxhyjk0dm3qjIzAhMA4GA1Ud
+DwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQCt
+ot79SkWd5wfxh/e0mlEVS+wNxRGm/5gC59h2UDRvRAIhAOtrClKkPqjxgBkHlzmU
+94wdniSd6HoIEcRVlaLx1fM4
 -----END CERTIFICATE-----`
+
 	rootPEM2 = `
 -----BEGIN CERTIFICATE-----
 MIIEBDCCAuygAwIBAgIDAjppMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
@@ -117,17 +136,19 @@ type SdsServer struct {
 }
 
 // NewSdsServer creates a instance of a server.
-func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool) (*SdsServer, error) {
+func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool, secrets secrets.Secrets) (*SdsServer, error) {
 	if puInfo == nil {
 		fmt.Println("\n\n puInfo NIL ")
 		return nil, fmt.Errorf("the puinfo cannot be nil")
 	}
 	fmt.Println("New sds server for : ", puInfo.Policy.Annotations(), " puID is : ", contextID)
+	//return nil, nil
 	sdsOptions := &Options{SocketPath: SdsSocketpath}
 	sdsServer := &SdsServer{
-		puInfo: puInfo,
-		ca:     caPool,
-		errCh:  make(chan error),
+		puInfo:  puInfo,
+		ca:      caPool,
+		errCh:   make(chan error),
+		secrets: secrets,
 	}
 	if err := sdsServer.CreateSdsService(sdsOptions); err != nil {
 		fmt.Println("Error while starting the envoy sds server.")
@@ -357,7 +378,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 		Name: secret.ResourceName,
 	}
 	if secret.RootCert != nil {
-		fmt.Println("*** ABHI: send the root cert")
+		//fmt.Println("*** ABHI: send the root cert")
 		retSecret.Type = getRootCert(secret)
 	} else {
 		retSecret.Type = getTLScerts(secret)
@@ -383,23 +404,44 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 	expTime := time.Time{}
 	var err error
 	pemCert := []byte{}
+	//keyPEM := []byte{}
 	if s.puInfo.Policy == nil {
 		fmt.Println("\n\n *** The policy is nil, cannot be nil.")
 	}
-	fmt.Println("\n\n *** GENERATE cert in SDS, policy ptr: ", s.puInfo.Policy)
+	//fmt.Println("\n\n *** GENERATE cert in SDS, policy ptr: ", s.puInfo.Policy)
 	// now fetch the certificates for the PU/Service.
-	certPEM, keyPEM, caPEM := s.puInfo.Policy.ServiceCertificates()
+	certPEM, keyPEM, _ := s.puInfo.Policy.ServiceCertificates()
 	if certPEM == "" || keyPEM == "" {
 		fmt.Println("SDS server the certs are empty")
 		return nil
 	}
 
+	caPEM := s.secrets.PublicSecrets().CertAuthority()
+	fmt.Println("\n\n the CA returned is: ", caPEM, " and cert pem is :", certPEM)
 	if req.ResourceNames[0] == "default" {
+		// if strings.Contains(req.Node.Id, "httpbin") {
+		// 	expTime, err = getExpTimeFromCert([]byte(serverPEM))
+		// 	pemCert = []byte(serverPEM)
+		// 	keyPEM = []byte(serverKEY)
+		// }
+		// if strings.Contains(req.Node.Id, "sleep") {
 		expTime, err = getExpTimeFromCert([]byte(certPEM))
-		pemCert = []byte(certPEM)
+		pemCert, err = buildCertChain([]byte(certPEM), caPEM)
+		if err != nil {
+			fmt.Println("\n\n Cannot build the cert chain")
+		}
+		//pemCert = []byte(certPEM)
+		//keyPEM = []byte(keyPEM)
+		//}
 	} else {
 		expTime, err = getExpTimeFromCert([]byte(caPEM))
-		pemCert = []byte(caPEM)
+		//pemCert = []byte(caPEM)
+		pemCert, err = getTopRootCa(caPEM)
+		//fmt.Println(string(pemCert))
+		if err != nil {
+			fmt.Println("\n\n Cannot build the Root cert chain")
+		}
+		//keyPEM = []byte()
 	}
 	if err != nil {
 		fmt.Println("cannot get exp time", err)
@@ -426,6 +468,95 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 		Version:      t.String(),
 	}
 
+}
+
+func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
+	fmt.Println("\n\n BEFORE in buildCertChain \n\n ", "certPEM: ", string(certPEM), "\n\n", "caPEM: ", string(caPEM))
+	certChain := []*x509.Certificate{}
+	//certPEMBlock := caPEM
+	clientPEMBlock := certPEM
+	derBlock, _ := pem.Decode(clientPEMBlock)
+	if derBlock != nil {
+		if derBlock.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(derBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", derBlock.Type)
+		}
+	}
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, caPEM = pem.Decode(caPEM)
+		if certDERBlock == nil {
+			break
+		}
+		fmt.Println("\n cert: ", string(certDERBlock.Type))
+		if certDERBlock.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
+		}
+	}
+	fmt.Println("After building the cert chain: ", certChain, "\n\n ")
+	by, _ := x509CertChainToPem(certChain)
+	fmt.Println("\n\n AFTER in buildCertChain \n\n ", "certPEM: ", string(by))
+	return x509CertChainToPem(certChain)
+}
+
+func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		return nil, err
+	}
+	return pemBytes.Bytes(), nil
+}
+func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	for _, cert := range certChain {
+		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+			return nil, err
+		}
+	}
+	return pemBytes.Bytes(), nil
+}
+
+//var pemStart = []byte("\n-----BEGIN ")
+
+//-----BEGIN
+// getTopRootCa get the top root CA
+func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
+	fmt.Println("BEFORE root cert is :", string(certPEMBlock))
+	//rootCert := []*x509.Certificate{}
+	var certChain tls.Certificate
+	//certPEMBlock := []byte(rootcaBundle)
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+		if certDERBlock == nil {
+			break
+		}
+		fmt.Println("\n cert: ", string(certDERBlock.Type))
+		if certDERBlock.Type == "CERTIFICATE" {
+			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+		}
+	}
+	fmt.Println(" the root ca is:", certChain.Certificate[len(certChain.Certificate)-1])
+	x509Cert, err := x509.ParseCertificate(certChain.Certificate[len(certChain.Certificate)-1])
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("\n\n *** cert sub and issuer:", string(x509Cert.RawSubject), "\n\n ***", string(x509Cert.RawIssuer))
+	//
+	by, _ := x509CertToPem(x509Cert)
+	fmt.Println("AFTER the root cert: ", string(by))
+	return x509CertToPem(x509Cert)
 }
 
 // getExpTimeFromCert gets the exp time from the cert, assumning the cert is in pem encoded.

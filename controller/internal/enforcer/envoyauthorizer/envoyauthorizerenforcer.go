@@ -58,7 +58,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	if mode != constants.RemoteContainerEnvoyAuthorizer && mode != constants.LocalEnvoyAuthorizer {
 		return nil, fmt.Errorf("enforcer mode type must be either RemoteContainerEnvoyAuthorizer or LocalEnvoyAuthorizer, got: %d", mode)
 	}
-	fmt.Println("\n\n\n ABHI ***** envoy init ******")
+	fmt.Println("\n\n\n NewEnvoyAuthorizerEnforcer: ABHI ***** envoy init ******")
 	// same logic as in the nfqdatapath
 	if externalIPCacheTimeout <= 0 {
 		var err error
@@ -77,8 +77,9 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	if ok := systemPool.AppendCertsFromPEM(secrets.PublicSecrets().CertAuthority()); !ok {
 		return nil, fmt.Errorf("error while adding provided CA")
 	}
+	fmt.Println("\n\n The principal CA is : ", secrets.PublicSecrets().CertAuthority())
 	// TODO: systemPool needs the same treatment as the AppProxy and a `processCertificateUpdates` and `expandCAPool` implementation as well
-	fmt.Println("ABHI ** New envoy auth, the public secrets type is: ", secrets.PublicSecrets().SecretsType())
+	fmt.Println("ABHI ** New envoy auth")
 	return &Enforcer{
 		mode:                   mode,
 		collector:              eventCollector,
@@ -129,6 +130,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// now instantiate the apiAuth and metadata
 	// create a new server if it doesn't exist yet
+	//return nil
 	if _, err := e.clients.Get(contextID); err != nil {
 		zap.L().Debug("creating new auth and sds servers", zap.String("puID", contextID))
 		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection, e.registry, e.secrets, e.tokenIssuer)
@@ -143,12 +145,12 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			ingressServer.Stop()
 			return err
 		}
-		// sdsServer, err :=  //envoyproxy.NewSdsServer(contextID, puInfo, caPool)
-		// if err != nil {
-		// 	zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
-		// 	return err
-		// }
-		sdsServer := &envoyproxy.SdsServer{}
+		sdsServer, err := envoyproxy.NewSdsServer(contextID, puInfo, caPool, e.secrets)
+		if err != nil {
+			zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
+			return err
+		}
+		//sdsServer := &envoyproxy.SdsServer{}
 		// Add the EnvoyServers to our cache
 		if err := e.clients.Add(contextID, &envoyServers{ingress: ingressServer, egress: egressServer, sds: sdsServer}); err != nil {
 			ingressServer.Stop()
