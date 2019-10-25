@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var timer = &windows.Timer{}
+var timer = windows.DisabledTimer()
 
 func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
 	driverHandle, err := frontman.GetDriverHandle()
@@ -167,10 +167,11 @@ func (d *Datapath) cleanupPlatform() {
 		zap.L().Error("Failed to close packet proxy", zap.Error(err))
 	}
 
-	// TODO(windows): change the log to Debug?
-	avgMicro := timer.GetAverageMicroSeconds()
-	zap.L().Info(fmt.Sprintf("avg time per packet: %d microseconds", avgMicro))
-	totalDiff, totalCount, quickest, slowest := timer.GetTotals()
-	zap.L().Error(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d, quickest is %d, slowest is %d",
-		totalDiff, totalCount, quickest, slowest))
+	if !timer.Disabled() {
+		avgMicro := timer.GetAverageMicroSeconds()
+		zap.L().Debug(fmt.Sprintf("avg time per packet: %d microseconds", avgMicro))
+		totalDiff, totalCount, quickest, slowest := timer.GetTotals()
+		zap.L().Debug(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d, quickest is %d, slowest is %d",
+			totalDiff, totalCount, quickest, slowest))
+	}
 }

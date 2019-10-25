@@ -34,6 +34,7 @@ func QueryPerformanceFrequency() int64 {
 }
 
 type Timer struct {
+	disabled bool
 	count    int64
 	start    int64
 	diff     int64
@@ -42,14 +43,28 @@ type Timer struct {
 	slowest  int64
 }
 
+func DisabledTimer() *Timer {
+	return &Timer{disabled: true}
+}
+
 // THESE ARE NOT THREADSAFE
 
+func (t *Timer) Disabled() bool {
+	return t.disabled
+}
+
 func (t *Timer) Start() {
+	if t.disabled {
+		return
+	}
 	t.count++
 	t.start = QueryPerformanceCounter()
 }
 
 func (t *Timer) Stop() {
+	if t.disabled {
+		return
+	}
 	stop := QueryPerformanceCounter()
 	if t.start != 0 && stop != 0 {
 		diff := stop - t.start
@@ -64,7 +79,7 @@ func (t *Timer) Stop() {
 }
 
 func (t *Timer) GetAverageMicroSeconds() int64 {
-	if t.count == 0 {
+	if t.disabled || t.count == 0 {
 		return 0
 	}
 	if t.freq == 0 {
@@ -78,5 +93,8 @@ func (t *Timer) GetAverageMicroSeconds() int64 {
 }
 
 func (t *Timer) GetTotals() (int64, int64, int64, int64) {
+	if t.disabled {
+		return 0, 0, 0, 0
+	}
 	return t.diff, t.count, t.quickest, t.slowest
 }
