@@ -207,7 +207,7 @@ func New(
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 
 	if err != nil {
-		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+		zap.L().Error("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
 	d := &Datapath{

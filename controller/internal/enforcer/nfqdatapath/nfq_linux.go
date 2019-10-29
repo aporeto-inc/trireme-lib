@@ -82,14 +82,13 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		netPacket.Print(packet.PacketFailureCreate, d.packetLogs)
+		zap.L().Error("Failed to create net packet", zap.Error(err))
 	} else if netPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
 	} else if netPacket.IPProto() == packet.IPProtocolUDP {
 		udpConn, processError = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
 		processError = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto())
-
 	}
 
 	if processError != nil {
@@ -173,7 +172,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
 	if err != nil {
-		appPacket.Print(packet.PacketFailureCreate, d.packetLogs)
+		zap.L().Error("Failed to create App Packet", zap.Error(err))
 	} else if appPacket.IPProto() == packet.IPProtocolTCP {
 		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
 	} else if appPacket.IPProto() == packet.IPProtocolUDP {
