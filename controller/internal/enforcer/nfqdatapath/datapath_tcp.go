@@ -61,15 +61,17 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 
 	case packet.TCPSynAckMask:
 		conn, err = d.netSynAckRetrieveState(p)
-		switch err {
-		case pucontext.ToError(pucontext.ErrOutOfOrderSynAck):
-			// Drop this synack it is for a flow we know which is marked for deletion.
-			// We saw a FINACK and this synack has come without we seeing an appsyn for this flow again
-			//return conn, fmt.Errorf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort()))
-			return conn, pucontext.PuContextError(pucontext.ErrOutOfOrderSynAck, fmt.Sprintf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort())))
-		case pucontext.ToError(pucontext.ErrNonPUTraffic):
-			d.releaseUnmonitoredFlow(p)
-			return conn, nil
+		if err != nil {
+			switch err {
+			case pucontext.ToError(pucontext.ErrOutOfOrderSynAck):
+				// Drop this synack it is for a flow we know which is marked for deletion.
+				// We saw a FINACK and this synack has come without we seeing an appsyn for this flow again
+				//return conn, fmt.Errorf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort()))
+				return conn, pucontext.PuContextError(pucontext.ErrOutOfOrderSynAck, fmt.Sprintf("%s %s:%d", err, p.SourceAddress().String(), int(p.SourcePort())))
+			default:
+				d.releaseUnmonitoredFlow(p)
+				return conn, nil
+			}
 		}
 
 	default:
@@ -130,6 +132,17 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
 		}
 
+	}
+
+	if p.GetTCPFlags()&packet.TCPRstMask != 0 {
+		// Seen a RST packet. Remove cache entries related to this connection
+		zap.L().Debug("Received early reset from network and cleaning up state", zap.String("Flow", p.L4FlowHash()))
+		if err := d.netOrigConnectionTracker.Remove(p.L4FlowHash()); err != nil {
+			zap.L().Debug("Received early reset from network failed to clean net origin tracker", zap.String("Flow", p.L4FlowHash()))
+		}
+		if err := d.appReplyConnectionTracker.Remove(p.L4ReverseFlowHash()); err != nil {
+			zap.L().Debug("Received early reset from network failed to clean net pp reply tracker", zap.String("Flow", p.L4FlowHash()))
+		}
 	}
 
 	// Accept the packet
@@ -263,6 +276,17 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 		}
 	}
 
+	if p.GetTCPFlags()&packet.TCPRstMask != 0 {
+		// Seen a RST packet. Remove cache entries related to this connection
+		zap.L().Debug("Received early reset by application and cleaning up state", zap.String("Flow", p.L4FlowHash()))
+		if err := d.sourcePortConnectionCache.Remove(p.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+			zap.L().Debug("Received early reset by application and failed in source port cache", zap.String("Flow", p.L4FlowHash()))
+		}
+		if err := d.appOrigConnectionTracker.Remove(p.L4FlowHash()); err != nil {
+			zap.L().Debug("Received early reset by application and failed in app origin tracker", zap.String("Flow", p.L4FlowHash()))
+		}
+	}
+
 	// Accept the packet
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing, d.PacketLogsEnabled())
@@ -366,14 +390,21 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
+			constants.DefaultExternalConnMark,
 		); err != nil {
-			zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
-				zap.String("context", string(conn.Auth.LocalContext)),
-				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-				zap.Error(err),
-			)
+			if !netlink.IsNotExist(errors.Cause(err)) { // nolint
+				zap.L().Error("Failed to update conntrack entry for flow at SynAck packet",
+					zap.String("context", string(conn.Auth.LocalContext)),
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+					zap.Error(err))
+			} else {
+				zap.L().Debug("Failed to update conntrack entry for flow at SynAck packet",
+					zap.String("context", string(conn.Auth.LocalContext)),
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+					zap.Error(err))
+			}
 		}
 
 		return nil
@@ -459,12 +490,19 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
 				); err != nil {
-					zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
-						zap.String("context", string(conn.Auth.LocalContext)),
-						zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-						zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-						zap.Error(err),
-					)
+					if !netlink.IsNotExist(errors.Cause(err)) {
+						zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
+							zap.String("context", string(conn.Auth.LocalContext)),
+							zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+							zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+							zap.Error(err))
+					} else {
+						zap.L().Debug("Failed to update conntrack entry for flow at Ack packet",
+							zap.String("context", string(conn.Auth.LocalContext)),
+							zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+							zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+							zap.Error(err))
+					}
 				}
 				return nil
 			}
@@ -483,7 +521,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
+			constants.DefaultExternalConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -821,8 +859,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-			constants.DefaultConnMark,
-		); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
+			constants.DefaultExternalConnMark,
+		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -1120,7 +1158,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		tcpPacket.IPProto(),
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
-		constants.DefaultConnMark,
+		constants.DefaultExternalConnMark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table",
 			zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
@@ -1140,8 +1178,12 @@ func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 		tcpPacket.IPProto(),
 		tcpPacket.SourcePort(),
 		tcpPacket.DestPort(),
-		constants.DefaultConnMark,
-	); err != nil && !netlink.IsNotExist(errors.Cause(err)) {
-		zap.L().Error("Failed to update conntrack table", zap.Error(err))
+		constants.DefaultExternalConnMark,
+	); err != nil {
+		if !netlink.IsNotExist(errors.Cause(err)) {
+			zap.L().Error("Failed to update conntrack table", zap.Error(err))
+		} else {
+			zap.L().Debug("Failed to update conntrack table", zap.Error(err))
+		}
 	}
 }

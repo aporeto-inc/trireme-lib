@@ -330,6 +330,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 
 		report.Claims = d.puFromIP.Identity().GetSlice()
 		report.PUID = d.puFromIP.ManagementID()
+		report.Namespace = d.puFromIP.ManagementNamespace()
 		report.Encrypt = false
 
 	} else {
@@ -342,6 +343,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 		report.Encrypt = msg.tcpConn.ServiceConnection
 		report.Claims = msg.tcpConn.Context.Identity().GetSlice()
 		report.PUID = msg.tcpConn.Context.ManagementID()
+		report.Namespace = msg.tcpConn.Context.ManagementNamespace()
 	}
 
 	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
