@@ -135,3 +135,8 @@ const (
 	// DatapathTokenValidity determines how long the tokens are valid.
 	DatapathTokenValidity = 1 * time.Minute
 )
+
+// Ipv6Disabled is a flag to disable ipv6 in trireme
+const (
+	Ipv6Disabled = true
+)
