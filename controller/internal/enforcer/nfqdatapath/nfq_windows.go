@@ -11,14 +11,11 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
-	"go.aporeto.io/trireme-lib/controller/internal/windows"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
-
-var timer = windows.DisabledTimer()
 
 func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
 	driverHandle, err := frontman.GetDriverHandle()
@@ -29,8 +26,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 	nflogWin := nflogger.(*nflog.NfLogWindows)
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
-
-		timer.Start()
 
 		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
 		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize]
@@ -45,6 +40,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		// Parse the packet
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
+
 		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
 		var processError error
 		var tcpConn *connection.TCPConnection
@@ -89,7 +85,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 				})
 			}
 			// drop packet by not forwarding it
-			timer.Stop()
 			return 0
 		}
 
@@ -134,7 +129,6 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 			})
 		}
 
-		timer.Stop()
 		return 0
 	}
 
@@ -167,11 +161,4 @@ func (d *Datapath) cleanupPlatform() {
 		zap.L().Error("Failed to close packet proxy", zap.Error(err))
 	}
 
-	if !timer.Disabled() {
-		avgMicro := timer.GetAverageMicroSeconds()
-		zap.L().Debug(fmt.Sprintf("avg time per packet: %d microseconds", avgMicro))
-		totalDiff, totalCount, quickest, slowest := timer.GetTotals()
-		zap.L().Debug(fmt.Sprintf("total packet time is %d microseconds, total number packets is %d, quickest is %d, slowest is %d",
-			totalDiff, totalCount, quickest, slowest))
-	}
 }
