@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"context"
@@ -23,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc/metadata"
 	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
@@ -99,6 +101,8 @@ HFa9llF7b1cq26KqltyMdMKVvvBulRP/F/A8rLIQjcxz++iPAsbw+zOzlTvjwsto
 WHPbqCRiOwY1nQ2pM714A5AuTHhdUDqB1O6gyHA43LL5Z/qHQF1hwFGPa4NrzQU6
 yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
 -----END CERTIFICATE-----`
+
+	counter uint64
 )
 
 const (
@@ -133,6 +137,21 @@ type SdsServer struct {
 	certPEM string
 	secrets secrets.Secrets
 	sync.RWMutex
+	// secretcache is a cache of the secrets, here the key is the connectionID and val is the secret.
+	secretcache *kvcache
+	connMap     map[string]bool
+}
+
+// clientConn is ID for the connection between client and SDS server.
+type clientConn struct {
+	clientID string
+	// the TLS cert information cached for this particular connection
+	secret *model.SecretItem
+
+	mutex sync.RWMutex
+
+	// connectionID is the ID for each new request, make it a combo of nodeID+counter.
+	connectionID string
 }
 
 // NewSdsServer creates a instance of a server.
@@ -145,10 +164,12 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 	//return nil, nil
 	sdsOptions := &Options{SocketPath: SdsSocketpath}
 	sdsServer := &SdsServer{
-		puInfo:  puInfo,
-		ca:      caPool,
-		errCh:   make(chan error),
-		secrets: secrets,
+		puInfo:      puInfo,
+		ca:          caPool,
+		errCh:       make(chan error),
+		secrets:     secrets,
+		secretcache: newkvCache(),
+		connMap:     make(map[string]bool),
 	}
 	if err := sdsServer.CreateSdsService(sdsOptions); err != nil {
 		fmt.Println("Error while starting the envoy sds server.")
@@ -245,13 +266,13 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 	fmt.Println("In start streaming")
 	defer close(discoveryReqCh)
 	for {
-		fmt.Println("\n wait for the stream to be received")
+		//fmt.Println("\n wait for the stream to be received")
 		req, err := stream.Recv()
 		if err != nil {
 			fmt.Println("Connection terminated with err: ", err)
 			return
 		}
-		fmt.Println("\n\n **** $$$$$ received the msg, now send it the main function", req.Node.Id)
+		//fmt.Println("\n\n **** $$$$$ received the msg, now send it the main function", req.Node.Id)
 		discoveryReqCh <- req
 	}
 }
@@ -264,6 +285,23 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 // 4. call the Aporeto api to generate the secret
 func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	fmt.Println("IN stream secret")
+	ctx := stream.Context()
+	token := ""
+	metadata, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return fmt.Errorf("unable to get metadata from incoming context")
+	}
+	if h, ok := metadata["authorization"]; ok {
+		if len(h) != 1 {
+			return fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", "authorization", len(h))
+		}
+		token = h[0]
+	}
+	fmt.Println("IN stream secrets, token: ", token, len(token))
+
+	// create new connection
+	conn := &clientConn{}
+
 	discoveryReqCh := make(chan *v2.DiscoveryRequest, 1)
 	go startStreaming(stream, discoveryReqCh)
 
@@ -280,7 +318,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
 			if !ok {
-				fmt.Println("Receiver channel closed, which means the Receiver stream is closed")
+				//fmt.Println("Receiver channel closed, which means the Receiver stream is closed")
 				return fmt.Errorf("Receiver closed the channel")
 			}
 			// if req.Node == nil {
@@ -289,7 +327,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			// }
 			// the node will be present only only in the 1st message according to the xds protocol
 			if req.Node != nil {
-				fmt.Println("the 1st request came from envoy: ", req.Node.Id, req.Node.Cluster)
+				//fmt.Println("the 1st request came from envoy: ", req.Node.Id, req.Node.Cluster)
 			}
 			// now according to the Istio pilot SDS secret config we have 2 configs, this configs are pushed to envoy through Istio.
 			// 1. SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
@@ -298,27 +336,40 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 			// now check for the resourcename, it should atleast have one, else continue and stream the next request.
 			// according to the defination this could be empty.
-			if len(req.ResourceNames) == 0 {
+			if len(req.ResourceNames) == 0 || len(req.ResourceNames) > 1 {
 				continue
 			}
-			fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
+			//resourceName := req.ResourceNames[0]
+			//fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
+			conn.clientID = req.Node.GetId()
+			if len(conn.connectionID) == 0 {
+				conn.connectionID = createConnID(conn.clientID)
+			}
+			// if this is not the 1st request and if the secret is already present then dont proceed as this is a ACK according to the XDS protocol.
+			if req.VersionInfo != "" || s.checkSecretPresent(conn.connectionID, req, token) {
+				fmt.Println("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", req.Node.Id, conn.connectionID, req.ResourceNames[0], req.VersionInfo)
+				continue
+			}
 
-			secret := s.generateSecret(req)
+			secret := s.generateSecret(req, token)
 			if secret == nil {
 				fmt.Println("\n the Certs cannot be served so return nil")
 				return fmt.Errorf("the aporeto SDS server cannot generate server, the certs are nil")
 			}
+			s.secretcache.store(conn.connectionID, secret)
 			// TODO: now call the metadata-lib function to fetch the secrets.
 			// TODO: once the secret is fetched create a discovery Response depending on the secret.
 
 			resp := &v2.DiscoveryResponse{
-				TypeUrl: "type.googleapis.com/envoy.api.v2.auth.Secret",
+				TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
+				VersionInfo: secret.Version,
+				Nonce:       secret.Version,
 			}
 			retSecret := &auth.Secret{
 				Name: secret.ResourceName,
 			}
 			if secret.RootCert != nil {
-				fmt.Println("*** ABHI: send the root cert")
+				//fmt.Println("*** ABHI: send the root cert")
 				retSecret.Type = getRootCert(secret)
 			} else {
 				retSecret.Type = getTLScerts(secret)
@@ -343,6 +394,19 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 }
 
+func (s *SdsServer) checkSecretPresent(connID string, req *v2.DiscoveryRequest, token string) bool {
+	val, ok := s.secretcache.load(connID)
+	if !ok {
+		return false
+	}
+	e := val.(*model.SecretItem)
+	return e.ResourceName == req.ResourceNames[0] && e.Token == token && e.Version == req.VersionInfo
+}
+func createConnID(clientID string) string {
+	fmt.Println("generated a unique ID:", clientID+string(atomic.AddUint64(&counter, 1)))
+	return clientID + string(atomic.AddUint64(&counter, 1))
+}
+
 // UpdateSecrets updates the secrets
 // Whenever the Envoy makes a request for certificate, the certs and keys are fetched from
 // the Proxy.
@@ -365,8 +429,19 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 // 3. call the Aporeto api to generate the secret
 func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
 	fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
-
-	secret := s.generateSecret(req)
+	token := ""
+	metadata, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("unable to get metadata from incoming context")
+	}
+	if h, ok := metadata["authorization"]; ok {
+		if len(h) != 1 {
+			return nil, fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", "authorization", len(h))
+		}
+		token = h[0]
+	}
+	fmt.Println("IN stream secrets, token: ", token, len(token))
+	secret := s.generateSecret(req, token)
 
 	// TODO: now call the metadata-lib function to fetch the secrets.
 	// TODO: once the secret is fetched create a discovery Response depending on the secret.
@@ -399,7 +474,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 }
 
 // generateSecret is the call which talks to the metadata API to fetch the certs.
-func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
+func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *model.SecretItem {
 	t := time.Now()
 	expTime := time.Time{}
 	var err error
@@ -417,7 +492,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 	}
 
 	caPEM := s.secrets.PublicSecrets().CertAuthority()
-	fmt.Println("\n\n the CA returned is: ", caPEM, " and cert pem is :", certPEM)
+	//fmt.Println("\n\n the CA returned is: ", caPEM, " and cert pem is :", certPEM)
 	if req.ResourceNames[0] == "default" {
 		// if strings.Contains(req.Node.Id, "httpbin") {
 		// 	expTime, err = getExpTimeFromCert([]byte(serverPEM))
@@ -452,7 +527,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 			CertificateChain: pemCert,
 			PrivateKey:       []byte(keyPEM),
 			ResourceName:     req.ResourceNames[0],
-			Token:            "",
+			Token:            token,
 			CreatedTime:      t,
 			ExpireTime:       expTime,
 			Version:          t.String(),
@@ -462,7 +537,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest) *model.SecretItem {
 	return &model.SecretItem{
 		RootCert:     pemCert,
 		ResourceName: req.ResourceNames[0],
-		Token:        "",
+		Token:        token,
 		CreatedTime:  t,
 		ExpireTime:   expTime,
 		Version:      t.String(),
@@ -493,7 +568,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		fmt.Println("\n cert: ", string(certDERBlock.Type))
+		//fmt.Println("\n cert: ", string(certDERBlock.Type))
 		if certDERBlock.Type == "CERTIFICATE" {
 			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 			if err != nil {
@@ -520,6 +595,7 @@ func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
 	for _, cert := range certChain {
+		//fmt.Println("\n\n Cert subj: ", cert.)
 		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 			return nil, err
 		}
@@ -542,7 +618,7 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		fmt.Println("\n cert: ", string(certDERBlock.Type))
+		//fmt.Println("\n cert: ", string(certDERBlock.Type))
 		if certDERBlock.Type == "CERTIFICATE" {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}
@@ -552,7 +628,7 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("\n\n *** cert sub and issuer:", string(x509Cert.RawSubject), "\n\n ***", string(x509Cert.RawIssuer))
+	fmt.Println("\n\n *** root cert serial number: ***", x509Cert.SerialNumber)
 	//
 	by, _ := x509CertToPem(x509Cert)
 	fmt.Println("AFTER the root cert: ", string(by))
