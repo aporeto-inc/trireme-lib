@@ -491,7 +491,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					tcpPacket.DestPort(),
 					constants.DefaultConnMark,
 				); err != nil {
-					if !netlink.IsNotExist(errors.Cause(err)) {
+					if !netlink.IsNotExist(errors.Cause(err)) { // nolint
 						zap.L().Error("Failed to update conntrack entry for flow at Ack packet",
 							zap.String("context", string(conn.Auth.LocalContext)),
 							zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
