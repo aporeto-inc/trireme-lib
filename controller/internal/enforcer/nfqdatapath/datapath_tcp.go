@@ -860,13 +860,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			tcpPacket.IPProto(),
 			tcpPacket.SourcePort(),
 			tcpPacket.DestPort(),
-<<<<<<< HEAD
-			constants.DefaultConnMark,
-		); err != nil && !netlink.IsNotExist(errors.Cause(err)) { // nolint
-=======
 			constants.DefaultExternalConnMark,
 		); err != nil {
->>>>>>> master
 			zap.L().Error("Failed to update conntrack entry for flow at network Ack packet",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
