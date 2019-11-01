@@ -26,7 +26,7 @@ env:
     - GOGC=75
 
 before_install:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.19.1
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 
 install:
   - go list -m all || true
