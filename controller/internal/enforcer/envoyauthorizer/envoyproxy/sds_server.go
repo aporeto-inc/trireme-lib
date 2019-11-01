@@ -30,77 +30,77 @@ import (
 
 // for testing/POC purpose just add the manually created certificates.
 var (
-	sleepPEM = `
------BEGIN CERTIFICATE-----
-MIIBcDCCARegAwIBAgIQemVbvfpmCUzI7nbrImDe7DAKBggqhkjOPQQDAjAeMQ0w
-CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTgyM1oXDTI5
-MDgyNzAxMTgyM1owIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGY2xpZW50MFkw
-EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh52
-7Gxf7B8Rwo+g2M+0BE13ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqqM1MDMwDgYD
-VR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
-CgYIKoZIzj0EAwIDRwAwRAIgdAEzOqPsDF3+nrmCZZPaZSEzcuApDD/UoAOu96lb
-EVICIF+utXDYgIeE7OqSmrtFXaif8fM+n/OgrIonF4RV8+jA
------END CERTIFICATE-----`
-	sleeepKey = `
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIJ496pypyXGSXHZEcMl8OiDR7hGl9xRWCodugRfscOm8oAoGCCqGSM49
-AwEHoUQDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh527Gxf7B8Rwo+g2M+0BE13
-ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqg==
------END EC PRIVATE KEY-----`
-	serverPEM = `
------BEGIN CERTIFICATE-----
-MIIBcjCCARigAwIBAgIRALZyIRzfKP2tr0gjIUhJqOEwCgYIKoZIzj0EAwIwHjEN
-MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTEwMTkwMTIxMDdaFw0y
-OTA4MjcwMTIxMDdaMCAxDTALBgNVBAoTBGFjbWUxDzANBgNVBAMTBnNlcnZlcjBZ
-MBMGByqGSM49AgEGCCqGSM49AwEHA0IABB7qdtSzXWiof/nfzYclTKxQ+U0CRnro
-Gc0cB7CEkaV/tsKacLegSxibtckDi1w8S0mBzUIotKBfnjTD5Ii1TmajNTAzMA4G
-A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
-MAoGCCqGSM49BAMCA0gAMEUCIQCZidLIKKJY/R2EeGJNwCL9vYrtqPSPKJyxLrHY
-Z4qe2AIgbARCHGwv53KKKElLy7tnBMnTpd4vo8BWcAOnppwXHSs=
------END CERTIFICATE-----`
-	serverKEY = `
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIBs8xKuuJ7SKVnr4QWmVmC1kJ6uIcdJ5DESr8zmZz6FQoAoGCCqGSM49
-AwEHoUQDQgAEHup21LNdaKh/+d/NhyVMrFD5TQJGeugZzRwHsISRpX+2wppwt6BL
-GJu1yQOLXDxLSYHNQii0oF+eNMPkiLVOZg==
------END EC PRIVATE KEY-----`
-	rootPEM = `
------BEGIN CERTIFICATE-----
-MIIBXjCCAQOgAwIBAgIQKd8Ypc10ti3tUZWpdYVzqTAKBggqhkjOPQQDAjAeMQ0w
-CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTc0MloXDTI5
-MDgyNzAxMTc0MlowHjENMAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDBZMBMG
-ByqGSM49AgEGCCqGSM49AwEHA0IABPujmM2L3DqDMlWkQIVASZS3kZA9harmnWNS
-f7ji9wGmmd1hTAicja2YQxGWoy42M1Tc9Wrl+h0Lrxhyjk0dm3qjIzAhMA4GA1Ud
-DwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQCt
-ot79SkWd5wfxh/e0mlEVS+wNxRGm/5gC59h2UDRvRAIhAOtrClKkPqjxgBkHlzmU
-94wdniSd6HoIEcRVlaLx1fM4
------END CERTIFICATE-----`
+	// 	sleepPEM = `
+	// -----BEGIN CERTIFICATE-----
+	// MIIBcDCCARegAwIBAgIQemVbvfpmCUzI7nbrImDe7DAKBggqhkjOPQQDAjAeMQ0w
+	// CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTgyM1oXDTI5
+	// MDgyNzAxMTgyM1owIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGY2xpZW50MFkw
+	// EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh52
+	// 7Gxf7B8Rwo+g2M+0BE13ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqqM1MDMwDgYD
+	// VR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
+	// CgYIKoZIzj0EAwIDRwAwRAIgdAEzOqPsDF3+nrmCZZPaZSEzcuApDD/UoAOu96lb
+	// EVICIF+utXDYgIeE7OqSmrtFXaif8fM+n/OgrIonF4RV8+jA
+	// -----END CERTIFICATE-----`
+	// 	sleeepKey = `
+	// -----BEGIN EC PRIVATE KEY-----
+	// MHcCAQEEIJ496pypyXGSXHZEcMl8OiDR7hGl9xRWCodugRfscOm8oAoGCCqGSM49
+	// AwEHoUQDQgAEJWdLEwANCfhWnhAcSJVeUXMCRj/xSh527Gxf7B8Rwo+g2M+0BE13
+	// ZClbeNbMu2x6RDUoObJgeSumM0GdHvgNqg==
+	// -----END EC PRIVATE KEY-----`
+	// 	serverPEM = `
+	// -----BEGIN CERTIFICATE-----
+	// MIIBcjCCARigAwIBAgIRALZyIRzfKP2tr0gjIUhJqOEwCgYIKoZIzj0EAwIwHjEN
+	// MAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDAeFw0xOTEwMTkwMTIxMDdaFw0y
+	// OTA4MjcwMTIxMDdaMCAxDTALBgNVBAoTBGFjbWUxDzANBgNVBAMTBnNlcnZlcjBZ
+	// MBMGByqGSM49AgEGCCqGSM49AwEHA0IABB7qdtSzXWiof/nfzYclTKxQ+U0CRnro
+	// Gc0cB7CEkaV/tsKacLegSxibtckDi1w8S0mBzUIotKBfnjTD5Ii1TmajNTAzMA4G
+	// A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+	// MAoGCCqGSM49BAMCA0gAMEUCIQCZidLIKKJY/R2EeGJNwCL9vYrtqPSPKJyxLrHY
+	// Z4qe2AIgbARCHGwv53KKKElLy7tnBMnTpd4vo8BWcAOnppwXHSs=
+	// -----END CERTIFICATE-----`
+	// 	serverKEY = `
+	// -----BEGIN EC PRIVATE KEY-----
+	// MHcCAQEEIBs8xKuuJ7SKVnr4QWmVmC1kJ6uIcdJ5DESr8zmZz6FQoAoGCCqGSM49
+	// AwEHoUQDQgAEHup21LNdaKh/+d/NhyVMrFD5TQJGeugZzRwHsISRpX+2wppwt6BL
+	// GJu1yQOLXDxLSYHNQii0oF+eNMPkiLVOZg==
+	// -----END EC PRIVATE KEY-----`
+	// 	rootPEM = `
+	// -----BEGIN CERTIFICATE-----
+	// MIIBXjCCAQOgAwIBAgIQKd8Ypc10ti3tUZWpdYVzqTAKBggqhkjOPQQDAjAeMQ0w
+	// CwYDVQQKEwRhY21lMQ0wCwYDVQQDEwRyb290MB4XDTE5MTAxOTAxMTc0MloXDTI5
+	// MDgyNzAxMTc0MlowHjENMAsGA1UEChMEYWNtZTENMAsGA1UEAxMEcm9vdDBZMBMG
+	// ByqGSM49AgEGCCqGSM49AwEHA0IABPujmM2L3DqDMlWkQIVASZS3kZA9harmnWNS
+	// f7ji9wGmmd1hTAicja2YQxGWoy42M1Tc9Wrl+h0Lrxhyjk0dm3qjIzAhMA4GA1Ud
+	// DwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQCt
+	// ot79SkWd5wfxh/e0mlEVS+wNxRGm/5gC59h2UDRvRAIhAOtrClKkPqjxgBkHlzmU
+	// 94wdniSd6HoIEcRVlaLx1fM4
+	// -----END CERTIFICATE-----`
 
-	rootPEM2 = `
------BEGIN CERTIFICATE-----
-MIIEBDCCAuygAwIBAgIDAjppMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
-MRYwFAYDVQQKEw1HZW9UcnVzdCBJbmMuMRswGQYDVQQDExJHZW9UcnVzdCBHbG9i
-YWwgQ0EwHhcNMTMwNDA1MTUxNTU1WhcNMTUwNDA0MTUxNTU1WjBJMQswCQYDVQQG
-EwJVUzETMBEGA1UEChMKR29vZ2xlIEluYzElMCMGA1UEAxMcR29vZ2xlIEludGVy
-bmV0IEF1dGhvcml0eSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
-AJwqBHdc2FCROgajguDYUEi8iT/xGXAaiEZ+4I/F8YnOIe5a/mENtzJEiaB0C1NP
-VaTOgmKV7utZX8bhBYASxF6UP7xbSDj0U/ck5vuR6RXEz/RTDfRK/J9U3n2+oGtv
-h8DQUB8oMANA2ghzUWx//zo8pzcGjr1LEQTrfSTe5vn8MXH7lNVg8y5Kr0LSy+rE
-ahqyzFPdFUuLH8gZYR/Nnag+YyuENWllhMgZxUYi+FOVvuOAShDGKuy6lyARxzmZ
-EASg8GF6lSWMTlJ14rbtCMoU/M4iarNOz0YDl5cDfsCx3nuvRTPPuj5xt970JSXC
-DTWJnZ37DhF5iR43xa+OcmkCAwEAAaOB+zCB+DAfBgNVHSMEGDAWgBTAephojYn7
-qwVkDBF9qn1luMrMTjAdBgNVHQ4EFgQUSt0GFhu89mi1dvWBtrtiGrpagS8wEgYD
-VR0TAQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwOgYDVR0fBDMwMTAvoC2g
-K4YpaHR0cDovL2NybC5nZW90cnVzdC5jb20vY3Jscy9ndGdsb2JhbC5jcmwwPQYI
-KwYBBQUHAQEEMTAvMC0GCCsGAQUFBzABhiFodHRwOi8vZ3RnbG9iYWwtb2NzcC5n
-ZW90cnVzdC5jb20wFwYDVR0gBBAwDjAMBgorBgEEAdZ5AgUBMA0GCSqGSIb3DQEB
-BQUAA4IBAQA21waAESetKhSbOHezI6B1WLuxfoNCunLaHtiONgaX4PCVOzf9G0JY
-/iLIa704XtE7JW4S615ndkZAkNoUyHgN7ZVm2o6Gb4ChulYylYbc3GrKBIxbf/a/
-zG+FA1jDaFETzf3I93k9mTXwVqO94FntT0QJo544evZG0R0SnU++0ED8Vf4GXjza
-HFa9llF7b1cq26KqltyMdMKVvvBulRP/F/A8rLIQjcxz++iPAsbw+zOzlTvjwsto
-WHPbqCRiOwY1nQ2pM714A5AuTHhdUDqB1O6gyHA43LL5Z/qHQF1hwFGPa4NrzQU6
-yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
------END CERTIFICATE-----`
+	// 	rootPEM2 = `
+	// -----BEGIN CERTIFICATE-----
+	// MIIEBDCCAuygAwIBAgIDAjppMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
+	// MRYwFAYDVQQKEw1HZW9UcnVzdCBJbmMuMRswGQYDVQQDExJHZW9UcnVzdCBHbG9i
+	// YWwgQ0EwHhcNMTMwNDA1MTUxNTU1WhcNMTUwNDA0MTUxNTU1WjBJMQswCQYDVQQG
+	// EwJVUzETMBEGA1UEChMKR29vZ2xlIEluYzElMCMGA1UEAxMcR29vZ2xlIEludGVy
+	// bmV0IEF1dGhvcml0eSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+	// AJwqBHdc2FCROgajguDYUEi8iT/xGXAaiEZ+4I/F8YnOIe5a/mENtzJEiaB0C1NP
+	// VaTOgmKV7utZX8bhBYASxF6UP7xbSDj0U/ck5vuR6RXEz/RTDfRK/J9U3n2+oGtv
+	// h8DQUB8oMANA2ghzUWx//zo8pzcGjr1LEQTrfSTe5vn8MXH7lNVg8y5Kr0LSy+rE
+	// ahqyzFPdFUuLH8gZYR/Nnag+YyuENWllhMgZxUYi+FOVvuOAShDGKuy6lyARxzmZ
+	// EASg8GF6lSWMTlJ14rbtCMoU/M4iarNOz0YDl5cDfsCx3nuvRTPPuj5xt970JSXC
+	// DTWJnZ37DhF5iR43xa+OcmkCAwEAAaOB+zCB+DAfBgNVHSMEGDAWgBTAephojYn7
+	// qwVkDBF9qn1luMrMTjAdBgNVHQ4EFgQUSt0GFhu89mi1dvWBtrtiGrpagS8wEgYD
+	// VR0TAQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwOgYDVR0fBDMwMTAvoC2g
+	// K4YpaHR0cDovL2NybC5nZW90cnVzdC5jb20vY3Jscy9ndGdsb2JhbC5jcmwwPQYI
+	// KwYBBQUHAQEEMTAvMC0GCCsGAQUFBzABhiFodHRwOi8vZ3RnbG9iYWwtb2NzcC5n
+	// ZW90cnVzdC5jb20wFwYDVR0gBBAwDjAMBgorBgEEAdZ5AgUBMA0GCSqGSIb3DQEB
+	// BQUAA4IBAQA21waAESetKhSbOHezI6B1WLuxfoNCunLaHtiONgaX4PCVOzf9G0JY
+	// /iLIa704XtE7JW4S615ndkZAkNoUyHgN7ZVm2o6Gb4ChulYylYbc3GrKBIxbf/a/
+	// zG+FA1jDaFETzf3I93k9mTXwVqO94FntT0QJo544evZG0R0SnU++0ED8Vf4GXjza
+	// HFa9llF7b1cq26KqltyMdMKVvvBulRP/F/A8rLIQjcxz++iPAsbw+zOzlTvjwsto
+	// WHPbqCRiOwY1nQ2pM714A5AuTHhdUDqB1O6gyHA43LL5Z/qHQF1hwFGPa4NrzQU6
+	// yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
+	// -----END CERTIFICATE-----`
 
 	counter uint64
 )
@@ -157,11 +157,10 @@ type clientConn struct {
 // NewSdsServer creates a instance of a server.
 func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool, secrets secrets.Secrets) (*SdsServer, error) {
 	if puInfo == nil {
-		fmt.Println("\n\n puInfo NIL ")
+		zap.L().Error("SDS Server: puInfo NIL ")
 		return nil, fmt.Errorf("the puinfo cannot be nil")
 	}
-	fmt.Println("New sds server for : ", puInfo.Policy.Annotations(), " puID is : ", contextID)
-	//return nil, nil
+
 	sdsOptions := &Options{SocketPath: SdsSocketpath}
 	sdsServer := &SdsServer{
 		puInfo:      puInfo,
@@ -172,10 +171,10 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 		connMap:     make(map[string]bool),
 	}
 	if err := sdsServer.CreateSdsService(sdsOptions); err != nil {
-		fmt.Println("Error while starting the envoy sds server.")
+		zap.L().Error("SDS Server:Error while starting the envoy sds server.")
 		return nil, err
 	}
-	fmt.Println("SDS start success for :", puInfo.ContextID)
+	zap.L().Debug("SDS Server: SDS start success for :", zap.String("pu: ", puInfo.ContextID))
 	return sdsServer, nil
 }
 
@@ -184,34 +183,33 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 // 2. create a listener on the Unix Domain Socket.
 // 3.
 func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
-	fmt.Println("ABHI, envoy-trireme create  SDS server")
 	s.sdsGrpcServer = grpc.NewServer()
 	s.register(s.sdsGrpcServer)
 	if err := os.Remove(options.SocketPath); err != nil && !os.IsNotExist(err) {
-		fmt.Println("ABHI, envoy-reireme, failed to remove the udspath", err)
+		zap.L().Error("SDS Server: envoy-reireme, failed to remove the udspath", zap.Error(err))
 		return err
 	}
-	fmt.Println("Start listening on UDS path: ", options.SocketPath)
+	zap.L().Debug("SDS Server: Start listening on UDS path: ", zap.Any("socketPath: ", options.SocketPath))
 	addr, _ := net.ResolveUnixAddr("unix", options.SocketPath)
 
 	sdsGrpcListener, err := net.ListenUnix("unix", addr)
 	if err != nil {
-		fmt.Println("cannot listen on the socketpath", err)
+		zap.L().Error("SDS Server:cannot listen on the socketpath", zap.Error(err))
 		return err
 	}
 	//make sure the socket path can be accessed.
 	if _, err := os.Stat(options.SocketPath); err != nil {
-		fmt.Println("SDS uds file doesn't exist", options.SocketPath)
+		zap.L().Error("SDS Server: SDS uds file doesn't exist", zap.String("socketPath:", options.SocketPath))
 		return fmt.Errorf("sds uds file %q doesn't exist", options.SocketPath)
 	}
 	if err := os.Chmod(options.SocketPath, 0666); err != nil {
-		fmt.Println("Failed to update permission", options.SocketPath)
+		zap.L().Error("SDS Server: Failed to update permission", zap.String("socketPath:", options.SocketPath))
 		return fmt.Errorf("failed to update %q permission", options.SocketPath)
 	}
 	//var err error
 	s.sdsGrpcListener = sdsGrpcListener
 
-	fmt.Println("run the grpc server at: ", s.sdsGrpcListener.Addr())
+	zap.L().Debug("SDS Server: run the grpc server at: ", zap.Any("addr: ", s.sdsGrpcListener.Addr()))
 	s.Run()
 	return nil
 }
@@ -221,11 +219,11 @@ func (s *SdsServer) Run() {
 	go func() {
 		if s.sdsGrpcListener != nil {
 			if err := s.sdsGrpcServer.Serve(s.sdsGrpcListener); err != nil {
-				fmt.Println("got error after serve", err)
+				zap.L().Error("SDS Server: Error while serve", zap.Error(err))
 				s.errCh <- err
 			}
 		}
-		fmt.Println("the listener is nil, cannot start the SDS server for: ", s.puInfo.ContextID)
+		zap.L().Error("SDS Server: the listener is nil, cannot start the SDS server for: ", zap.String("puID: ", s.puInfo.ContextID))
 	}()
 }
 
@@ -246,7 +244,7 @@ func (s *SdsServer) GracefulStop() {
 
 // register adds the SDS handle to the grpc server
 func (s *SdsServer) register(sdsGrpcServer *grpc.Server) {
-	fmt.Println("\n\n ** Abhi envoy-trireme registering the secret discovery")
+	zap.L().Debug("SDS Server:  envoy-trireme registering the secret discovery")
 	sds.RegisterSecretDiscoveryServiceServer(sdsGrpcServer, s)
 }
 
@@ -263,16 +261,13 @@ func (s *SdsServer) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsS
 }
 
 func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.DiscoveryRequest) {
-	fmt.Println("In start streaming")
 	defer close(discoveryReqCh)
 	for {
-		//fmt.Println("\n wait for the stream to be received")
 		req, err := stream.Recv()
 		if err != nil {
-			fmt.Println("Connection terminated with err: ", err)
+			zap.L().Error("SDS Server: Connection terminated with err: ", zap.Error(err))
 			return
 		}
-		//fmt.Println("\n\n **** $$$$$ received the msg, now send it the main function", req.Node.Id)
 		discoveryReqCh <- req
 	}
 }
@@ -284,7 +279,6 @@ func startStreaming(stream SecretDiscoveryStream, discoveryReqCh chan *v2.Discov
 // 3. track the request.
 // 4. call the Aporeto api to generate the secret
 func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	fmt.Println("IN stream secret")
 	ctx := stream.Context()
 	token := ""
 	metadata, ok := metadata.FromIncomingContext(ctx)
@@ -297,7 +291,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		}
 		token = h[0]
 	}
-	fmt.Println("IN stream secrets, token: ", token, len(token))
+	zap.L().Error("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
 
 	// create new connection
 	conn := &clientConn{}
@@ -311,14 +305,14 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		case req, ok := <-discoveryReqCh:
 			fmt.Println("got the req to be processed by start streaming", req)
 			if req.ErrorDetail != nil {
-				fmt.Println("ERROR from envoy for processing the resource: ", req.ResourceNames, " with error: ", req.ErrorDetail.GoString())
+				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().GoString()))
 				continue
 			}
 			// Now check the following:
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
 			if !ok {
-				//fmt.Println("Receiver channel closed, which means the Receiver stream is closed")
+				zap.L().Error("SDS Server: Receiver channel closed, which means the Receiver stream is closed")
 				return fmt.Errorf("Receiver closed the channel")
 			}
 			// if req.Node == nil {
@@ -339,21 +333,20 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			if len(req.ResourceNames) == 0 || len(req.ResourceNames) > 1 {
 				continue
 			}
-			//resourceName := req.ResourceNames[0]
-			//fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
+			resourceName := req.ResourceNames[0]
 			conn.clientID = req.Node.GetId()
 			if len(conn.connectionID) == 0 {
 				conn.connectionID = createConnID(conn.clientID)
 			}
 			// if this is not the 1st request and if the secret is already present then dont proceed as this is a ACK according to the XDS protocol.
 			if req.VersionInfo != "" || s.checkSecretPresent(conn.connectionID, req, token) {
-				fmt.Println("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", req.Node.Id, conn.connectionID, req.ResourceNames[0], req.VersionInfo)
+				zap.L().Debug("SDS Server: got a ACK from envoy ", zap.String("connectionID", conn.connectionID), zap.String("resourceName: ", resourceName), zap.String("version", req.VersionInfo))
 				continue
 			}
 
 			secret := s.generateSecret(req, token)
 			if secret == nil {
-				fmt.Println("\n the Certs cannot be served so return nil")
+				zap.L().Error("SDS Server:  the Certs cannot be served so return nil")
 				return fmt.Errorf("the aporeto SDS server cannot generate server, the certs are nil")
 			}
 			s.secretcache.store(conn.connectionID, secret)
@@ -369,25 +362,24 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				Name: secret.ResourceName,
 			}
 			if secret.RootCert != nil {
-				//fmt.Println("*** ABHI: send the root cert")
 				retSecret.Type = getRootCert(secret)
 			} else {
 				retSecret.Type = getTLScerts(secret)
 			}
 			endSecret, err := types.MarshalAny(retSecret)
 			if err != nil {
-				fmt.Println("Cannot marshall the secret")
+				zap.L().Error("SDS Server: Cannot marshall the secret")
 				continue
 			}
 			resp.Resources = append(resp.Resources, endSecret)
 			if err = stream.Send(resp); err != nil {
-				fmt.Println("Failed to send the resp cert")
+				zap.L().Error("SDS Server: Failed to send the resp cert")
 				return err
 			}
 			if secret.RootCert != nil {
-				fmt.Println("\n\n ** Successfully sent root cert: ", string(secret.RootCert))
+				zap.L().Debug("SDS Server:  Successfully sent root cert: ", zap.String("rootCA: ", string(secret.RootCert)))
 			} else {
-				fmt.Println("Successfully sent default cert: ", string(secret.CertificateChain))
+				zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.String("default cert: ", string(secret.CertificateChain)))
 			}
 		}
 	}
@@ -403,7 +395,7 @@ func (s *SdsServer) checkSecretPresent(connID string, req *v2.DiscoveryRequest, 
 	return e.ResourceName == req.ResourceNames[0] && e.Token == token && e.Version == req.VersionInfo
 }
 func createConnID(clientID string) string {
-	fmt.Println("generated a unique ID:", clientID+string(atomic.AddUint64(&counter, 1)))
+	zap.L().Debug("SDS Server: generated a unique ID:", zap.String("connID: ", clientID+string(atomic.AddUint64(&counter, 1))))
 	return clientID + string(atomic.AddUint64(&counter, 1))
 }
 
@@ -419,8 +411,6 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 	s.secrets = secrets
 	s.certPEM = certPEM
 	s.keyPEM = keyPEM
-	//s.tlsClientConfig.RootCAs = caPool
-	//s.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
 }
 
 // FetchSecrets gets the discovery request and call the Aporeto backend to fetch the certs.
@@ -428,7 +418,6 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 // 2. track the request.
 // 3. call the Aporeto api to generate the secret
 func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
-	fmt.Println("ABHI, envoy-trireme the req resource name is: ", req.ResourceNames)
 	token := ""
 	metadata, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -440,11 +429,8 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 		}
 		token = h[0]
 	}
-	fmt.Println("IN stream secrets, token: ", token, len(token))
+	zap.L().Error("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
 	secret := s.generateSecret(req, token)
-
-	// TODO: now call the metadata-lib function to fetch the secrets.
-	// TODO: once the secret is fetched create a discovery Response depending on the secret.
 
 	resp := &v2.DiscoveryResponse{
 		TypeUrl: "type.googleapis.com/envoy.api.v2.auth.Secret",
@@ -453,46 +439,44 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 		Name: secret.ResourceName,
 	}
 	if secret.RootCert != nil {
-		//fmt.Println("*** ABHI: send the root cert")
 		retSecret.Type = getRootCert(secret)
 	} else {
 		retSecret.Type = getTLScerts(secret)
 	}
 	endSecret, err := types.MarshalAny(retSecret)
 	if err != nil {
-		fmt.Println("Cannot marshall the secret")
+		zap.L().Error("SDS Server: Cannot marshall the secret")
 		return nil, err
 	}
 	resp.Resources = append(resp.Resources, endSecret)
 
 	if secret.RootCert != nil {
-		fmt.Println("\n\n ** Successfully sent root cert: ", string(secret.RootCert))
+		zap.L().Debug("SDS Server:  Successfully sent root cert: ", zap.String("rootCA: ", string(secret.RootCert)))
 	} else {
-		fmt.Println("Successfully sent default cert: ", string(secret.CertificateChain))
+		zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.String("default cert: ", string(secret.CertificateChain)))
 	}
 	return resp, nil
 }
 
 // generateSecret is the call which talks to the metadata API to fetch the certs.
 func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *model.SecretItem {
-	t := time.Now()
-	expTime := time.Time{}
+
 	var err error
 	pemCert := []byte{}
-	//keyPEM := []byte{}
+	t := time.Now()
+	expTime := time.Time{}
+
 	if s.puInfo.Policy == nil {
-		fmt.Println("\n\n *** The policy is nil, cannot be nil.")
+		zap.L().Error("SDS Server:  The policy is nil, Policy cannot be nil.")
 	}
-	//fmt.Println("\n\n *** GENERATE cert in SDS, policy ptr: ", s.puInfo.Policy)
 	// now fetch the certificates for the PU/Service.
 	certPEM, keyPEM, _ := s.puInfo.Policy.ServiceCertificates()
 	if certPEM == "" || keyPEM == "" {
-		fmt.Println("SDS server the certs are empty")
+		zap.L().Error("SDS Server:  the certs are empty")
 		return nil
 	}
 
 	caPEM := s.secrets.PublicSecrets().CertAuthority()
-	//fmt.Println("\n\n the CA returned is: ", caPEM, " and cert pem is :", certPEM)
 	if req.ResourceNames[0] == "default" {
 		// if strings.Contains(req.Node.Id, "httpbin") {
 		// 	expTime, err = getExpTimeFromCert([]byte(serverPEM))
@@ -503,7 +487,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 		expTime, err = getExpTimeFromCert([]byte(certPEM))
 		pemCert, err = buildCertChain([]byte(certPEM), caPEM)
 		if err != nil {
-			fmt.Println("\n\n Cannot build the cert chain")
+			zap.L().Error("SDS Server: Cannot build the cert chain")
 		}
 		//pemCert = []byte(certPEM)
 		//keyPEM = []byte(keyPEM)
@@ -514,12 +498,12 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 		pemCert, err = getTopRootCa(caPEM)
 		//fmt.Println(string(pemCert))
 		if err != nil {
-			fmt.Println("\n\n Cannot build the Root cert chain")
+			zap.L().Error("SDS Server:  Cannot build the Root cert chain")
 		}
 		//keyPEM = []byte()
 	}
 	if err != nil {
-		fmt.Println("cannot get exp time", err)
+		zap.L().Error("SDS Server: cannot get exp time", zap.Error(err))
 		return nil
 	}
 	if req.ResourceNames[0] == "default" {
@@ -546,7 +530,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 }
 
 func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	fmt.Println("\n\n BEFORE in buildCertChain \n\n ", "certPEM: ", string(certPEM), "\n\n", "caPEM: ", string(caPEM))
+	zap.L().Debug("SDS Server:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
 	certChain := []*x509.Certificate{}
 	//certPEMBlock := caPEM
 	clientPEMBlock := certPEM
@@ -579,12 +563,12 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
 		}
 	}
-	fmt.Println("After building the cert chain: ", certChain, "\n\n ")
 	by, _ := x509CertChainToPem(certChain)
-	fmt.Println("\n\n AFTER in buildCertChain \n\n ", "certPEM: ", string(by))
+	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("certChain: ", string(by)))
 	return x509CertChainToPem(certChain)
 }
 
+// x509CertToPem converts x509 to byte.
 func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
 	if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
@@ -592,10 +576,11 @@ func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 	}
 	return pemBytes.Bytes(), nil
 }
+
+// x509CertChainToPem converts chain of x509 certs to byte.
 func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
 	for _, cert := range certChain {
-		//fmt.Println("\n\n Cert subj: ", cert.)
 		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 			return nil, err
 		}
@@ -603,12 +588,9 @@ func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 	return pemBytes.Bytes(), nil
 }
 
-//var pemStart = []byte("\n-----BEGIN ")
-
-//-----BEGIN
 // getTopRootCa get the top root CA
 func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
-	fmt.Println("BEFORE root cert is :", string(certPEMBlock))
+	zap.L().Debug("SDS Server: BEFORE root cert is :", zap.String("root_cert: ", string(certPEMBlock)))
 	//rootCert := []*x509.Certificate{}
 	var certChain tls.Certificate
 	//certPEMBlock := []byte(rootcaBundle)
@@ -628,10 +610,8 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("\n\n *** root cert serial number: ***", x509Cert.SerialNumber)
-	//
 	by, _ := x509CertToPem(x509Cert)
-	fmt.Println("AFTER the root cert: ", string(by))
+	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("rootCert: ", string(by)))
 	return x509CertToPem(x509Cert)
 }
 
