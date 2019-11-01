@@ -41,7 +41,7 @@ type PublicSecrets interface {
 type PrivateSecretsType int
 
 const (
-	// PKICompactType is for asymetric signing using compact JWTs on the wire
+	// PKICompactType is for asymmetric signing using compact JWTs on the wire
 	PKICompactType PrivateSecretsType = iota
 	// PKINull is for debugging
 	PKINull

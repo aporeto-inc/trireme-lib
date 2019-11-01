@@ -250,7 +250,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 			return nil, nil, nil, fmt.Errorf("unable to verify token: %s", err)
 		}
 
-		// We create a new symetric key if we don't already have one.
+		// We create a new symmetric key if we don't already have one.
 		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
@@ -299,7 +299,7 @@ func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonc
 	key := k.(*sharedSecret).key
 
 	// Calculate the signature on the token and compare it with the incoming
-	// signature. Since this is simple symetric hashing this is simple.
+	// signature. Since this is simple symmetric hashing this is simple.
 	if err := c.verifyWithSharedKey(token, key, sig); err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to verify ack token: %s", err)
 	}
@@ -422,7 +422,7 @@ func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publ
 
 func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
 
-	key, err := symetricKey(c.secrets.EncodingKey(), publicKey)
+	key, err := symmetricKey(c.secrets.EncodingKey(), publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +545,8 @@ func hash(buf []byte, key []byte) ([]byte, error) {
 	return hasher.Sum(key), nil
 }
 
-// symetricKey returns a symetric key for encryption
-func symetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
+// symmetricKey returns a symmetric key for encryption
+func symmetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
 
 	c := elliptic.P256()
 

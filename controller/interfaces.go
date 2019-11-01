@@ -21,7 +21,7 @@ type TriremeController interface {
 	// Enforce asks the controller to enforce policy on a processing unit
 	Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 
-	// UnEnforce asks the controller to ub-enforce policy on a processing unit
+	// UnEnforce asks the controller to un-enforce policy on a processing unit
 	UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 
 	// UpdatePolicy updates the policy of the isolator for a container.

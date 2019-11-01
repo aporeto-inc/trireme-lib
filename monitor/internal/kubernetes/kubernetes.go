@@ -22,10 +22,10 @@ const KubernetesContainerNameIdentifier = "@usr:io.kubernetes.container.name"
 // KubernetesInfraContainerName is the name of the infra POD.
 const KubernetesInfraContainerName = "POD"
 
-// UpstreamNameIdentifier is the identifier used to identify the nane on the resulting PU
+// UpstreamNameIdentifier is the identifier used to identify the name on the resulting PU
 const UpstreamNameIdentifier = "k8s:name"
 
-// UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
+// UpstreamNamespaceIdentifier is the identifier used to identify the namespace on the resulting PU
 const UpstreamNamespaceIdentifier = "k8s:namespace"
 
 func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {

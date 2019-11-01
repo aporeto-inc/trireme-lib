@@ -40,10 +40,10 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
 
-// Fake iptables controller that always returns succes.
+// Fake iptables controller that always returns success.
 type baseIpt struct{}
 
-// Append apends a rule to chain of table
+// Append appends a rule to chain of table
 func (b *baseIpt) Append(table, chain string, rulespec ...string) error { return nil }
 
 // Insert inserts a rule to a chain of table at the required pos

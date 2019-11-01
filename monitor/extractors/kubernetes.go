@@ -21,17 +21,17 @@ const KubernetesContainerNameIdentifier = "@usr:io.kubernetes.container.name"
 // KubernetesInfraContainerName is the name of the infra POD.
 const KubernetesInfraContainerName = "POD"
 
-// UpstreamOldNameIdentifier is the identifier used to identify the nane on the resulting PU
+// UpstreamOldNameIdentifier is the identifier used to identify the name on the resulting PU
 // TODO: Remove OLDTAGS
 const UpstreamOldNameIdentifier = "@k8s:name"
 
-// UpstreamNameIdentifier is the identifier used to identify the nane on the resulting PU
+// UpstreamNameIdentifier is the identifier used to identify the name on the resulting PU
 const UpstreamNameIdentifier = "@app:k8s:name"
 
-// UpstreamOldNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
+// UpstreamOldNamespaceIdentifier is the identifier used to identify the namespace on the resulting PU
 const UpstreamOldNamespaceIdentifier = "@k8s:namespace"
 
-// UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
+// UpstreamNamespaceIdentifier is the identifier used to identify the namespace on the resulting PU
 const UpstreamNamespaceIdentifier = "@app:k8s:namespace"
 
 // UserLabelPrefix is the label prefix for all user defined labels

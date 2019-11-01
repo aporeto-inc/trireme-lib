@@ -39,7 +39,7 @@ type RuntimeReader interface {
 	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() ExtendedMap
 
-	// Returns the PUType for the PU
+	// PUType returns the PUType for the PU
 	PUType() common.PUType
 
 	// SetServices sets the services of the runtime.

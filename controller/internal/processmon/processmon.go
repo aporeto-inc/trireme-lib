@@ -147,7 +147,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 
 	var err error
 	defer func() {
-		// If we encoutered an error we remove it from the cache. We will
+		// If we encountered an error we remove it from the cache. We will
 		// not be monitoring it any more. Caller is responsible for re-launching.
 		if err != nil {
 			p.Lock()

@@ -25,7 +25,7 @@ type IptablesProvider interface {
 
 // BaseIPTables is the base interface of iptables functions.
 type BaseIPTables interface {
-	// Append apends a rule to chain of table
+	// Append appends a rule to chain of table
 	Append(table, chain string, rulespec ...string) error
 	// Insert inserts a rule to a chain of table at the required pos
 	Insert(table, chain string, pos int, rulespec ...string) error
