@@ -279,6 +279,7 @@ func (p *AppProxy) createNetworkListener(ctx context.Context, port string) (net.
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
+// nolint: unparam (the bool return is not used within the library, but maybe used by clients of the library)
 func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, caPool *x509.CertPool) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
