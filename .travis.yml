@@ -7,6 +7,26 @@ go_import_path: go.aporeto.io/trireme-lib
 go:
  - 1.12.x
  - 1.13.x
+ - master
+
+jobs:
+  include:
+  - go: 1.12.x
+    env: LINT_VERSION="@v1.17.1"
+  - go: 1.13.x
+    env: LINT_VERSION="@v1.21.1"
+  - go: master
+    env: LINT_VERSION=""
+  allow_failures:
+  - go: master
+
+matrix:
+  fast_finish: true
+
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $HOME/gopath/pkg/mod
 
 addons:
    apt:
@@ -26,7 +46,7 @@ env:
     - GOGC=75
 
 before_install:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@${LINT_VERSION}
 
 install:
   - go list -m all || true
