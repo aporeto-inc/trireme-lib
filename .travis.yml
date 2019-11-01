@@ -4,12 +4,7 @@ dist: trusty
 
 go_import_path: go.aporeto.io/trireme-lib
 
-go:
- - 1.12.x
- - 1.13.x
- - master
-
-jobs:
+matrix:
   include:
   - go: 1.12.x
     env: LINT_VERSION="@v1.17.1"
@@ -19,8 +14,6 @@ jobs:
     env: LINT_VERSION="@v1.21.0"
   allow_failures:
   - go: master
-
-matrix:
   fast_finish: true
 
 cache:
@@ -46,7 +39,7 @@ env:
     - GOGC=75
 
 before_install:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@${LINT_VERSION}
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
 
 install:
   - go list -m all || true
