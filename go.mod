@@ -84,6 +84,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.2.2
 )
 
-replace github.com/docker/docker => github.com/docker/engine v0.0.0-20191007211215-3e077fc8667a
-
-replace github.com/ti-mo/conntrack => github.com/aporeto-inc/conntrack v0.0.0-20190319215345-309d2d6a3078
+replace (
+    github.com/docker/docker => github.com/docker/engine v0.0.0-20191007211215-3e077fc8667a
+    github.com/ti-mo/conntrack => github.com/aporeto-inc/conntrack v0.0.0-20190319215345-309d2d6a3078
+)
