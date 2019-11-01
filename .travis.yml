@@ -22,6 +22,8 @@ env:
     - PATH=$GOROOT/bin:$PATH
     - SUDO_PERMITTED=1
     - GO111MODULE=on
+    - GOLINT_GOGC=75
+    - GOGC=75
 
 before_install:
   - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.19.1
