@@ -6,8 +6,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/aporeto-inc/windows/go-frontman/abi"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/windows/go-frontman/abi"
 )
 
 func TestFrontmanStructLayout(t *testing.T) {
