@@ -1,10 +1,10 @@
 package controller
 
 import (
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
-	"go.aporeto.io/trireme-lib/policy"
+	enforcerconstants "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

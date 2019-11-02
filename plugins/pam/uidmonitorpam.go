@@ -19,8 +19,8 @@ import (
 	"os"
 	"os/user"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/remoteapi/client"
 )
 
 func getGroupList(username string) ([]string, error) {

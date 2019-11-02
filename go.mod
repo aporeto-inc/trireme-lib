@@ -1,6 +1,6 @@
-module go.aporeto.io/trireme-lib
+module go.aporeto.io/trireme-lib/v11
 
-go 1.12
+go 1.11
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect

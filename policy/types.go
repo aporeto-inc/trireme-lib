@@ -6,7 +6,7 @@ import (
 	"hash/fnv"
 
 	"github.com/docker/go-connections/nat"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 	"go.uber.org/zap"
 )
 

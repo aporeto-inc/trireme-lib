@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/apiauth"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // Client is a metadata client.

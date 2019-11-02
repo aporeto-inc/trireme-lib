@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
 	"go.uber.org/zap"
 )
 

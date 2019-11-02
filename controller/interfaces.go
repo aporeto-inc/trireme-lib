@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/runtime"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // TriremeController is the main API of the Trireme controller

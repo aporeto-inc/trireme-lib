@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/ipprefix"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/ipprefix"
 )
 
 // acl holds all the ACLS in an internal DB

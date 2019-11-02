@@ -6,12 +6,12 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	triremecommon "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	triremecommon "go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 func newBaseApplicationServices(exposedPortValue, publicPortValue, privatePortValue, dependentPortValue uint16) (*policy.ApplicationService, *policy.ApplicationService) {

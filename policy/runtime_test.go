@@ -5,7 +5,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 func TestNewPURunTime(t *testing.T) {

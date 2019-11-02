@@ -3,7 +3,7 @@ package iptablesctrl
 import (
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
 	"go.uber.org/zap"
 )
 

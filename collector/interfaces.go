@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // Flow event description

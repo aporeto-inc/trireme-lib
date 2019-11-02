@@ -5,18 +5,18 @@ package remoteenforcer
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/dnsreportclient"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/tokenissuer"
+	"go.aporeto.io/trireme-lib/v11/policy"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/counterclient"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/debugclient"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statsclient"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
 

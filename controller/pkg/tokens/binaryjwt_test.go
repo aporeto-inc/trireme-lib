@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	enforcerconstants "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 var (

@@ -4,8 +4,8 @@ import (
 	"os"
 	"strconv"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
 )
 
 // RemoteParameters holds all configuration objects that must be passed

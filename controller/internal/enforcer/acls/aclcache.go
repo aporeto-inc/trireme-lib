@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 var catchAllPolicy = &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}

@@ -1,8 +1,8 @@
 package linuxmonitor
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 )
 
 // Config is the configuration options to start a CNI monitor

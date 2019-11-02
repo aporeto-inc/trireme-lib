@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens"
 )
 
 // EnforcerType defines which enforcer type should be selected

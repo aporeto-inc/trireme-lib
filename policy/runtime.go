@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/docker/go-connections/nat"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 // PURuntime holds all data related to the status of the container run time

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // ErrNoMatch is error returned when no match is found.

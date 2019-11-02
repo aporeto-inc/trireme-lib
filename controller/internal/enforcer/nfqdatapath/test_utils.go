@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
 )
 
 type myMatcher struct {

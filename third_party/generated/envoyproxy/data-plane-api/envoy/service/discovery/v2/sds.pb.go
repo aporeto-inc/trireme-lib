@@ -8,7 +8,7 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/googleapis/google/api"
 	proto "github.com/gogo/protobuf/proto"
-	v2 "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2"
+	v2 "go.aporeto.io/trireme-lib/v11/third_party/generated/envoyproxy/data-plane-api/envoy/api/v2"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

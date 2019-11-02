@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
-	portspec "go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls"
+	portspec "go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 // LinuxMetadataExtractorType is a type of Linux metadata extractors

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // KubernetesMetadataExtractor is a systemd based metadata extractor

@@ -4,3 +4,5 @@ vendor
 coverage.txt
 controller/internal/processmon/testbinary/testbinary
 Gopkg.lock
+.history/
+.vscode/

@@ -8,12 +8,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 )
 
 func TestNewCounterClient(t *testing.T) {

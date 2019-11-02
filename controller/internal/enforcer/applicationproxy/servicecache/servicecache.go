@@ -5,9 +5,9 @@ import (
 	"net"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/ipprefix"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/utils/ipprefix"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 type entry struct {

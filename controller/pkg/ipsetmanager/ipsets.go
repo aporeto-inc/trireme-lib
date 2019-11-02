@@ -8,9 +8,9 @@ import (
 
 	ipsetpackage "github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

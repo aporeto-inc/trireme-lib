@@ -1,6 +1,6 @@
 package tokens
 
-import "go.aporeto.io/trireme-lib/collector"
+import "go.aporeto.io/trireme-lib/v11/collector"
 
 const (
 	errCompressedTagMismatch   = "Compressed tag mismatch"

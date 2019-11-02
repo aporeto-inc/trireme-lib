@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	collector "go.aporeto.io/trireme-lib/collector"
+	collector "go.aporeto.io/trireme-lib/v11/collector"
 )
 
 // MockEventCollector is a mock of EventCollector interface

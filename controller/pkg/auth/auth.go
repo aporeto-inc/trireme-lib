@@ -10,11 +10,11 @@ import (
 	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/servicetokens"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/urisearch"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

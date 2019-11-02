@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 // SecretsDriver is a generic interface that the secrets driver must implement.

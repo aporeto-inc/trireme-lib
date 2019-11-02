@@ -1,8 +1,8 @@
 package policy
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens"
 )
 
 // ServiceType are the types of services that can are suported.

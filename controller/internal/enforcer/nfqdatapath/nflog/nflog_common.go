@@ -3,7 +3,7 @@ package nflog
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
 )
 
 // NFLogger provides an interface for NFLog

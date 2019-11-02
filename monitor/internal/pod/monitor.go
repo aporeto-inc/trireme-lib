@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/monitor/registerer"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"

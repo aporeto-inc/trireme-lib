@@ -4,11 +4,11 @@ import (
 	"net"
 	"net/http"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/apiauth"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // connectionState captures the connection state. This state

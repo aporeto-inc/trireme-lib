@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/policy/mockpolicy"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

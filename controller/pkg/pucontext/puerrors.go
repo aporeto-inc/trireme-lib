@@ -3,7 +3,7 @@ package pucontext
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.uber.org/zap"
 )
 

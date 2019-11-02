@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	policy "go.aporeto.io/trireme-lib/policy"
+	policy "go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // MockProcessManager is a mock of ProcessManager interface

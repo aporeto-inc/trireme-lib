@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/pkitokens"
 )
 
 // Verifier is a generic JWT verifier interface. Different implementations

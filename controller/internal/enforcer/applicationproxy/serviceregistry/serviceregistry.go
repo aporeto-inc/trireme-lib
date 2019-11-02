@@ -7,13 +7,13 @@ import (
 	"sync"
 
 	"go.aporeto.io/tg/tglib"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/auth"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/urisearch"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // ServiceContext includes all the all the service related information

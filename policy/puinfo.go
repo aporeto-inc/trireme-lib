@@ -1,6 +1,6 @@
 package policy
 
-import "go.aporeto.io/trireme-lib/common"
+import "go.aporeto.io/trireme-lib/v11/common"
 
 // PUInfo  captures all policy information related to a connection as well as runtime.
 // It makes passing data around simpler.
