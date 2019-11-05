@@ -41,8 +41,13 @@ env:
     - GOGC=75
 
 before_install:
-  # do this in /tmp so as not to update the go.mod file in the trireme root dir
-  - ( cd /tmp; go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION} )
+  # do this in a tempdir so as not to update the go.mod file in the trireme root dir
+  - dir=$(mktemp -d)
+  - cp go.mod $dir
+  - old=$PWD; cd $dir
+  - go get github.com/sourcegraph/go-diff@v0.5.0
+  - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
+  - cd $old
 
 install:
   - go list -m all || true
