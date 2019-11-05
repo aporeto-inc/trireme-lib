@@ -128,7 +128,7 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 }
 
 // trapRules provides the packet capture rules that are defined for each processing unit.
-func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
+func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) [][]string {
 
 	tmpl := template.Must(template.New(packetCaptureTemplate).Funcs(template.FuncMap{
 		"needDnsRules": func() bool {
@@ -140,6 +140,15 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 		"needICMP": func() bool {
 			return cfg.needICMPRules
 		},
+		"appAnyRules": func() [][]string {
+			return appAnyRules
+		},
+		"netAnyRules": func() [][]string {
+			return netAnyRules
+		},
+		"joinRule": func(rule []string) string {
+			return strings.Join(rule, " ")
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -148,6 +157,63 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool) [][]string {
 	}
 
 	return rules
+}
+
+// getProtocolAnyRules returns app any acls and net any acls.
+func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPset) ([][]string, [][]string, error) {
+
+	appAnyRules, _ := extractProtocolAnyRules(appRules)
+	netAnyRules, _ := extractProtocolAnyRules(netRules)
+
+	sortedAppAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.AppChain, cfg.NetChain, appAnyRules, true)
+	sortedNetAnyRulesBuckets := i.sortACLsInBuckets(cfg, cfg.NetChain, cfg.AppChain, netAnyRules, false)
+
+	sortedAppAnyRules, err := extractACLsFromTemplate(sortedAppAnyRulesBuckets)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable extract app protocol any rules: %v", err)
+	}
+
+	sortedNetAnyRules, err := extractACLsFromTemplate(sortedNetAnyRulesBuckets)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
+	}
+
+	return sortedAppAnyRules, sortedNetAnyRules, nil
+}
+
+func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
+
+	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
+		"joinRule": func(rule []string) string {
+			return strings.Join(rule, " ")
+		},
+	}).Parse(acls))
+
+	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract rules from template: %s", err)
+	}
+
+	return aclRules, nil
+}
+
+// extractProtocolAnyRules extracts protocol any rules from the set and returns
+// protocol any rules and all other rules without any.
+func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules []aclIPset) {
+
+	for _, rule := range rules {
+		for _, proto := range rule.Protocols {
+
+			if proto != constants.AllProtoString {
+				otherRules = append(otherRules, rule)
+				continue
+			}
+
+			anyRules = append(anyRules, rule)
+		}
+	}
+
+	return anyRules, otherRules
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -226,9 +292,9 @@ func (i *iptables) addChainRules(cfg *ACLInfo) error {
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool) error {
+func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) error {
 
-	return i.processRulesFromList(i.trapRules(cfg, isHostPU), "Append")
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU, appAnyRules, netAnyRules), "Append")
 }
 
 func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
@@ -236,7 +302,7 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 	reverseRules := [][]string{}
 
 	ipsetPrefix := i.impl.GetIPSetPrefix()
-	observeContinue := rule.policy.ObserveAction.ObserveContinue()
+	observeContinue := rule.Policy.ObserveAction.ObserveContinue()
 	contextID := cfg.ContextID
 
 	baseRule := func(proto string) []string {
@@ -260,7 +326,7 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 
 		// port match is required only for tcp and udp protocols
 		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
-			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.ports, ",")}
+			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.Ports, ",")}
 			iptRule = append(iptRule, portMatchSet...)
 		}
 
@@ -273,27 +339,31 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 		)
 	}
 
-	if rule.policy.Action&policy.Log > 0 || observeContinue {
-		nflog := []string{"-m", "state", "--state", "NEW",
-			"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefix(contextID)}
+	if rule.Policy.Action&policy.Log > 0 || observeContinue {
+		state := []string{}
+		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
+			state = []string{"-m", "state", "--state", "NEW"}
+		}
+
+		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefix(contextID)}...)
 		nfLogRule := append(baseRule(proto), nflog...)
 
 		iptRules = append(iptRules, nfLogRule)
 	}
 
 	if !observeContinue {
-		if (rule.policy.Action & policy.Accept) != 0 {
+		if (rule.Policy.Action & policy.Accept) != 0 {
 			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
 			iptRules = append(iptRules, acceptRule)
 		}
 
-		if rule.policy.Action&policy.Reject != 0 {
+		if rule.Policy.Action&policy.Reject != 0 {
 			reject := []string{"-j", "DROP"}
 			rejectRule := append(baseRule(proto), reject...)
 			iptRules = append(iptRules, rejectRule)
 		}
 
-		if rule.policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+		if rule.Policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
 			reverseRules = append(reverseRules, []string{
 				appPacketIPTableContext,
 				reverseChain,
@@ -316,8 +386,8 @@ func (i *iptables) programExtensionsRules(contextID string, rule *aclIPset, chai
 		"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
 	}
 
-	for _, ext := range rule.extensions {
-		if rule.policy.Action&policy.Log > 0 {
+	for _, ext := range rule.Extensions {
+		if rule.Policy.Action&policy.Log > 0 {
 			if err := i.programNflogExtensionRule(contextID, rule, rulesspec, ext, chain, nfLogGroup); err != nil {
 				return fmt.Errorf("unable to program nflog extension: %v", err)
 			}
@@ -362,7 +432,7 @@ func (i *iptables) programNflogExtensionRule(contextID string, rule *aclIPset, r
 	}
 
 	defaultNflogSuffix := []string{"-m", "state", "--state", "NEW",
-		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.policy.LogPrefixAction(contextID, action)}
+		"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefixAction(contextID, action)}
 	filterArgs = append(filterArgs, defaultNflogSuffix...)
 
 	nflogRulesspec := append(rulesspec, filterArgs...)
@@ -397,7 +467,7 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 
 	for _, rule := range rules {
 
-		for _, proto := range rule.protocols {
+		for _, proto := range rule.Protocols {
 
 			if !i.impl.ProtocolAllowed(proto) {
 				continue
@@ -406,27 +476,27 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
-			if testReject(rule.policy) && testObserveApply(rule.policy) {
+			if testReject(rule.Policy) && testObserveApply(rule.Policy) {
 				rulesBucket.RejectObserveApply = append(rulesBucket.RejectObserveApply, acls...)
 			}
 
-			if testReject(rule.policy) && testNotObserved(rule.policy) {
+			if testReject(rule.Policy) && testNotObserved(rule.Policy) {
 				rulesBucket.RejectNotObserved = append(rulesBucket.RejectNotObserved, acls...)
 			}
 
-			if testReject(rule.policy) && testObserveContinue(rule.policy) {
+			if testReject(rule.Policy) && testObserveContinue(rule.Policy) {
 				rulesBucket.RejectObserveContinue = append(rulesBucket.RejectObserveContinue, acls...)
 			}
 
-			if testAccept(rule.policy) && testObserveContinue(rule.policy) {
+			if testAccept(rule.Policy) && testObserveContinue(rule.Policy) {
 				rulesBucket.AcceptObserveContinue = append(rulesBucket.AcceptObserveContinue, acls...)
 			}
 
-			if testAccept(rule.policy) && testNotObserved(rule.policy) {
+			if testAccept(rule.Policy) && testNotObserved(rule.Policy) {
 				rulesBucket.AcceptNotObserved = append(rulesBucket.AcceptNotObserved, acls...)
 			}
 
-			if testAccept(rule.policy) && testObserveApply(rule.policy) {
+			if testAccept(rule.Policy) && testObserveApply(rule.Policy) {
 				rulesBucket.AcceptObserveApply = append(rulesBucket.AcceptObserveApply, acls...)
 			}
 		}
@@ -439,15 +509,11 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 // by an application. The allow rules are inserted with highest priority.
 func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
+	_, rules = extractProtocolAnyRules(rules)
+
 	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
 
-	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
-		"joinRule": func(rule []string) string {
-			return strings.Join(rule, " ")
-		},
-	}).Parse(acls))
-
-	aclRules, err := extractRulesFromTemplate(tmpl, *rulesBucket)
+	aclRules, err := extractACLsFromTemplate(rulesBucket)
 	if err != nil {
 		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
@@ -589,6 +655,7 @@ func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
 	// This should ideally not be used
 	i.removeGlobalHooksPre()
+
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
@@ -615,39 +682,9 @@ func (i *iptables) cleanACLs() error { // nolint
 		zap.L().Error("unable to remove nat proxy rules")
 	}
 
-	tmpl := template.Must(template.New(deleteChains).Funcs(template.FuncMap{
-		"isLocalServer": func() bool {
-			return i.mode == constants.LocalServer
-		},
-	}).Parse(deleteChains))
-
-	rules, err := extractRulesFromTemplate(tmpl, cfg)
-	if err != nil {
-		return fmt.Errorf("unable to create trireme chains:%s", err)
-	}
-
-	for _, rule := range rules {
-		if len(rule) != 4 {
-			continue
-		}
-
-		// Flush the chains
-		if rule[2] == "-F" {
-			if err := i.impl.ClearChain(rule[1], rule[3]); err != nil {
-				zap.L().Error("unable to flush chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
-			}
-		}
-
-		// Delete the chains
-		if rule[2] == "-X" {
-			if err := i.impl.DeleteChain(rule[1], rule[3]); err != nil {
-				zap.L().Error("unable to delete chain", zap.String("table", rule[1]), zap.String("chain", rule[3]), zap.Error(err))
-			}
-		}
-	}
-
 	// Clean Application Rules/Chains
 	i.cleanACLSection(appPacketIPTableContext, chainPrefix)
+	i.cleanACLSection(appProxyIPTableContext, chainPrefix)
 
 	i.impl.Commit() // nolint
 
@@ -667,7 +704,6 @@ func (i *iptables) cleanACLSection(context, chainPrefix string) {
 	}
 
 	for _, rule := range rules {
-
 		if strings.Contains(rule, chainPrefix) {
 			if err := i.impl.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
@@ -676,6 +712,11 @@ func (i *iptables) cleanACLSection(context, chainPrefix string) {
 					zap.Error(err),
 				)
 			}
+		}
+	}
+
+	for _, rule := range rules {
+		if strings.Contains(rule, chainPrefix) {
 			if err := i.impl.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),

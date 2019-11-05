@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
@@ -26,9 +27,10 @@ func newSupervisor(
 	enforcerInstance enforcer.Enforcer,
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
+	aclmanager ipsetmanager.ACLManager,
 ) (*Config, error) {
 
-	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil)
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +79,7 @@ func createPUInfo() *policy.PUInfo {
 		nil,
 		nil,
 		[]string{},
+		policy.EnforcerMapping,
 	)
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
@@ -97,11 +100,11 @@ func TestNewSupervisor(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := newSupervisor(c, e, mode, &runtime.Configuration{})
+			s, err := newSupervisor(c, e, mode, &runtime.Configuration{}, nil)
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -109,7 +112,7 @@ func TestNewSupervisor(t *testing.T) {
 			})
 		})
 		Convey("When I provide a nil  collector", func() {
-			s, err := newSupervisor(nil, e, mode, &runtime.Configuration{})
+			s, err := newSupervisor(nil, e, mode, &runtime.Configuration{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -117,7 +120,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := newSupervisor(c, nil, mode, &runtime.Configuration{})
+			s, err := newSupervisor(c, nil, mode, &runtime.Configuration{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -141,9 +144,10 @@ func TestSupervise(t *testing.T) {
 		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{})
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -189,7 +193,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -218,9 +222,10 @@ func TestUnsupervise(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -264,11 +269,11 @@ func TestStart(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
 		s, _ := newSupervisor(c, e,
 			constants.RemoteContainer,
-			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}},
+			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil,
 		)
 		So(s, ShouldNotBeNil)
 
@@ -310,9 +315,9 @@ func TestStop(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -345,9 +350,10 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
+		ips := provider.NewTestIpsetProvider()
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)

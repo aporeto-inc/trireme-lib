@@ -17,7 +17,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		EventMetadataExtractor: extractors.UIDMetadataExtractor,
 		StoredPath:             "/var/run/trireme_uid",
-		ReleasePath:            "/var/lib/aporeto/cleaner",
+		ReleasePath:            "",
 	}
 }
 

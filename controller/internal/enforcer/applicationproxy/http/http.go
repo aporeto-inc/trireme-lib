@@ -405,6 +405,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	if resp.HookMethod != "" {
 		if hook, ok := p.hooks[resp.HookMethod]; ok {
 			if isHook, err := hook(w, r); err != nil || isHook {
+				if err != nil {
+					state.stats.Action = policy.Reject
+					state.stats.DropReason = collector.PolicyDrop
+				}
 				return
 			}
 		} else {
@@ -648,6 +652,11 @@ func (p *Config) tokenHook(w http.ResponseWriter, r *http.Request) (bool, error)
 
 func (p *Config) awsInfoHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 
+	if err := validateAWSHeaders(r); err != nil {
+		http.Error(w, fmt.Sprintf("invalid user agent: %s", err), http.StatusForbidden)
+		return true, err
+	}
+
 	awsRole, id, err := p.awsRole()
 	if err != nil {
 		return true, err
@@ -680,6 +689,11 @@ func (p *Config) awsInfoHook(w http.ResponseWriter, r *http.Request) (bool, erro
 }
 
 func (p *Config) awsTokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	if err := validateAWSHeaders(r); err != nil {
+		http.Error(w, fmt.Sprintf("invalid user agent: %s", err), http.StatusForbidden)
+		return true, err
+	}
 
 	awsRole, id, err := p.awsRole()
 	if err != nil {
@@ -719,6 +733,7 @@ func (p *Config) awsTokenHook(w http.ResponseWriter, r *http.Request) (bool, err
 }
 
 func (p *Config) awsRole() (string, string, error) {
+
 	_, plc, err := p.metadata.GetCurrentPolicy()
 	if err != nil {
 		return "", "", err
@@ -739,6 +754,28 @@ func (p *Config) awsRole() (string, string, error) {
 	}
 
 	return awsRole, plc.ManagementID, nil
+}
+
+var (
+	allowedAgents = []string{"aws-cli/", "aws-chalice/", "Boto3/", "Botocore/", "aws-sdk-"}
+)
+
+func validateAWSHeaders(r *http.Request) error {
+
+	userAgent, ok := r.Header["User-Agent"]
+	if !ok {
+		return fmt.Errorf("no user-agent provided")
+	}
+
+	for _, u := range userAgent {
+		for _, t := range allowedAgents {
+			if strings.HasPrefix(u, t) {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("invalid user agent: %v", userAgent)
 }
 
 // func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {

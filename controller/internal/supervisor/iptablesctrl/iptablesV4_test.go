@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
@@ -14,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -26,8 +26,10 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
-	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode)
-	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode)
+
+	aclmanager := ipsetmanager.CreateIPsetManager(ipsv4, ipsv6)
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode, aclmanager)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode, aclmanager)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
@@ -116,7 +118,6 @@ func (m *memoryIPSetProvider) NewIpset(name string, hasht string, p *ipset.Param
 
 	newSet := &memoryIPSet{set: map[string]struct{}{}}
 	m.sets[name] = newSet
-
 	return newSet, nil
 }
 
@@ -212,6 +213,7 @@ func Test_NegativeConfigureRulesV4(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			policy.EnforcerMapping,
 		)
 		containerinfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -262,6 +264,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -273,6 +276,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -328,6 +332,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -339,6 +344,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -376,28 +382,37 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j NFLOG --nflog-group 11 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= src -j ACCEPT",
 			"-s 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
 			"-s 0.0.0.0/0 -j DROP",
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:6",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j DROP",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j NFLOG --nflog-group 10 --nflog-prefix 913787369:123a:a3:3",
+			"-p ALL -m set --match-set TRI-v4-ext-_qhcdC8NcJc= dst -j ACCEPT",
 			"-d 0.0.0.0/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
 			"-d 0.0.0.0/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
 			"-d 0.0.0.0/0 -j DROP",
@@ -414,6 +429,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -425,6 +441,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -462,9 +479,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -475,11 +492,11 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -501,6 +518,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -512,6 +530,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -549,9 +568,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -562,11 +581,11 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -588,6 +607,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -599,6 +619,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -636,9 +657,9 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -649,13 +670,13 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:6",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVpu19gtV dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:6",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -694,10 +715,11 @@ var (
 		"TRI" + "-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI" + "-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 		"TRI-v4-ProcPort-pu19gtV":            {"8080"},
-		"TRI-v4-ext-6zlJIpu19gtV":            {"30.0.0.0/24"},
-		"TRI-v4-ext-uNdc0pu19gtV":            {"30.0.0.0/24"},
-		"TRI-v4-ext-w5frVpu19gtV":            {"40.0.0.0/24"},
-		"TRI-v4-ext-IuSLspu19gtV":            {"40.0.0.0/24"},
+		"TRI-v4-ext-6zlJIvP3B68=":            {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0vdcFZA=":            {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVvhsnpU=":            {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLsD1R-mE=":            {"40.0.0.0/24"},
+		"TRI-v4-ext-_qhcdC8NcJc=":            {"60.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":           {},
 		"TRI-v4-Proxy-pu19gtV-srv":           {},
 	}
@@ -712,6 +734,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-App",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
@@ -723,6 +746,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -760,7 +784,7 @@ var (
 		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -771,7 +795,7 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -828,7 +852,6 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 			So(len(t), ShouldEqual, 2)
 			So(t["mangle"], ShouldNotBeNil)
 			So(t["nat"], ShouldNotBeNil)
-
 			for chain, rules := range t["mangle"] {
 				So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
 				So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
@@ -841,6 +864,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 			Convey("When I configure a new set of rules, the ACLs must be correct", func() {
 				appACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
 					policy.IPRule{
 						Addresses: []string{"30.0.0.0/24"},
 						Ports:     []string{"80"},
@@ -871,8 +904,28 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 							PolicyID:  "3",
 						},
 					},
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Reject | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
 				}
 				netACLs := policy.IPRuleList{
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Accept | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
+						},
+					},
 					policy.IPRule{
 						Addresses: []string{"40.0.0.0/24"},
 						Ports:     []string{"80"},
@@ -891,6 +944,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 							Action:    policy.Accept,
 							ServiceID: "s4",
 							PolicyID:  "2",
+						},
+					},
+					policy.IPRule{
+						Addresses: []string{"60.0.0.0/24"},
+						Ports:     nil,
+						Protocols: []string{constants.AllProtoString},
+						Policy: &policy.FlowPolicy{
+							Action:    policy.Reject | policy.Log,
+							ServiceID: "a3",
+							PolicyID:  "123a",
 						},
 					},
 				}
@@ -913,6 +976,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -935,6 +999,12 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1003,6 +1073,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						nil,
 						nil,
 						[]string{},
+						policy.EnforcerMapping,
 					)
 					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 					puInfoUpdated.Policy = policyrules
@@ -1010,8 +1081,16 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 						CgroupMark: "10",
 					})
 
+					var iprules policy.IPRuleList
+
+					iprules = append(iprules, puInfoUpdated.Policy.ApplicationACLs()...)
+					iprules = append(iprules, puInfoUpdated.Policy.NetworkACLs()...)
+
+					i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
+
 					err := i.iptv4.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
+					i.iptv4.aclmanager.DestroyUnusedIPsets()
 
 					t := i.iptv4.impl.RetrieveTable()
 					for chain, rules := range t["mangle"] {
@@ -1021,14 +1100,13 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
 						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						i.iptv4.aclmanager.RemoveExternalNets("pu1")
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
 						So(err, ShouldBeNil)
 						t := i.iptv4.impl.RetrieveTable()
-
 						So(t["mangle"], ShouldNotBeNil)
 						So(t["nat"], ShouldNotBeNil)
-
 						for chain, rules := range t["mangle"] {
 							So(expectedGlobalMangleChainsV4, ShouldContainKey, chain)
 							So(rules, ShouldResemble, expectedGlobalMangleChainsV4[chain])
@@ -1040,13 +1118,6 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 								So(rules, ShouldResemble, expectedGlobalNATChainsV4[chain])
 							}
 						}
-
-						Convey("When I cancel the context, it should cleanup", func() {
-							cancel()
-							time.Sleep(1 * time.Second)
-							t := i.iptv4.impl.RetrieveTable()
-							So(len(t["mangle"]), ShouldEqual, 2)
-						})
 					})
 				})
 			})
@@ -1184,6 +1255,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -1206,6 +1278,11 @@ func Test_ExtensionsV4(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1362,6 +1439,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -1384,6 +1462,11 @@ func Test_ExtensionsV4(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1541,6 +1624,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
@@ -1563,6 +1647,11 @@ func Test_ExtensionsV4(t *testing.T) {
 						Protocol: 6,
 					},
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
 
 				err = i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
@@ -1602,6 +1691,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -1609,6 +1699,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -1652,6 +1743,7 @@ var (
 		"TRI-App": {
 			"-j TRI-Prx-App",
 			"-m mark --mark 1073741922 -j ACCEPT",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 99",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 8:11 --queue-bypass",
@@ -1660,6 +1752,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19 --queue-bypass",
@@ -1680,9 +1773,9 @@ var (
 			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v4-ext-w5frVpu19gtV src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV src --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 16:19",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 20:23",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src --match limit --limit 1000/s -j NFQUEUE --queue-balance 16:19",
@@ -1693,9 +1786,9 @@ var (
 		},
 
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v4-ext-uNdc0pu19gtV dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v4-ext-6zlJIpu19gtV dst --match multiport --dports 443 -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v4-ext-IuSLspu19gtV dst -m state --state ESTABLISHED -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
+			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance 0:3",
 			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance 4:7",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j NFQUEUE --queue-balance 0:3",
@@ -1725,16 +1818,15 @@ var (
 			"-p tcp -m set --match-set TRI-v4-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
 	}
-
 	expectedContainerIPSetsAfterPUInsertV4 = map[string][]string{
 		"TRI-v4-" + targetTCPNetworkSet: {"0.0.0.0/1", "128.0.0.0/1"},
 		"TRI-v4-" + targetUDPNetworkSet: {"10.0.0.0/8"},
 		"TRI-v4-" + excludedNetworkSet:  {"127.0.0.1"},
 		"TRI-v4-ProcPort-pu19gtV":       {"8080"},
-		"TRI-v4-ext-6zlJIpu19gtV":       {"30.0.0.0/24"},
-		"TRI-v4-ext-uNdc0pu19gtV":       {"30.0.0.0/24"},
-		"TRI-v4-ext-w5frVpu19gtV":       {"40.0.0.0/24"},
-		"TRI-v4-ext-IuSLspu19gtV":       {"40.0.0.0/24"},
+		"TRI-v4-ext-6zlJIvP3B68=":       {"30.0.0.0/24"},
+		"TRI-v4-ext-uNdc0vdcFZA=":       {"30.0.0.0/24"},
+		"TRI-v4-ext-w5frVvhsnpU=":       {"40.0.0.0/24"},
+		"TRI-v4-ext-IuSLsD1R-mE=":       {"40.0.0.0/24"},
 		"TRI-v4-Proxy-pu19gtV-dst":      {},
 		"TRI-v4-Proxy-pu19gtV-srv":      {},
 	}
@@ -1859,12 +1951,19 @@ func Test_OperationWithContainersV4(t *testing.T) {
 					nil,
 					nil,
 					[]string{},
+					policy.EnforcerMapping,
 				)
 				puInfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
 				puInfo.Policy = policyrules
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
 				})
+
+				var iprules policy.IPRuleList
+				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+				i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
+
 				err := i.iptv4.ConfigureRules(0, "pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv4.impl.RetrieveTable()
@@ -1907,13 +2006,6 @@ func Test_OperationWithContainersV4(t *testing.T) {
 						So(expectedContainerGlobalNATChainsV4, ShouldContainKey, chain)
 						So(rules, ShouldResemble, expectedContainerGlobalNATChainsV4[chain])
 					}
-
-					Convey("When I cancel the context, it should cleanup", func() {
-						cancel()
-						time.Sleep(1 * time.Second)
-						t := i.iptv4.impl.RetrieveTable()
-						So(len(t["mangle"]), ShouldEqual, 2)
-					})
 				})
 
 			})

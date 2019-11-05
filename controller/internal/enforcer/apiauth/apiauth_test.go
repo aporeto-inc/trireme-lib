@@ -203,6 +203,7 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 		exposedServices,
 		dependentServices,
 		[]string{appLabel},
+		policy.EnforcerMapping,
 	)
 
 	puInfo := policy.NewPUInfo(contextID, namespace, triremecommon.ContainerPU)

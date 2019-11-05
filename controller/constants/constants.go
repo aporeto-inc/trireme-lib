@@ -16,6 +16,8 @@ const (
 	DefaultRemoteArg = "enforce"
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
+	// DefaultExternalConnMark is the default conn mark for all data packets
+	DefaultExternalConnMark = uint32(0xEEEF)
 	// DeleteConnmark is the mark used to trigger udp handshake.
 	DeleteConnmark = uint32(0xABCD)
 )
@@ -25,6 +27,9 @@ const (
 	// EnvMountPoint is an environment variable which will contain the mount point
 	EnvMountPoint = "TRIREME_ENV_PROC_MOUNTPOINT"
 
+	// EnvEnforcerType is an environment variable which will indicate what enforcer type we want to use
+	EnvEnforcerType = "TRIREME_ENV_ENFORCER_TYPE"
+
 	// EnvContextSocket stores the path to the context specific socket
 	EnvContextSocket = "TRIREME_ENV_SOCKET_PATH"
 
@@ -33,6 +38,7 @@ const (
 
 	// EnvDebugChannel stores the path to the debug channel
 	EnvDebugChannel = "TRIREME_ENV_DEBUG_CHANNEL_PATH"
+
 	// EnvRPCClientSecret is the secret used between RPC client/server
 	EnvRPCClientSecret = "TRIREME_ENV_SECRET"
 
@@ -84,6 +90,10 @@ const (
 	LocalServer
 	// Sidecar indicates the controller to be in sidecar mode
 	Sidecar
+	// LocalEnvoyAuthorizer indicates to use a local envoyproxy as enforcer/authorizer
+	LocalEnvoyAuthorizer
+	// RemoteContainerEnvoyAuthorizer indicates to use the envoyproxy enforcer/authorizer for containers
+	RemoteContainerEnvoyAuthorizer
 )
 
 // LogLevel corresponds to log level of any logger. eg: zap.
@@ -109,6 +119,7 @@ const (
 	UDPProtoNum    = "17"
 	TCPProtoString = "TCP"
 	UDPProtoString = "UDP"
+	AllProtoString = "ALL"
 )
 
 // sockets
@@ -132,4 +143,9 @@ const (
 
 	// DatapathTokenValidity determines how long the tokens are valid.
 	DatapathTokenValidity = 1 * time.Minute
+)
+
+// Ipv6Disabled is a flag to disable ipv6 in trireme
+const (
+	Ipv6Disabled = true
 )

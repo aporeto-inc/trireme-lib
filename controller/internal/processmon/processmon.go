@@ -124,6 +124,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	arg string,
 	statsServerSecret string,
 	procMountPoint string,
+	enforcerType policy.EnforcerType,
 ) (bool, error) {
 
 	// Locking here to get the procesinfo to avoid race conditions
@@ -217,6 +218,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		statsServerSecret,
 		refPid,
 		refNSPath,
+		enforcerType,
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {
@@ -389,6 +391,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 	statsServerSecret string,
 	refPid int,
 	refNSPath string,
+	enforcerType policy.EnforcerType,
 ) []string {
 	disableLog := strconv.FormatBool(p.DisableLogWrite)
 
@@ -403,6 +406,7 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
 		constants.EnvDisableLogWrite + "=" + disableLog,
+		constants.EnvEnforcerType + "=" + enforcerType.String(),
 	}
 
 	if p.compressedTags != claimsheader.CompressionTypeNone {

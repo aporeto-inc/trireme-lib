@@ -14,7 +14,7 @@ import (
 )
 
 // computeFileMd5 computes the Md5 of a file
-func computeFileMd5(filePath string) ([]byte, error) {
+func ComputeFileMd5(filePath string) ([]byte, error) {
 
 	var result []byte
 	file, err := os.Open(filePath)

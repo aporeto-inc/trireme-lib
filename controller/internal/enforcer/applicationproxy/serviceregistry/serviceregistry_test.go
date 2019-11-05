@@ -119,6 +119,7 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		exposedServices,
 		dependentServices,
 		[]string{},
+		policy.EnforcerMapping,
 	)
 
 	puInfo := policy.NewPUInfo(name, "/ns1", triremecommon.ContainerPU)
