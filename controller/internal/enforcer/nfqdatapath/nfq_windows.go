@@ -145,7 +145,8 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		return 0
 	}
 
-	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
+	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))),
+		syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed: %v", frontman.PacketFilterStartProc.Name, err)
 	}
