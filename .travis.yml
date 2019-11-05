@@ -42,7 +42,8 @@ env:
     - GOGC=75
 
 before_install:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
+  # do this in /tmp so as not to update the go.mod file in the trireme root dir
+  - ( cd /tmp; go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION} )
 
 install:
   - go list -m all || true
