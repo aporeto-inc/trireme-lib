@@ -7,13 +7,13 @@ go_import_path: go.aporeto.io/trireme-lib
 matrix:
   include:
   - go: "1.11.x"
-    env: LINT_VERSION="@v1.16.0" GO111MODULE=auto
+    env: LINT_VERSION="@v1.16.0" GO111MODULE=auto GODIFF_VERSION="@v0.5.0"
   - go: "1.12.x"
-    env: LINT_VERSION="@v1.17.1" GO111MODULE=on
+    env: LINT_VERSION="@v1.17.1" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
   - go: "1.13.x"
-    env: LINT_VERSION="@v1.21.0" GO111MODULE=on
+    env: LINT_VERSION="@v1.21.0" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
   - go: master
-    env: LINT_VERSION="@v1.21.0" GO111MODULE=on
+    env: LINT_VERSION="@v1.21.0" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
   allow_failures:
   - go: master
   - go: "1.11.x"
@@ -45,7 +45,7 @@ before_install:
   - dir=$(mktemp -d)
   - cp go.mod $dir
   - old=$PWD; cd $dir
-  - go get github.com/sourcegraph/go-diff@v0.5.0
+  - go get github.com/sourcegraph/go-diff${GODIFF_VERSION}
   - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
   - cd $old
 
