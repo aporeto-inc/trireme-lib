@@ -7,13 +7,13 @@ go_import_path: go.aporeto.io/trireme-lib
 matrix:
   include:
   - go: "1.11.x"
-    env: LINT_VERSION="@v1.17.1" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
+    env: LINT_VERSION="@v1.17.1"
   - go: "1.12.x"
-    env: LINT_VERSION="@v1.17.1" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
+    env: LINT_VERSION="@v1.17.1"
   - go: "1.13.x"
-    env: LINT_VERSION="@v1.21.0" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
+    env: LINT_VERSION="@v1.21.0"
   - go: master
-    env: LINT_VERSION="@v1.21.0" GO111MODULE=on GODIFF_VERSION="@v0.5.1"
+    env: LINT_VERSION="@v1.21.0"
   allow_failures:
   - go: master
   - go: "1.11.x"
@@ -37,15 +37,17 @@ env:
     - TOOLS_CMD=golang.org/x/tools/cmd
     - PATH=$GOROOT/bin:$PATH
     - SUDO_PERMITTED=1
+    - GO111MODULE=on
     - GOLINT_GOGC=75
     - GOGC=75
 
 before_install:
-  # do this in a tempdir so as not to update the go.mod file in the trireme root dir
-  - dir=$(mktemp -d)
+  # this is just to get the golangci-lint. We do it in a tempdir just to get the binary
+  # installed without changing the go.mod file for trireme-lib. Also must get go-diff@v0.5.1
+  # or else go1.11.x will pull in a broken v0.5.0
   - cp go.mod $dir
   - old=$PWD; cd $dir
-  - go get github.com/sourcegraph/go-diff${GODIFF_VERSION}
+  - go get github.com/sourcegraph/go-diff@v0.5.1
   - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
   - cd $old
 
