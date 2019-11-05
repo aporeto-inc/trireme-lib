@@ -1,4 +1,4 @@
-// +build !linux
+// +build darwin
 
 package flowtracking
 
@@ -42,4 +42,8 @@ func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, 
 // GetOriginalDest gets the original destination ip, port and the mark on the packet
 func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
 	return nil, 0, 0, nil
+}
+
+func (c *Client) NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error {
+	return nil
 }

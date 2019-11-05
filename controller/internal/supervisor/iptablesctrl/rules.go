@@ -1,3 +1,5 @@
+// +build linux !windows
+
 package iptablesctrl
 
 var triremChains = `
@@ -15,6 +17,11 @@ var triremChains = `
 -t {{.MangleTable}} -N {{.MangleProxyNetChain}}
 -t {{.NatTable}} -N {{.NatProxyAppChain}}
 -t {{.NatTable}} -N {{.NatProxyNetChain}}
+`
+
+var containerChains = `
+-t {{.MangleTable}} -N {{.AppChain}}
+-t {{.MangleTable}} -N {{.NetChain}}
 `
 
 var globalRules = `
@@ -203,6 +210,8 @@ var globalHooks = `
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{.NatTable}} PREROUTING -p tcp  -m addrtype --dst-type LOCAL -m set ! --match-set {{.ExclusionsSet}} src -j {{.NatProxyNetChain}}
 {{.NatTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.NatProxyAppChain}}
+{{.NatTable}} PREROUTING -p tcp  -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net
+{{.NatTable}} OUTPUT -m set ! --match-set TRI-Excluded dst -j TRI-Redir-App
 `
 
 var legacyProxyRules = `

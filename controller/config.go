@@ -264,6 +264,7 @@ func (t *trireme) newSupervisors() error {
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
 		}
+
 		t.supervisors[constants.LocalServer] = sup
 		t.supervisors[constants.LocalEnvoyAuthorizer] = noopSup
 	}
@@ -285,6 +286,7 @@ func (t *trireme) newSupervisors() error {
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)
 		}
+		zap.L().Error("New Supervisor sideCar")
 		t.supervisors[constants.Sidecar] = s
 	}
 

@@ -130,7 +130,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
+			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), p.WindowsMetadata)
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -377,6 +377,7 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 	}
 	// Attach the UDP data and token
 	newPacket.UDPTokenAttach(udpOptions, udpData)
+	newPacket.WindowsMetadata = udpPacket.WindowsMetadata
 
 	// send packet
 	err = d.writeWithRetransmit(newPacket, conn, conn.SynChannel())
@@ -400,7 +401,7 @@ func (d *Datapath) writeWithRetransmit(udpPacket *packet.Packet, conn *connectio
 	localBuffer := make([]byte, len(buffer))
 	copy(localBuffer, buffer)
 
-	if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion()); err != nil {
+	if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion(), udpPacket.WindowsMetadata); err != nil {
 		zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 		return err
 	}
@@ -412,7 +413,7 @@ func (d *Datapath) writeWithRetransmit(udpPacket *packet.Packet, conn *connectio
 			case <-stop:
 				return
 			case <-time.After(delay):
-				if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion()); err != nil {
+				if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion(), udpPacket.WindowsMetadata); err != nil {
 					zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 				}
 			}
@@ -486,7 +487,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), udpPacket.WindowsMetadata)
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -494,6 +495,14 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
+		d.conntrack.NotifyIgnoreFlow(
+			udpPacket.SourceAddress(),
+			udpPacket.DestinationAddress(),
+			udpPacket.IPProto(),
+			udpPacket.SourcePort(),
+			udpPacket.DestPort(),
+			udpPacket.WindowsMetadata,
+		)
 		if err = d.conntrack.UpdateApplicationFlowMark(
 			udpPacket.SourceAddress(),
 			udpPacket.DestinationAddress(),
@@ -603,6 +612,14 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
+		d.conntrack.NotifyIgnoreFlow(
+			udpPacket.SourceAddress(),
+			udpPacket.DestinationAddress(),
+			udpPacket.IPProto(),
+			udpPacket.SourcePort(),
+			udpPacket.DestPort(),
+			udpPacket.WindowsMetadata,
+		)
 		if err := d.conntrack.UpdateNetworkFlowMark(
 			udpPacket.SourceAddress(),
 			udpPacket.DestinationAddress(),
@@ -633,7 +650,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	zap.L().Info("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion())
+	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), udpPacket.WindowsMetadata)
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return pucontext.PuContextError(pucontext.ErrUDPDropFin, "Unable to send fin packet on raw socket"+err.Error())
@@ -661,6 +678,14 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
+	d.conntrack.NotifyIgnoreFlow(
+		udpPacket.SourceAddress(),
+		udpPacket.DestinationAddress(),
+		udpPacket.IPProto(),
+		udpPacket.SourcePort(),
+		udpPacket.DestPort(),
+		udpPacket.WindowsMetadata,
+	)
 	if err = d.conntrack.UpdateNetworkFlowMark(
 		udpPacket.SourceAddress(),
 		udpPacket.DestinationAddress(),

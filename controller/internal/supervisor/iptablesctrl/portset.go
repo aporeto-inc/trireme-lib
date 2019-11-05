@@ -33,7 +33,7 @@ func (i *iptables) createPortSet(contextID string, username string) error {
 	}
 	portSetName := puPortSetName(contextID, prefix)
 
-	_, err := i.ipset.NewIpset(portSetName, "", nil)
+	_, err := i.ipset.NewIpset(portSetName, "hash:net", nil)
 	if err != nil {
 		return err
 	}

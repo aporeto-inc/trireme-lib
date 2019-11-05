@@ -68,7 +68,7 @@ func NewAppProxy(
 	t tcommon.ServiceTokenIssuer,
 ) (*AppProxy, error) {
 
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := GetSystemCertPool()
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +141,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// Create the network listener and cache it so that we can terminate it later.
 	l, err := p.createNetworkListener(ctx, ":"+puInfo.Policy.ServicesListeningPort())
 	if err != nil {
+		zap.L().Error("Failed to create network listener", zap.Error(err))
 		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
 
@@ -308,7 +309,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := GetSystemCertPool()
 	if err != nil {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool

@@ -77,6 +77,10 @@ func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, 
 	return c.conn.Update(f)
 }
 
+func (c *Client) NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error {
+	return nil
+}
+
 // newReplyFlow will create a flow based on the reply tuple only. This will help us
 // update the mark without requiring knowledge of nats.
 func newReplyFlow(proto uint8, status conntrack.StatusFlag, srcAddr, destAddr net.IP, srcPort, destPort uint16, timeout, mark uint32) conntrack.Flow {

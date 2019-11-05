@@ -14,6 +14,7 @@ import (
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	portspec "go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -43,7 +44,7 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
 	runtimeTags.AppendKeyValue("@os:hostname", findFQDN(time.Second))
 
-	if fileMd5, err := computeFileMd5(event.Executable); err == nil {
+	if fileMd5, err := ComputeFileMd5(event.Executable); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
 		runtimeTags.AppendKeyValue("@app:windows:filechecksum", hex.EncodeToString(fileMd5))
 	}
@@ -67,7 +68,7 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 	}
 	options.Services = event.Services
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
-	//options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 	options.AutoPort = event.AutoPort
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}

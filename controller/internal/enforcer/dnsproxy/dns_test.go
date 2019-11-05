@@ -37,6 +37,10 @@ func (c *flowClientDummy) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonu
 	return nil
 }
 
+func (c *flowClientDummy) NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error {
+	return nil
+}
+
 func (c *flowClientDummy) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
 	return net.ParseIP("8.8.8.8"), 53, 100, nil
 }

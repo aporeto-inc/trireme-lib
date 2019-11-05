@@ -11,7 +11,6 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
-	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -22,51 +21,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
-)
-
-const (
-	chainPrefix         = "TRI-"
-	mainAppChain        = chainPrefix + "App"
-	mainNetChain        = chainPrefix + "Net"
-	uidchain            = chainPrefix + "UID-App"
-	uidInput            = chainPrefix + "UID-Net"
-	appChainPrefix      = chainPrefix + "App-"
-	netChainPrefix      = chainPrefix + "Net-"
-	natProxyOutputChain = chainPrefix + "Redir-App"
-	natProxyInputChain  = chainPrefix + "Redir-Net"
-	proxyOutputChain    = chainPrefix + "Prx-App"
-	proxyInputChain     = chainPrefix + "Prx-Net"
-
-	targetTCPNetworkSet  = "TargetTCP"
-	targetUDPNetworkSet  = "TargetUDP"
-	excludedNetworkSet   = "Excluded"
-	uidPortSetPrefix     = "UID-Port-"
-	processPortSetPrefix = "ProcPort-"
-	proxyPortSetPrefix   = "Proxy-"
-	// TriremeInput represent the chain that contains pu input rules.
-	TriremeInput = chainPrefix + "Pid-Net"
-	// TriremeOutput represent the chain that contains pu output rules.
-	TriremeOutput = chainPrefix + "Pid-App"
-
-	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
-	NetworkSvcInput = chainPrefix + "Svc-Net"
-
-	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
-	NetworkSvcOutput = chainPrefix + "Svc-App"
-
-	// HostModeInput represent the chain that contains Hostmode input rules.
-	HostModeInput = chainPrefix + "Hst-Net"
-
-	// HostModeOutput represent the chain that contains Hostmode output rules.
-	HostModeOutput = chainPrefix + "Hst-App"
-
-	ipTableSectionOutput     = "OUTPUT"
-	ipTableSectionPreRouting = "PREROUTING"
-	appPacketIPTableContext  = "mangle"
-	netPacketIPTableContext  = "mangle"
-	appProxyIPTableContext   = "nat"
-
-	proxyMark = "0x40"
 )
 
 type iptables struct {
@@ -126,11 +80,12 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
 
 	return &iptables{
-		impl:                  impl,
-		fqc:                   fqc,
-		mode:                  mode,
-		ipset:                 ips,
-		isLegacyKernel:        buildflags.IsLegacyKernel(),
+		impl:  impl,
+		fqc:   fqc,
+		mode:  mode,
+		ipset: ips,
+		//		isLegacyKernel:        buildflags.IsLegacyKernel(),
+		isLegacyKernel:        false,
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
@@ -186,7 +141,7 @@ func (i *iptables) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
-
+	targetTCPSet.Flush()
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
@@ -221,6 +176,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// applies to Linux type PUs. A port set is associated with every PU,
 	// and packets matching this destination get associated with the context
 	// of the PU.
+
 	if err = i.createPortSet(contextID, pu.Runtime.Options().UserID); err != nil {
 		return err
 	}
@@ -237,6 +193,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// The outgoing sets capture all traffic towards specific destinations
 	// as proxied traffic. Incoming sets correspond to the listening
 	// services.
+
 	if err = i.createProxySets(cfg.ProxySetName); err != nil {
 		return err
 	}
@@ -477,16 +434,20 @@ func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ip
 
 	for _, t := range targetSetNames {
 		_, ok := setIndex[t]
+
 		createdSet, err := ips.NewIpset(t, "hash:net", params)
+
 		if err != nil {
 			if !ok {
 				return nil, nil, nil, err
 			}
+
 			createdSet = ips.GetIpset(t)
 		}
 		if err = createdSet.Flush(); err != nil {
 			return nil, nil, nil, err
 		}
+
 		targetSets[t] = createdSet
 	}
 
@@ -523,7 +484,7 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	netACLIPset := i.getACLIPSets(policyrules.NetworkACLs())
 
 	// Install the PU specific chain first.
-	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
+	if err := i.addContainerChain(cfg); err != nil {
 		return err
 	}
 

@@ -175,9 +175,11 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		case <-m.shutdown:
 			return nil
 		default:
+
 			c, err := m.root.Accept()
 			if err != nil {
-				return err
+				zap.L().Error("error from Accept", zap.Error(err))
+				break
 			}
 			m.wg.Add(1)
 			go m.serve(c)
