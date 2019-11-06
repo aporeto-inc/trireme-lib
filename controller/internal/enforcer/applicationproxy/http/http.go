@@ -20,6 +20,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/controller/pkg/bufferpool"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -178,11 +179,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	reportStats := func(ctx context.Context) {
 		if state := ctx.Value(statsContextKey); state != nil {
-			if r, ok := state.(*connectionState); ok {
-				r.stats.Action = policy.Reject
-				r.stats.DropReason = collector.UnableToDial
-				r.stats.PolicyID = collector.DefaultEndPoint
-				p.collector.CollectFlowEvent(r.stats)
+			if r, ok := state.(*flowstats.ConnectionState); ok {
+				r.Stats.Action = policy.Reject
+				r.Stats.DropReason = collector.UnableToDial
+				r.Stats.PolicyID = collector.DefaultEndPoint
+				p.collector.CollectFlowEvent(r.Stats)
 			}
 		}
 	}
@@ -388,26 +389,26 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	resp, err := p.auth.ApplicationRequest(authRequest)
 	if err != nil {
 		if resp.PUContext != nil {
-			state := newAppConnectionState(p.puContext, r, authRequest, resp)
-			state.stats.Action = resp.Action
-			state.stats.PolicyID = resp.NetworkPolicyID
-			p.collector.CollectFlowEvent(state.stats)
+			state := flowstats.NewAppConnectionState(p.puContext, r, authRequest, resp)
+			state.Stats.Action = resp.Action
+			state.Stats.PolicyID = resp.NetworkPolicyID
+			p.collector.CollectFlowEvent(state.Stats)
 		}
 		http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
 		return
 	}
 
-	state := newAppConnectionState(p.puContext, r, authRequest, resp)
+	state := flowstats.NewAppConnectionState(p.puContext, r, authRequest, resp)
 	if resp.External {
-		defer p.collector.CollectFlowEvent(state.stats)
+		defer p.collector.CollectFlowEvent(state.Stats)
 	}
 
 	if resp.HookMethod != "" {
 		if hook, ok := p.hooks[resp.HookMethod]; ok {
 			if isHook, err := hook(w, r); err != nil || isHook {
 				if err != nil {
-					state.stats.Action = policy.Reject
-					state.stats.DropReason = collector.PolicyDrop
+					state.Stats.Action = policy.Reject
+					state.Stats.DropReason = collector.PolicyDrop
 				}
 				return
 			}
@@ -477,8 +478,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		userID = userData.ID
 	}
 
-	state := newNetworkConnectionState(p.puContext, userID, request, response)
-	defer p.collector.CollectFlowEvent(state.stats)
+	state := flowstats.NewNetworkConnectionState(p.puContext, userID, request, response)
+	defer p.collector.CollectFlowEvent(state.Stats)
 
 	if err != nil {
 		zap.L().Debug("Authorization error",
@@ -529,7 +530,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		r.URL, err = url.ParseRequestURI(httpPrefix + r.Host)
 	}
 	if err != nil {
-		state.stats.DropReason = collector.InvalidFormat
+		state.Stats.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}
@@ -538,7 +539,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header = response.Header
 
 	// Update the statistics and forward the request. We always encrypt downstream
-	state.stats.Action = policy.Accept | policy.Encrypt
+	state.Stats.Action = policy.Accept | policy.Encrypt
 
 	// // Treat the remote proxy scenario where the destination IPs are in a remote
 	// // host. Check of network rules that allow this transfer and report the corresponding

@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
@@ -292,6 +293,19 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	}
 
 	response, err := s.auth.NetworkRequest(context.Background(), request)
+	var userID string
+	if response != nil && len(response.UserAttributes) > 0 {
+		userData := &collector.UserRecord{
+			Namespace: response.Namespace,
+			Claims:    response.UserAttributes,
+		}
+		s.collector.CollectUserEvent(userData)
+		userID = userData.ID
+	}
+
+	state := flowstats.NewNetworkConnectionState(s.puID, userID, request, response)
+	defer s.collector.CollectFlowEvent(state.Stats)
+
 	if err != nil {
 		if response == nil {
 			zap.L().Error("ext_authz ingress: auth.Networkrequest response is nil")
@@ -318,6 +332,16 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
+	// pctxRaw, err := s.puContexts.Get(s.puID)
+	// if err != nil {
+	// 	zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
+	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
+	// }
+	// pctx, ok := pctxRaw.(*pucontext.PUContext)
+	// if !ok {
+	// 	zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
+	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
+	// }
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
 	var httpReq *ext_auth.AttributeContext_HttpRequest
@@ -365,10 +389,26 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 		Method:              method,
 		RequestURI:          "",
 	}
+	r := new(http.Request)
+	r.RemoteAddr = sourceIP
 	resp, err := s.auth.ApplicationRequest(authRequest)
 	if err != nil {
+		if resp.PUContext != nil {
+			state := flowstats.NewAppConnectionState(s.puID, r, authRequest, resp)
+			state.Stats.Action = resp.Action
+			state.Stats.PolicyID = resp.NetworkPolicyID
+			s.collector.CollectFlowEvent(state.Stats)
+		}
+		//http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
+		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		//flow.DropReason = "access not authorized by network policy"
+		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), err
 	}
 
+	state := flowstats.NewAppConnectionState(s.puID, r, authRequest, resp)
+	if resp.External {
+		defer s.collector.CollectFlowEvent(state.Stats)
+	}
 	if resp.Action.Rejected() {
 		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
