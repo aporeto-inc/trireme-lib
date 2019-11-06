@@ -304,7 +304,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
-	zap.L().Debug("ext_authz ingress: Request accepted")
+	zap.L().Info("\next_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
 	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_auth.CheckResponse{
 		Status: &rpc.Status{
@@ -383,7 +383,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	} else {
 		zap.L().Error("ext_authz egress:the secrerts are nil")
 	}
-
+	zap.L().Info("\n ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
 	return &ext_auth.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.OK),
