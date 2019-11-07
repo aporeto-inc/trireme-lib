@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/cert"
+
 	"go.aporeto.io/trireme-lib/collector"
 	tcommon "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
@@ -68,7 +70,7 @@ func NewAppProxy(
 	t tcommon.ServiceTokenIssuer,
 ) (*AppProxy, error) {
 
-	systemPool, err := GetSystemCertPool()
+	systemPool, err := cert.GetSystemCertPool()
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +311,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
-	systemPool, err := GetSystemCertPool()
+	systemPool, err := cert.GetSystemCertPool()
 	if err != nil {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool

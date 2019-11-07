@@ -2,7 +2,6 @@ package envoyauthorizer
 
 import (
 	"context"
-	"crypto/x509"
 	"fmt"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/cert"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -53,7 +53,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	}
 
 	// same logic as in app proxy
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := cert.GetSystemCertPool()
 	if err != nil {
 		return nil, err
 	}
