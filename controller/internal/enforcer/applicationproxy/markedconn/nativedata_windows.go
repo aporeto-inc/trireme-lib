@@ -16,7 +16,7 @@ type NativeDataControl struct {
 	mu         *sync.Mutex
 }
 
-// returns initialized NativeDataControl
+// NewNativeDataControl returns initialized NativeDataControl
 func NewNativeDataControl() *NativeDataControl {
 	return &NativeDataControl{
 		nativeData: make(map[string]*NativeData),

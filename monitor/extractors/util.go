@@ -13,7 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
-// computeFileMd5 computes the Md5 of a file
+// ComputeFileMd5 computes the Md5 of a file
 func ComputeFileMd5(filePath string) ([]byte, error) {
 
 	var result []byte

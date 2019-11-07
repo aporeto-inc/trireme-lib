@@ -44,6 +44,7 @@ func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, p
 	return nil, 0, 0, nil
 }
 
+// NotifyIgnoreFlow is for Windows, because we need a way to explicitly notify of an 'ignore flow' condition, to be called synchronously in datapath processing
 func (c *Client) NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error {
 	return nil
 }

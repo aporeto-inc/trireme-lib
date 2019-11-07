@@ -199,7 +199,7 @@ func (e *enforcer) SetLogLevel(level constants.LogLevel) error {
 // Cleanup implements the cleanup interface.
 func (e *enforcer) CleanUp() error {
 	if e.transport != nil {
-		e.transport.CleanUp()
+		return e.transport.CleanUp()
 	}
 	return nil
 }

@@ -150,7 +150,7 @@ func ProcessInfo(pid int32) []string {
 	return userdata
 }
 
-// libs returns the list of dynamic library dependencies of an executable
+// Libs returns the list of dynamic library dependencies of an executable
 func Libs(binpath string) []string {
 	f, err := elf.Open(binpath)
 	if err != nil {

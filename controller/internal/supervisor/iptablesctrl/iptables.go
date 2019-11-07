@@ -141,7 +141,9 @@ func (i *iptables) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
-	targetTCPSet.Flush()
+	if err = targetTCPSet.Flush(); err != nil {
+		return fmt.Errorf("unable to flush target TCP set: %s", err)
+	}
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet

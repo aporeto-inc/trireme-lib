@@ -9,6 +9,7 @@ import (
 	"unsafe"
 )
 
+// GetSystemCertPool enumerates Windows certificates, because Go's SystemCertPool does not work for Windows
 func GetSystemCertPool() (*x509.CertPool, error) {
 	return loadSystemRoots()
 }

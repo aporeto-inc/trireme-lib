@@ -58,7 +58,7 @@ type ProxiedConnection struct {
 	nativeData            *NativeData
 }
 
-// Native proxy/socket data (platform-specific)
+// NativeData is native proxy/socket data (platform-specific)
 type NativeData struct {
 	handle          uintptr
 	postConnectFunc func(fd uintptr)
@@ -69,6 +69,7 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
 }
 
+// GetNativeData gets the native socket data (needed for Windows)
 func (p *ProxiedConnection) GetNativeData() *NativeData {
 	return p.nativeData
 }
