@@ -4,7 +4,9 @@ package server
 
 import (
 	"net"
+	"net/http"
 
+	"go.aporeto.io/trireme-lib/common"
 	"gopkg.in/natefinch/npipe.v2"
 )
 
@@ -20,4 +22,9 @@ func (e *EventServer) makePipe() (net.Listener, error) {
 		return nil, err
 	}
 	return pipeListener, nil
+}
+
+// TODO(windows): Uids() not impl currently in Windows
+func validateUser(r *http.Request, event *common.EventInfo) error {
+	return nil
 }
