@@ -69,34 +69,6 @@ DgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSAAw
 RQIhAORa3rPufXuFxiRSK+6lAhopj06OUR9GzXOlS2bw8xyLAiAxJ8b1vWS/0WpV
 qZGHiexcAirxSagCGQ3EYI9lz3IAVg==
 -----END CERTIFICATE-----`
-
-	// 	rootPEM2 = `
-	// -----BEGIN CERTIFICATE-----
-	// MIIEBDCCAuygAwIBAgIDAjppMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
-	// MRYwFAYDVQQKEw1HZW9UcnVzdCBJbmMuMRswGQYDVQQDExJHZW9UcnVzdCBHbG9i
-	// YWwgQ0EwHhcNMTMwNDA1MTUxNTU1WhcNMTUwNDA0MTUxNTU1WjBJMQswCQYDVQQG
-	// EwJVUzETMBEGA1UEChMKR29vZ2xlIEluYzElMCMGA1UEAxMcR29vZ2xlIEludGVy
-	// bmV0IEF1dGhvcml0eSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
-	// AJwqBHdc2FCROgajguDYUEi8iT/xGXAaiEZ+4I/F8YnOIe5a/mENtzJEiaB0C1NP
-	// VaTOgmKV7utZX8bhBYASxF6UP7xbSDj0U/ck5vuR6RXEz/RTDfRK/J9U3n2+oGtv
-	// h8DQUB8oMANA2ghzUWx//zo8pzcGjr1LEQTrfSTe5vn8MXH7lNVg8y5Kr0LSy+rE
-	// ahqyzFPdFUuLH8gZYR/Nnag+YyuENWllhMgZxUYi+FOVvuOAShDGKuy6lyARxzmZ
-	// EASg8GF6lSWMTlJ14rbtCMoU/M4iarNOz0YDl5cDfsCx3nuvRTPPuj5xt970JSXC
-	// DTWJnZ37DhF5iR43xa+OcmkCAwEAAaOB+zCB+DAfBgNVHSMEGDAWgBTAephojYn7
-	// qwVkDBF9qn1luMrMTjAdBgNVHQ4EFgQUSt0GFhu89mi1dvWBtrtiGrpagS8wEgYD
-	// VR0TAQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwOgYDVR0fBDMwMTAvoC2g
-	// K4YpaHR0cDovL2NybC5nZW90cnVzdC5jb20vY3Jscy9ndGdsb2JhbC5jcmwwPQYI
-	// KwYBBQUHAQEEMTAvMC0GCCsGAQUFBzABhiFodHRwOi8vZ3RnbG9iYWwtb2NzcC5n
-	// ZW90cnVzdC5jb20wFwYDVR0gBBAwDjAMBgorBgEEAdZ5AgUBMA0GCSqGSIb3DQEB
-	// BQUAA4IBAQA21waAESetKhSbOHezI6B1WLuxfoNCunLaHtiONgaX4PCVOzf9G0JY
-	// /iLIa704XtE7JW4S615ndkZAkNoUyHgN7ZVm2o6Gb4ChulYylYbc3GrKBIxbf/a/
-	// zG+FA1jDaFETzf3I93k9mTXwVqO94FntT0QJo544evZG0R0SnU++0ED8Vf4GXjza
-	// HFa9llF7b1cq26KqltyMdMKVvvBulRP/F/A8rLIQjcxz++iPAsbw+zOzlTvjwsto
-	// WHPbqCRiOwY1nQ2pM714A5AuTHhdUDqB1O6gyHA43LL5Z/qHQF1hwFGPa4NrzQU6
-	// yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
-	// -----END CERTIFICATE-----`
-
-	counter uint64
 )
 
 const (
@@ -324,14 +296,13 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		select {
 		case req, ok := <-discoveryReqCh:
 			if req == nil {
-				fmt.Println("\n\n req is nil ")
+				zap.L().Warn("SDS Server: The request is nil")
 				continue
 			}
 			if req.ErrorDetail != nil {
 				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().GoString()))
 				continue
 			}
-			fmt.Println("\nSDS Server: got the req to be processed by start streaming", req)
 			// Now check the following:
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
@@ -360,16 +331,12 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			resourceName := req.ResourceNames[0]
 			conn.clientID = req.Node.GetId()
 			//if len(conn.connectionID) == 0 {
-			fmt.Println("\n\n ABHI creating a unique ID for resource: ", resourceName, "\n client ID: ", conn.clientID, "\n\n ****")
 			conn.connectionID = createConnID(conn.clientID, resourceName)
 			//}
 			//fmt.Println("\n\n **** ABHI checkReq: ", s.checkSecretPresent(conn.connectionID, req, token))
 			// if this is not the 1st request and if the secret is already present then dont proceed as this is a ACK according to the XDS protocol.
-			if req.VersionInfo != "" {
-				fmt.Println("\n\n *** ABHI 1st request for conn and resource: : ", conn.connectionID, resourceName)
-			}
 			if req.VersionInfo != "" && s.checkSecretPresent(conn.connectionID, req, token) {
-				fmt.Println("\nSDS Server: got a ACK from envoy ", "connectionID", conn.connectionID, "resourceName: ", resourceName, "version", req.VersionInfo)
+				zap.L().Warn("\nSDS Server: got a ACK from envoy ", zap.String("connectionID", conn.connectionID), zap.String("resourceName: ", resourceName), zap.String("version", req.VersionInfo))
 				continue
 			}
 			//fmt.Println("Processing the request")
@@ -492,7 +459,7 @@ func (s *SdsServer) checkSecretPresent(connID string, req *v2.DiscoveryRequest, 
 func createConnID(clientID, resourceName string) string {
 	// + strconv.FormatUint(atomic.AddUint64(&counter, 1), 10) +
 	temp := clientID + resourceName
-	fmt.Println("\nSDS Server: generated a unique ID:", "connID: ", temp, "for resource: ", resourceName, "\n\n **")
+	zap.L().Debug("SDS Server: generated a unique ID:", zap.String("connID: ", temp), zap.String("resource: ", resourceName))
 	return temp
 }
 

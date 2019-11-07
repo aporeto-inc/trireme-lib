@@ -277,8 +277,8 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	// Create the new target URL based on the method+path parameter that we had.
 	URL, err := url.ParseRequestURI("http:" + method + urlStr)
 	if err != nil {
-		fmt.Println("Cannot parse the URI", err)
-		return nil, nil
+		zap.L().Error("ext_authz ingress: Cannot parse the URI", zap.Error(err))
+		return nil, err
 	}
 	zap.L().Debug("ext_authz ingress:", zap.String("URL: ", URL.String()))
 	request := &apiauth.Request{
@@ -318,7 +318,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
-	zap.L().Info("\next_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
+	zap.L().Info("ext_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
 	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_auth.CheckResponse{
 		Status: &rpc.Status{
