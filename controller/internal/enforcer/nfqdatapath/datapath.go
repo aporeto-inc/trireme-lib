@@ -542,7 +542,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 // SetTargetNetworks sets new target networks used by datapath
 func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
-	fmt.Println("ABHI ** setting the target networks. ")
+
 	networks := cfg.TCPTargetNetworks
 
 	if len(networks) == 0 {

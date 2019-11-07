@@ -144,7 +144,6 @@ func OptionBinaryTokens(b bool) Option {
 }
 
 func (t *trireme) newEnforcers() error {
-	fmt.Println("new enforcers with config mode = ", t.config.linuxProcess, t.config.mode)
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
 	if t.config.linuxProcess {
@@ -207,7 +206,6 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 		)
-		fmt.Println("0000 ABHI registring the enforcerProxy as remoteEnvoy", constants.RemoteContainerEnvoyAuthorizer)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
 	}
@@ -281,7 +279,7 @@ func (t *trireme) newSupervisors() error {
 
 // newTrireme returns a reference to the trireme object based on the parameter subelements.
 func newTrireme(c *config) TriremeController {
-	fmt.Println("ABHI **** NEW TRIREME STARTED")
+
 	var err error
 
 	t := &trireme{

@@ -233,10 +233,8 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 ) (Enforcer, error) {
-	fmt.Println("\n\n\n **** mode type: ", mode)
-	//mode = constants.RemoteContainerEnvoyAuthorizer
+
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
-		fmt.Println("ABHI *** Starting the remote envoy auth")
 		return envoyauthorizer.NewEnvoyAuthorizerEnforcer(mode, collector, externalIPCacheTimeout, secrets, tokenIssuer)
 	}
 

@@ -143,7 +143,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// Otherwise, we retry.
 		return reconcile.Result{}, err
 	}
-	//fmt.Println("ABHI **** pod reconcile")
+
 	sandboxID, err = r.sandboxExtractor(ctx, pod)
 	if err != nil {
 		// Do nothing if we can't find the sandboxID

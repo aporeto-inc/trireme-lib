@@ -107,7 +107,7 @@ func newRemoteEnforcer(
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
 	}
-	fmt.Println("\n\n NEW instance of remote enforcer with type: ", enforcerType)
+
 	return &RemoteEnforcer{
 		collector:       collector,
 		service:         service,
@@ -130,7 +130,7 @@ func newRemoteEnforcer(
 // InitEnforcer is a function called from the controller using RPC. It intializes
 // data structure required by the remote enforcer
 func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	fmt.Println("ABHI init remote enforcer with type: ", s.enforcerType)
+
 	zap.L().Debug("Configuring remote enforcer")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
@@ -159,7 +159,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			s.cleanup()
 		}
 	}()
-	fmt.Println("ABHI **** Setting up the remote Enforcer, in func InitEnforcer with type: ", s.enforcerType)
+
 	if err = s.setupEnforcer(&payload); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf(resp.Status)
@@ -493,7 +493,7 @@ func triremeLogLevelToZapLogLevel(level constants.LogLevel) zapcore.Level {
 
 // setup an enforcer
 func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) error {
-	fmt.Println("Setting up the remote enforcer")
+
 	var err error
 
 	s.secrets, err = secrets.NewSecrets(payload.Secrets)

@@ -213,8 +213,7 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 	}
 
 	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
-	modeType = constants.RemoteContainerEnvoyAuthorizer
-	fmt.Println(" 1111 Abhi calling the enforce here")
+
 	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
 		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
