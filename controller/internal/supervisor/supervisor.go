@@ -104,7 +104,6 @@ func (s *Config) Run(ctx context.Context) error {
 
 	s.Lock()
 	defer s.Unlock()
-	zap.L().Error("Supervisor Called Run")
 
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)

@@ -149,11 +149,7 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	b.Lock()
 	defer b.Unlock()
-	zap.L().Error("Append",
-		zap.String("table", table),
-		zap.String("Chain", chain),
-		zap.Strings("RuleSpec", rulespec),
-	)
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.Append(table, chain, rulespec...)
 	}
@@ -323,10 +319,7 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 func (b *BatchProvider) NewChain(table, chain string) error {
 	b.Lock()
 	defer b.Unlock()
-	zap.L().Error("NewChain",
-		zap.String("table", table),
-		zap.String("Chain", chain),
-	)
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.NewChain(table, chain)
 	}
