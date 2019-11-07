@@ -1,13 +1,10 @@
-// +build windows
+// +build !linux
 
 package flowtracking
 
 import (
 	"context"
-	"errors"
 	"net"
-
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 )
 
 // Client is a flow update client.
@@ -47,14 +44,4 @@ func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, 
 // TODO(windows): we may need to support this?
 func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
 	return nil, 0, 0, nil
-}
-
-// NotifyIgnoreFlow is for Windows, because we need a way to explicitly notify of an 'ignore flow' condition, to be called synchronously in datapath processing
-func (c *Client) NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error {
-	windata, _ := data.(*afinetrawsocket.WindowsPacketMetadata)
-	if windata == nil {
-		return errors.New("no WindowsPacketMetadata for UpdateMark")
-	}
-	windata.IgnoreFlow = true
-	return nil
 }

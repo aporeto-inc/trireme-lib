@@ -8,6 +8,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
 
@@ -28,6 +29,11 @@ func adjustConntrack(mode constants.ModeType) {
 			zap.L().Fatal("Failed to set early demux options", zap.Error(err))
 		}
 	}
+}
+
+// ignoreFlow is for Windows. use flowtracking interface for Linux.
+func (c *Datapath) ignoreFlow(pkt *packet.Packet, data interface{}) error {
+	return nil
 }
 
 func (d *Datapath) startInterceptors(ctx context.Context) {

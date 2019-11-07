@@ -6,9 +6,14 @@ import (
 	"context"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 )
 
 func adjustConntrack(mode constants.ModeType) {
+}
+
+func (c *Datapath) ignoreFlow(pkt *packet.Packet, data interface{}) error {
+	return nil
 }
 
 func (d *Datapath) startInterceptors(ctx context.Context) {

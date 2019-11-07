@@ -17,6 +17,4 @@ type FlowClient interface {
 	// UpdateApplicationFlowMark will update the mark for a flow based on the packet information
 	// received from an application. It will use the forward entries of conntrack for that.
 	UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error
-	// Explicitly notify of an 'ignore flow' condition, to be called synchronously in datapath processing
-	NotifyIgnoreFlow(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, data interface{}) error
 }
