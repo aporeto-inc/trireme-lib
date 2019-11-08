@@ -460,7 +460,6 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 
 	var err error
 	pemCert := []byte{}
-	keyPEMdebug := []byte{}
 	t := time.Now()
 	expTime := time.Time{}
 
