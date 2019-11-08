@@ -15,6 +15,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -40,8 +41,9 @@ type Options struct {
 
 // sdsCerts is the structure will pass the upstream certs downwards.
 type sdsCerts struct {
-	key  string
-	cert string
+	key    string
+	cert   string
+	caPool *x509.CertPool
 }
 
 // SdsDiscoveryStream is the same as the sds.SecretDiscoveryService_StreamSecretsServer
@@ -67,7 +69,7 @@ type SdsServer struct {
 	secrets secrets.Secrets
 	sync.RWMutex
 	// conncache is a cache of the sdsConnection, here the key is the connectionID and val is the secret.
-	conncache *kvcache
+	conncache cache.DataStore
 	// updCertsChannel is used whenever there is a cert-update/Enfore
 	updCertsChannel chan sdsCerts
 	connMap         map[string]bool
@@ -125,7 +127,7 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 		ca:              caPool,
 		errCh:           make(chan error),
 		secrets:         secrets,
-		conncache:       newkvCache(),
+		conncache:       cache.NewCache("servers"),
 		updCertsChannel: make(chan sdsCerts),
 		connMap:         make(map[string]bool),
 	}
@@ -165,7 +167,6 @@ func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 		zap.L().Error("SDS Server: Failed to update permission", zap.String("socketPath:", options.SocketPath))
 		return fmt.Errorf("failed to update %q permission", options.SocketPath)
 	}
-	//var err error
 	s.sdsGrpcListener = sdsGrpcListener
 
 	zap.L().Debug("SDS Server: run the grpc server at: ", zap.Any("addr: ", s.sdsGrpcListener.Addr()))
@@ -216,11 +217,11 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 
 	s.cert = cert
 	s.ca = caPool
-	s.secrets = secrets
+	//s.secrets = secrets
 	s.certPEM = certPEM
 	s.keyPEM = keyPEM
 
-	s.updCertsChannel <- sdsCerts{key: keyPEM, cert: certPEM}
+	s.updCertsChannel <- sdsCerts{key: keyPEM, cert: certPEM, caPool: caPool}
 }
 
 // now implement the interfaces of the SDS grpc server.
@@ -293,7 +294,6 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				zap.L().Error("SDS Server: Receiver channel closed, which means the Receiver stream is closed")
 				return fmt.Errorf("Receiver closed the channel")
 			}
-
 			// now according to the Istio pilot SDS secret config we have 2 configs, this configs are pushed to envoy through Istio.
 			// 1. SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
 			// 2. SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
@@ -308,23 +308,21 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			conn.clientID = req.Node.GetId()
 			//if len(conn.connectionID) == 0 {
 			conn.connectionID = createConnID(conn.clientID, resourceName)
-			//}
-			//fmt.Println("\n\n **** ABHI checkReq: ", s.checkSecretPresent(conn.connectionID, req, token))
+
 			// if this is not the 1st request and if the secret is already present then dont proceed as this is a ACK according to the XDS protocol.
 			if req.VersionInfo != "" && s.checkSecretPresent(conn.connectionID, req, token) {
-				zap.L().Warn("\nSDS Server: got a ACK from envoy ", zap.String("connectionID", conn.connectionID), zap.String("resourceName: ", resourceName), zap.String("version", req.VersionInfo))
+				zap.L().Warn("SDS Server: got a ACK from envoy ", zap.String("connectionID", conn.connectionID), zap.String("resourceName: ", resourceName), zap.String("version", req.VersionInfo))
 				continue
 			}
-			//fmt.Println("Processing the request")
 			secret := s.generateSecret(req, token)
 			if secret == nil {
-				zap.L().Error("SDS Server:  the Certs cannot be served so return nil")
+				zap.L().Error("SDS Server: the Certs cannot be served so return nil")
 				return fmt.Errorf("the aporeto SDS server cannot generate server, the certs are nil")
 			}
 			conn.secret = secret
-			s.conncache.store(conn.connectionID, conn)
-			// TODO: now call the metadata-lib function to fetch the secrets.
-			// TODO: once the secret is fetched create a discovery Response depending on the secret.
+			if err := s.conncache.Add(conn.connectionID, conn); err != nil {
+				zap.L().Error("SDS Server: failed to add connection to the local cache", zap.Error(err))
+			}
 
 			resp := &v2.DiscoveryResponse{
 				TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
@@ -424,17 +422,15 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 }
 
 func (s *SdsServer) checkSecretPresent(connID string, req *v2.DiscoveryRequest, token string) bool {
-	val, ok := s.conncache.load(connID)
-	if !ok {
+	val, err := s.conncache.Get(connID)
+	if err != nil {
 		return false
 	}
 	e := val.(*clientConn)
-	fmt.Println("the request is present for conn and resource: ", connID, e.secret.ResourceName)
 	return e.secret.ResourceName == req.ResourceNames[0] && e.secret.Token == token && e.secret.Version == req.VersionInfo
 }
 
 func createConnID(clientID, resourceName string) string {
-	// + strconv.FormatUint(atomic.AddUint64(&counter, 1), 10) +
 	temp := clientID + resourceName
 	zap.L().Debug("SDS Server: generated a unique ID:", zap.String("connID: ", temp), zap.String("resource: ", resourceName))
 	return temp
@@ -490,7 +486,6 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 
 	var err error
 	var pemCert []byte
-	keyPEMdebug := []byte{}
 	t := time.Now()
 	var expTime time.Time
 
@@ -526,14 +521,12 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 		// 	pemCert = []byte(sleepPEM)
 		// 	keyPEMdebug = []byte(sleeepKey)
 		// }
-		fmt.Println("default: ", string(pemCert), "key: ", string(keyPEMdebug))
 	} else {
 		// use "caPEM = []byte(rootPEM)" this only for debug, as this is tg certs.
 		//caPEM = []byte(rootPEM)
 		expTime, _ = getExpTimeFromCert([]byte(caPEM))
 		//pemCert = []byte(caPEM)
 		pemCert, err = getTopRootCa(caPEM)
-		fmt.Println("root: ", string(pemCert))
 		if err != nil {
 			zap.L().Error("SDS Server:  Cannot build the Root cert chain")
 		}
@@ -590,7 +583,6 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		//fmt.Println("\n cert: ", string(certDERBlock.Type))
 		if certDERBlock.Type == "CERTIFICATE" {
 			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 			if err != nil {
@@ -638,7 +630,6 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		//fmt.Println("\n cert: ", string(certDERBlock.Type))
 		if certDERBlock.Type == "CERTIFICATE" {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}

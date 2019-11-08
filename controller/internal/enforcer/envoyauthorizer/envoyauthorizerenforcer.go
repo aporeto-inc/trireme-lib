@@ -58,7 +58,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	if mode != constants.RemoteContainerEnvoyAuthorizer && mode != constants.LocalEnvoyAuthorizer {
 		return nil, fmt.Errorf("enforcer mode type must be either RemoteContainerEnvoyAuthorizer or LocalEnvoyAuthorizer, got: %d", mode)
 	}
-	fmt.Println("\n\n\n NewEnvoyAuthorizerEnforcer: ABHI ***** envoy init ******")
+	zap.L().Info("Creating Envoy Authorizer Enforcer")
 	// same logic as in the nfqdatapath
 	if externalIPCacheTimeout <= 0 {
 		var err error
@@ -77,9 +77,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	if ok := systemPool.AppendCertsFromPEM(secrets.PublicSecrets().CertAuthority()); !ok {
 		return nil, fmt.Errorf("error while adding provided CA")
 	}
-	fmt.Println("\n\n The principal CA is : ", secrets.PublicSecrets().CertAuthority())
 	// TODO: systemPool needs the same treatment as the AppProxy and a `processCertificateUpdates` and `expandCAPool` implementation as well
-	fmt.Println("ABHI ** New envoy auth")
 	return &Enforcer{
 		mode:                   mode,
 		collector:              eventCollector,
@@ -164,9 +162,9 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		zap.L().Debug("handling policy update for envoy servers", zap.String("puID", contextID))
 		// For updates we need to update the certificates if we have new ones. Otherwise
 		// we return. There is nothing else to do in case of policy update.
-		// this required for the Envoy sds. So that the SDS picks the latest cert.
+		// this required for the Envoy servers.
 		if c, cerr := e.clients.Get(contextID); cerr == nil {
-			_, perr := e.processCertificateUpdates(puInfo, c.(*envoyServers).sds, caPool)
+			_, perr := e.processCertificateUpdates(puInfo, c.(*envoyServers), caPool)
 			if perr != nil {
 				zap.L().Error("unable to update certificates for services", zap.Error(perr))
 				return perr
@@ -180,7 +178,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
-func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envoyproxy.SdsServer, caPool *x509.CertPool) (bool, error) {
+func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envoyServers, caPool *x509.CertPool) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
 	// services. If the certificates are nil, we ignore them.
@@ -201,8 +199,14 @@ func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envo
 	if err != nil {
 		return false, fmt.Errorf("Invalid certificates: %s", err)
 	}
-	// update the sds server certs.
-	server.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
+	// Here update the enforcer secrets because we are using the LockedSecrets.
+	// Also, send a update event to the SDS server so it can send a new cert to the envoy Sidecar.
+	//e.UpdateSecrets(e.secrets)
+	// // update all the server certs, the Write lock has already been acquired by the Enforce function, so no need to lock again.
+	server.ingress.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
+	server.egress.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
+	server.sds.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
+
 	if e.metadata != nil {
 		e.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
 	}

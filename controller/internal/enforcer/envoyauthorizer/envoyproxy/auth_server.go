@@ -2,6 +2,8 @@ package envoyproxy
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
@@ -90,6 +92,13 @@ type AuthServer struct {
 	sync.RWMutex
 }
 
+// Secrets implements locked secrets
+// func (s *AuthServer) Secrets() secrets.Secrets {
+// 	s.RLock()
+// 	defer s.RUnlock()
+// 	return s.secrets
+// }
+
 // NewExtAuthzServer creates a new envoy ext_authz server
 func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collector.EventCollector, direction Direction,
 	registry *serviceregistry.Registry, secrets secrets.Secrets, tokenIssuer common.ServiceTokenIssuer) (*AuthServer, error) {
@@ -167,6 +176,18 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 	return s, nil
 }
 
+// UpdateSecrets updates the secrets
+// Whenever the Envoy makes a request for certificate, the certs and keys are fetched from
+// the Proxy.
+func (s *AuthServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string) {
+	s.Lock()
+	defer s.Unlock()
+	s.secrets = secrets
+
+	// TODO: once the dimitris commit goes in, we need update the apiAuth secrets.
+
+}
+
 func (s *AuthServer) run(lis net.Listener) {
 	zap.L().Debug("Starting to serve gRPC for ext_authz server", zap.String("puID", s.puID), zap.String("direction", s.direction.String()))
 	if err := s.server.Serve(lis); err != nil {
@@ -203,20 +224,6 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	// TODO: needs to be removed before we merge: this exposes secret data, and must never be in real logs - even in the debug case
 	zap.L().Info("ext_authz ingress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
-	// get the PU context
-	// TODO: check with marcus, not sure if we want a LOCK here, as this can be accessed now by the
-	// 1. Envoy auth server.
-	// 2. by enforcer policy update.
-	// pctxRaw, err := s.puContexts.Get(s.puID)
-	// if err != nil {
-	// 	zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
-	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
-	// }
-	// pctx, ok := pctxRaw.(*pucontext.PUContext)
-	// if !ok {
-	// 	zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
-	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
-	// }
 	// now extract the attributes and call the API auth to decode and check all the claims in request.
 	var sourceIP, destIP, aporetoAuth, aporetoKey string
 	var source, dest *ext_auth.AttributeContext_Peer
@@ -327,16 +334,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-	// pctxRaw, err := s.puContexts.Get(s.puID)
-	// if err != nil {
-	// 	zap.L().Error("ext_authz ingress: failed to get PU context", zap.String("puID", s.puID), zap.Error(err))
-	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "failed to get PU context"), nil
-	// }
-	// pctx, ok := pctxRaw.(*pucontext.PUContext)
-	// if !ok {
-	// 	zap.L().Error("ext_authz ingress: PU context has the wrong type", zap.String("puID", s.puID), zap.String("puContextType", fmt.Sprintf("%T", pctxRaw)))
-	// 	return createDeniedCheckResponse(rpc.INTERNAL, envoy_type.StatusCode_InternalServerError, "PU context has the wrong type"), nil
-	// }
+
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
 	var httpReq *ext_auth.AttributeContext_HttpRequest
@@ -373,8 +371,8 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	// Create the new target URL based on the path parameter that we have from envoy.
 	URL, err := url.ParseRequestURI(urlStr)
 	if err != nil {
-		zap.L().Debug("ext_authz egress: Cannot parse the URI")
-		return nil, nil
+		zap.L().Error("ext_authz egress: Cannot parse the URI", zap.Error(err))
+		return nil, err
 	}
 
 	authRequest := &apiauth.Request{
@@ -394,13 +392,13 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 			state.Stats.PolicyID = resp.NetworkPolicyID
 			s.collector.CollectFlowEvent(state.Stats)
 		}
-		//http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
 		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), err
 	}
-
+	// record the flow stats
 	state := flowstats.NewAppConnectionState(s.puID, r, authRequest, resp)
+	// If the flow is external, then collect the stats here as the policy decision has already been made.
 	if resp.External {
 		defer s.collector.CollectFlowEvent(state.Stats)
 	}
@@ -418,7 +416,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	} else {
 		zap.L().Error("ext_authz egress:the secrerts are nil")
 	}
-	zap.L().Info("\n ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
+	zap.L().Info("ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(code.Code_OK),
