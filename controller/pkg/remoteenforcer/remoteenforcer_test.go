@@ -25,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
@@ -277,6 +278,7 @@ func TestInitEnforcer(t *testing.T) {
 			cfg *runtime.Configuration,
 			tokenIssuer common.ServiceTokenIssuer,
 			binaryTokens bool,
+			aclmanager ipsetmanager.ACLManager,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -287,6 +289,7 @@ func TestInitEnforcer(t *testing.T) {
 			mode constants.ModeType,
 			cfg *runtime.Configuration,
 			p packetprocessor.PacketProcessor,
+			aclmanager ipsetmanager.ACLManager,
 		) (supervisor.Supervisor, error) {
 			return mockSupevisor, nil
 		}
@@ -377,6 +380,7 @@ func TestInitEnforcer(t *testing.T) {
 					cfg *runtime.Configuration,
 					tokenIssuer common.ServiceTokenIssuer,
 					binaryTokens bool,
+					aclmanager ipsetmanager.ACLManager,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}
@@ -403,6 +407,7 @@ func TestInitEnforcer(t *testing.T) {
 					mode constants.ModeType,
 					cfg *runtime.Configuration,
 					p packetprocessor.PacketProcessor,
+					aclmanager ipsetmanager.ACLManager,
 				) (supervisor.Supervisor, error) {
 					return nil, fmt.Errorf("failed supervisor")
 				}

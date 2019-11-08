@@ -7,6 +7,7 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 )
 
 const (
@@ -40,13 +41,16 @@ func (i *ipv4) GetIPSetPrefix() string {
 	return chainPrefix + ipv4String
 }
 
+func (i *ipv4) IPsetVersion() int {
+	return ipsetmanager.IPsetV4
+}
+
 func (i *ipv4) GetIPSetParam() *ipset.Params {
 	return ipsetV4Param
 }
 
 func (i *ipv4) IPFilter() func(net.IP) bool {
 	ipv4Filter := func(ip net.IP) bool {
-
 		return (ip.To4() != nil)
 	}
 

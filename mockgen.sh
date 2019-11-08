@@ -76,14 +76,19 @@ mkdir -p monitor/mockmonitor
 mockgen -source monitor/interfaces.go -destination monitor/mockmonitor/mockmonitor.go -package mockmonitor -source_package go.aporeto.io/trireme-lib/monitor
 goimport_sanitize monitor/mockmonitor/mockmonitor.go
 
+echo "Monitor remoteapi client mocks"
+mkdir -p monitor/remoteapi/client/mockclient
+mockgen -source monitor/remoteapi/client/interfaces.go -destination monitor/remoteapi/client/mockclient/mockclient.go -package mockclient -source_package go.aporeto.io/trireme-lib/monitor/remoteapi/client
+goimport_sanitize monitor/remoteapi/client/mockclient/mockclient.go
+
 echo "Monitor/processor Mocks"
 mkdir -p monitor/processor/mockprocessor
 mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mockprocessor/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package go.aporeto.io/trireme-lib/monitor/processor
 goimport_sanitize monitor/processor/mockprocessor/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
-mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper 
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper -source_package go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
+mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper
+mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper -source_package go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper
 goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"
