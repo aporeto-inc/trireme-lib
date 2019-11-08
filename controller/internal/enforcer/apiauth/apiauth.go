@@ -32,7 +32,7 @@ type Processor struct {
 
 	issuer  string // the issuer ID .. need to get rid of that part with the new tokens
 	secrets secrets.Secrets
-	sync.Mutex
+	sync.RWMutex
 }
 
 // New will create a new authorization processor.
@@ -130,13 +130,18 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 		return d, nil
 	}
 
+	p.RLock()
+	defer p.RUnlock()
+
+	secret := p.secrets
+
 	token, err := servicetokens.CreateAndSign(
 		p.issuer,
 		sctx.PUContext.Identity().Tags,
 		sctx.PUContext.Scopes(),
 		sctx.PUContext.ManagementID(),
 		defaultValidity,
-		p.secrets.EncodingKey(),
+		secret.EncodingKey(),
 	)
 	if err != nil {
 		return d, &AuthError{
