@@ -64,6 +64,10 @@ required = ["github.com/docker/distribution"]
   branch = "master"
 
 [[constraint]]
+  name = "github.com/envoyproxy/go-control-plane"
+  version = "v0.9.0"
+
+[[constraint]]
   name = "github.com/aporeto-inc/oxy"
   branch = "sirupsen"
 

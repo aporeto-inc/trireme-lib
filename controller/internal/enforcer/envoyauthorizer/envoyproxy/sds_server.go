@@ -19,56 +19,11 @@ import (
 	"google.golang.org/grpc"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/metadata"
-	"istio.io/istio/security/pkg/nodeagent/model"
-)
-
-// for testing/POC purpose just add the manually created certificates.
-var (
-	sleepPEM = `-----BEGIN CERTIFICATE-----
-MIIBdjCCARygAwIBAgIQFpk10QHwctYxk48Bj54b9DAKBggqhkjOPQQDAjAgMQ0w
-CwYDVQQKEwRhY21lMQ8wDQYDVQQDEwZ0Z3Jvb3QwHhcNMTkxMTA0MDgwODMwWhcN
-MjkwOTEyMDgwODMwWjAjMQ0wCwYDVQQKEwRhY21lMRIwEAYDVQQDEwlzbGVlcC5m
-b28wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATH7LKBAYJnvuhFfPizT6i+0mQA
-VxWlYmbcRqcDeBGeD2fHbp7QHn77nmv/1Cm/uL4D6RbuJrPbAK/PowSPiuAiozUw
-MzAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwDAYDVR0TAQH/
-BAIwADAKBggqhkjOPQQDAgNIADBFAiEA2GdlCznWhuMQvach77mLhw4qzjG8JgJt
-3cSjtrcmA7cCIG5iUfeiEU0sXM3PrDhK4b6MygZMp2Z1hn9P49TlT5OG
------END CERTIFICATE-----`
-	sleeepKey = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIJyw3IR9/yluiRMm1wl5Q7+5FDXRQLu0zGWzklVEiWJBoAoGCCqGSM49
-AwEHoUQDQgAEx+yygQGCZ77oRXz4s0+ovtJkAFcVpWJm3EanA3gRng9nx26e0B5+
-+55r/9Qpv7i+A+kW7iaz2wCvz6MEj4rgIg==
------END EC PRIVATE KEY-----`
-	serverPEM = `-----BEGIN CERTIFICATE-----
-MIIBeDCCAR6gAwIBAgIQbOhngB9nAAFE5CiFnNI1xTAKBggqhkjOPQQDAjAgMQ0w
-CwYDVQQKEwRhY21lMQ8wDQYDVQQDEwZ0Z3Jvb3QwHhcNMTkxMTA0MDgwOTAxWhcN
-MjkwOTEyMDgwOTAxWjAlMQ0wCwYDVQQKEwRhY21lMRQwEgYDVQQDEwtodHRwYmlu
-LmZvbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABIwcE5IW1tEz2rfVO+rWzf2m
-7C+mxEo2K04kpF1He3YLWEnmYyzIxQY7+CRps+1OsTxMWvWeiwOnyvZIvFA1V3Oj
-NTAzMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAMBgNVHRMB
-Af8EAjAAMAoGCCqGSM49BAMCA0gAMEUCIGtiZv6KOD5GiPg42P8BftpJD6QvIOCw
-Fxg4kH97+KC+AiEA88MKgd/s0X+YEdCKAWmMY1ZTWS3e5DalahsbyTVE1tY=
------END CERTIFICATE-----`
-	serverKEY = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIM6foWTR6q/8EpXErH10r13cpotC7CZZ/uSZil14ex/hoAoGCCqGSM49
-AwEHoUQDQgAEjBwTkhbW0TPat9U76tbN/absL6bESjYrTiSkXUd7dgtYSeZjLMjF
-Bjv4JGmz7U6xPExa9Z6LA6fK9ki8UDVXcw==
------END EC PRIVATE KEY-----`
-	rootPEM = `-----BEGIN CERTIFICATE-----
-MIIBYjCCAQigAwIBAgIRAOPYQF3LXNoSv5P0d3rx/AkwCgYIKoZIzj0EAwIwIDEN
-MAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGdGdyb290MB4XDTE5MTEwNDA4MDY0NloX
-DTI5MDkxMjA4MDY0NlowIDENMAsGA1UEChMEYWNtZTEPMA0GA1UEAxMGdGdyb290
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDjnc/0vrgeA/hz7jlPj/RWUbX1pI
-PNHHno+CtG0tuTxNM/XmaihokKnxQZuDGjYJhad/zdc49rL7oNxIQwT87KMjMCEw
-DgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSAAw
-RQIhAORa3rPufXuFxiRSK+6lAhopj06OUR9GzXOlS2bw8xyLAiAxJ8b1vWS/0WpV
-qZGHiexcAirxSagCGQ3EYI9lz3IAVg==
------END CERTIFICATE-----`
 )
 
 const (
@@ -96,6 +51,8 @@ type SdsDiscoveryStream interface {
 	grpc.ServerStream
 }
 
+var _ sds.SecretDiscoveryServiceServer = &SdsServer{}
+
 // SdsServer to talk with envoy for sds.
 type SdsServer struct {
 	sdsGrpcServer   *grpc.Server
@@ -116,13 +73,39 @@ type SdsServer struct {
 	connMap         map[string]bool
 }
 
+type secretItem struct {
+	CertificateChain []byte
+	PrivateKey       []byte
+
+	RootCert []byte
+
+	// RootCertOwnedByCompoundSecret is true if this SecretItem was created by a
+	// K8S secret having both server cert/key and client ca and should be deleted
+	// with the secret.
+	RootCertOwnedByCompoundSecret bool
+
+	// ResourceName passed from envoy SDS discovery request.
+	// "ROOTCA" for root cert request, "default" for key/cert request.
+	ResourceName string
+
+	// Credential token passed from envoy, caClient uses this token to send
+	// CSR to CA to sign certificate.
+	Token string
+
+	// Version is used(together with token and ResourceName) to identify discovery request from
+	// envoy which is used only for confirm purpose.
+	Version string
+
+	CreatedTime time.Time
+
+	ExpireTime time.Time
+}
+
 // clientConn is ID for the connection between client and SDS server.
 type clientConn struct {
 	clientID string
 	// the TLS cert information cached for this particular connection
-	secret *model.SecretItem
-
-	mutex sync.RWMutex
+	secret *secretItem
 
 	// connectionID is the ID for each new request, make it a combo of nodeID+counter.
 	connectionID string
@@ -300,7 +283,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				continue
 			}
 			if req.ErrorDetail != nil {
-				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().GoString()))
+				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().String()))
 				continue
 			}
 			// Now check the following:
@@ -310,14 +293,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				zap.L().Error("SDS Server: Receiver channel closed, which means the Receiver stream is closed")
 				return fmt.Errorf("Receiver closed the channel")
 			}
-			// if req.Node == nil {
-			// 	fmt.Println("unknow/invalid request from the envoy")
-			// 	return fmt.Errorf("unknow/invalid request from the envoy")
-			// }
-			// the node will be present only only in the 1st message according to the xds protocol
-			if req.Node != nil {
-				//fmt.Println("the 1st request came from envoy: ", req.Node.Id, req.Node.Cluster)
-			}
+
 			// now according to the Istio pilot SDS secret config we have 2 configs, this configs are pushed to envoy through Istio.
 			// 1. SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
 			// 2. SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
@@ -355,7 +331,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				VersionInfo: secret.Version,
 				Nonce:       secret.Version,
 			}
-			retSecret := &auth.Secret{
+			retSecret := &envoy_api_v2_auth.Secret{
 				Name: secret.ResourceName,
 			}
 			if secret.RootCert != nil {
@@ -363,25 +339,25 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			} else {
 				retSecret.Type = getTLScerts(secret)
 			}
-			endSecret, err := types.MarshalAny(retSecret)
+			endSecret, err := ptypes.MarshalAny(retSecret)
 			if err != nil {
-				zap.L().Error("SDS Server: Cannot marshall the secret")
+				zap.L().Error("SDS Server: Cannot marshall the secret", zap.Error(err))
 				continue
 			}
 			resp.Resources = append(resp.Resources, endSecret)
 			if err = stream.Send(resp); err != nil {
-				zap.L().Error("SDS Server: Failed to send the resp cert")
+				zap.L().Error("SDS Server: Failed to send the resp cert", zap.Error(err))
 				return err
 			}
 			if secret.RootCert != nil {
-				zap.L().Debug("SDS Server:  Successfully sent root cert: ", zap.String("rootCA: ", string(secret.RootCert)))
+				zap.L().Debug("SDS Server: Successfully sent root cert: ", zap.String("rootCA: ", string(secret.RootCert)))
 			} else {
 				zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.String("default cert: ", string(secret.CertificateChain)))
 			}
 		case updateCerts := <-s.updCertsChannel:
 			if updateCerts.key != "" && updateCerts.cert != "" {
 				if err := s.sendUpdatedCerts(updateCerts, conn); err != nil {
-
+					zap.L().Error("SDS Server: send updated certs failed", zap.Error(err))
 				}
 			}
 		}
@@ -413,25 +389,26 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 			VersionInfo: t.String(),
 			Nonce:       t.String(),
 		}
-		retSecret := &auth.Secret{
+		retSecret := &envoy_api_v2_auth.Secret{
 			Name: "default",
 		}
 
-		retSecret.Type = &auth.Secret_TlsCertificate{
-			TlsCertificate: &auth.TlsCertificate{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
+		retSecret.Type = &envoy_api_v2_auth.Secret_TlsCertificate{
+			TlsCertificate: &envoy_api_v2_auth.TlsCertificate{
+				CertificateChain: &envoy_api_v2_core.DataSource{
+					Specifier: &envoy_api_v2_core.DataSource_InlineBytes{
 						InlineBytes: pemCert,
 					},
 				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
+				PrivateKey: &envoy_api_v2_core.DataSource{
+					Specifier: &envoy_api_v2_core.DataSource_InlineBytes{
 						InlineBytes: []byte(apoSecret.key),
 					},
 				},
 			},
 		}
-		endSecret, err := types.MarshalAny(retSecret)
+
+		endSecret, err := ptypes.MarshalAny(retSecret)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot marshall the secret")
 			return fmt.Errorf("SDS Server: Cannot marshall the secret")
@@ -485,7 +462,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 	resp := &v2.DiscoveryResponse{
 		TypeUrl: "type.googleapis.com/envoy.api.v2.auth.Secret",
 	}
-	retSecret := &auth.Secret{
+	retSecret := &envoy_api_v2_auth.Secret{
 		Name: secret.ResourceName,
 	}
 	if secret.RootCert != nil {
@@ -493,7 +470,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 	} else {
 		retSecret.Type = getTLScerts(secret)
 	}
-	endSecret, err := types.MarshalAny(retSecret)
+	endSecret, err := ptypes.MarshalAny(retSecret)
 	if err != nil {
 		zap.L().Error("SDS Server: Cannot marshall the secret")
 		return nil, err
@@ -509,13 +486,13 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 }
 
 // generateSecret is the call which talks to the metadata API to fetch the certs.
-func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *model.SecretItem {
+func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secretItem {
 
 	var err error
-	pemCert := []byte{}
+	var pemCert []byte
 	keyPEMdebug := []byte{}
 	t := time.Now()
-	expTime := time.Time{}
+	var expTime time.Time
 
 	if s.puInfo.Policy == nil {
 		zap.L().Error("SDS Server:  The policy is nil, Policy cannot be nil.")
@@ -540,8 +517,8 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 		// }
 		// if strings.Contains(req.Node.Id, "sleep") {
 		// 	expTime, err = getExpTimeFromCert([]byte(sleepPEM))
-		expTime, err = getExpTimeFromCert([]byte(certPEM))
-		pemCert, err = buildCertChain([]byte(certPEM), caPEM)
+		expTime, _ = getExpTimeFromCert([]byte(certPEM))
+		pemCert, _ = buildCertChain([]byte(certPEM), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return nil
@@ -553,7 +530,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 	} else {
 		// use "caPEM = []byte(rootPEM)" this only for debug, as this is tg certs.
 		//caPEM = []byte(rootPEM)
-		expTime, err = getExpTimeFromCert([]byte(caPEM))
+		expTime, _ = getExpTimeFromCert([]byte(caPEM))
 		//pemCert = []byte(caPEM)
 		pemCert, err = getTopRootCa(caPEM)
 		fmt.Println("root: ", string(pemCert))
@@ -567,7 +544,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 		return nil
 	}
 	if req.ResourceNames[0] == "default" {
-		return &model.SecretItem{
+		return &secretItem{
 			CertificateChain: pemCert,
 			PrivateKey:       []byte(keyPEM),
 			//PrivateKey:   []byte(keyPEMdebug),
@@ -579,7 +556,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *mode
 		}
 	}
 
-	return &model.SecretItem{
+	return &secretItem{
 		RootCert:     pemCert,
 		ResourceName: req.ResourceNames[0],
 		Token:        token,
@@ -691,11 +668,11 @@ func getExpTimeFromCert(cert []byte) (time.Time, error) {
 	return x509Cert.NotAfter, nil
 }
 
-func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
-	return &auth.Secret_ValidationContext{
-		ValidationContext: &auth.CertificateValidationContext{
-			TrustedCa: &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
+func getRootCert(secret *secretItem) *envoy_api_v2_auth.Secret_ValidationContext {
+	return &envoy_api_v2_auth.Secret_ValidationContext{
+		ValidationContext: &envoy_api_v2_auth.CertificateValidationContext{
+			TrustedCa: &envoy_api_v2_core.DataSource{
+				Specifier: &envoy_api_v2_core.DataSource_InlineBytes{
 					InlineBytes: secret.RootCert,
 				},
 			},
@@ -703,16 +680,16 @@ func getRootCert(secret *model.SecretItem) *auth.Secret_ValidationContext {
 	}
 }
 
-func getTLScerts(secret *model.SecretItem) *auth.Secret_TlsCertificate {
-	return &auth.Secret_TlsCertificate{
-		TlsCertificate: &auth.TlsCertificate{
-			CertificateChain: &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
+func getTLScerts(secret *secretItem) *envoy_api_v2_auth.Secret_TlsCertificate {
+	return &envoy_api_v2_auth.Secret_TlsCertificate{
+		TlsCertificate: &envoy_api_v2_auth.TlsCertificate{
+			CertificateChain: &envoy_api_v2_core.DataSource{
+				Specifier: &envoy_api_v2_core.DataSource_InlineBytes{
 					InlineBytes: secret.CertificateChain,
 				},
 			},
-			PrivateKey: &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
+			PrivateKey: &envoy_api_v2_core.DataSource{
+				Specifier: &envoy_api_v2_core.DataSource_InlineBytes{
 					InlineBytes: secret.PrivateKey,
 				},
 			},

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	envoy_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ext_auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
@@ -19,11 +18,11 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
+	"google.golang.org/genproto/googleapis/rpc/code"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 const (
@@ -34,9 +33,6 @@ const (
 	// EgressSocketPath is the unix socket path where the authz server will be listening on for the egress authz server
 	EgressSocketPath = "127.0.0.1:1998"
 	//EgressSocketPath = "@aporeto_envoy_authz_egress"
-
-	// defaultValidity of the issued JWT token
-	defaultValidity = 60 * time.Second
 
 	// aporetoKeyHeader is the HTTP header name for the key header
 	aporetoKeyHeader = "x-aporeto-key"
@@ -88,7 +84,6 @@ type AuthServer struct {
 	socketPath string
 	server     *grpc.Server
 	direction  Direction
-	verifier   *servicetokens.Verifier
 	collector  collector.EventCollector
 	auth       *apiauth.Processor
 	metadata   *metadata.Client
@@ -254,8 +249,8 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 			httpReq = request.GetHttp()
 			if httpReq != nil {
 				httpReqHeaders := httpReq.GetHeaders()
-				aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader]
-				aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]
+				aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader] //nolint
+				aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]   //nolint
 				zap.L().Debug("ext_authz ingress: ", zap.Any("httpReqHeaders: ", httpReqHeaders), zap.String("aporetoKey: ", aporetoKey))
 				urlStr = httpReq.GetPath()
 				method = httpReq.GetMethod()
@@ -309,20 +304,20 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	if err != nil {
 		if response == nil {
 			zap.L().Error("ext_authz ingress: auth.Networkrequest response is nil")
-			return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "No aporeto service installed"), nil
+			return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "No aporeto service installed"), nil
 		}
-		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
+		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
 	if response.Action.Rejected() {
 		zap.L().Error("ext_authz ingress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
-		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
+		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
 	zap.L().Info("ext_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
 	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
-			Code: int32(rpc.OK),
+		Status: &status.Status{
+			Code: int32(code.Code_OK),
 		},
 		HttpResponse: &ext_auth.CheckResponse_OkResponse{
 			OkResponse: &ext_auth.OkHttpResponse{},
@@ -402,7 +397,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 		//http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
 		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
-		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), err
+		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), err
 	}
 
 	state := flowstats.NewAppConnectionState(s.puID, r, authRequest, resp)
@@ -412,7 +407,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	if resp.Action.Rejected() {
 		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
-		return createDeniedCheckResponse(rpc.PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
+		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
 	// now create the response and inject our identity
 	zap.L().Debug("ext_authz egress: injecting header", zap.String("puID", s.puID))
@@ -425,8 +420,8 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}
 	zap.L().Info("\n ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
-			Code: int32(rpc.OK),
+		Status: &status.Status{
+			Code: int32(code.Code_OK),
 		},
 		HttpResponse: &ext_auth.CheckResponse_OkResponse{
 			OkResponse: &ext_auth.OkHttpResponse{
@@ -449,9 +444,9 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}, nil
 }
 
-func createDeniedCheckResponse(rpcCode rpc.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse {
+func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse {
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
+		Status: &status.Status{
 			Code: int32(rpcCode),
 		},
 		HttpResponse: &ext_auth.CheckResponse_DeniedResponse{
