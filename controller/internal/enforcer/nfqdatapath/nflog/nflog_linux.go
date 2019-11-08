@@ -163,12 +163,17 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
+	ipPacket, err := packet.New(packet.PacketTypeNetwork, buf.Payload, "", false)
+	if err != nil {
+		fmt.Println("PACKET ERR", err)
+	}
+
 	dropReason := ""
 	if action.Rejected() {
 
-		drop := "nflog: dst pu drop"
+		drop := fmt.Sprintf("nflog: dst pu drop: %d", ipPacket.GetTCPFlags())
 		if puIsSource {
-			drop := "nflog: src pu drop"
+			drop = fmt.Sprintf("nflog: src pu drop: %d", ipPacket.GetTCPFlags())
 		}
 
 		dropReason = drop
