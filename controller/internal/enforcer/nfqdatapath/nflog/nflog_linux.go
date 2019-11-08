@@ -165,7 +165,13 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	dropReason := ""
 	if action.Rejected() {
-		dropReason = collector.PolicyDrop
+
+		drop := "nflog: dst pu drop"
+		if puIsSource {
+			drop := "nflog: src pu drop"
+		}
+
+		dropReason = drop
 	}
 
 	// point fix for now.

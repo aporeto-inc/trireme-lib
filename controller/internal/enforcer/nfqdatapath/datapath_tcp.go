@@ -647,7 +647,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	report, pkt := context.SearchRcvRules(tags)
 
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt, false)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, "tags not found net syn", report, pkt, false)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynRejectPacket, fmt.Sprintf("contextID %s SourceAddress %s DestPort %d PolicyID %s", context.ManagementID(), tcpPacket.SourceAddress().String(), int(tcpPacket.DestPort()), pkt.PolicyID))
 	}
 
@@ -809,7 +809,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	if pkt.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, report, pkt, true)
+		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, "tags not found net synack", report, pkt, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckRejected, fmt.Sprintf("contextID %s Claims %s", context.ManagementID(), claims.T.String()))
 	}
 
@@ -901,7 +901,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 				zap.L().Error("Flow rejected but not observed", zap.String("conn", context.ManagementID()))
 			}
 			// Flow has been allowed because we are observing a deny rule's impact on the system. Packets are forwarded, reported as dropped + observed.
-			d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
+			d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, "tags not found net ack", conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
 		} else {
 			// We accept the packet as a new flow
 			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)

@@ -93,7 +93,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 
 	dropReason := ""
 	if report.Action.Rejected() || actual.Action.Rejected() {
-		dropReason = collector.PolicyDrop
+		dropReason = "ext service drop"
 	}
 
 	record := &collector.FlowRecord{
