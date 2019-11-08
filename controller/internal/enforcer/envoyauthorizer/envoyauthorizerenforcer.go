@@ -11,7 +11,6 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer/envoyproxy"
@@ -40,7 +39,6 @@ type Enforcer struct {
 	clients      cache.DataStore
 	systemCAPool *x509.CertPool
 
-	auth     *apiauth.Processor
 	metadata *metadata.Client
 	sync.RWMutex
 }
@@ -108,7 +106,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	e.Lock()
 	defer e.Unlock()
 
-	zap.L().Info("ENforce for the envoy remoteEnforcer for pu: ", zap.String("puID:", contextID))
+	zap.L().Info("Enforce for the envoy remoteEnforcer for pu: ", zap.String("puID:", contextID))
 	// here we 1st need to create a PuContext, as the PU context will derive the
 	// serviceCtxt which will be used by the authorizer to determine the policyInfo.
 
