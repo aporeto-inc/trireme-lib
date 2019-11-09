@@ -163,7 +163,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
-	flags := ""
+	var flags uint8
 	ipPacket, err := packet.New(packet.PacketTypeNetwork, buf.Payload, "", false)
 	if err == nil {
 		flags = ipPacket.GetTCPFlags()
