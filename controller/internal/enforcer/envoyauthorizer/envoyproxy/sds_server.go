@@ -366,22 +366,16 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error {
 	var err error
 	pemCert := []byte{} //nolint
-	//keyPEMdebug := []byte{}
 	t := time.Now()
-	//expTime := time.Time{}
 
 	if apoSecret.key != "" || apoSecret.cert != "" {
 		caPEM := s.secrets.PublicSecrets().CertAuthority()
-
-		// expTime, err = getExpTimeFromCert([]byte(apoSecret.cert))
-		// if err != nil {
-		// 	return err
-		// }
 		pemCert, err = buildCertChain([]byte(apoSecret.cert), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return fmt.Errorf("SDS Server: Cannot build the cert chain")
 		}
+
 		resp := &v2.DiscoveryResponse{
 			TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
 			VersionInfo: t.String(),
@@ -501,36 +495,21 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 
 	caPEM := s.secrets.PublicSecrets().CertAuthority()
 	if req.ResourceNames[0] == "default" {
-		// if strings.Contains(req.Node.Id, "httpbin") {
-		// 	expTime, err = getExpTimeFromCert([]byte(serverPEM))
-		// 	if err != nil {
-		// 		zap.L().Error("SDS Server: Cannot build the cert chain")
-		// 		return nil
-		// 	}
-		// 	pemCert = []byte(serverPEM)
-		// 	keyPEMdebug = []byte(serverKEY)
-		// }
-		// if strings.Contains(req.Node.Id, "sleep") {
-		// 	expTime, err = getExpTimeFromCert([]byte(sleepPEM))
+
 		expTime, _ = getExpTimeFromCert([]byte(certPEM))
 		pemCert, _ = buildCertChain([]byte(certPEM), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return nil
 		}
-		// 	pemCert = []byte(sleepPEM)
-		// 	keyPEMdebug = []byte(sleeepKey)
-		// }
+
 	} else {
-		// use "caPEM = []byte(rootPEM)" this only for debug, as this is tg certs.
-		//caPEM = []byte(rootPEM)
+
 		expTime, _ = getExpTimeFromCert([]byte(caPEM))
-		//pemCert = []byte(caPEM)
 		pemCert, err = getTopRootCa(caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server:  Cannot build the Root cert chain")
 		}
-		//keyPEM = []byte()
 	}
 	if err != nil {
 		zap.L().Error("SDS Server: cannot get exp time", zap.Error(err))
