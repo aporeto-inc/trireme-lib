@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	goruntime "runtime"
 	"sync"
 	"time"
 
@@ -176,25 +177,28 @@ func (t *trireme) newEnforcers() error {
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
 		}
-		t.enforcers[constants.LocalEnvoyAuthorizer], err = enforcer.New(
-			t.config.mutualAuth,
-			t.config.fq,
-			t.config.collector,
-			t.config.service,
-			t.config.secret,
-			t.config.serverID,
-			t.config.validity,
-			constants.LocalEnvoyAuthorizer,
-			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout,
-			t.config.packetLogs,
-			t.config.runtimeCfg,
-			t.config.tokenIssuer,
-			t.config.binaryTokens,
-			t.config.aclmanager,
-		)
-		if err != nil {
-			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
+		// TODO(windows): tease out 'linuxProcess' stuff from windows impl so this runtime check isn't necessary
+		if goruntime.GOOS != "windows" {
+			t.enforcers[constants.LocalEnvoyAuthorizer], err = enforcer.New(
+				t.config.mutualAuth,
+				t.config.fq,
+				t.config.collector,
+				t.config.service,
+				t.config.secret,
+				t.config.serverID,
+				t.config.validity,
+				constants.LocalEnvoyAuthorizer,
+				t.config.procMountPoint,
+				t.config.externalIPcacheTimeout,
+				t.config.packetLogs,
+				t.config.runtimeCfg,
+				t.config.tokenIssuer,
+				t.config.binaryTokens,
+				t.config.aclmanager,
+			)
+			if err != nil {
+				return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
+			}
 		}
 	}
 
@@ -266,7 +270,9 @@ func (t *trireme) newSupervisors() error {
 		}
 
 		t.supervisors[constants.LocalServer] = sup
-		t.supervisors[constants.LocalEnvoyAuthorizer] = noopSup
+		if goruntime.GOOS != "windows" {
+			t.supervisors[constants.LocalEnvoyAuthorizer] = noopSup
+		}
 	}
 
 	if t.config.mode == constants.RemoteContainer {
