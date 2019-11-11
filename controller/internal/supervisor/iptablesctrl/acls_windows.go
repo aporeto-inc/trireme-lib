@@ -6,13 +6,42 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"text/template"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	winipt "go.aporeto.io/trireme-lib/controller/internal/windows"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
 )
+
+// addContainerChain for Windows
+func (i *iptables) addContainerChain(cfg *ACLInfo) error {
+	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
+		"isLocalServer": func() bool {
+			return i.mode == constants.LocalServer
+		},
+	}).Parse(containerChains))
+
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
+	}
+
+	for _, rule := range rules {
+		zap.L().Error("Creating rules", zap.Strings("rule", rule))
+		if err := i.impl.NewChain(rule[1], rule[3]); err != nil {
+			return fmt.Errorf("unable to add chain %s of context %s %s", rule[3], rule[1], err)
+		}
+	}
+
+	return nil
+}
+
+// removeGlobalHooksPre for Windows does nothing
+func (i *iptables) removeGlobalHooksPre() {
+}
 
 // try to merge two acl rules (one log and one accept/drop) into one for Windows
 func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRuleSpec {
