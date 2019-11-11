@@ -406,7 +406,6 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
-	//networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
 	isEncrypted, err = p.CheckExternalNetwork(puContext, upConn.RemoteAddr().(*net.TCPAddr).IP, backendport, flowProperties, false)
 	if err != nil {
 		return false, err
