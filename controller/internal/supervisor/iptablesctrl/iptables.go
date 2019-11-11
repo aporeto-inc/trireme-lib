@@ -11,6 +11,7 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
+	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -119,12 +120,11 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
 
 	return &iptables{
-		impl:  impl,
-		fqc:   fqc,
-		mode:  mode,
-		ipset: ips,
-		//		isLegacyKernel:        buildflags.IsLegacyKernel(),
-		isLegacyKernel:        false,
+		impl:                  impl,
+		fqc:                   fqc,
+		mode:                  mode,
+		ipset:                 ips,
+		isLegacyKernel:        buildflags.IsLegacyKernel(),
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
