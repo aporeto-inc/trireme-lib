@@ -8,4 +8,7 @@ const (
 	appPacketIPTableContext  = "mangle"
 	netPacketIPTableContext  = "mangle"
 	appProxyIPTableContext   = "nat"
+
+	portSetIpsetType      = ""
+	proxySetPortIpsetType = ""
 )

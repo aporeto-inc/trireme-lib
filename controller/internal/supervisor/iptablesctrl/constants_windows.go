@@ -8,4 +8,7 @@ const (
 	appPacketIPTableContext  = "OUTPUT"
 	netPacketIPTableContext  = "INPUT"
 	appProxyIPTableContext   = "OUTPUT"
+
+	portSetIpsetType      = "hash:net"
+	proxySetPortIpsetType = "hash:port"
 )
