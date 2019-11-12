@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"go.aporeto.io/trireme-lib/v11/collector"
@@ -31,6 +32,7 @@ type Processor struct {
 
 	issuer  string // the issuer ID .. need to get rid of that part with the new tokens
 	secrets secrets.Secrets
+	sync.RWMutex
 }
 
 // New will create a new authorization processor.
@@ -50,6 +52,14 @@ func (p *Processor) retrieveNetworkContext(originalIP *net.TCPAddr) (*servicereg
 func (p *Processor) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *serviceregistry.DependentServiceData, error) {
 
 	return p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
+}
+
+// UpdateSecrets is called to update the authorizer secrets.
+func (p *Processor) UpdateSecrets(s secrets.Secrets) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.secrets = s
 }
 
 // ApplicationRequest processes an application side request and returns
@@ -120,13 +130,18 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 		return d, nil
 	}
 
+	p.RLock()
+	defer p.RUnlock()
+
+	secret := p.secrets
+
 	token, err := servicetokens.CreateAndSign(
 		p.issuer,
 		sctx.PUContext.Identity().Tags,
 		sctx.PUContext.Scopes(),
 		sctx.PUContext.ManagementID(),
 		defaultValidity,
-		p.secrets.EncodingKey(),
+		secret.EncodingKey(),
 	)
 	if err != nil {
 		return d, &AuthError{

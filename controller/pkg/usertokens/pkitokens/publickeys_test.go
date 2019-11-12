@@ -149,6 +149,7 @@ kwIDAQAB
 			So(keys, ShouldNotBeNil)
 			So(err, ShouldNotBeNil)
 			So(len(keys), ShouldEqual, 2)
+			So(err.Error(), ShouldEqual, "[unsupported key type *dsa.PublicKey; x509: failed to parse public key (use ParsePKIXPublicKey instead for this key format)]")
 			So(keys[0], ShouldHaveSameTypeAs, &ecdsa.PublicKey{})
 			So(keys[1], ShouldHaveSameTypeAs, &rsa.PublicKey{})
 		})
