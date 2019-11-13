@@ -22,7 +22,7 @@ func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
-	}).Parse(containerChains))
+	}).Parse(``))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {

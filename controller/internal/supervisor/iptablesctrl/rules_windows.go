@@ -15,8 +15,6 @@ var globalRules = `
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
 `
 
-var containerChains = ``
-
 // TODO(windows): add drop/log rule for host pu at end of chain (ipv6 support needed first)
 // -A  HostPU-OUTPUT -p tcp -j DROP -j NFLOG
 // -A  HostPU-INPUT -p tcp -j DROP -j NFLOG

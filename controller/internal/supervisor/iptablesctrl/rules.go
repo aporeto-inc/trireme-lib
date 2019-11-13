@@ -19,11 +19,6 @@ var triremChains = `
 -t {{.NatTable}} -N {{.NatProxyNetChain}}
 `
 
-var containerChains = `
--t {{.MangleTable}} -N {{.AppChain}}
--t {{.MangleTable}} -N {{.NetChain}}
-`
-
 var globalRules = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
