@@ -349,15 +349,16 @@ func (p *Config) ShutDown() error {
 // UpdateSecrets updates the secrets
 func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets, certPEM, keyPEM string) {
 	p.Lock()
-	defer p.Unlock()
-
 	p.cert = cert
 	p.ca = caPool
 	p.secrets = s
 	p.certPEM = certPEM
 	p.keyPEM = keyPEM
 	p.tlsClientConfig.RootCAs = caPool
+	p.Unlock()
+
 	p.metadata.UpdateSecrets([]byte(certPEM), []byte(keyPEM))
+	p.auth.UpdateSecrets(s)
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
