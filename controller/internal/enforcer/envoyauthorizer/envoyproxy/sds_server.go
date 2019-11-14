@@ -220,8 +220,9 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 	//s.secrets = secrets
 	s.certPEM = certPEM
 	s.keyPEM = keyPEM
-
+	fmt.Println("\n\n\n ** ABHI Update certs is called")
 	s.updCertsChannel <- sdsCerts{key: keyPEM, cert: certPEM, caPool: caPool}
+	fmt.Println("\n\n\n ABHI after calling the update for certs: \n\n\n")
 }
 
 // now implement the interfaces of the SDS grpc server.
@@ -271,7 +272,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 	// create new connection
 	conn := &clientConn{}
-
+	conn.stream = stream
 	discoveryReqCh := make(chan *v2.DiscoveryRequest, 1)
 	go startStreaming(stream, discoveryReqCh)
 
@@ -279,14 +280,10 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		// wait for the receiver thread to stream the request and send it to us over here.
 		select {
 		case req, ok := <-discoveryReqCh:
-			if req == nil {
-				zap.L().Warn("SDS Server: The request is nil")
-				continue
-			}
-			if req.ErrorDetail != nil {
-				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().String()))
-				continue
-			}
+			// if req == nil {
+			// 	zap.L().Warn("SDS Server: The request is nil")
+			// 	continue
+			// }
 			// Now check the following:
 			// 1. Return if stream is closed.
 			// 2. Return if its invalid request.
@@ -294,6 +291,16 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				zap.L().Error("SDS Server: Receiver channel closed, which means the Receiver stream is closed")
 				return fmt.Errorf("Receiver closed the channel")
 			}
+			// then check for the req.Node
+			if req.Node == nil {
+				zap.L().Error("Invalid discovery request with no node")
+				return fmt.Errorf("invalid discovery request with no node")
+			}
+			if req.ErrorDetail != nil {
+				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().String()))
+				continue
+			}
+
 			// now according to the Istio pilot SDS secret config we have 2 configs, this configs are pushed to envoy through Istio.
 			// 1. SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
 			// 2. SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
@@ -301,8 +308,11 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 			// now check for the resourcename, it should atleast have one, else continue and stream the next request.
 			// according to the defination this could be empty.
-			if len(req.ResourceNames) == 0 || len(req.ResourceNames) > 1 {
+			if len(req.ResourceNames) == 0 {
 				continue
+			}
+			if len(req.ResourceNames) > 1 {
+				return fmt.Errorf("SDS Server: invalid resourceNames, greater than one")
 			}
 			resourceName := req.ResourceNames[0]
 			conn.clientID = req.Node.GetId()
@@ -320,9 +330,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				return fmt.Errorf("the aporeto SDS server cannot generate server, the certs are nil")
 			}
 			conn.secret = secret
-			if err := s.conncache.Add(conn.connectionID, conn); err != nil {
-				zap.L().Error("SDS Server: failed to add connection to the local cache", zap.Error(err))
-			}
+			s.conncache.AddOrUpdate(conn.connectionID, conn)
 
 			resp := &v2.DiscoveryResponse{
 				TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
@@ -353,6 +361,14 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.String("default cert: ", string(secret.CertificateChain)))
 			}
 		case updateCerts := <-s.updCertsChannel:
+			// 1st check if the connection is present
+			fmt.Println("\n\n ABHI **** received the update certs enforce for certs, conn: ", conn.connectionID)
+			_, err := s.conncache.Get(conn.connectionID)
+			if err != nil {
+				zap.L().Warn("SDS server: updCertsChannel, no connID found in cache,", zap.String("connID", conn.connectionID))
+				continue
+			}
+			fmt.Println("connID found now send certs")
 			if updateCerts.key != "" && updateCerts.cert != "" {
 				if err := s.sendUpdatedCerts(updateCerts, conn); err != nil {
 					zap.L().Error("SDS Server: send updated certs failed", zap.Error(err))
@@ -368,14 +384,15 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 	pemCert := []byte{} //nolint
 	t := time.Now()
 
-	if apoSecret.key != "" || apoSecret.cert != "" {
+	if apoSecret.key != "" && apoSecret.cert != "" {
 		caPEM := s.secrets.PublicSecrets().CertAuthority()
+		fmt.Println("\n\n build cer chain, caPem: ", string(caPEM))
 		pemCert, err = buildCertChain([]byte(apoSecret.cert), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return fmt.Errorf("SDS Server: Cannot build the cert chain")
 		}
-
+		fmt.Println("\n\n after building cert chain")
 		resp := &v2.DiscoveryResponse{
 			TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
 			VersionInfo: t.String(),
@@ -405,6 +422,7 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 			zap.L().Error("SDS Server: Cannot marshall the secret")
 			return fmt.Errorf("SDS Server: Cannot marshall the secret")
 		}
+		fmt.Println("\n\n ABHI now sending the certs here: ")
 		resp.Resources = append(resp.Resources, endSecret)
 		if err = conn.stream.Send(resp); err != nil {
 			zap.L().Error("SDS Server: Failed to send the resp cert")

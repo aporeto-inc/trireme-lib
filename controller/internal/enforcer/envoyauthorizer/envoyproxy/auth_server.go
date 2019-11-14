@@ -334,7 +334,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-
+	fmt.Println("\n\n Egress check")
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
 	var httpReq *ext_auth.AttributeContext_HttpRequest
@@ -384,6 +384,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}
 	r := new(http.Request)
 	r.RemoteAddr = sourceIP
+	fmt.Println("\n\n Now check the app request")
 	resp, err := s.auth.ApplicationRequest(authRequest)
 	if err != nil {
 		if resp.PUContext != nil {
@@ -392,7 +393,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 			state.Stats.PolicyID = resp.NetworkPolicyID
 			s.collector.CollectFlowEvent(state.Stats)
 		}
-		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		zap.L().Error("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID), zap.Error(err))
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), err
 	}
@@ -403,7 +404,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 		defer s.collector.CollectFlowEvent(state.Stats)
 	}
 	if resp.Action.Rejected() {
-		zap.L().Debug("ext_authz egress: Access *NOT* authorized by network policy", zap.String("puID", s.puID))
+		zap.L().Error("ext_authz egress: Access action rejected by network policy", zap.String("puID", s.puID))
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}

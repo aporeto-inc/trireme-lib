@@ -1,10 +1,12 @@
 package httpproxy
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -118,12 +120,16 @@ func NewHTTPProxy(
 
 // clientTLSConfiguration calculates the right certificates and requests to the clients.
 func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Config) (*tls.Config, error) {
+	fmt.Println("\n\n ABHI ** in clientTLSConfiguration for conn: ", conn.LocalAddr(), conn.RemoteAddr())
 	if mconn, ok := conn.(*markedconn.ProxiedConnection); ok {
 		ip, port := mconn.GetOriginalDestination()
+		fmt.Println("Original IP:port ", ip, port)
 		portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
 			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
+		fmt.Println("\n\n clientTLSConfiguration: portctx: ", portContext.ID, portContext.Service.NetworkInfo)
+		fmt.Println("\n\n ABHI ** in clientTLSConfiguration auth type: ", portContext.Service.UserAuthorizationType, " mtls: ", policy.UserAuthorizationMutualTLS)
 		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
@@ -134,6 +140,7 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 			config.ClientCAs = clientCAs
 			return config, nil
 		}
+		fmt.Println("\n\n ABHI *** sending the originalConfig without certs")
 		return originalConfig, nil
 	}
 	return nil, fmt.Errorf("Invalid connection")
@@ -141,11 +148,13 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 
 // newBaseTLSConfig creates the new basic TLS configuration for the server.
 func (p *Config) newBaseTLSConfig() *tls.Config {
+	fmt.Println("\n\n ABHI configuring the newBaseTls")
 	return &tls.Config{
 		GetCertificate:           p.GetCertificateFunc(),
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
+		ClientAuth:               tls.RequestClientCert,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -159,6 +168,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
 // listener should be already a TLS listener.
 func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error {
+	fmt.Println("\n\n\n ABHI STARTING the RUNNetwork server for type: ", l.Addr(), "\n\n\n")
 
 	p.Lock()
 	defer p.Unlock()
@@ -169,14 +179,31 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
+	fmt.Println("\n\n ABHI RunNetworkServer with encrypted: ", encrypted)
 	if encrypted {
 		config := p.newBaseTLSConfig()
 		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
 			return p.clientTLSConfiguration(helloMsg.Conn, config)
 		}
+		config.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			fmt.Println("\n\n ABHI in GetClientCertificate")
+			return p.cert, nil
+		}
 		l = tls.NewListener(l, config)
-	}
 
+	}
+	fmt.Println("\n set the client cert in client config")
+	p.tlsClientConfig.GetClientCertificate = p.GetClientCertificateFunc()
+	//  func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	// 	fmt.Println("\n\n\t CLIENT_CERT: ABHI cleint *** in GetClientCertificate")
+	// 	return p.cert, nil
+	// }
+	p.tlsClientConfig.GetCertificate = p.GetCertificateFunc()
+	if p.cert != nil {
+		fmt.Println("\n\n ABHI setting client cert", p.cert.Certificate)
+		p.tlsClientConfig.Certificates = []tls.Certificate{*p.cert}
+	}
+	p.tlsClientConfig.MaxVersion = tls.VersionTLS12
 	reportStats := func(ctx context.Context) {
 		if state := ctx.Value(statsContextKey); state != nil {
 			if r, ok := state.(*flowstats.ConnectionState); ok {
@@ -213,6 +240,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
+		fmt.Println("\n\n ABHI, appDialerWithContext, creating a marked conn for ADDR: ", raddr.String())
 		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
 		if err != nil {
 			reportStats(ctx)
@@ -316,7 +344,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		<-ctx.Done()
 		p.server.Close() // nolint
 	}()
-
+	fmt.Println("\n\n ABHI: now start serving on the listener: ", l.Addr())
 	go p.server.Serve(l) // nolint
 
 	return nil
@@ -342,12 +370,55 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.auth.UpdateSecrets(s)
 }
 
+func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		if p.cert != nil {
+			//tmp := p.newBaseTLSConfig()
+			//fmt.Println("\n\n the cipher suites by client are: ", clientHello.CipherSuites, "aporeto cipher suites: ", tmp.CipherSuites)
+			//p.pickCipherSuite(clientHello)
+			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+			if err != nil {
+				fmt.Println("\n\n ABHI error while parsing the cert")
+			}
+			if cert != nil {
+				by, _ := x509CertToPem(cert)
+				fmt.Println(string(by), "apo-ca:", string(p.secrets.PublicSecrets().CertAuthority()))
+				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+				if err != nil {
+					zap.L().Error("SDS Server: Cannot build the cert chain")
+				}
+				// fmt.Println(string(pemCert))
+				// fmt.Println("\n\n ABHI now build the cert chain acccordingly to envoy")
+				var certChain tls.Certificate
+				//certPEMBlock := []byte(rootcaBundle)
+				var certDERBlock *pem.Block
+				for {
+					certDERBlock, pemCert = pem.Decode(pemCert)
+					if certDERBlock == nil {
+						break
+					}
+					if certDERBlock.Type == "CERTIFICATE" {
+						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+					}
+				}
+				certChain.PrivateKey = p.cert.PrivateKey
+				//certChain.Certificate
+				return &certChain, nil
+			}
+			return p.cert, nil
+		}
+		fmt.Println("\n\n **** ABHI CERT is NIL")
+		return nil, nil
+	}
+}
+
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
 func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
+		fmt.Println("GetCertificateFunc for client hello")
 		// First we check if this is a direct access to the public port. In this case
 		// we will use the service public certificate. Otherwise, we will return the
 		// enforcer certificate since this is internal access.
@@ -366,19 +437,109 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 				return &tlsCert, nil
 			}
 		}
+		fmt.Println("\n\n ABHI TLS called in get certs of tls")
 		if p.cert != nil {
+			tmp := p.newBaseTLSConfig()
+			fmt.Println("\n\n the cipher suites by client are: ", clientHello.CipherSuites, "aporeto cipher suites: ", tmp.CipherSuites)
+			//p.pickCipherSuite(clientHello)
+			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+			if err != nil {
+				fmt.Println("\n\n ABHI error while parsing the cert")
+			}
+			if cert != nil {
+				by, _ := x509CertToPem(cert)
+				fmt.Println(string(by), "apo-ca:", string(p.secrets.PublicSecrets().CertAuthority()))
+				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+				if err != nil {
+					zap.L().Error("SDS Server: Cannot build the cert chain")
+				}
+				// fmt.Println(string(pemCert))
+				// fmt.Println("\n\n ABHI now build the cert chain acccordingly to envoy")
+				var certChain tls.Certificate
+				//certPEMBlock := []byte(rootcaBundle)
+				var certDERBlock *pem.Block
+				for {
+					certDERBlock, pemCert = pem.Decode(pemCert)
+					if certDERBlock == nil {
+						break
+					}
+					if certDERBlock.Type == "CERTIFICATE" {
+						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+					}
+				}
+				certChain.PrivateKey = p.cert.PrivateKey
+				//certChain.Certificate
+				return &certChain, nil
+			}
 			return p.cert, nil
 		}
 		return nil, fmt.Errorf("no cert available - cert is nil")
 	}
 }
 
+func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
+	zap.L().Debug("SDS Server:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
+	certChain := []*x509.Certificate{}
+	//certPEMBlock := caPEM
+	clientPEMBlock := certPEM
+	derBlock, _ := pem.Decode(clientPEMBlock)
+	if derBlock != nil {
+		if derBlock.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(derBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", derBlock.Type)
+		}
+	}
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, caPEM = pem.Decode(caPEM)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
+		}
+	}
+	by, _ := x509CertChainToPem(certChain)
+	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("certChain: ", string(by)))
+	return x509CertChainToPem(certChain)
+}
+
+// x509CertChainToPem converts chain of x509 certs to byte.
+func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	for _, cert := range certChain {
+		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+			return nil, err
+		}
+	}
+	return pemBytes.Bytes(), nil
+}
+
+// x509CertToPem converts x509 to byte.
+func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		return nil, err
+	}
+	return pemBytes.Bytes(), nil
+}
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
+	fmt.Println("\n\n IN app request")
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
-
+	fmt.Println("ABHI Processing App request: uri, host, dest: ", r.RequestURI, r.Host, originalDestination, r.Method)
 	// Authorize the request by calling the authorizer library.
 	authRequest := &apiauth.Request{
 		OriginalDestination: originalDestination,
@@ -438,13 +599,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	// Forward the request.
+	fmt.Println("forward the request")
 	p.fwdTLS.ServeHTTP(w, r.WithContext(contextWithStats))
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
+	fmt.Println("\n\n ABHI in network request")
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -455,7 +617,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestCookie, _ := r.Cookie("X-APORETO-AUTH") // nolint errcheck
-
+	fmt.Println("ABHI network Request: uri, host, orgDst, srcAddr: ", r.RequestURI, r.Host, originalDestination, sourceAddress)
 	request := &apiauth.Request{
 		OriginalDestination: originalDestination,
 		SourceAddress:       sourceAddress,
@@ -483,6 +645,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(state.Stats)
 
 	if err != nil {
+		fmt.Println("ABHI network request error: ", err)
 		zap.L().Debug("Authorization error",
 			zap.Reflect("Error", err),
 			zap.String("URI", r.RequestURI),
@@ -556,6 +719,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// 		defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
 	// 	}
 	// }
+	fmt.Println("Forward the request")
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
