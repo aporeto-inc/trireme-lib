@@ -304,7 +304,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		MaxIdleConnsPerHost: 2000,
 	}
 
-	// Create the proxies dowards the network and the application.
+	// Create the proxies downwards the network and the application.
 	var err error
 	p.fwdTLS, err = forward.New(
 		forward.RoundTripper(encryptedTransport),
