@@ -294,7 +294,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 		TLS:                 nil,
 	}
 
-	response, err := s.auth.NetworkRequest(context.Background(), request)
+	response, err := s.auth.NetworkRequest(ctx, request)
 	var userID string
 	if response != nil && len(response.UserAttributes) > 0 {
 		userData := &collector.UserRecord{
@@ -334,7 +334,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-	fmt.Println("\n\n Egress check")
+	zap.L().Info("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
 	var httpReq *ext_auth.AttributeContext_HttpRequest
@@ -443,7 +443,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}, nil
 }
 
-func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse {
+func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse { //nolint
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(rpcCode),

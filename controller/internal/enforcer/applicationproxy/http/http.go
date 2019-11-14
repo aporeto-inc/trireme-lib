@@ -168,8 +168,6 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
 // listener should be already a TLS listener.
 func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error {
-	fmt.Println("\n\n\n ABHI STARTING the RUNNetwork server for type: ", l.Addr(), "\n\n\n")
-
 	p.Lock()
 	defer p.Unlock()
 
@@ -373,22 +371,16 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		if p.cert != nil {
-			//tmp := p.newBaseTLSConfig()
-			//fmt.Println("\n\n the cipher suites by client are: ", clientHello.CipherSuites, "aporeto cipher suites: ", tmp.CipherSuites)
-			//p.pickCipherSuite(clientHello)
 			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
 			if err != nil {
-				fmt.Println("\n\n ABHI error while parsing the cert")
+				zap.L().Error("SDS Server: Cannot build the cert chain")
 			}
 			if cert != nil {
 				by, _ := x509CertToPem(cert)
-				fmt.Println(string(by), "apo-ca:", string(p.secrets.PublicSecrets().CertAuthority()))
 				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
 				if err != nil {
 					zap.L().Error("SDS Server: Cannot build the cert chain")
 				}
-				// fmt.Println(string(pemCert))
-				// fmt.Println("\n\n ABHI now build the cert chain acccordingly to envoy")
 				var certChain tls.Certificate
 				//certPEMBlock := []byte(rootcaBundle)
 				var certDERBlock *pem.Block
@@ -407,7 +399,6 @@ func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*
 			}
 			return p.cert, nil
 		}
-		fmt.Println("\n\n **** ABHI CERT is NIL")
 		return nil, nil
 	}
 }
@@ -418,7 +409,6 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
-		fmt.Println("GetCertificateFunc for client hello")
 		// First we check if this is a direct access to the public port. In this case
 		// we will use the service public certificate. Otherwise, we will return the
 		// enforcer certificate since this is internal access.
@@ -437,7 +427,6 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 				return &tlsCert, nil
 			}
 		}
-		fmt.Println("\n\n ABHI TLS called in get certs of tls")
 		if p.cert != nil {
 			tmp := p.newBaseTLSConfig()
 			fmt.Println("\n\n the cipher suites by client are: ", clientHello.CipherSuites, "aporeto cipher suites: ", tmp.CipherSuites)

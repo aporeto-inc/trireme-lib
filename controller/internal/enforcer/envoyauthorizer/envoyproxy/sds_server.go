@@ -190,7 +190,7 @@ func (s *SdsServer) Run() {
 // Stop stops all the listeners and the grpc servers.
 func (s *SdsServer) Stop() {
 	if s.sdsGrpcListener != nil {
-		s.sdsGrpcListener.Close()
+		s.sdsGrpcListener.Close() //nolint
 	}
 	if s.sdsGrpcServer != nil {
 		s.sdsGrpcServer.Stop()
@@ -307,7 +307,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			// therefore from the above we receive 2 requests, 1 for default and 2 for the ROOTCA
 
 			// now check for the resourcename, it should atleast have one, else continue and stream the next request.
-			// according to the defination this could be empty.
+			// according to the definition this could be empty.
 			if len(req.ResourceNames) == 0 {
 				continue
 			}
@@ -523,7 +523,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 
 	} else {
 
-		expTime, _ = getExpTimeFromCert([]byte(caPEM))
+		expTime, _ = getExpTimeFromCert(caPEM)
 		pemCert, err = getTopRootCa(caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server:  Cannot build the Root cert chain")
