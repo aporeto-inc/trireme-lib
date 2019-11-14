@@ -170,8 +170,11 @@ func (p *Config) newBaseTLSClientConfig() *tls.Config {
 	}
 }
 
+// GetClientCertificateFunc returns the certificate that will be used by the Proxy as a client during the TLS
 func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		p.RLock()
+		defer p.RUnlock()
 		if p.cert != nil {
 			return p.cert, nil
 		}
