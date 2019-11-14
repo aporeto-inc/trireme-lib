@@ -145,6 +145,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
+		ClientAuth:               tls.RequestClientCert,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -152,6 +153,29 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 		},
+	}
+}
+
+// newBaseTLSClientConfig creates the new basic TLS configuration for the client.
+func (p *Config) newBaseTLSClientConfig() *tls.Config {
+	return &tls.Config{
+		GetCertificate:           p.GetCertificateFunc(),
+		NextProtos:               []string{"h2"},
+		PreferServerCipherSuites: true,
+		SessionTicketsDisabled:   true,
+		GetClientCertificate:     p.GetClientCertificateFunc(),
+		// for now lets make it TLS1.2 as supported max Version.
+		// TODO: Need to test before enabling TLS 1.3, currently TLS 1.3 doesn't work with envoy.
+		MaxVersion: tls.VersionTLS12,
+	}
+}
+
+func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		if p.cert != nil {
+			return p.cert, nil
+		}
+		return nil, nil
 	}
 }
 
@@ -175,6 +199,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 		l = tls.NewListener(l, config)
 	}
+	// now create a client config, this is required if Aporeto is a client.
+	p.tlsClientConfig = p.newBaseTLSClientConfig()
 
 	reportStats := func(ctx context.Context) {
 		if state := ctx.Value(statsContextKey); state != nil {
