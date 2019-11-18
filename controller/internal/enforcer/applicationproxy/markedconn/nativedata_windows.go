@@ -26,12 +26,10 @@ func NewNativeDataControl() *NativeDataControl {
 
 // StoreNativeData saves the data after GetDestInfo is called.
 func (n *NativeDataControl) StoreNativeData(ip net.IP, port int, nativeData *NativeData) {
-	if n.nativeData != nil {
-		key := fmt.Sprintf("%s:%d", ip.String(), port)
-		n.mu.Lock()
-		defer n.mu.Unlock()
-		n.nativeData[key] = nativeData
-	}
+	key := fmt.Sprintf("%s:%d", ip.String(), port)
+	n.mu.Lock()
+	n.nativeData[key] = nativeData
+	n.mu.Unlock()
 }
 
 // RemoveNativeData returns the data for the given ip/port, and removes it from the map.
@@ -60,15 +58,12 @@ func TakeNativeData(l net.Listener, ip net.IP, port int) *NativeData {
 
 // takeNativeData returns the data for the given ip/port, and removes it from the map
 func (n *NativeDataControl) takeNativeData(ip net.IP, port int) *NativeData {
-	if n.nativeData != nil {
-		key := fmt.Sprintf("%s:%d", ip.String(), port)
-		n.mu.Lock()
-		defer n.mu.Unlock()
-		nd := n.nativeData[key]
-		delete(n.nativeData, key)
-		return nd
-	}
-	return nil
+	key := fmt.Sprintf("%s:%d", ip.String(), port)
+	n.mu.Lock()
+	nd := n.nativeData[key]
+	delete(n.nativeData, key)
+	n.mu.Unlock()
+	return nd
 }
 
 // if listener is a ProxiedListener, we get its native data ctrl
