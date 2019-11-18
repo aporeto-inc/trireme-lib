@@ -42,6 +42,21 @@ func (m *monitors) UpdateConfiguration(ctx context.Context, config *config.Monit
 
 // Resync requests to the monitor to do a resync.
 func (m *monitors) Resync(ctx context.Context) error {
+
+	failure := false
+	var errs string
+
+	for _, i := range m.monitors {
+		if err := i.Resync(ctx); err != nil {
+			errs = errs + err.Error()
+			failure = true
+		}
+	}
+
+	if failure {
+		return fmt.Errorf("Monitor resync failed: %s", errs)
+	}
+
 	return nil
 }
 

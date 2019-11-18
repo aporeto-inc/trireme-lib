@@ -115,7 +115,7 @@ func (w *windowsProcessor) Resync(ctx context.Context, eventInfo *common.EventIn
 	}
 
 	// TODO(windows): handle resync of windows process PU later?
-	zap.L().Warn("Resync not handled")
+	zap.L().Debug("Resync not handled")
 
 	return nil
 }
