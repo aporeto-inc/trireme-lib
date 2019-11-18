@@ -205,8 +205,6 @@ var globalHooks = `
 {{.MangleTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.MainAppChain}}
 {{.NatTable}} PREROUTING -p tcp  -m addrtype --dst-type LOCAL -m set ! --match-set {{.ExclusionsSet}} src -j {{.NatProxyNetChain}}
 {{.NatTable}} OUTPUT -m set ! --match-set {{.ExclusionsSet}} dst -j {{.NatProxyAppChain}}
-{{.NatTable}} PREROUTING -p tcp  -m addrtype --dst-type LOCAL -m set ! --match-set TRI-Excluded src -j TRI-Redir-Net
-{{.NatTable}} OUTPUT -m set ! --match-set TRI-Excluded dst -j TRI-Redir-App
 `
 
 var legacyProxyRules = `

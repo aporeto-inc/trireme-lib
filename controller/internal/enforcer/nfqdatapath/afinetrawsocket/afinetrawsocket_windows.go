@@ -44,11 +44,11 @@ func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interf
 	if w == nil {
 		return errors.New("no WindowsPacketMetadata for WriteSocket")
 	}
-	return w.UdpForward(buf, version)
+	return w.udpForward(buf, version)
 }
 
 // UdpForward takes a raw udp packet and sends it to the driver to be sent on the network
-func (w *WindowsPacketMetadata) UdpForward(buf []byte, version packet.IPver) error {
+func (w *WindowsPacketMetadata) udpForward(buf []byte, version packet.IPver) error {
 	// set packet info.
 	// could set port/addr in packet info but not required by the driver for forwarding of the packet.
 	w.PacketInfo.Outbound = 1

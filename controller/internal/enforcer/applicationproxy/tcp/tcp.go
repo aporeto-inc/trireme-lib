@@ -292,7 +292,6 @@ func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, nativeD
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downConn net.Conn) (bool, error) {
-	zap.L().Error("StartClientAuthStateMachine")
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
@@ -553,14 +552,6 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 }
 
 func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-
-	if sourceID == destID {
-		report = &policy.FlowPolicy{
-			Action:   policy.Accept,
-			PolicyID: "default",
-		}
-		packet = report
-	}
 
 	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
 }
