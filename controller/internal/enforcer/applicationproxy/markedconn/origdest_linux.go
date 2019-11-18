@@ -90,5 +90,5 @@ func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest)
 		return nil, 0, nil, err
 	}
 
-	return netIP, port, &NativeData{0, func(fd uintptr) {}}, nil
+	return netIP, port, nil, nil
 }
