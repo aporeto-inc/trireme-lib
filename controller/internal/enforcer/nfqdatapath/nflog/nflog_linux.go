@@ -186,7 +186,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	if encodedAction == "10" {
 		packetReport, err = a.recordDroppedPacket(buf, pu, puIsSource)
-		pu.PuContextError(pucontext.ErrPacketsDropped, "dropped Packet outside flow") // nolint
+		pu.PuContextError(pucontext.ErrDroppedPackets, "dropped Packet outside flow") // nolint
 		return nil, packetReport, err
 	}
 
