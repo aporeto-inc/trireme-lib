@@ -91,7 +91,38 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) (*collector.PacketReport, error) {
+func (a *nflog) recordCounters(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) {
+	switch buf.Protocol {
+	case packet.IPProtocolTCP:
+		pu.IncrementCounters(pucontext.ErrDroppedTCPPackets)
+	case packet.IPProtocolUDP:
+		pu.IncrementCounters(pucontext.ErrDroppedUDPPackets)
+		if puIsSource {
+			switch buf.DstPort {
+			case 53:
+				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+			case 123:
+				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+			}
+		} else {
+			switch buf.SrcPort {
+			case 53:
+				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+			case 123:
+				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+			}
+		}
+
+	case packet.IPProtocolICMP:
+		pu.IncrementCounters(pucontext.ErrDroppedICMPPackets)
+
+	}
+}
+func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) (*collector.PacketReport, error) {
 
 	report := &collector.PacketReport{}
 
@@ -106,7 +137,7 @@ func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext
 		zap.L().Debug("payload not valid", zap.Error(err))
 		return nil, err
 	}
-
+	a.recordCounters(buf, pu, puIsSource)
 	if buf.Protocol == packet.IPProtocolTCP || buf.Protocol == packet.IPProtocolUDP {
 		report.SourcePort = int(buf.Ports.SrcPort)
 		report.DestinationPort = int(buf.Ports.DstPort)
@@ -154,7 +185,8 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	if encodedAction == "10" {
-		packetReport, err = a.recordDroppedPacket(buf, pu)
+		packetReport, err = a.recordDroppedPacket(buf, pu, puIsSource)
+		pu.PuContextError(pucontext.ErrPacketsDropped, "dropped Packet outside flow") // nolint
 		return nil, packetReport, err
 	}
 
