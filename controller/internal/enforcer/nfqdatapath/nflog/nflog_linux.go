@@ -91,7 +91,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nflog) recordCounters(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) {
+func (a *nfLog) recordCounters(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) {
 	switch buf.Protocol {
 	case packet.IPProtocolTCP:
 		pu.IncrementCounters(pucontext.ErrDroppedTCPPackets)
