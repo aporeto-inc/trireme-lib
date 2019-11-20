@@ -168,25 +168,28 @@ func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item int
 
 // String returns a printable version of connection
 func (c *TCPConnection) String() string {
-
+	c.Lock()
+	defer c.Unlock()
 	return fmt.Sprintf("state:%d auth: %+v", c.state, c.Auth)
 }
 
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
-
+	c.Lock()
+	defer c.Unlock()
 	return c.state
 }
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
+	c.Lock()
 	c.state = state
+	c.Unlock()
 }
 
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(flowState bool) {
-
+	c.Lock()
 	c.flowReported++
 
 	if c.flowReported > 1 && c.flowLastReporting != flowState {
@@ -198,16 +201,18 @@ func (c *TCPConnection) SetReported(flowState bool) {
 	}
 
 	c.flowLastReporting = flowState
+	c.Unlock()
 }
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
+	c.Lock()
 	// Logging information
 	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()))
 	}
-	c.Lock()
+
 	if !c.expiredConnection && c.GetState() != TCPData {
 		c.expiredConnection = true
 		c.Context.PuContextError(pucontext.ErrTCPConnectionsExpired, "")
@@ -218,12 +223,16 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 // SetLoopbackConnection sets LoopbackConnection field.
 func (c *TCPConnection) SetLoopbackConnection(isLoopback bool) {
 	// Logging information
+	c.Lock()
 	c.loopbackConnection = isLoopback
+	c.Unlock()
 }
 
 // IsLoopbackConnection sets LoopbackConnection field.
 func (c *TCPConnection) IsLoopbackConnection() bool {
 	// Logging information
+	c.Lock()
+	defer c.Unlock()
 	return c.loopbackConnection
 }
 
