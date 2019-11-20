@@ -10,6 +10,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.uber.org/zap"
 )
 
 // nfLog
@@ -46,7 +47,10 @@ func (n *NfLogWindows) NfLogHandler(logPacketInfo *frontman.LogPacketInfo, packe
 
 	ipPacket, err := packet.New(packet.PacketTypeNetwork, packetHeaderBytes, "", false)
 	if err != nil {
-		return err
+		// failed to parse packet.
+		// TODO(windows): handle it.
+		zap.L().Debug("failed to parse rejected packet header: " + err.Error())
+		return nil
 	}
 
 	record, packetEvent, err := recordFromNFLogData(packetHeaderBytes, syscall.UTF16ToString(logPacketInfo.LogPrefix[:]),

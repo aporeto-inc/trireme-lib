@@ -15,10 +15,6 @@ var globalRules = `
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
 `
 
-// TODO(windows): add drop/log rule for host pu at end of chain (ipv6 support needed first)
-// -A  HostPU-OUTPUT -p tcp -j DROP -j NFLOG
-// -A  HostPU-INPUT -p tcp -j DROP -j NFLOG
-
 // cgroupCaptureTemplate are the list of iptables commands that will hook traffic and send it to a PU specific
 // chain. The hook method depends on the type of PU.
 var cgroupCaptureTemplate = `
@@ -74,7 +70,13 @@ var acls = `
 `
 
 // packetCaptureTemplate are the rules that trap traffic towards the user space.
-var packetCaptureTemplate = ``
+// windows uses it as a final deny-all.
+var packetCaptureTemplate = `
+{{if isHostPU}}
+-A HostPU-OUTPUT -j DROP -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
+-A HostPU-INPUT -j DROP -j NFLOG --nflog-group 11 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
+{{end}}
+`
 
 var proxyChainTemplate = ``
 
