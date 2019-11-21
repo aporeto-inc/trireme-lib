@@ -208,7 +208,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 
 	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
-		c.Context.PuContextError(pucontext.ErrTCPConnectionsExpired, "")
+		c.Context.IncrementCounters(pucontext.ErrTCPConnectionsExpired, "")
 	}
 	c.Unlock()
 }
@@ -459,7 +459,7 @@ func (c *UDPConnection) Cleanup(expired bool) {
 
 	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
-		c.Context.PuContextError(pucontext.ErrUDPConnectionsExpired, "")
+		c.Context.IncrementCounters(pucontext.ErrUDPConnectionsExpired, "")
 	}
 	c.Unlock()
 }
@@ -470,6 +470,7 @@ func (c *UDPConnection) String() string {
 	return fmt.Sprintf("udp-conn state:%d auth: %+v", c.state, c.Auth)
 }
 
+// UDPConnectionExpirationNotifier expiration notifier when cache entry expires
 func UDPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
 
 	if conn, ok := item.(*UDPConnection); ok {

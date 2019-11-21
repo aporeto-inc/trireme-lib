@@ -450,7 +450,6 @@ func PuContextError(err CounterType, logMsg string) error { // nolint
 // IncrementCounters increments counters for a given PU
 func (p *PUContext) IncrementCounters(err CounterType) {
 	atomic.AddUint32(&p.counters[int(err)], 1)
-	return
 }
 
 // IncrementCounters increments counters for a unknown PU
