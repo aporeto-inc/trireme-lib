@@ -26,3 +26,11 @@ func OptionDatapathVersion(datapathVersion DatapathVersion) Option {
 		c.datapathVersion = datapathVersion
 	}
 }
+
+// OptionOAM sets oam
+func OptionOAM(oam bool) Option {
+
+	return func(c *ClaimsHeader) {
+		c.oam = oam
+	}
+}

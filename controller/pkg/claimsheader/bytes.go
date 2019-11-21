@@ -16,7 +16,8 @@ func (h HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
 	return &ClaimsHeader{
 		compressionType: compressionTypeMask.toType(),
-		encrypt:         uint32ToBool(h.extractHeaderAttribute(encryptionEnabledMask)),
+		encrypt:         uint32ToBool(encryptAttr, h.extractHeaderAttribute(encryptionEnabledMask)),
+		oam:             uint32ToBool(oamAttr, h.extractHeaderAttribute(oamEnabledMask)),
 		datapathVersion: datapathVersionMask.toType(),
 	}
 }

@@ -16,18 +16,20 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 //    0             1              2               3               4
 //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |     D     |CT|E|               R (reserved)                   |
+//  |     D     |CT|E|O|             R (reserved)                   |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  D  [0:5]  - Datapath version
 //  CT [6,7]  - Compressed tag type
 //  E  [8]    - Encryption enabled
-//  R  [9:31] - Reserved
+//  O  [9]    - OAM enabled
+//  R  [10:31] - Reserved
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
 	claimsHeaderData := make([]byte, maxHeaderLen)
 	claimsHeaderData[0] |= c.datapathVersion.toMask().toUint8()
 	claimsHeaderData[0] |= c.compressionType.toMask().toUint8()
-	claimsHeaderData[1] |= boolToUint8(c.encrypt)
+	claimsHeaderData[1] |= boolToUint8(encryptAttr, c.encrypt)
+	claimsHeaderData[1] |= boolToUint8(oamAttr, c.oam)
 
 	return claimsHeaderData
 }
@@ -50,6 +52,12 @@ func (c *ClaimsHeader) DatapathVersion() DatapathVersion {
 	return c.datapathVersion
 }
 
+// OAM returns oam status
+func (c *ClaimsHeader) OAM() bool {
+
+	return c.oam
+}
+
 // SetCompressionType sets the compression type
 func (c *ClaimsHeader) SetCompressionType(ct CompressionType) {
 
@@ -66,4 +74,10 @@ func (c *ClaimsHeader) SetEncrypt(e bool) {
 func (c *ClaimsHeader) SetDatapathVersion(dv DatapathVersion) {
 
 	c.datapathVersion = dv
+}
+
+// SetOAM sets the oam
+func (c *ClaimsHeader) SetOAM(oam bool) {
+
+	c.oam = oam
 }
