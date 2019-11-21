@@ -213,7 +213,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 			zap.String("connection", c.String()))
 	}
 
-	if !c.expiredConnection && c.GetState() != TCPData {
+	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
 		c.Context.PuContextError(pucontext.ErrTCPConnectionsExpired, "")
 	}
@@ -383,32 +383,44 @@ func (c *UDPConnection) AckStop() {
 
 // SynChannel returns the SynStop channel.
 func (c *UDPConnection) SynChannel() chan bool {
+	c.Lock()
+	defer c.Unlock()
 	return c.synStop
+
 }
 
 // SynAckChannel returns the SynAck stop channel.
 func (c *UDPConnection) SynAckChannel() chan bool {
+	c.Lock()
+	defer c.Unlock()
 	return c.synAckStop
 }
 
 // AckChannel returns the Ack stop channel.
 func (c *UDPConnection) AckChannel() chan bool {
+	c.Lock()
+	defer c.Unlock()
 	return c.ackStop
 }
 
 // GetState is used to get state of UDP Connection.
 func (c *UDPConnection) GetState() UDPFlowState {
+	c.Lock()
+	defer c.Unlock()
 	return c.state
 }
 
 // SetState is used to setup the state for the UDP Connection.
 func (c *UDPConnection) SetState(state UDPFlowState) {
+	c.Lock()
 	c.state = state
+	c.Unlock()
 }
 
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
-
+	c.Lock()
+	defer c.Unlock()
 	buffer := make([]byte, len(udpPacket.GetBuffer(0)))
 	copy(buffer, udpPacket.GetBuffer(0))
 
@@ -430,12 +442,16 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
 // DropPackets drops packets on errors during Authorization.
 func (c *UDPConnection) DropPackets() {
+	c.Lock()
 	close(c.PacketQueue)
 	c.PacketQueue = make(chan *packet.Packet, MaximumUDPQueueLen)
+	c.Unlock()
 }
 
 // ReadPacket reads a packet from the queue.
 func (c *UDPConnection) ReadPacket() *packet.Packet {
+	c.Lock()
+	defer c.Unlock()
 	select {
 	case p := <-c.PacketQueue:
 		return p
@@ -446,7 +462,7 @@ func (c *UDPConnection) ReadPacket() *packet.Packet {
 
 // SetReported is used to track if a flow is reported
 func (c *UDPConnection) SetReported(flowState bool) {
-
+	c.Lock()
 	c.flowReported++
 
 	if c.flowReported > 1 && c.flowLastReporting != flowState {
@@ -458,17 +474,19 @@ func (c *UDPConnection) SetReported(flowState bool) {
 	}
 
 	c.flowLastReporting = flowState
+	c.Unlock()
 }
 
 // Cleanup is called on cache expiry of the connection to record incomplete connections
 func (c *UDPConnection) Cleanup(expired bool) {
+	c.Lock()
 	// Logging information
 	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()))
 	}
-	c.Lock()
-	if !c.expiredConnection && c.GetState() != UDPData {
+
+	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
 		c.Context.PuContextError(pucontext.ErrUDPConnectionsExpired, "")
 	}
@@ -477,7 +495,8 @@ func (c *UDPConnection) Cleanup(expired bool) {
 
 // String returns a printable version of connection
 func (c *UDPConnection) String() string {
-
+	c.Lock()
+	defer c.Unlock()
 	return fmt.Sprintf("udp-conn state:%d auth: %+v", c.state, c.Auth)
 }
 
