@@ -208,7 +208,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 
 	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
-		c.Context.IncrementCounters(pucontext.ErrTCPConnectionsExpired, "")
+		c.Context.IncrementCounters(pucontext.ErrTCPConnectionsExpired)
 	}
 	c.Unlock()
 }
@@ -459,7 +459,7 @@ func (c *UDPConnection) Cleanup(expired bool) {
 
 	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
-		c.Context.IncrementCounters(pucontext.ErrUDPConnectionsExpired, "")
+		c.Context.IncrementCounters(pucontext.ErrUDPConnectionsExpired)
 	}
 	c.Unlock()
 }
