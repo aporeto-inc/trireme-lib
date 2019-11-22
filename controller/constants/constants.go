@@ -16,6 +16,8 @@ const (
 	DefaultRemoteArg = "enforce"
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
+	// DefaultExternalConnMark is the default conn mark for all data packets
+	DefaultExternalConnMark = uint32(0xEEEF)
 	// DeleteConnmark is the mark used to trigger udp handshake.
 	DeleteConnmark = uint32(0xABCD)
 )
@@ -132,4 +134,9 @@ const (
 
 	// DatapathTokenValidity determines how long the tokens are valid.
 	DatapathTokenValidity = 1 * time.Minute
+)
+
+// Ipv6Disabled is a flag to disable ipv6 in trireme
+const (
+	Ipv6Disabled = true
 )

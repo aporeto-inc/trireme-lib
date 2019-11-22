@@ -296,6 +296,13 @@ func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsPr
 	}
 }
 
+// SubOptionMonitorPodPidsSetMaxProcsProgrammer provides a way to program the pids cgroup for pods in Kubernetes
+func SubOptionMonitorPodPidsSetMaxProcsProgrammer(pidsprogrammer extractors.PodPidsSetMaxProcsProgrammer) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.PidsSetMaxProcsProgrammer = pidsprogrammer
+	}
+}
+
 // SubOptionMonitorPodResetNetcls provides a way to reset all net_cls cgroups on resync
 func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
