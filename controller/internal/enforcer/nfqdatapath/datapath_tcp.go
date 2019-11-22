@@ -709,7 +709,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Now we can process the SynAck packet with its options
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		p.Print(packet.PacketStageIncoming, true)
+		tcpPacket.Print(packet.PacketStageIncoming, true)
 		zap.L().Error("Connection Info--tcpData 0", zap.Reflect("Conn", conn))
 		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingToken, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
@@ -718,14 +718,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.InvalidToken, nil, nil, true)
-		p.Print(packet.PacketStageIncoming, true)
+		tcpPacket.Print(packet.PacketStageIncoming, true)
 		zap.L().Error("Connection Info-- Error", zap.Error(err), zap.Reflect("Conn", conn))
 		//return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckBadClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
 	if claims == nil {
-		p.Print(packet.PacketStageIncoming, true)
+		tcpPacket.Print(packet.PacketStageIncoming, true)
 		zap.L().Error("Connection Info-- Nil Claims", zap.Error(err), zap.Reflect("Conn", conn))
 		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.InvalidToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
