@@ -17,8 +17,6 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
-var stderrlogger *log.Logger
-
 func init() {
 	stderrlogger = log.New(os.Stderr, "", 0)
 }
