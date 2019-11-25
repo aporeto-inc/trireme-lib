@@ -23,6 +23,8 @@ const (
 	EnableDatapathPacketTracing = "RemoteEnforcer.EnableDatapathPacketTracing"
 	// SetLogLevel is string for invoking set log level RPC
 	SetLogLevel = "RemoteEnforcer.SetLogLevel"
+	// RunDiagnostics enable datapath packet tracing
+	RunDiagnostics = "RemoteEnforcer.RunDiagnostics"
 )
 
 // RemoteIntf is the interface implemented by the remote enforcer

@@ -437,6 +437,28 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 	return nil
 }
 
+// RunDiagnostics enable nfq datapath packet tracing
+func (s *RemoteEnforcer) RunDiagnostics(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enable datapath packet tracing auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload := req.Payload.(rpcwrapper.RunDiagnosticsPayload)
+
+	if err := s.enforcer.RunDiagnostics(context.TODO(), payload.ContextID, payload.DiagnosticsInfo); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	resp.Status = ""
+	return nil
+}
+
 // SetLogLevel sets log level.
 func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 

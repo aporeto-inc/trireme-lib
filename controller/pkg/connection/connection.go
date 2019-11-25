@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -154,6 +156,10 @@ type TCPConnection struct {
 	MarkForDeletion bool
 
 	RetransmittedSynAck bool
+
+	DiagnosticType claimsheader.DiagnosticType
+
+	StartTime time.Time
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

@@ -280,6 +280,25 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
+// RunDiagnostics is unimplemented in the envoy authorizer
+func (s *ProxyInfo) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+
+	resp := &rpcwrapper.Response{}
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.RunDiagnosticsPayload{
+			ContextID:       contextID,
+			DiagnosticsInfo: diagnosticsInfo,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.RunDiagnostics, request, resp); err != nil {
+		return fmt.Errorf("unable to run diagnostics %s -- %s", err, resp.Status)
+	}
+
+	return nil
+}
+
 // initRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 

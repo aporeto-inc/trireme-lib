@@ -137,3 +137,8 @@ func (e *Enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID st
 func (e *Enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
 }
+
+// RunDiagnostics is unimplemented in the envoy authorizer
+func (e *Enforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+	return nil
+}

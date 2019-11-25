@@ -13,7 +13,7 @@ func TestHeader(t *testing.T) {
 			OptionEncrypt(true),
 			OptionCompressionType(CompressionTypeV2),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionOAM(true),
+			OptionDiagnosticType(DiagnosticTypeNone),
 		).ToBytes()
 
 		Convey("Then claims header should not be nil", func() {
@@ -27,7 +27,7 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.OAM(), ShouldEqual, true)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeNone)
 			})
 		})
 	})
@@ -79,7 +79,7 @@ func TestHeader(t *testing.T) {
 		header := NewClaimsHeader(
 			OptionEncrypt(false),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionOAM(true),
+			OptionDiagnosticType(DiagnosticTypeToken),
 		)
 
 		Convey("Then claims header should not be nil", func() {
@@ -93,21 +93,21 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
 				So(ch.Encrypt(), ShouldEqual, false)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.OAM(), ShouldEqual, true)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeToken)
 			})
 		})
 
 		Convey("Given I set different compression type and encrypt", func() {
 			header.SetCompressionType(CompressionTypeV2)
 			header.SetEncrypt(true)
-			header.SetOAM(false)
+			header.SetDiagnosticType(DiagnosticTypeNone)
 			ch := header.ToBytes().ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.OAM(), ShouldEqual, false)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeNone)
 			})
 		})
 	})

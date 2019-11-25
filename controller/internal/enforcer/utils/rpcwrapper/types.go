@@ -128,3 +128,8 @@ type TokenRequestPayload struct {
 type TokenResponsePayload struct {
 	Token string `json:",omitempty"`
 }
+
+type RunDiagnosticsPayload struct {
+	ContextID       string
+	DiagnosticsInfo *policy.DiagnosticsInfo
+}

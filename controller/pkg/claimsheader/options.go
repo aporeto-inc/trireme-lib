@@ -27,10 +27,10 @@ func OptionDatapathVersion(datapathVersion DatapathVersion) Option {
 	}
 }
 
-// OptionOAM sets oam
-func OptionOAM(oam bool) Option {
+// OptionDiagnostic sets diagnostic type
+func OptionDiagnosticType(diagnosticType DiagnosticType) Option {
 
 	return func(c *ClaimsHeader) {
-		c.oam = oam
+		c.diagnosticType = diagnosticType
 	}
 }

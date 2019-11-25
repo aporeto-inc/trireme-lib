@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
@@ -405,6 +407,13 @@ type OptionsType struct {
 type RuntimeError struct {
 	ContextID string
 	Error     error
+}
+
+type DiagnosticsInfo struct {
+	Type    claimsheader.DiagnosticType
+	IP      string
+	Ports   []string
+	Retries int
 }
 
 // Fnv32Hash hash the given data by Fnv32-bit algorithm.

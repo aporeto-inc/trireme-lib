@@ -63,6 +63,8 @@ type DebugInfo interface {
 
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
+
+	RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -215,6 +217,12 @@ func (e *enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID st
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
+}
+
+// RunDiagnostics is unimplemented in the envoy authorizer
+func (e *enforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+
+	return e.transport.RunDiagnostics(ctx, contextID, diagnosticsInfo)
 }
 
 // New returns a new policy enforcer that implements both the data paths.

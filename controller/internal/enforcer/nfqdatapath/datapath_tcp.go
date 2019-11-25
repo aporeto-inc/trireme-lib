@@ -60,6 +60,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		}
 
 	case packet.TCPSynAckMask:
+		zap.L().Info("NETSYNACK-MASK")
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
 			switch err {
@@ -349,7 +350,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
 
 	if err != nil {
 		return nil, err
@@ -626,6 +627,14 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynDroppedNoClaims, fmt.Sprintf("contextID %s SourceAddress %s DestPort %d", context.ManagementID(), tcpPacket.SourceAddress().String(), int(tcpPacket.DestPort())))
 	}
 
+	if claims.H != nil {
+		ch := claims.H.ToClaimsHeader()
+		if ch.DiagnosticType() != claimsheader.DiagnosticTypeNone {
+			conn.DiagnosticType = ch.DiagnosticType()
+			return nil, nil, d.replyDiagnosticSynAckPacket(context, tcpPacket, ch)
+		}
+	}
+
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil, false)
@@ -762,6 +771,15 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	if claims == nil {
 		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
+	}
+
+	if claims.H != nil {
+		ch := claims.H.ToClaimsHeader()
+		if ch.DiagnosticType() != claimsheader.DiagnosticTypeNone {
+			conn.DiagnosticType = ch.DiagnosticType()
+			fmt.Println("DIAGNOSTIC NETSYNACK")
+			return nil, nil, d.processDiagnosticNetSynAckPacket(tcpPacket, ch)
+		}
 	}
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
@@ -1080,7 +1098,14 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
 // It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+
+	// Is this a diagnostic packet?
+	conn, err := d.diagnosticConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+	if err == nil {
+		return conn.(*connection.TCPConnection), nil
+	}
+
+	conn, err = d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
 	}

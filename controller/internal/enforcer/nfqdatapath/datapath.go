@@ -83,6 +83,8 @@ type Datapath struct {
 	// If we don't receife a return SynAck in 20 seconds, it expires
 	sourcePortConnectionCache cache.DataStore
 
+	diagnosticConnectionCache cache.DataStore
+
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
 	appOrigConnectionTracker  cache.DataStore
@@ -224,6 +226,7 @@ func New(
 
 		puFromContextID: puFromContextID,
 
+		diagnosticConnectionCache: cache.NewCacheWithExpiration("diagnosticConnectionCache", time.Second*24),
 		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
 		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
@@ -737,4 +740,10 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
+}
+
+// RunDiagnostics is unimplemented in the envoy authorizer
+func (d *Datapath) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+
+	return d.initiateDiagnosticSynPacket(ctx, contextID, diagnosticsInfo)
 }

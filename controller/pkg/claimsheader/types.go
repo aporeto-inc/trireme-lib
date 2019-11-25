@@ -8,38 +8,24 @@ type ClaimsHeader struct {
 	encrypt bool
 	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
-	// oam represents oam packet
-	oam bool
+	// diagnosticType represents diagnostic type
+	diagnosticType DiagnosticType
 }
 
 // boolToUint8 converts bool to uint8
 // to populate the bits based on e
-func boolToUint8(b boolAttributes, e bool) uint8 {
+func boolToUint8(e bool) uint8 {
 
 	if !e {
 		return zeroBit
 	}
 
-	switch b {
-	case encryptAttr:
-		return encryptionEnabledBit
-	case oamAttr:
-		return oamEnabledBit
-	default:
-		return zeroBit
-	}
+	return encryptionEnabledBit
 }
 
-// uint32ToBool converts uint8 to bool
+// uint8ToBool converts uint8 to bool
 // to populate the struct based on n
-func uint32ToBool(b boolAttributes, n uint32) bool {
+func uint8ToBool(n uint8) bool {
 
-	switch b {
-	case encryptAttr:
-		return n == encryptionEnabledMask
-	case oamAttr:
-		return n == oamEnabledMask
-	default:
-		return false
-	}
+	return n == encryptionEnabledBit
 }
