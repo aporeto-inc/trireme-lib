@@ -43,6 +43,8 @@ func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()
 	hash.Write([]byte(r.Source.ID))      // nolint errcheck
 	hash.Write([]byte(r.Destination.ID)) // nolint errcheck
+	hash.Write([]byte(r.Source.IP))      // nolint errcheck
+	hash.Write([]byte(r.Destination.IP)) // nolint errcheck
 	port := make([]byte, 2)
 	binary.BigEndian.PutUint16(port, r.Destination.Port)
 	hash.Write(port)                              // nolint errcheck
