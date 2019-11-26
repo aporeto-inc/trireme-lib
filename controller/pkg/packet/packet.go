@@ -329,6 +329,9 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 			i++
 			continue
 		} else if buffer[i] != TCPAuthenticationOption {
+			if len(buffer) < i+1 {
+				return errTCPAuthOption
+			}
 			i = i + int(buffer[i+1])
 		} else if buffer[i] == TCPAuthenticationOption {
 			return nil
