@@ -19,7 +19,7 @@ func DefaultConfig(host bool, ssh bool) *Config {
 
 	return &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
-		ReleasePath:            "/var/lib/aporeto/cleaner",
+		ReleasePath:            "",
 		StoredPath:             common.TriremeCgroupPath,
 		Host:                   host,
 		SSH:                    ssh,

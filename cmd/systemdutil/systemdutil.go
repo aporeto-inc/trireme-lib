@@ -1,9 +1,9 @@
 package systemdutil
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -13,15 +13,10 @@ import (
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
-
-var stderrlogger *log.Logger
-
-func init() {
-	stderrlogger = log.New(os.Stderr, "", 0)
-}
 
 // ExecuteCommandFromArguments processes the command from the arguments
 func ExecuteCommandFromArguments(arguments map[string]interface{}) error {
@@ -226,6 +221,9 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		puType = common.HostPU
 	}
 
+	exeTags := executableTags(c)
+	c.Labels = append(c.Labels, exeTags...)
+
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
@@ -347,6 +345,22 @@ func sendRequest(address string, event *common.EventInfo) error {
 	}
 
 	return client.SendRequest(event)
+}
+
+func executableTags(c *CLIRequest) []string {
+
+	tags := []string{}
+
+	if fileMd5, err := extractors.ComputeFileMd5(c.Executable); err == nil {
+		tags = append(tags, fmt.Sprintf("@app:linux:filechecksum=%s", hex.EncodeToString(fileMd5)))
+	}
+
+	depends := extractors.Libs(c.ServiceName)
+	for _, lib := range depends {
+		tags = append(tags, fmt.Sprintf("@app:linux:lib:%s=true", lib))
+	}
+
+	return tags
 }
 
 // ParseServices parses strings with the services and returns them in an

@@ -113,10 +113,13 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		policy.NewTagStore(),
 		policy.NewTagStoreFromSlice([]string{"app=web", "type=aporeto"}),
 		nil,
+		nil,
+		0,
 		0,
 		exposedServices,
 		dependentServices,
 		[]string{},
+		policy.EnforcerMapping,
 	)
 
 	puInfo := policy.NewPUInfo(name, "/ns1", triremecommon.ContainerPU)

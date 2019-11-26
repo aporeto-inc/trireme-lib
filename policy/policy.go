@@ -8,6 +8,51 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
+// EnforcerType defines which enforcer type should be selected
+type EnforcerType int
+
+const (
+	// EnforcerMapping lets the default enforcer configuration deal with it
+	EnforcerMapping EnforcerType = iota
+	// EnvoyAuthorizerEnforcer specifically asks for running an envoy enforcer/authorizer
+	EnvoyAuthorizerEnforcer
+)
+
+// String implements the string interface
+func (t EnforcerType) String() string {
+	switch t {
+	case EnforcerMapping:
+		return "EnforcerMapping"
+	case EnvoyAuthorizerEnforcer:
+		return "EnvoyAuthorizerEnforcer"
+	default:
+		return strconv.Itoa(int(t))
+	}
+}
+
+// EnforcerTypeFromString parses `str` and tries to convert it to
+func EnforcerTypeFromString(str string) (EnforcerType, error) {
+	switch str {
+	case "EnforcerMapping":
+		return EnforcerMapping, nil
+	case "EnvoyAuthorizerEnforcer":
+		return EnvoyAuthorizerEnforcer, nil
+	default:
+		i, err := strconv.Atoi(str)
+		if err != nil {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): %s", str, err.Error())
+		}
+		if i < int(EnforcerMapping) {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): below possible valid value", str)
+		}
+		if i > int(EnvoyAuthorizerEnforcer) {
+			return EnforcerMapping, fmt.Errorf("failed to parse enforcer type from string number (input '%s'): above possible valid value", str)
+		}
+
+		return EnforcerType(i), nil
+	}
+}
+
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
 
@@ -30,6 +75,8 @@ type PUPolicy struct {
 	networkACLs IPRuleList
 	// identity is the set of key value pairs that must be send over the wire.
 	identity *TagStore
+	// compressedTags is the set of of compressed key/value pairs as binary values.
+	compressedTags *TagStore
 	// annotations are key/value pairs  that should be used for accounting reasons
 	annotations *TagStore
 	// transmitterRules is the set of rules that implement the label matching at the Transmitter
@@ -40,6 +87,8 @@ type PUPolicy struct {
 	ips ExtendedMap
 	// servicesListeningPort is the port that we will use for the proxy.
 	servicesListeningPort int
+	// dnsProxyPort is the proxy port that listens dns traffic
+	dnsProxyPort int
 	// exposedServices is the list of services that this PU is exposing.
 	exposedServices ApplicationServicesList
 	// dependentServices is the list of services that this PU depends on.
@@ -52,6 +101,8 @@ type PUPolicy struct {
 	servicesCA string
 	// scopes are the processing unit granted scopes
 	scopes []string
+	// enforcerType is the enforcer type that is supposed to get used for this PU
+	enforcerType EnforcerType
 
 	sync.Mutex
 }
@@ -80,11 +131,14 @@ func NewPUPolicy(
 	rxtags TagSelectorList,
 	identity *TagStore,
 	annotations *TagStore,
+	compressedTags *TagStore,
 	ips ExtendedMap,
 	servicesListeningPort int,
+	dnsProxyPort int,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
 	scopes []string,
+	enforcerType EnforcerType,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -111,6 +165,10 @@ func NewPUPolicy(
 		annotations = NewTagStore()
 	}
 
+	if compressedTags == nil {
+		compressedTags = NewTagStore()
+	}
+
 	if ips == nil {
 		ips = ExtendedMap{}
 	}
@@ -133,18 +191,21 @@ func NewPUPolicy(
 		transmitterRules:      txtags,
 		receiverRules:         rxtags,
 		identity:              identity,
+		compressedTags:        compressedTags,
 		annotations:           annotations,
 		ips:                   ips,
 		servicesListeningPort: servicesListeningPort,
+		dnsProxyPort:          dnsProxyPort,
 		exposedServices:       exposedServices,
 		dependentServices:     dependentServices,
 		scopes:                scopes,
+		enforcerType:          enforcerType,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil, nil, []string{})
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
 }
 
 // Clone returns a copy of the policy
@@ -163,11 +224,14 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.receiverRules.Copy(),
 		p.identity.Copy(),
 		p.annotations.Copy(),
+		p.compressedTags.Copy(),
 		p.ips.Copy(),
 		p.servicesListeningPort,
+		p.dnsProxyPort,
 		p.exposedServices,
 		p.dependentServices,
 		p.scopes,
+		p.enforcerType,
 	)
 
 	return np
@@ -269,6 +333,14 @@ func (p *PUPolicy) Identity() *TagStore {
 	return p.identity.Copy()
 }
 
+// CompressedTags returns the compressed tags of the policy.
+func (p *PUPolicy) CompressedTags() *TagStore {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.compressedTags.Copy()
+}
+
 // Annotations returns a copy of the annotations
 func (p *PUPolicy) Annotations() *TagStore {
 	p.Lock()
@@ -309,6 +381,14 @@ func (p *PUPolicy) ExposedServices() ApplicationServicesList {
 	return p.exposedServices
 }
 
+// DNSProxyPort gets the dns proxy port
+func (p *PUPolicy) DNSProxyPort() string {
+	p.Lock()
+	defer p.Unlock()
+
+	return strconv.Itoa(p.dnsProxyPort)
+}
+
 // DependentServices returns the external services.
 func (p *PUPolicy) DependentServices() ApplicationServicesList {
 	p.Lock()
@@ -330,9 +410,9 @@ func (p *PUPolicy) UpdateDNSNetworks(networks DNSRuleList) {
 	p.Lock()
 	defer p.Unlock()
 
-	p.DNSACLs = make(DNSRuleList, len(networks))
-
-	copy(p.DNSACLs, networks)
+	for k, v := range networks {
+		p.DNSACLs[k] = v
+	}
 }
 
 // UpdateServiceCertificates updates the certificate and private key of the policy
@@ -360,6 +440,14 @@ func (p *PUPolicy) Scopes() []string {
 	return p.scopes
 }
 
+// EnforcerType returns the enforcer type of the policy.
+func (p *PUPolicy) EnforcerType() EnforcerType {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.enforcerType
+}
+
 // ToPublicPolicy converts the object to a marshallable object.
 func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 	p.Lock()
@@ -375,15 +463,18 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		TransmitterRules:      p.transmitterRules.Copy(),
 		ReceiverRules:         p.receiverRules.Copy(),
 		Annotations:           p.annotations.Copy(),
+		CompressedTags:        p.compressedTags.Copy(),
 		Identity:              p.identity.Copy(),
 		IPs:                   p.ips.Copy(),
 		ServicesListeningPort: p.servicesListeningPort,
+		DNSProxyPort:          p.dnsProxyPort,
 		ExposedServices:       p.exposedServices,
 		DependentServices:     p.dependentServices,
 		Scopes:                p.scopes,
 		ServicesCA:            p.servicesCA,
 		ServicesCertificate:   p.servicesCertificate,
 		ServicesPrivateKey:    p.servicesPrivateKey,
+		EnforcerType:          p.enforcerType,
 	}
 }
 
@@ -398,16 +489,19 @@ type PUPolicyPublic struct {
 	DNSACLs               DNSRuleList             `json:"dnsACLs,omitempty"`
 	Identity              *TagStore               `json:"identity,omitempty"`
 	Annotations           *TagStore               `json:"annotations,omitempty"`
+	CompressedTags        *TagStore               `json:"compressedtags,omitempty"`
 	TransmitterRules      TagSelectorList         `json:"transmitterRules,omitempty"`
 	ReceiverRules         TagSelectorList         `json:"receiverRules,omitempty"`
 	IPs                   ExtendedMap             `json:"IPs,omitempty"`
 	ServicesListeningPort int                     `json:"servicesListeningPort,omitempty"`
+	DNSProxyPort          int                     `json:"dnsProxyPort,omitempty"`
 	ExposedServices       ApplicationServicesList `json:"exposedServices,omitempty"`
 	DependentServices     ApplicationServicesList `json:"dependentServices,omitempty"`
 	ServicesCertificate   string                  `json:"servicesCertificate,omitempty"`
 	ServicesPrivateKey    string                  `json:"servicesPrivateKey,omitempty"`
 	ServicesCA            string                  `json:"servicesCA,omitempty"`
 	Scopes                []string                `json:"scopes,omitempty"`
+	EnforcerType          EnforcerType            `json:"enforcerTypes,omitempty"`
 }
 
 // ToPrivatePolicy converts the object to a private object.
@@ -435,12 +529,15 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 		transmitterRules:      p.TransmitterRules.Copy(),
 		receiverRules:         p.ReceiverRules.Copy(),
 		annotations:           p.Annotations.Copy(),
+		compressedTags:        p.CompressedTags.Copy(),
 		identity:              p.Identity.Copy(),
 		ips:                   p.IPs.Copy(),
 		servicesListeningPort: p.ServicesListeningPort,
+		dnsProxyPort:          p.DNSProxyPort,
 		exposedServices:       exposedServices,
 		dependentServices:     p.DependentServices,
 		scopes:                p.Scopes,
+		enforcerType:          p.EnforcerType,
 		servicesCA:            p.ServicesCA,
 		servicesCertificate:   p.ServicesCertificate,
 		servicesPrivateKey:    p.ServicesPrivateKey,

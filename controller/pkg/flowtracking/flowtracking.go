@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aporeto-inc/conntrack"
 	"github.com/mdlayher/netlink"
+	"github.com/ti-mo/conntrack"
 )
 
 // Client is a flow update client
@@ -18,7 +18,10 @@ type Client struct {
 
 // NewClient creates a new flow tracking client. s
 func NewClient(ctx context.Context) (*Client, error) {
-	c, err := conntrack.Dial(&netlink.Config{})
+	c, err := conntrack.Dial(&netlink.Config{
+		// Enable this when the netlink PR is merged.
+		DisableNSLockThread: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("flow tracker is unable to dial netlink: %s", err)
 	}
@@ -46,6 +49,14 @@ func (c *Client) UpdateMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstpor
 	}
 
 	return c.UpdateApplicationFlowMark(ipSrc, ipDst, protonum, srcport, dstport, newmark)
+}
+
+// GetOriginalDest gets the original destination ip, port and the mark on the packet
+func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
+
+	flow := conntrack.NewFlow(protonum, 0, ipSrc, ipDst, srcport, dstport, 0, 0)
+	origFlow, err := c.conn.Get(flow)
+	return origFlow.TupleOrig.IP.DestinationAddress, origFlow.TupleOrig.Proto.DestinationPort, origFlow.Mark, err
 }
 
 // UpdateNetworkFlowMark will update the mark for a flow based on packet information received

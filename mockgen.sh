@@ -46,16 +46,25 @@ mkdir -p controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient
 mockgen -source controller/pkg/remoteenforcer/internal/counterclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go -package mockcounterclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go
 
+echo "controller/pkg/remoteenforcer/TokenIssuer Mocks"
+mkdir -p controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient
+mockgen -source controller/pkg/remoteenforcer/internal/tokenissuer/tokenissuer.go -destination controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go -package mocktokenclient
+goimport_sanitize controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go
+
 echo "controller/pkg/remoteenforcer/DebugClient Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient
 mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go
 
-
 echo "controller/pkg/remoteenforcer/StatsCollector Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector
 mockgen -source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go -package mockstatscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
+
+echo "controller/pkg/usertokens Mocks"
+mkdir -p controller/pkg/usertokens/mockusertokens
+mockgen -source controller/pkg/usertokens/usertokens.go -destination controller/pkg/usertokens/mockusertokens/mockusertokens.go -package mockusertokens
+goimport_sanitize controller/pkg/usertokens/mockusertokens/mockusertokens.go
 
 echo "Collector Mocks"
 mkdir -p collector/mockcollector
@@ -67,14 +76,19 @@ mkdir -p monitor/mockmonitor
 mockgen -source monitor/interfaces.go -destination monitor/mockmonitor/mockmonitor.go -package mockmonitor -source_package go.aporeto.io/trireme-lib/monitor
 goimport_sanitize monitor/mockmonitor/mockmonitor.go
 
+echo "Monitor remoteapi client mocks"
+mkdir -p monitor/remoteapi/client/mockclient
+mockgen -source monitor/remoteapi/client/interfaces.go -destination monitor/remoteapi/client/mockclient/mockclient.go -package mockclient -source_package go.aporeto.io/trireme-lib/monitor/remoteapi/client
+goimport_sanitize monitor/remoteapi/client/mockclient/mockclient.go
+
 echo "Monitor/processor Mocks"
 mkdir -p monitor/processor/mockprocessor
 mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mockprocessor/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package go.aporeto.io/trireme-lib/monitor/processor
 goimport_sanitize monitor/processor/mockprocessor/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
-mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper 
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper -source_package go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
+mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper
+mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper -source_package go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper
 goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"

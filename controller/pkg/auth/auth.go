@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -15,6 +17,15 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
+
+// CallbackResponse captures all the response data of the call back processing.
+type CallbackResponse struct {
+	Cookie    *http.Cookie
+	Status    int
+	OriginURL string
+	Data      string
+	Message   string
+}
 
 // Processor holds all the local data of the authorization engine. A processor
 // can handle authorization for multiple services. The goal is to authenticate
@@ -65,7 +76,7 @@ func (p *Processor) UpdateServiceAPIs(apis *urisearch.APICache) error {
 }
 
 // DecodeUserClaims decodes the user claims with the user authorization method.
-func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certificate, r *http.Request) ([]string, bool, string, error) {
+func (p *Processor) DecodeUserClaims(ctx context.Context, name, userToken string, certs []*x509.Certificate) ([]string, bool, string, error) {
 
 	switch p.userAuthorizationType {
 	case policy.UserAuthorizationMutualTLS, policy.UserAuthorizationJWT:
@@ -86,7 +97,7 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 		}
 
 		if p.userAuthorizationType == policy.UserAuthorizationJWT && p.userTokenHandler != nil {
-			jwtAttributes, _, _, err := p.userTokenHandler.Validate(r.Context(), userToken)
+			jwtAttributes, _, _, err := p.userTokenHandler.Validate(ctx, userToken)
 			if err != nil {
 				return attributes, false, userToken, fmt.Errorf("Unable to decode JWT: %s", err)
 			}
@@ -101,7 +112,7 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 			zap.L().Error("Internal Server Error: OIDC User Token Handler not configured")
 			return []string{}, false, userToken, nil
 		}
-		return p.userTokenHandler.Validate(r.Context(), userToken)
+		return p.userTokenHandler.Validate(ctx, userToken)
 	default:
 		return []string{}, false, userToken, nil
 	}
@@ -123,18 +134,23 @@ func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (
 
 // Callback is function called by and IDP auth provider will exchange the provided
 // authorization code with a JWT token. This closes the Oauth loop.
-func (p *Processor) Callback(w http.ResponseWriter, r *http.Request) {
+func (p *Processor) Callback(ctx context.Context, u *url.URL) (*CallbackResponse, error) {
 	p.RLock()
 	defer p.RUnlock()
 
+	c := &CallbackResponse{}
+
 	// Validate the JWT token through the handler.
-	token, originURL, status, err := p.userTokenHandler.Callback(r)
+	token, originURL, status, err := p.userTokenHandler.Callback(ctx, u)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid code %s:", err), http.StatusInternalServerError)
-		return
+		c.Status = http.StatusUnauthorized
+		c.Message = fmt.Sprintf("Invalid code %s:", err)
+		return c, err
 	}
 
-	cookie := &http.Cookie{
+	c.OriginURL = originURL
+	c.Status = status
+	c.Cookie = &http.Cookie{
 		Name:     "X-APORETO-AUTH",
 		Value:    token,
 		HttpOnly: true,
@@ -142,20 +158,18 @@ func (p *Processor) Callback(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	}
 
-	http.SetCookie(w, cookie)
-
 	// We transmit the information in the return payload for applications
 	// that choose to use it directly without a cookie.
-	data, err := json.MarshalIndent(cookie, " ", " ")
+	data, err := json.MarshalIndent(c.Cookie, " ", " ")
 	if err != nil {
-		http.Error(w, "Bad data", http.StatusInternalServerError)
-		return
+		c.Status = http.StatusInternalServerError
+		c.Message = "Unable to decode data"
+		return c, err
 	}
 
-	// We redirect here to the original URL that the application attempted
-	// to access.
-	w.Header().Add("Location", originURL)
-	http.Error(w, string(data), status)
+	c.Data = string(data)
+
+	return c, nil
 }
 
 // Check is the main method that will search API cache and validate whether the call should
@@ -179,7 +193,7 @@ func (p *Processor) RedirectURI(originURL string) string {
 
 // UpdateRequestHeaders will update the request headers based on the user claims
 // and the corresponding mappings.
-func (p *Processor) UpdateRequestHeaders(r *http.Request, claims []string) {
+func (p *Processor) UpdateRequestHeaders(h http.Header, claims []string) {
 	p.RLock()
 	defer p.RUnlock()
 
@@ -190,7 +204,7 @@ func (p *Processor) UpdateRequestHeaders(r *http.Request, claims []string) {
 	for _, claim := range claims {
 		parts := strings.SplitN(claim, "=", 2)
 		if header, ok := p.userTokenMappings[parts[0]]; ok && len(parts) == 2 {
-			r.Header.Add(header, parts[1])
+			h.Add(header, parts[1])
 		}
 	}
 }

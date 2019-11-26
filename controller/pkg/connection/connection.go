@@ -152,6 +152,8 @@ type TCPConnection struct {
 	// MarkForDeletion -- this is is used only in conjunction with serviceconnection. Its a hint for us if we have a fin for an earlier connection
 	// and this is reused port flow.
 	MarkForDeletion bool
+
+	RetransmittedSynAck bool
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

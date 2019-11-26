@@ -72,3 +72,8 @@ func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
 	defer c.Unlock()
 	c.CounterReports = append(c.CounterReports, report)
 }
+
+// CollectCounterEvent collect counters from the datapath
+func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
+	c.DNSReport <- report
+}

@@ -5,12 +5,12 @@ package enforcerproxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -42,6 +42,8 @@ type ProxyInfo struct {
 	ExternalIPCacheTimeout time.Duration
 	collector              collector.EventCollector
 	cfg                    *runtime.Configuration
+	tokenIssuer            common.ServiceTokenIssuer
+	binaryTokens           bool
 
 	sync.RWMutex
 }
@@ -56,6 +58,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.commandArg,
 		s.statsServerSecret,
 		s.procMountPoint,
+		puInfo.Policy.EnforcerType(),
 	)
 	if err != nil {
 		return err
@@ -164,15 +167,21 @@ func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 
-	// request := &rpcwrapper.Request{}
-
 	var allErrors string
 
-	for _, contextID := range s.rpchdl.ContextList() {
+	remotes := s.rpchdl.ContextList()
+
+	for _, contextID := range remotes {
 
 		if err := s.prochdl.KillRemoteEnforcer(contextID, false); err != nil {
 			allErrors = allErrors + " contextID:" + err.Error()
 		}
+		// This sleep is added on purpose to reduce the rate of remotes
+		// that are activating iptables commands. When they are all
+		// started in parallel they overload the kernel and the iptables
+		// locks take a very long time. It is one of these times where
+		// a sleep is needed.
+		time.Sleep(3 * time.Millisecond)
 	}
 
 	if len(allErrors) > 0 {
@@ -183,7 +192,7 @@ func (s *ProxyInfo) CleanUp() error {
 }
 
 // EnableDatapathPacketTracing enable nfq packet tracing in remote container
-func (s *ProxyInfo) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+func (s *ProxyInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 
 	resp := &rpcwrapper.Response{}
 
@@ -257,15 +266,17 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 // Run starts the the remote enforcer proxy.
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
-	statsServer := rpcwrapper.NewRPCWrapper()
-	rpcServer := &StatsServer{
-		rpchdl:    statsServer,
-		collector: s.collector,
-		secret:    s.statsServerSecret,
+	server := rpcwrapper.NewRPCWrapper()
+	handler := &ProxyRPCServer{
+		rpchdl:      server,
+		collector:   s.collector,
+		secret:      s.statsServerSecret,
+		tokenIssuer: s.tokenIssuer,
 	}
 
 	// Start the server for statistics collection.
-	go statsServer.StartServer(ctx, "unix", constants.StatsChannel, rpcServer) // nolint
+	go server.StartServer(ctx, "unix", constants.StatsChannel, handler) // nolint
+
 	return nil
 }
 
@@ -284,6 +295,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			PacketLogs:             s.packetLogs,
 			Secrets:                s.Secrets.PublicSecrets(),
 			Configuration:          s.cfg,
+			BinaryTokens:           s.binaryTokens,
 		},
 	}
 
@@ -305,6 +317,8 @@ func NewProxyEnforcer(
 	cfg *runtime.Configuration,
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
+	tokenIssuer common.ServiceTokenIssuer,
+	binaryTokens bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -332,60 +346,7 @@ func NewProxyEnforcer(
 		packetLogs:             packetLogs,
 		collector:              collector,
 		cfg:                    cfg,
+		tokenIssuer:            tokenIssuer,
+		binaryTokens:           binaryTokens,
 	}
-}
-
-// StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.
-type StatsServer struct {
-	collector collector.EventCollector
-	rpchdl    rpcwrapper.RPCServer
-	secret    string
-}
-
-// GetStats is the function called from the remoteenforcer when it has new flow events to publish.
-func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.StatsPayload)
-
-	for _, record := range payload.Flows {
-		r.collector.CollectFlowEvent(record)
-	}
-
-	for _, record := range payload.Users {
-		r.collector.CollectUserEvent(record)
-	}
-
-	return nil
-}
-
-// PostPacketEvent is called from the remote to post multiple records from the remoteenforcer
-func (r *StatsServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.DebugPacketPayload)
-	for _, record := range payload.PacketRecords {
-
-		r.collector.CollectPacketEvent(record)
-	}
-	return nil
-}
-
-// PostCounterEvent is called from the remote to post multiple counter records from the remoteenforcer
-func (r *StatsServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.CounterReportPayload)
-	for _, record := range payload.CounterReports {
-		zap.L().Debug("Posting Remote counters")
-		r.collector.CollectCounterEvent(record)
-	}
-	return nil
 }

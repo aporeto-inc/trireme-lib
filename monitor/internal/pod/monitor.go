@@ -23,15 +23,18 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type PodMonitor struct {
-	localNode         string
-	handlers          *config.ProcessorConfig
-	metadataExtractor extractors.PodMetadataExtractor
-	netclsProgrammer  extractors.PodNetclsProgrammer
-	resetNetcls       extractors.ResetNetclsKubepods
-	enableHostPods    bool
-	kubeCfg           *rest.Config
-	kubeClient        client.Client
-	eventsCh          chan event.GenericEvent
+	localNode                 string
+	handlers                  *config.ProcessorConfig
+	metadataExtractor         extractors.PodMetadataExtractor
+	netclsProgrammer          extractors.PodNetclsProgrammer
+	pidsSetMaxProcsProgrammer extractors.PodPidsSetMaxProcsProgrammer
+	resetNetcls               extractors.ResetNetclsKubepods
+	sandboxExtractor          extractors.PodSandboxExtractor
+	enableHostPods            bool
+	workers                   int
+	kubeCfg                   *rest.Config
+	kubeClient                client.Client
+	eventsCh                  chan event.GenericEvent
 }
 
 // New returns a new kubernetes monitor.
@@ -87,14 +90,22 @@ func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	if kubernetesconfig.ResetNetcls == nil {
 		return fmt.Errorf("missing reset net_cls implementation")
 	}
-
+	if kubernetesconfig.SandboxExtractor == nil {
+		return fmt.Errorf("missing SandboxExtractor implementation")
+	}
+	if kubernetesconfig.Workers < 1 {
+		return fmt.Errorf("number of Kubernetes monitor workers must be at least 1")
+	}
 	// Setting up Kubernetes
 	m.kubeCfg = kubeCfg
 	m.localNode = kubernetesconfig.Nodename
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.metadataExtractor = kubernetesconfig.MetadataExtractor
 	m.netclsProgrammer = kubernetesconfig.NetclsProgrammer
+	m.pidsSetMaxProcsProgrammer = kubernetesconfig.PidsSetMaxProcsProgrammer
+	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
 	m.resetNetcls = kubernetesconfig.ResetNetcls
+	m.workers = kubernetesconfig.Workers
 
 	return nil
 }
@@ -127,14 +138,14 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.handlers)
+	dc := NewDeleteController(mgr.GetClient(), m.handlers, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
 	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
-	if err := addController(mgr, r, m.eventsCh); err != nil {
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
+	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 

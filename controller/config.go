@@ -11,12 +11,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	enforcerproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	supervisorproxy "go.aporeto.io/trireme-lib/controller/internal/supervisor/proxy"
+	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
 	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/runtime"
+
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
@@ -43,10 +45,20 @@ type config struct {
 	runtimeCfg             *runtime.Configuration
 	runtimeErrorChannel    chan *policy.RuntimeError
 	remoteParameters       *env.RemoteParameters
+	tokenIssuer            common.ServiceTokenIssuer
+	binaryTokens           bool
+	aclmanager             ipsetmanager.ACLManager
 }
 
 // Option is provided using functional arguments.
 type Option func(*config)
+
+//OptionIPSetManager is an option to provide ipsetmanager
+func OptionIPSetManager(manager ipsetmanager.ACLManager) Option {
+	return func(cfg *config) {
+		cfg.aclmanager = manager
+	}
+}
 
 // OptionCollector is an option to provide an external collector implementation.
 func OptionCollector(c collector.EventCollector) Option {
@@ -126,6 +138,20 @@ func OptionRemoteParameters(p *env.RemoteParameters) Option {
 	}
 }
 
+// OptionTokenIssuer provides the token issuer.
+func OptionTokenIssuer(t common.ServiceTokenIssuer) Option {
+	return func(cfg *config) {
+		cfg.tokenIssuer = t
+	}
+}
+
+// OptionBinaryTokens enables the binary token datapath
+func OptionBinaryTokens(b bool) Option {
+	return func(cfg *config) {
+		cfg.binaryTokens = b
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -143,15 +169,38 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.runtimeCfg,
+			t.config.tokenIssuer,
+			t.config.binaryTokens,
+			t.config.aclmanager,
 		)
 		if err != nil {
-			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
+			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
+		}
+		t.enforcers[constants.LocalEnvoyAuthorizer], err = enforcer.New(
+			t.config.mutualAuth,
+			t.config.fq,
+			t.config.collector,
+			t.config.service,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
+			constants.LocalEnvoyAuthorizer,
+			t.config.procMountPoint,
+			t.config.externalIPcacheTimeout,
+			t.config.packetLogs,
+			t.config.runtimeCfg,
+			t.config.tokenIssuer,
+			t.config.binaryTokens,
+			t.config.aclmanager,
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
 		}
 	}
 
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.RemoteContainer {
-		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
+		enforcerProxy := enforcerproxy.NewProxyEnforcer(
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
@@ -165,7 +214,11 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeCfg,
 			t.config.runtimeErrorChannel,
 			t.config.remoteParameters,
+			t.config.tokenIssuer,
+			t.config.binaryTokens,
 		)
+		t.enforcers[constants.RemoteContainer] = enforcerProxy
+		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
 	}
 
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
@@ -183,6 +236,9 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.runtimeCfg,
+			t.config.tokenIssuer,
+			t.config.binaryTokens,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -194,6 +250,8 @@ func (t *trireme) newEnforcers() error {
 
 func (t *trireme) newSupervisors() error {
 
+	noopSup := supervisornoop.NewNoopSupervisor()
+
 	if t.config.linuxProcess {
 		sup, err := supervisor.NewSupervisor(
 			t.config.collector,
@@ -201,15 +259,18 @@ func (t *trireme) newSupervisors() error {
 			constants.LocalServer,
 			t.config.runtimeCfg,
 			t.config.service,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
 		}
 		t.supervisors[constants.LocalServer] = sup
+		t.supervisors[constants.LocalEnvoyAuthorizer] = noopSup
 	}
 
 	if t.config.mode == constants.RemoteContainer {
-		t.supervisors[constants.RemoteContainer] = supervisorproxy.NewProxySupervisor()
+		t.supervisors[constants.RemoteContainer] = noopSup
+		t.supervisors[constants.RemoteContainerEnvoyAuthorizer] = noopSup
 	}
 
 	if t.config.mode == constants.Sidecar {
@@ -219,6 +280,7 @@ func (t *trireme) newSupervisors() error {
 			constants.Sidecar,
 			t.config.runtimeCfg,
 			t.config.service,
+			t.config.aclmanager,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)

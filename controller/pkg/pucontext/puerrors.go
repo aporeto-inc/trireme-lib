@@ -214,7 +214,7 @@ var countedEvents = []PuErrors{
 	},
 	ErrSynDroppedTCPOption: {
 		index: ErrSynDroppedTCPOption,
-		err:   "TCP authentication option not found",
+		err:   "TCP authentication option not found in Syn",
 	},
 	ErrSynDroppedInvalidFormat: {
 		index: ErrSynDroppedInvalidFormat,
@@ -246,7 +246,7 @@ var countedEvents = []PuErrors{
 	},
 	ErrSynAckNoTCPAuthOption: {
 		index: ErrSynAckNoTCPAuthOption,
-		err:   "TCP authentication option not found",
+		err:   "TCP authentication option not found in SynAck",
 	},
 	ErrSynAckInvalidFormat: {
 		index: ErrSynAckInvalidFormat,
@@ -270,7 +270,7 @@ var countedEvents = []PuErrors{
 	},
 	ErrAckTCPNoTCPAuthOption: {
 		index: ErrAckTCPNoTCPAuthOption,
-		err:   "TCP authentication option not found",
+		err:   "TCP authentication option not found in Ack",
 	},
 	ErrAckSigValidationFailed: {
 		index: ErrAckSigValidationFailed,

@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer"
+
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -55,7 +59,7 @@ type Enforcer interface {
 // DebugInfo is interface to implement methods to configure datapath packet tracing in the nfqdatapath
 type DebugInfo interface {
 	//  EnableDatapathPacketTracing will enable tracing of packets received by the datapath for a particular PU. Setting Disabled as tracing direction will stop tracing for the contextID
-	EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error
+	EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error
 
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
@@ -94,7 +98,6 @@ func (e *enforcer) Run(ctx context.Context) error {
 
 // Enforce implements the enforce interface by sending the event to all the enforcers.
 func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
 			return fmt.Errorf("unable to enforce in nfq: %s", err)
@@ -204,8 +207,8 @@ func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 }
 
 // EnableDatapathPacketTracing implemented the datapath packet tracing
-func (e *enforcer) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
-	return e.transport.EnableDatapathPacketTracing(contextID, direction, interval)
+func (e *enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	return e.transport.EnableDatapathPacketTracing(ctx, contextID, direction, interval)
 
 }
 
@@ -228,9 +231,16 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	cfg *runtime.Configuration,
+	tokenIssuer common.ServiceTokenIssuer,
+	binaryTokens bool,
+	aclmanager ipsetmanager.ACLManager,
 ) (Enforcer, error) {
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
+		return envoyauthorizer.NewEnvoyAuthorizerEnforcer(mode, collector, externalIPCacheTimeout, secrets, tokenIssuer)
+	}
+
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
@@ -252,9 +262,10 @@ func New(
 		tokenAccessor,
 		puFromContextID,
 		cfg,
+		aclmanager,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
+	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +286,7 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	aclmanager ipsetmanager.ACLManager,
 ) Enforcer {
 	return nfqdatapath.NewWithDefaults(
 		serverID,
@@ -284,5 +296,6 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		targetNetworks,
+		aclmanager,
 	)
 }

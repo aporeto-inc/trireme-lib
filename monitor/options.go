@@ -41,6 +41,13 @@ func SubOptionMonitorLinuxExtractor(extractor extractors.EventMetadataExtractor)
 	}
 }
 
+// SubOptionMonitorLinuxRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorLinuxRealeaseAgentPath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // optionMonitorLinux provides a way to add a linux monitor and related configuration to be used with New().
 func optionMonitorLinux(
 	host bool,
@@ -95,6 +102,13 @@ func OptionMonitorCNI(
 	}
 }
 
+// SubOptionMonitorUIDRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorUIDRealeaseAgentPath(releasePath string) UIDMonitorOption {
+	return func(cfg *uidmonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // SubOptionMonitorUIDExtractor provides a way to specify metadata extractor for UID monitors.
 func SubOptionMonitorUIDExtractor(extractor extractors.EventMetadataExtractor) UIDMonitorOption {
 	return func(cfg *uidmonitor.Config) {
@@ -113,6 +127,13 @@ func OptionMonitorUID(
 	}
 	return func(cfg *config.MonitorConfig) {
 		cfg.Monitors[config.UID] = uc
+	}
+}
+
+// SubOptionMonitorSSHRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorSSHRealeaseAgentPath(releasePath string) LinuxMonitorOption {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.ReleasePath = releasePath
 	}
 }
 
@@ -157,6 +178,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+
+	}
+}
+
+// SubOptionMonitorDockerDestroyStoppedContainers sets the option to destroy stopped containers.
+func SubOptionMonitorDockerDestroyStoppedContainers(f bool) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.DestroyStoppedContainers = f
 	}
 }
 
@@ -260,6 +289,13 @@ func SubOptionMonitorPodActivateHostPods(enableHostPods bool) PodMonitorOption {
 	}
 }
 
+// SubOptionMonitorPodWorkers provides a way to specify the maximum number of workers that are used in the controller.
+func SubOptionMonitorPodWorkers(workers int) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.Workers = workers
+	}
+}
+
 // SubOptionMonitorPodMetadataExtractor provides a way to specify metadata extractor for Kubernetes
 func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtractor) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
@@ -267,10 +303,24 @@ func SubOptionMonitorPodMetadataExtractor(extractor extractors.PodMetadataExtrac
 	}
 }
 
+// SubOptionMonitorSandboxExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorSandboxExtractor(extractor extractors.PodSandboxExtractor) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.SandboxExtractor = extractor
+	}
+}
+
 // SubOptionMonitorPodNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
 func SubOptionMonitorPodNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
 		cfg.NetclsProgrammer = netclsprogrammer
+	}
+}
+
+// SubOptionMonitorPodPidsSetMaxProcsProgrammer provides a way to program the pids cgroup for pods in Kubernetes
+func SubOptionMonitorPodPidsSetMaxProcsProgrammer(pidsprogrammer extractors.PodPidsSetMaxProcsProgrammer) PodMonitorOption {
+	return func(cfg *podmonitor.Config) {
+		cfg.PidsSetMaxProcsProgrammer = pidsprogrammer
 	}
 }
 

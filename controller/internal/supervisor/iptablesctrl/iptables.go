@@ -16,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
@@ -80,14 +81,14 @@ type iptables struct {
 	excludedNetworksSet   provider.Ipset
 	cfg                   *runtime.Configuration
 	contextIDToPortSetMap cache.DataStore
-	serviceIDToIPsets     map[string]*ipsetInfo
-	puToServiceIDs        map[string][]string
+	aclmanager            ipsetmanager.ACLManager
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
 type IPImpl interface {
 	provider.IptablesProvider
 	GetIPSetPrefix() string
+	IPsetVersion() int
 	GetIPSetParam() *ipset.Params
 	ProtocolAllowed(proto string) bool
 	IPFilter() func(net.IP) bool
@@ -122,7 +123,7 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType) *iptables {
+func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
 
 	return &iptables{
 		impl:                  impl,
@@ -133,8 +134,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
-		serviceIDToIPsets:     map[string]*ipsetInfo{},
-		puToServiceIDs:        map[string][]string{},
+		aclmanager:            aclmanager,
 	}
 }
 
@@ -169,7 +169,6 @@ func (i *iptables) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Cleaning the iptable rules")
-
 		i.CleanUp() // nolint
 	}()
 
@@ -261,7 +260,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	return nil
 }
 
-func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
+func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, dnsProxyPort string, puType common.PUType) error {
 	cfg, err := i.newACLInfo(version, contextID, nil, puType)
 	if err != nil {
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
@@ -275,7 +274,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	cfg.UID = username
 	cfg.PUType = puType
 	cfg.ProxyPort = proxyPort
-
+	cfg.DNSProxyPort = dnsProxyPort
 	// We clean up the chain rules first, so that we can delete the chains.
 	// If any rule is not deleted, then the chain will show as busy.
 	if err := i.deleteChainRules(cfg); err != nil {
@@ -306,10 +305,6 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
 	}
 
-	// Destroy all the ACL related IPSets that were created
-	// on demand for any external services.
-	i.destroyACLIPsets(contextID)
-
 	return nil
 }
 
@@ -335,7 +330,8 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	// Install all the new rules. The hooks to the new chains are appended
 	// and do not take effect yet.
 	if err := i.installRules(newCfg, containerInfo); err != nil {
-		return nil
+		zap.L().Error("unable to install rules on update", zap.Error(err))
+		return err
 	}
 
 	// Remove mapping from old chain. By removing the old hooks the new
@@ -354,13 +350,11 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	// Sync all the IPSets with any new information coming from the policy.
-	i.synchronizePUACLs(contextID, policyrules.ApplicationACLs(), policyrules.NetworkACLs())
-
 	return nil
 }
 
 func (i *iptables) CleanUp() error {
+
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
@@ -499,237 +493,34 @@ func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ip
 	return targetSets[targetTCPSet], targetSets[targetUDPSet], targetSets[excludedSet], nil
 }
 
-type ipsetInfo struct {
-	ipset      string
-	ips        map[string]bool
-	contextIDs map[string]bool
-}
-
 type aclIPset struct {
-	ipset      string
-	ports      []string
-	protocols  []string
-	extensions []string
-	policy     *policy.FlowPolicy
+	ipset string
+	*policy.IPRule
 }
 
-func addToIPset(set provider.Ipset, data string) error {
+func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
-	// ipset can not program this rule
-	if data == IPv4DefaultIP {
-		if err := addToIPset(set, "0.0.0.0/1"); err != nil {
-			return err
-		}
+	ipsets := i.aclmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
 
-		return addToIPset(set, "128.0.0.0/1")
+	aclIPsets := make([]aclIPset, len(ipsets))
+
+	for i, ipset := range ipsets {
+		aclIPsets[i] = aclIPset{ipset, &ipRules[i]}
 	}
 
-	// ipset can not program this rule
-	if data == IPv6DefaultIP {
-		if err := addToIPset(set, "::/1"); err != nil {
-			return err
-		}
-
-		return addToIPset(set, "8000::/1")
-	}
-
-	return set.Add(data, 0)
-}
-
-func delFromIPset(set provider.Ipset, data string) error {
-
-	if data == IPv4DefaultIP {
-		if err := delFromIPset(set, "0.0.0.0/1"); err != nil {
-			return err
-		}
-
-		return delFromIPset(set, "128.0.0.0/1")
-	}
-
-	if data == IPv6DefaultIP {
-		if err := delFromIPset(set, "::/1"); err != nil {
-			return err
-		}
-
-		return delFromIPset(set, "8000::/1")
-	}
-
-	return set.Del(data)
-}
-
-func (i *iptables) removePUFromExternalNetworks(contextID string, serviceID string) {
-
-	info := i.serviceIDToIPsets[serviceID]
-	if info == nil {
-		return
-	}
-
-	delete(info.contextIDs, contextID)
-
-	if len(info.contextIDs) == 0 {
-		ips := i.ipset.GetIpset(info.ipset)
-		if err := ips.Destroy(); err != nil {
-			zap.L().Warn("Failed to destroy ipset " + info.ipset)
-		}
-
-		delete(i.serviceIDToIPsets, serviceID)
-	}
-}
-
-func (i *iptables) destroyACLIPsets(contextID string) {
-	for serviceID, info := range i.serviceIDToIPsets {
-		if info.contextIDs[contextID] {
-			i.removePUFromExternalNetworks(contextID, serviceID)
-		}
-	}
-}
-
-func (i *iptables) synchronizePUACLs(contextID string, appACLs, netACLs policy.IPRuleList) {
-	var newPUExternalNetworks []string //nolint
-
-	for _, rule := range appACLs {
-		newPUExternalNetworks = append(newPUExternalNetworks, rule.Policy.ServiceID)
-	}
-
-	for _, rule := range netACLs {
-		newPUExternalNetworks = append(newPUExternalNetworks, rule.Policy.ServiceID)
-	}
-F1:
-	for _, oldServiceID := range i.puToServiceIDs[contextID] {
-		for _, newServiceID := range newPUExternalNetworks {
-			if newServiceID == oldServiceID {
-				continue F1
-			}
-		}
-
-		i.removePUFromExternalNetworks(contextID, oldServiceID)
-	}
-
-	i.puToServiceIDs[contextID] = newPUExternalNetworks
-}
-
-func (i *iptables) createACLIPSets(contextID string, rules policy.IPRuleList) ([]aclIPset, error) {
-	var info *ipsetInfo
-
-	ipFilter := i.impl.IPFilter()
-	ipsetPrefix := i.impl.GetIPSetPrefix()
-	ipsetParams := i.impl.GetIPSetParam()
-
-	hashServiceID := func(serviceID string) string {
-		hash := murmur3.New64()
-		if _, err := io.WriteString(hash, serviceID); err != nil {
-			return ""
-		}
-
-		return base64.URLEncoding.EncodeToString(hash.Sum(nil))
-	}
-
-	acls := make([]aclIPset, len(rules))
-
-	for _, rule := range rules {
-
-		if i.serviceIDToIPsets[rule.Policy.ServiceID] == nil {
-			ips := map[string]bool{}
-
-			ipsetName := puPortSetName(contextID, ipsetPrefix+"ext-"+hashServiceID(rule.Policy.ServiceID))
-			set, err := i.ipset.NewIpset(ipsetName, "hash:net", ipsetParams)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, address := range rule.Addresses {
-				netIP := net.ParseIP(address)
-				if netIP == nil {
-					netIP, _, _ = net.ParseCIDR(address)
-				}
-
-				if !ipFilter(netIP) {
-					continue
-				}
-
-				if err := addToIPset(set, address); err != nil {
-					return nil, err
-				}
-				ips[address] = true
-			}
-
-			mapCID := map[string]bool{}
-			mapCID[contextID] = true
-
-			info = &ipsetInfo{ipset: ipsetName,
-				ips:        ips,
-				contextIDs: mapCID,
-			}
-
-			i.serviceIDToIPsets[rule.Policy.ServiceID] = info
-		} else {
-			info = i.serviceIDToIPsets[rule.Policy.ServiceID]
-			newips := map[string]bool{}
-
-			for _, address := range rule.Addresses {
-
-				netIP := net.ParseIP(address)
-				if netIP == nil {
-					netIP, _, _ = net.ParseCIDR(address)
-				}
-
-				if !ipFilter(netIP) {
-					continue
-				}
-
-				// add new entries
-				if !info.ips[address] {
-					if err := addToIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
-						return nil, err
-					}
-					newips[address] = true
-				} else {
-					newips[address] = true
-					info.ips[address] = false
-				}
-			}
-			// Remove the old entries
-			for address, val := range info.ips {
-				if val {
-					if err := delFromIPset(i.ipset.GetIpset(info.ipset), address); err != nil {
-						return nil, err
-					}
-				}
-			}
-
-			info.ips = newips
-			info.contextIDs[contextID] = true
-		}
-
-		acls = append(acls, aclIPset{
-			ipset:      info.ipset,
-			ports:      rule.Ports,
-			protocols:  rule.Protocols,
-			extensions: rule.Extensions,
-			policy:     rule.Policy,
-		})
-	}
-
-	return acls, nil
+	return aclIPsets
 }
 
 // Install rules will install all the rules and update the port sets.
 func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
-	var err error
-	var appACLIPset, netACLIPset []aclIPset
 	policyrules := containerInfo.Policy
 
 	if err := i.updateProxySet(containerInfo.Policy, cfg.ProxySetName); err != nil {
 		return err
 	}
 
-	if appACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.ApplicationACLs()); err != nil {
-		return err
-	}
-
-	if netACLIPset, err = i.createACLIPSets(cfg.ContextID, policyrules.NetworkACLs()); err != nil {
-		return err
-	}
+	appACLIPset := i.getACLIPSets(policyrules.ApplicationACLs())
+	netACLIPset := i.getACLIPSets(policyrules.NetworkACLs())
 
 	// Install the PU specific chain first.
 	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
@@ -752,15 +543,20 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
 
-	if err := i.addExternalACLs(cfg.ContextID, cfg.AppChain, cfg.NetChain, appACLIPset, true); err != nil {
+	if err := i.addExternalACLs(cfg, cfg.AppChain, cfg.NetChain, appACLIPset, true); err != nil {
 		return err
 	}
 
-	if err := i.addExternalACLs(cfg.ContextID, cfg.NetChain, cfg.AppChain, netACLIPset, false); err != nil {
+	if err := i.addExternalACLs(cfg, cfg.NetChain, cfg.AppChain, netACLIPset, false); err != nil {
 		return err
 	}
 
-	return i.addPacketTrap(cfg, isHostPU)
+	appAnyRules, netAnyRules, err := i.getProtocolAnyRules(cfg, appACLIPset, netACLIPset)
+	if err != nil {
+		return err
+	}
+
+	return i.addPacketTrap(cfg, isHostPU, appAnyRules, netAnyRules)
 }
 
 // puPortSetName returns the name of the pu portset.

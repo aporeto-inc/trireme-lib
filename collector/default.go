@@ -35,11 +35,16 @@ func (d *DefaultCollector) CollectPacketEvent(report *PacketReport) {}
 // CollectCounterEvent collect counters from the datapath
 func (d *DefaultCollector) CollectCounterEvent(report *CounterReport) {}
 
+// CollectDNSRequests collect counters from the datapath
+func (d *DefaultCollector) CollectDNSRequests(report *DNSRequestReport) {}
+
 // StatsFlowHash is a hash function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
 	hash := xxhash.New()
 	hash.Write([]byte(r.Source.ID))      // nolint errcheck
 	hash.Write([]byte(r.Destination.ID)) // nolint errcheck
+	hash.Write([]byte(r.Source.IP))      // nolint errcheck
+	hash.Write([]byte(r.Destination.IP)) // nolint errcheck
 	port := make([]byte, 2)
 	binary.BigEndian.PutUint16(port, r.Destination.Port)
 	hash.Write(port)                              // nolint errcheck

@@ -14,6 +14,11 @@ func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 	return nil
 }
 
+// AssignRootMark assings the value at the root.
+func (s *netCls) AssignRootMark(mark uint64) error {
+	return nil
+}
+
 //AddProcess adds the process to the net_cls group
 func (s *netCls) AddProcess(cgroupname string, pid int) error {
 	return nil

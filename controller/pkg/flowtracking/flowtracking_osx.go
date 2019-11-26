@@ -38,3 +38,8 @@ func (c *Client) UpdateNetworkFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcp
 func (c *Client) UpdateApplicationFlowMark(ipSrc, ipDst net.IP, protonum uint8, srcport, dstport uint16, newmark uint32) error {
 	return nil
 }
+
+// GetOriginalDest gets the original destination ip, port and the mark on the packet
+func (c *Client) GetOriginalDest(ipSrc, ipDst net.IP, srcport, dstport uint16, protonum uint8) (net.IP, uint16, uint32, error) {
+	return nil, 0, 0, nil
+}

@@ -1,6 +1,15 @@
 package secrets
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
+
+// LockedSecrets provides a way to use secrets where shared read access is required. The user becomes responsible for unlocking when done using them.
+// The implementation should lock the access to secrets for reading, and pass down the function for unlocking.
+type LockedSecrets interface {
+	Secrets() (Secrets, func())
+}
 
 // Secrets is an interface implementing secrets
 type Secrets interface {
@@ -14,7 +23,7 @@ type Secrets interface {
 	// on the wire.
 	TransmittedKey() []byte
 	// KeyAndClaims will verify the public key and return any claims that are part of the key.
-	KeyAndClaims(pkey []byte) (interface{}, []string, error)
+	KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error)
 	// AckSize calculates the size of the ACK packet based on the keys.
 	AckSize() uint32
 	// PublicSecrets returns the PEM formated secrets to be transmitted over the RPC interface.

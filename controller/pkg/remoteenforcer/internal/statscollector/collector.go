@@ -14,6 +14,7 @@ func NewCollector() Collector {
 		ProcessedUsers:        map[string]bool{},
 		DatapathPacketReports: []*collector.PacketReport{},
 		CounterReports:        []*collector.CounterReport{},
+		DNSReport:             make(chan *collector.DNSRequestReport),
 	}
 }
 
@@ -30,5 +31,6 @@ type collectorImpl struct {
 	Users                 map[string]*collector.UserRecord
 	DatapathPacketReports []*collector.PacketReport
 	CounterReports        []*collector.CounterReport
+	DNSReport             chan *collector.DNSRequestReport
 	sync.Mutex
 }

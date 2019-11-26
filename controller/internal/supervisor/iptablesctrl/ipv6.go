@@ -5,8 +5,9 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.uber.org/zap"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 )
 
 const (
@@ -21,10 +22,6 @@ type ipv6 struct {
 }
 
 var ipsetV6Param *ipset.Params
-
-const (
-	ipv6Disabled = false
-)
 
 func init() {
 	ipsetV6Param = &ipset.Params{HashFamily: "inet6"}
@@ -42,12 +39,15 @@ func GetIPv6Impl() (IPImpl, error) {
 		}
 	}
 
-	zap.L().Error("Unable to initialize ipv6 iptables :%s", zap.Error(err))
-	return &ipv6{ipv6Disabled: true}, nil
+	return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil
 }
 
 func (i *ipv6) GetIPSetPrefix() string {
 	return chainPrefix + ipv6String
+}
+
+func (i *ipv6) IPsetVersion() int {
+	return ipsetmanager.IPsetV6
 }
 
 func (i *ipv6) GetIPSetParam() *ipset.Params {

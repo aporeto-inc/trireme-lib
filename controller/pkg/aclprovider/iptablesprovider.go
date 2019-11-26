@@ -53,6 +53,7 @@ type BatchProvider struct {
 	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
 	restoreCmd string
+	quote      bool
 }
 
 const (
@@ -83,6 +84,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
+		quote:       true,
 	}
 
 	b.commitFunc = b.restore
@@ -113,6 +115,7 @@ func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV6,
+		quote:       true,
 	}
 
 	b.commitFunc = b.restore
@@ -157,6 +160,8 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		b.rules[table][chain] = []string{}
 	}
 
+	b.quoteRulesSpec(rulespec)
+
 	rule := strings.Join(rulespec, " ")
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
 	return nil
@@ -180,6 +185,8 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 	if _, ok := b.rules[table][chain]; !ok {
 		b.rules[table][chain] = []string{}
 	}
+
+	b.quoteRulesSpec(rulespec)
 
 	rule := strings.Join(rulespec, " ")
 
@@ -213,6 +220,8 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 		return nil
 	}
 
+	b.quoteRulesSpec(rulespec)
+
 	rule := strings.Join(rulespec, " ")
 	for index, r := range b.rules[table][chain] {
 		if rule == r {
@@ -240,7 +249,29 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	b.Lock()
 	defer b.Unlock()
 
-	return b.ipt.ListChains(table)
+	chains, err := b.ipt.ListChains(table)
+	if err != nil {
+		return []string{}, err
+	}
+
+	if _, ok := b.batchTables[table]; !ok || b.rules[table] == nil {
+		return chains, nil
+	}
+
+	for _, chain := range chains {
+		if _, ok := b.rules[table][chain]; !ok {
+			b.rules[table][chain] = []string{}
+		}
+	}
+
+	allChains := make([]string, len(b.rules[table]))
+	i := 0
+	for chain := range b.rules[table] {
+		allChains[i] = chain
+		i++
+	}
+
+	return allChains, nil
 }
 
 // ClearChain will clear the chains.
@@ -369,6 +400,17 @@ func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
 	}
 	return nil
+}
+
+func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
+
+	if !b.quote {
+		return
+	}
+
+	for i, rule := range rulesspec {
+		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
+	}
 }
 
 func restoreHasWait(restoreCmd string) bool {

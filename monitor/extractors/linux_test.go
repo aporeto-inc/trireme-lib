@@ -19,14 +19,14 @@ import (
 func TestComputeFileMd5(t *testing.T) {
 
 	Convey("When I calculate the MD5 of a bad file", t, func() {
-		_, err := computeFileMd5("testdata/nofile")
+		_, err := ComputeFileMd5("testdata/nofile")
 		Convey("I should get an error", func() {
 			So(err, ShouldNotBeNil)
 		})
 	})
 
 	Convey("When I calculate the MD5 of a good file", t, func() {
-		hash, err := computeFileMd5("testdata/curl")
+		hash, err := ComputeFileMd5("testdata/curl")
 		Convey("I should get no error and the right value", func() {
 			So(err, ShouldBeNil)
 			So(hex.EncodeToString(hash), ShouldResemble, "bf7e66d7bbd0465cfcba5b1cf68a9b59")
@@ -50,7 +50,7 @@ func TestFindFQDN(t *testing.T) {
 func TestLibs(t *testing.T) {
 
 	Convey("When I try to get the libraries of a known binary", t, func() {
-		libraries := libs("./testdata/curl")
+		libraries := Libs("./testdata/curl")
 		Convey("I should get the execpted libraries", func() {
 			So(len(libraries), ShouldEqual, 4)
 			So(libraries, ShouldContain, "libcurl-gnutls.so.4")
@@ -62,7 +62,7 @@ func TestLibs(t *testing.T) {
 
 	Convey("When I try to get the libraries of a bad binary", t, func() {
 
-		libraries := libs("./testdata/nofile")
+		libraries := Libs("./testdata/nofile")
 		Convey("I should get an empty array", func() {
 			So(len(libraries), ShouldEqual, 0)
 		})

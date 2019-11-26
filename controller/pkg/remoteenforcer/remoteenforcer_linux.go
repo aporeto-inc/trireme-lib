@@ -12,10 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -24,11 +21,15 @@ import (
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -56,7 +57,10 @@ func newRemoteEnforcer(
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
 	counterClient counterclient.CounterClient,
+	dnsReportClient dnsreportclient.DNSReportClient,
+	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
+	enforcerType policy.EnforcerType,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -85,24 +89,47 @@ func newRemoteEnforcer(
 			return nil, err
 		}
 	}
+
+	if dnsReportClient == nil {
+		dnsReportClient, err = dnsreportclient.NewDNSReportClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if tokenIssuer == nil {
+		tokenIssuer, err = tokenissuer.NewClient()
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
+	ips := provider.NewGoIPsetProvider()
+	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
+
 	return &RemoteEnforcer{
-		collector:      collector,
-		service:        service,
-		rpcSecret:      secret,
-		rpcHandle:      rpcHandle,
-		procMountPoint: procMountPoint,
-		statsClient:    statsClient,
-		debugClient:    debugClient,
-		counterClient:  counterClient,
-		ctx:            ctx,
-		cancel:         cancel,
-		exit:           make(chan bool),
-		zapConfig:      zapConfig,
+		collector:       collector,
+		service:         service,
+		rpcSecret:       secret,
+		rpcHandle:       rpcHandle,
+		procMountPoint:  procMountPoint,
+		statsClient:     statsClient,
+		debugClient:     debugClient,
+		counterClient:   counterClient,
+		dnsReportClient: dnsReportClient,
+		ctx:             ctx,
+		cancel:          cancel,
+		exit:            make(chan bool),
+		zapConfig:       zapConfig,
+		tokenIssuer:     tokenIssuer,
+		enforcerType:    enforcerType,
+		aclmanager:      aclmanager,
 	}, nil
 }
 
@@ -173,6 +200,17 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		resp.Status = "CounterClient" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
+
+	if err = s.dnsReportClient.Run(s.ctx); err != nil {
+		resp.Status = "DNSReportClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.tokenIssuer.Run(s.ctx); err != nil {
+		resp.Status = "TokenIssuer" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
 	resp.Status = ""
 
 	return nil
@@ -368,7 +406,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
 
-	if err := s.enforcer.EnableDatapathPacketTracing(payload.ContextID, payload.Direction, payload.Interval); err != nil {
+	if err := s.enforcer.EnableDatapathPacketTracing(context.TODO(), payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -469,6 +507,13 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		return err
 	}
 
+	// we are usually always starting RemoteContainer enforcers,
+	// however, if envoy is requested, we change the mode to RemoteContainerEnvoyAuthorizer
+	mode := constants.RemoteContainer
+	if s.enforcerType == policy.EnvoyAuthorizerEnforcer {
+		mode = constants.RemoteContainerEnvoyAuthorizer
+	}
+
 	if s.enforcer, err = createEnforcer(
 		payload.MutualAuth,
 		payload.FqConfig,
@@ -477,11 +522,14 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		s.secrets,
 		payload.ServerID,
 		payload.Validity,
-		constants.RemoteContainer,
+		mode,
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
 		payload.Configuration,
+		s.tokenIssuer,
+		payload.BinaryTokens,
+		s.aclmanager,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -491,12 +539,20 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload) error {
 
+	// we are usually always starting RemoteContainer enforcers,
+	// however, if envoy is requested, we change the mode to RemoteContainerEnvoyAuthorizer
+	mode := constants.RemoteContainer
+	if s.enforcerType == policy.EnvoyAuthorizerEnforcer {
+		mode = constants.RemoteContainerEnvoyAuthorizer
+	}
+
 	h, err := createSupervisor(
 		s.collector,
 		s.enforcer,
-		constants.RemoteContainer,
+		mode,
 		payload.Configuration,
 		s.service,
+		s.aclmanager,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to setup supervisor: %s", err)
@@ -552,8 +608,13 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 		return err
 	}
 
+	enforcerType, err := policy.EnforcerTypeFromString(os.Getenv(constants.EnvEnforcerType))
+	if err != nil {
+		return err
+	}
+
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig, enforcerType)
 	if err != nil {
 		return err
 	}
@@ -596,17 +657,6 @@ func validateNamespace() error {
 	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
 	if nsEnterState != "" {
 		return fmt.Errorf("nsErr: %s nsLogs: %s", nsEnterState, nsEnterLogMsg)
-	}
-
-	pid := strconv.Itoa(os.Getpid())
-	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	if err != nil {
-		zap.L().Warn("Unable to identity namespace - ip netns commands not available", zap.Error(err))
-	}
-
-	netnsString := strings.TrimSpace(string(netns))
-	if netnsString == "" {
-		zap.L().Warn("Unable to identity namespace - ip netns commands returned empty and will not be available")
 	}
 
 	return nil

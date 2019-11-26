@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -82,13 +83,13 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 // for cleaning all ACLs and associated chains, as well as ll the sets
 // that we have created. Note, that this only clears up the state
 // for a given processing unit.
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, puType common.PUType) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, dnsProxyPort string, puType common.PUType) error {
 
-	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
+	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, dnsProxyPort, puType); err != nil {
 		zap.L().Warn("Delete rules for iptables v4 returned error")
 	}
 
-	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, puType); err != nil {
+	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, dnsProxyPort, puType); err != nil {
 		zap.L().Warn("Delete rules for iptables v6 returned error")
 	}
 
@@ -130,20 +131,19 @@ func (i *Instance) CleanUp() error {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) (*Instance, error) {
 
 	ips := provider.NewGoIPsetProvider()
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
-	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode)
-
+	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode, aclmanager)
 	ipv6Impl, err := GetIPv6Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
-	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode, aclmanager)
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }

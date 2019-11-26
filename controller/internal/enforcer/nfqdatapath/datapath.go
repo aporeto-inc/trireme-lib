@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"sync"
 	"time"
 
 	"go.aporeto.io/trireme-lib/buildflags"
@@ -13,12 +14,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
@@ -111,7 +114,9 @@ type Datapath struct {
 	ackSize uint32
 
 	// conntrack is the conntrack client
-	conntrack *flowtracking.Client
+	conntrack  flowtracking.FlowClient
+	dnsProxy   *dnsproxy.Proxy
+	aclmanager ipsetmanager.ACLManager
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -121,6 +126,8 @@ type Datapath struct {
 
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
+
+	logLevelLock sync.RWMutex
 }
 
 type tracingCacheEntry struct {
@@ -167,6 +174,7 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
+	aclmanager ipsetmanager.ACLManager,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -204,7 +212,7 @@ func New(
 	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 
 	if err != nil {
-		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+		zap.L().Error("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
 	d := &Datapath{
@@ -229,23 +237,23 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
-
-		packetTracingCache:     cache.NewCache("PacketTracingCache"),
-		targetNetworks:         acls.NewACLCache(),
-		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
-		filterQueue:            filterQueue,
-		mutualAuthorization:    mutualAuth,
-		service:                service,
-		collector:              collector,
-		tokenAccessor:          tokenaccessor,
-		secrets:                secrets,
-		ackSize:                secrets.AckSize(),
-		mode:                   mode,
-		procMountPoint:         procMountPoint,
-		packetLogs:             packetLogs,
-		udpSocketWriter:        udpSocketWriter,
-		puToPortsMap:           map[string]map[string]bool{},
-		puCountersChannel:      make(chan *pucontext.PUContext, 220),
+		packetTracingCache:           cache.NewCache("PacketTracingCache"),
+		targetNetworks:               acls.NewACLCache(),
+		ExternalIPCacheTimeout:       ExternalIPCacheTimeout,
+		filterQueue:                  filterQueue,
+		mutualAuthorization:          mutualAuth,
+		service:                      service,
+		collector:                    collector,
+		tokenAccessor:                tokenaccessor,
+		secrets:                      secrets,
+		ackSize:                      secrets.AckSize(),
+		mode:                         mode,
+		procMountPoint:               procMountPoint,
+		packetLogs:                   packetLogs,
+		udpSocketWriter:              udpSocketWriter,
+		puToPortsMap:                 map[string]map[string]bool{},
+		puCountersChannel:            make(chan *pucontext.PUContext, 220),
+		aclmanager:                   aclmanager,
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -270,6 +278,7 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	aclmanager ipsetmanager.ACLManager,
 ) *Datapath {
 
 	if collector == nil {
@@ -278,14 +287,14 @@ func NewWithDefaults(
 
 	defaultMutualAuthorization := false
 	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := time.Hour * 8760
+	defaultValidity := constants.DatapathTokenValidity
 	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
 	defaultPacketLogs := false
 
-	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets, false)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
 	}
@@ -307,6 +316,7 @@ func NewWithDefaults(
 		tokenAccessor,
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
+		aclmanager,
 	)
 
 	conntrackClient, err := flowtracking.NewClient(context.Background())
@@ -314,6 +324,8 @@ func NewWithDefaults(
 		return nil
 	}
 	e.conntrack = conntrackClient
+
+	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector, e.aclmanager)
 
 	return e
 }
@@ -433,10 +445,11 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromIP = pu
 	}
 
-	// pucontext launches a go routine to periodically
-	// lookup dns names. ctx cancel signals the go routine to exit
-	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
-		prevPU.(*pucontext.PUContext).CancelFunc()
+	// start the dns proxy server for the first time.
+	if _, err := d.puFromContextID.Get(contextID); err != nil {
+		if err := d.dnsProxy.StartDNSServer(contextID, puInfo.Policy.DNSProxyPort()); err != nil {
+			zap.L().Error("could not start dns server for PU", zap.String("contexID", contextID), zap.Error(err))
+		}
 	}
 
 	// Cache PU to its contextID hash.
@@ -528,6 +541,8 @@ func (d *Datapath) Unenforce(contextID string) error {
 		)
 	}
 
+	d.dnsProxy.ShutdownDNS(contextID)
+
 	return nil
 }
 
@@ -564,6 +579,10 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.conntrack = conntrackClient
 	}
 
+	if d.dnsProxy == nil {
+		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector, d.aclmanager)
+	}
+
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
 
@@ -579,8 +598,19 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
+// PacketLogsEnabled returns true if the packet logs are enabled.
+func (d *Datapath) PacketLogsEnabled() bool {
+	d.logLevelLock.RLock()
+	defer d.logLevelLock.RUnlock()
+
+	return d.packetLogs
+}
+
 // SetLogLevel sets log level.
 func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
+
+	d.logLevelLock.Lock()
+	defer d.logLevelLock.Unlock()
 
 	d.packetLogs = false
 	if level == constants.Trace {
@@ -688,7 +718,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
-func (d *Datapath) EnableDatapathPacketTracing(contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
 
 	if _, err := d.puFromContextID.Get(contextID); err != nil {
 		return fmt.Errorf("contextID %s does not exist", contextID)

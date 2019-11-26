@@ -66,6 +66,8 @@ type RemoteMonitor struct {
 	runtimeErrorChannel chan *policy.RuntimeError
 	// rpc is the rpc client to communicate with the remotes.
 	rpc rpcwrapper.RPCClient
+	// DisableLogWrite flag tells if we are running in kubernetes.
+	DisableLogWrite bool
 
 	sync.Mutex
 }
@@ -99,6 +101,7 @@ func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeErr
 		logWithID:                   p.LogWithID,
 		logLevel:                    p.LogLevel,
 		logFormat:                   p.LogFormat,
+		DisableLogWrite:             p.DisableLogWrite,
 		compressedTags:              p.CompressedTags,
 		runtimeErrorChannel:         c,
 		rpc:                         r,
@@ -119,6 +122,7 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	arg string,
 	statsServerSecret string,
 	procMountPoint string,
+	enforcerType policy.EnforcerType,
 ) (bool, error) {
 
 	// Locking here to get the procesinfo to avoid race conditions
@@ -212,9 +216,9 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		statsServerSecret,
 		refPid,
 		refNSPath,
+		enforcerType,
 	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
-
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
 		if err1 := os.Remove(contextFile); err1 != nil {
@@ -385,7 +389,9 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 	statsServerSecret string,
 	refPid int,
 	refNSPath string,
+	enforcerType policy.EnforcerType,
 ) []string {
+	disableLog := strconv.FormatBool(p.DisableLogWrite)
 
 	newEnvVars := []string{
 		constants.EnvMountPoint + "=" + procMountPoint,
@@ -397,6 +403,8 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
+		constants.EnvDisableLogWrite + "=" + disableLog,
+		constants.EnvEnforcerType + "=" + enforcerType.String(),
 	}
 
 	if p.compressedTags != claimsheader.CompressionTypeNone {

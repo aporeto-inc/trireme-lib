@@ -72,6 +72,7 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	// Setup config
 	l.proc.host = linuxConfig.Host
 	l.proc.ssh = linuxConfig.SSH
+
 	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_]{1,11}$")

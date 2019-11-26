@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -103,9 +102,9 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 			return nil, nil
 		}
 		if targetNetExternal {
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"1.1.1.1/31"}, nil)
 		} else {
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"}, nil)
 		}
 		enforcer.packetLogs = true
 		err1 = enforcer.Enforce(puID1, puInfo1)
@@ -122,10 +121,10 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		}
 
 		if targetNetExternal {
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"}, nil)
 		} else {
 
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"}, nil)
 		}
 
 		enforcer.packetLogs = true
@@ -221,7 +220,7 @@ func TestInvalidContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -262,7 +261,7 @@ func TestInvalidIPContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 
 		Convey("Then enforcer instance must be initialized", func() {
@@ -376,7 +375,7 @@ func TestInvalidTokenContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		enforcer.Enforce(testServerID, puInfo) // nolint
 
@@ -1257,7 +1256,7 @@ func TestCacheState(t *testing.T) {
 		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		contextID := "123"
 
@@ -1316,7 +1315,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "124"
@@ -1362,7 +1361,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 		contextID := "125"
@@ -1394,7 +1393,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		enforcer.mode = constants.RemoteContainer
 
@@ -1428,7 +1427,7 @@ func TestContextFromIP(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 
 		puInfo := policy.NewPUInfo("SomePU", "/ns", common.ContainerPU)
@@ -4343,7 +4342,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
-			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 			err1 := enforcer.Enforce(puID1, puInfo1)
 			err2 := enforcer.Enforce(puID2, puInfo2)
 			So(err1, ShouldBeNil)
@@ -4475,7 +4474,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 						So(puInfo1, ShouldNotBeNil)
@@ -4538,7 +4537,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 
@@ -4611,160 +4610,6 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 	})
 }
 
-func TestDNS(t *testing.T) {
-	externalFQDN := "google.com"
-	var err1, err2 error
-	var lock sync.Mutex
-
-	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
-		So(err, ShouldBeNil)
-		collector := &collector.DefaultCollector{}
-
-		// mock the call
-		prevRawSocket := GetUDPRawSocket
-		defer func() {
-			GetUDPRawSocket = prevRawSocket
-		}()
-		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-			return nil, nil
-		}
-
-		err1 = fmt.Errorf("net lookup not called")
-		// mock the call
-		origLookupHost := pucontext.LookupHost
-		defer func() {
-			pucontext.LookupHost = origLookupHost
-		}()
-
-		pucontext.LookupHost = func(name string) ([]string, error) {
-			defer lock.Unlock()
-			lock.Lock()
-			if name == externalFQDN {
-				err1 = nil
-				return []string{testDstIP}, nil
-			}
-
-			return nil, fmt.Errorf("Error")
-		}
-
-		puID1 := "SomePU"
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
-		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
-		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
-			Name:     externalFQDN,
-			Port:     "80",
-			Protocol: constants.TCPProtoNum,
-			Policy:   &policy.FlowPolicy{Action: policy.Accept},
-		}})
-
-		err2 = enforcer.Enforce(puID1, puInfo)
-		time.Sleep(5 * time.Second)
-		defer lock.Unlock()
-		lock.Lock()
-		So(err1, ShouldBeNil)
-		So(err2, ShouldBeNil)
-
-		PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, "10.0.0.0", 666, 80)
-		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-		So(err, ShouldBeNil)
-
-		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
-		So(err, ShouldBeNil)
-
-		tcpPacket, err := packet.New(0, synPacket, "0", true)
-		if err == nil && tcpPacket != nil {
-			tcpPacket.UpdateIPv4Checksum()
-			tcpPacket.UpdateTCPChecksum()
-		}
-		_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
-		So(err1, ShouldBeNil)
-	})
-}
-
-func TestDNSWithError(t *testing.T) {
-	externalFQDN := "google.com"
-	var err1, err2, err3 error
-	var lock sync.Mutex
-
-	Convey("Given an initialized enforcer for Linux container", t, func() {
-		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
-		So(err, ShouldBeNil)
-		collector := &collector.DefaultCollector{}
-
-		// mock the call
-		prevRawSocket := GetUDPRawSocket
-		defer func() {
-			GetUDPRawSocket = prevRawSocket
-		}()
-		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-			return nil, nil
-		}
-
-		err1 = fmt.Errorf("net lookup not called")
-		err3 = fmt.Errorf("Error")
-		// mock the call
-		origLookupHost := pucontext.LookupHost
-		defer func() {
-			pucontext.LookupHost = origLookupHost
-		}()
-
-		firstCall := 0
-		pucontext.LookupHost = func(name string) ([]string, error) {
-			defer lock.Unlock()
-			lock.Lock()
-			if firstCall < 3 {
-				err3 = nil
-				firstCall++
-				return nil, fmt.Errorf("Error")
-			}
-
-			if name == externalFQDN {
-				fmt.Println("return nil")
-				err1 = nil
-				return []string{testDstIP}, nil
-			}
-
-			return nil, fmt.Errorf("Error")
-		}
-
-		puID1 := "SomePU"
-		enforcer := NewWithDefaults(testServerID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
-		enforcer.packetLogs = true
-		puInfo := policy.NewPUInfo(puID1, "/ns1", common.ContainerPU)
-		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
-			Name:     externalFQDN,
-			Port:     "80",
-			Protocol: constants.TCPProtoNum,
-			Policy:   &policy.FlowPolicy{Action: policy.Accept},
-		}})
-
-		err2 = enforcer.Enforce(puID1, puInfo)
-		time.Sleep(12 * time.Second)
-		defer lock.Unlock()
-		lock.Lock()
-		So(err1, ShouldBeNil)
-		So(err2, ShouldBeNil)
-		So(err3, ShouldBeNil)
-
-		PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", testSrcIP, "10.0.0.0", 666, 80)
-		_, err = PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-		So(err, ShouldBeNil)
-
-		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
-		So(err, ShouldBeNil)
-
-		tcpPacket, err := packet.New(0, synPacket, "0", true)
-		if err == nil && tcpPacket != nil {
-			tcpPacket.UpdateIPv4Checksum()
-			tcpPacket.UpdateTCPChecksum()
-		}
-		_, err1 := enforcer.processApplicationTCPPackets(tcpPacket)
-		So(err1, ShouldBeNil)
-	})
-}
-
 func TestPUPortCreation(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
@@ -4784,7 +4629,7 @@ func TestPUPortCreation(t *testing.T) {
 		readFiles = mockfiles
 		lock.Unlock()
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
 		enforcer.packetLogs = true
 		enforcer.mode = constants.LocalServer
 
@@ -4824,7 +4669,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		So(err, ShouldBeNil)
 		Convey("We setup tcp network packet tracing for this pu with incomplete state", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4842,7 +4687,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		})
 		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil state", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4862,7 +4707,7 @@ func TestCollectTCPPacket(t *testing.T) {
 		})
 		Convey("We setup tcp network packet tracing for this pu with tcpConn != nil and inject application packet", func() {
 			interval := 10 * time.Second
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.NetworkOnly, interval)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.NetworkOnly, interval)
 			So(err, ShouldBeNil)
 			packetreport := collector.PacketReport{
 				DestinationIP: tcpPacket.DestinationAddress().String(),
@@ -4891,7 +4736,7 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
 		Convey("I enable packettracing on a PU", func() {
-			err := enforcer.EnableDatapathPacketTracing(puInfo1.ContextID, packettracing.ApplicationOnly, 10*time.Second)
+			err := enforcer.EnableDatapathPacketTracing(context.TODO(), puInfo1.ContextID, packettracing.ApplicationOnly, 10*time.Second)
 			So(err, ShouldBeNil)
 			_, err = enforcer.packetTracingCache.Get(puInfo1.ContextID)
 			So(err, ShouldBeNil)
