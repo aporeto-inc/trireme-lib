@@ -8,7 +8,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.uber.org/zap"
 )
 
 const (
@@ -31,9 +30,13 @@ func init() {
 // GetIPv6Impl creates the instance of ipv6 struct which implements
 // the interface ipImpl
 func GetIPv6Impl() (IPImpl, error) {
+
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
-	if err != nil {
-		zap.L().Error("Unable to initialize ipv6 iptables :%s", zap.Error(err))
+	if err == nil {
+		// test if the system supports ip6tables
+		if _, err = ipt.ListChains("mangle"); err == nil {
+			return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil
+		}
 	}
 
 	return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil

@@ -147,5 +147,5 @@ const (
 
 // Ipv6Disabled is a flag to disable ipv6 in trireme
 const (
-	Ipv6Disabled = true
+	Ipv6Disabled = false
 )
