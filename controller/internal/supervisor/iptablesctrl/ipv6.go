@@ -35,7 +35,7 @@ func GetIPv6Impl() (IPImpl, error) {
 	if err == nil {
 		// test if the system supports ip6tables
 		if _, err = ipt.ListChains("mangle"); err == nil {
-			return &ipv6{ipt: ipt, ipv6Disabled: ipv6Disabled}, nil
+			return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil
 		}
 	}
 
