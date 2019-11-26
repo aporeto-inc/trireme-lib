@@ -131,7 +131,7 @@ func TestPartialChecksum(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		var randBytes [1500]byte
 
-		rand.Read(randBytes[:])
+		rand.Read(randBytes[:]) // nolint
 
 		csum := checksum(randBytes[:])
 
@@ -427,19 +427,6 @@ func TestRawChecksums(t *testing.T) {
 	if c3 != 0xB1E6 {
 		t.Error("Third checksum calculation failed")
 	}
-}
-
-// createTCPAuthenticationOption creates the TCP authentication option -
-func createTCPAuthenticationOption(token []byte) []byte {
-
-	tokenLen := uint8(len(token))
-	options := []byte{TCPAuthenticationOption, 0, 0, 0}
-
-	if tokenLen != 0 {
-		options = append(options, token...)
-	}
-
-	return options
 }
 
 func TestAuthOptions(t *testing.T) {
