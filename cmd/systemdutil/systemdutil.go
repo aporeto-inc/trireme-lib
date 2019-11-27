@@ -3,7 +3,6 @@ package systemdutil
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -16,12 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
-
-var stderrlogger *log.Logger
-
-func init() {
-	stderrlogger = log.New(os.Stderr, "", 0)
-}
 
 // ExecuteCommandFromArguments processes the command from the arguments
 func ExecuteCommandFromArguments(arguments map[string]interface{}) error {
