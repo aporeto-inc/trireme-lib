@@ -664,7 +664,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", puInfoUpdated)
 						So(err, ShouldBeNil)
 
 						t := i.iptv6.impl.RetrieveTable()
@@ -1000,7 +1000,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv6.DeleteRules(0, "pu1", "0", "0", "10", "", "0", "0", common.ContainerPU)
+					err := i.iptv6.DeleteRules(0, "pu1", "0", "0", "10", "", puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv6.impl.RetrieveTable()

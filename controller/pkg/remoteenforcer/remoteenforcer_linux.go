@@ -110,7 +110,10 @@ func newRemoteEnforcer(
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
-	ips := provider.NewGoIPsetProvider()
+	ips, err := provider.NewGoIPsetProvider()
+	if err != nil {
+		return nil, err
+	}
 	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
 
 	return &RemoteEnforcer{

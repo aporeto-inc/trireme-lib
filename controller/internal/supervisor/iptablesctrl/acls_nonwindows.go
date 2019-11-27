@@ -5,6 +5,7 @@ package iptablesctrl
 import (
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +25,44 @@ func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 
 	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
+	}
+
+	return nil
+}
+
+// deletePUChains removes all the container specific chains and basic rules
+func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
+
+	if err := i.impl.ClearChain(appPacketIPTableContext, cfg.AppChain); err != nil {
+		zap.L().Warn("Failed to clear the container ack packets chain",
+			zap.String("appChain", cfg.AppChain),
+			zap.String("context", appPacketIPTableContext),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.impl.DeleteChain(appPacketIPTableContext, cfg.AppChain); err != nil {
+		zap.L().Warn("Failed to delete the container ack packets chain",
+			zap.String("appChain", cfg.AppChain),
+			zap.String("context", appPacketIPTableContext),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.impl.ClearChain(netPacketIPTableContext, cfg.NetChain); err != nil {
+		zap.L().Warn("Failed to clear the container net packets chain",
+			zap.String("netChain", cfg.NetChain),
+			zap.String("context", netPacketIPTableContext),
+			zap.Error(err),
+		)
+	}
+
+	if err := i.impl.DeleteChain(netPacketIPTableContext, cfg.NetChain); err != nil {
+		zap.L().Warn("Failed to delete the container net packets chain",
+			zap.String("netChain", cfg.NetChain),
+			zap.String("context", netPacketIPTableContext),
+			zap.Error(err),
+		)
 	}
 
 	return nil

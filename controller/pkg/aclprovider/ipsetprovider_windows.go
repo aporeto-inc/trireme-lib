@@ -118,8 +118,40 @@ func (i *ipsetProvider) ListIPSets() ([]string, error) {
 }
 
 // NewGoIPsetProvider Return a Go IPSet Provider
-func NewGoIPsetProvider() IpsetProvider {
-	return &ipsetProvider{}
+func NewGoIPsetProvider() (IpsetProvider, error) {
+
+	provider := &ipsetProvider{}
+
+	// create the all-ip ipsets for Windows. our Windows rules will refer to these.
+	// note that linux iptables rules use the iptables -d argument instead of defining a new ipset.
+
+	existingSets, err := provider.ListIPSets()
+	if err != nil {
+		return nil, err
+	}
+	if len(existingSets) > 0 {
+		// ipsets exist already
+		return provider, nil
+	}
+
+	allIPsV4, err := provider.NewIpset("TRI-v4-WindowsAllIPs", "hash:net", nil)
+	if err != nil {
+		return nil, err
+	}
+	allIPsV6, err := provider.NewIpset("TRI-v6-WindowsAllIPs", "hash:net", nil)
+	if err != nil {
+		return nil, err
+	}
+	err = allIPsV4.Add("0.0.0.0/0", 0)
+	if err != nil {
+		return nil, err
+	}
+	err = allIPsV6.Add("::/0", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider, nil
 }
 
 func (w *winIpSet) Add(entry string, timeout int) error {

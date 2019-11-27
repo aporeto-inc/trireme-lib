@@ -13,7 +13,10 @@ import (
 // CleanAllTriremeACLs cleans up all previous Trireme ACLs. It can be called from
 // other packages for housekeeping.
 func CleanAllTriremeACLs() error {
-	ips := provider.NewGoIPsetProvider()
+	ips, err := provider.NewGoIPsetProvider()
+	if err != nil {
+		return fmt.Errorf("unable to create ipset provider:  %s", err)
+	}
 	ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, ipsetmanager.CreateIPsetManager(ips, ips))
 	if err != nil {
 		return fmt.Errorf("unable to initialize cleaning iptables controller:  %s", err)

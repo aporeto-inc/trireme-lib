@@ -73,8 +73,8 @@ var acls = `
 // windows uses it as a final deny-all.
 var packetCaptureTemplate = `
 {{if isHostPU}}
--A HostPU-OUTPUT -j DROP -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
--A HostPU-INPUT -j DROP -j NFLOG --nflog-group 11 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
+-A HostPU-OUTPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs dstIP -j DROP -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
+-A HostPU-INPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs srcIP -j DROP -j NFLOG --nflog-group 11 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 {{end}}
 `
 
