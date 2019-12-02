@@ -145,7 +145,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
-		ClientAuth:               tls.RequestClientCert,
+		ClientAuth:               tls.VerifyClientCertIfGiven,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -158,6 +158,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 
 // newBaseTLSClientConfig creates the new basic TLS configuration for the client.
 func (p *Config) newBaseTLSClientConfig() *tls.Config {
+	fmt.Println("creating a new base TLS client config")
 	return &tls.Config{
 		GetCertificate:           p.GetCertificateFunc(),
 		NextProtos:               []string{"h2"},
@@ -175,6 +176,7 @@ func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*
 	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
+		fmt.Println("\n\n in GetClientCertificateFunc")
 		if p.cert != nil {
 			return p.cert, nil
 		}
@@ -192,7 +194,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if p.server != nil {
 		return fmt.Errorf("Server already running")
 	}
-
+	fmt.Println("\n\n Starting the RunNetworkServer")
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
@@ -290,6 +292,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		DialContext:         networkDialerWithContext,
 		MaxIdleConnsPerHost: 2000,
 		MaxIdleConns:        2000,
+		ForceAttemptHTTP2: true,
 	}
 
 	// Create an unencrypted transport for talking to the application. If encryption
@@ -404,7 +407,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
+	//fmt.Println("\n\n IN processAppRequest with requestURI and host: ", r.Re)
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	// Authorize the request by calling the authorizer library.
