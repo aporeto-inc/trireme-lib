@@ -341,7 +341,7 @@ func (d *Datapath) collectCounters() {
 		counters := val.(*pucontext.PUContext).GetErrorCounters()
 		d.collector.CollectCounterEvent(
 			&collector.CounterReport{
-				ContextID: keys.(string),
+				ContextID: val.(*pucontext.PUContext).ManagementID(),
 				Counters:  counters,
 				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 			})
