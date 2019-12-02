@@ -344,7 +344,9 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
-			report, packet := puContext.SearchTxtRules(claims.T, false)
+			tags := claims.T.Copy()
+			tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(downPort)))
+			report, packet := puContext.SearchTxtRules(tags, false)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")

@@ -543,9 +543,10 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.DestPort()))))
+	tags := claims.T.Copy()
+	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.DestPort()))))
 
-	report, pkt := context.SearchRcvRules(claims.T)
+	report, pkt := context.SearchRcvRules(tags)
 	if pkt.Action.Rejected() {
 		d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt, false)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrUDPSynDroppedPolicy, fmt.Sprintf("connection rejected because of policy: %s", claims.T.String()))
@@ -581,7 +582,12 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("SynAck packet dropped because of no claims"))
 	}
 
-	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	// Add the port as a label with an @ prefix. These labels are invalid otherwise
+	// If all policies are restricted by port numbers this will allow port-specific policies
+	tags := claims.T.Copy()
+	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.SourcePort()))))
+
+	report, pkt := context.SearchTxtRules(tags, !d.mutualAuthorization)
 	if pkt.Action.Rejected() {
 		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, report, pkt, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrUDPSynAckPolicy, fmt.Sprintf("dropping because of reject rule on transmitter: %s", claims.T.String()))

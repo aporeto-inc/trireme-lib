@@ -803,7 +803,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, claims, nil
 	}
 
-	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	// Add the port as a label with an @ prefix. These labels are invalid otherwise
+	// If all policies are restricted by port numbers this will allow port-specific policies
+	tags := claims.T.Copy()
+	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(int(tcpPacket.SourcePort()))))
+
+	report, pkt := context.SearchTxtRules(tags, !d.mutualAuthorization)
 
 	// Report and release traffic belonging to the same pu
 	if conn.Auth.RemoteContextID == context.ManagementID() {
