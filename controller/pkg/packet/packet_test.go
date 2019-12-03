@@ -1,11 +1,11 @@
 package packet
 
 import (
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type SamplePacketName int
@@ -131,7 +131,7 @@ func TestPartialChecksum(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		var randBytes [1500]byte
 
-		rand.Read(randBytes[:])
+		rand.Read(randBytes[:]) // nolint
 
 		csum := checksum(randBytes[:])
 
@@ -429,40 +429,26 @@ func TestRawChecksums(t *testing.T) {
 	}
 }
 
-// createTCPAuthenticationOption creates the TCP authentication option -
-func createTCPAuthenticationOption(token []byte) []byte {
-
-	tokenLen := uint8(len(token))
-	options := []byte{TCPAuthenticationOption, 0, 0, 0}
-
-	if tokenLen != 0 {
-		options = append(options, token...)
-	}
-
-	return options
-}
-
 func TestAuthOptions(t *testing.T) {
-	pkt := getTestPacket(t, synGoodTCPChecksum)
-	pkt.Print(123456, true)
 
-	if err := pkt.TCPDataDetach(4); err != nil {
-		t.Error("tcp data detach failed")
+	AuthpacketByte := []byte{0x45, 0x00, 0x00, 0x40, 0x7b, 0xd6, 0x40, 0x00, 0x40, 0x06, 0xcd, 0x9d, 0x0a, 0xb0, 0x48, 0x05, 0x0a, 0xb4, 0x93, 0xdf, 0x01, 0xbb, 0x87, 0x78, 0x2d, 0xa9, 0xaf, 0xf1, 0x4d, 0x89, 0xcc, 0xeb, 0xa0, 0x12, 0xff, 0xff, 0xe7, 0x64, 0x00, 0x00, 0x02, 0x04, 0x05, 0x50, 0x01, 0x03, 0x03, 0x0b, 0x04, 0x02, 0x08, 0x0a, 0xbd, 0x1c, 0x73, 0x43, 0x22, 0x63, 0x9b, 0x9d, 0x22, 0x4, 0x0, 0x0}
+
+	NonAuthpacketByte := []byte{0x45, 0x00, 0x00, 0x3c, 0x7b, 0xd6, 0x40, 0x00, 0x40, 0x06, 0xcd, 0x9d, 0x0a, 0xb0, 0x48, 0x05, 0x0a, 0xb4, 0x93, 0xdf, 0x01, 0xbb, 0x87, 0x78, 0x2d, 0xa9, 0xaf, 0xf1, 0x4d, 0x89, 0xcc, 0xeb, 0xa0, 0x12, 0xff, 0xff, 0xe7, 0x64, 0x00, 0x00, 0x02, 0x04, 0x05, 0x50, 0x01, 0x03, 0x03, 0x0b, 0x04, 0x02, 0x08, 0x0a, 0xbd, 0x1c, 0x73, 0x43, 0x22, 0x63, 0x9b, 0x0}
+
+	pkt, err := New(1, AuthpacketByte, "2", true)
+	if err != nil {
+		t.Errorf("Packet not parsed %s", err)
 	}
-
-	// We are now processing as a Trireme packet that needs authorization headers
-	// Create TCP Option
-	tcpOptions := createTCPAuthenticationOption([]byte{})
-	pkt.tcpHdr.tcpOptions = []byte{}
-	if err := pkt.TCPDataAttach(tcpOptions, []byte{}); err != nil {
-		t.Error("tcp data attach failed")
-	}
-
-	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPOptions()...)
-	pkt.ipHdr.Buffer = append(pkt.ipHdr.Buffer, pkt.GetTCPData()...)
-
 	if err := pkt.CheckTCPAuthenticationOption(4); err != nil {
-		t.Error("tcp auth option not found")
+		t.Errorf("There is no TCP AUTH Option")
+	}
+
+	pkt, err = New(1, NonAuthpacketByte, "2", true)
+	if err != nil {
+		t.Errorf("Packet not parsed %s", err)
+	}
+	if err = pkt.CheckTCPAuthenticationOption(4); err == nil {
+		t.Errorf("There is no TCP AUTH Option but we are reporting it")
 	}
 
 }
