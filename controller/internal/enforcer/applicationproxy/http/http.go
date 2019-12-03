@@ -141,11 +141,12 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 // newBaseTLSConfig creates the new basic TLS configuration for the server.
 func (p *Config) newBaseTLSConfig() *tls.Config {
 	return &tls.Config{
-		GetCertificate:           p.GetCertificateFunc(),
+		GetCertificate:           p.GetCertificateFunc,
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
 		ClientAuth:               tls.VerifyClientCertIfGiven,
+		ClientCAs: p.ca,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -158,13 +159,12 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 
 // newBaseTLSClientConfig creates the new basic TLS configuration for the client.
 func (p *Config) newBaseTLSClientConfig() *tls.Config {
-	fmt.Println("creating a new base TLS client config")
 	return &tls.Config{
-		GetCertificate:           p.GetCertificateFunc(),
+		GetCertificate:           p.GetCertificateFunc,
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
-		GetClientCertificate:     p.GetClientCertificateFunc(),
+		GetClientCertificate:     p.GetClientCertificateFunc,
 		// for now lets make it TLS1.2 as supported max Version.
 		// TODO: Need to test before enabling TLS 1.3, currently TLS 1.3 doesn't work with envoy.
 		MaxVersion: tls.VersionTLS12,
@@ -172,16 +172,13 @@ func (p *Config) newBaseTLSClientConfig() *tls.Config {
 }
 
 // GetClientCertificateFunc returns the certificate that will be used by the Proxy as a client during the TLS
-func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *Config) GetClientCertificateFunc( _ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
-		fmt.Println("\n\n in GetClientCertificateFunc")
 		if p.cert != nil {
 			return p.cert, nil
 		}
 		return nil, nil
-	}
 }
 
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
@@ -194,7 +191,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if p.server != nil {
 		return fmt.Errorf("Server already running")
 	}
-	fmt.Println("\n\n Starting the RunNetworkServer")
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
@@ -375,8 +371,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
-func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
 		// First we check if this is a direct access to the public port. In this case
@@ -401,13 +396,12 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 			return p.cert, nil
 		}
 		return nil, fmt.Errorf("no cert available - cert is nil")
-	}
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-	//fmt.Println("\n\n IN processAppRequest with requestURI and host: ", r.Re)
+
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	// Authorize the request by calling the authorizer library.
