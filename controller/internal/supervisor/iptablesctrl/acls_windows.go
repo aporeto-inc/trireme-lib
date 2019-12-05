@@ -11,6 +11,8 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	winipt "go.aporeto.io/trireme-lib/controller/internal/windows"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/policy"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.uber.org/zap"
@@ -34,6 +36,49 @@ func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 		if err := i.impl.NewChain(rule[1], rule[3]); err != nil {
 			return fmt.Errorf("unable to add chain %s of context %s %s", rule[3], rule[1], err)
 		}
+	}
+
+	return nil
+}
+
+// deletePUChains removes all the container specific chains and basic rules
+func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
+
+	// For Windows, instead of clearing and deleting the app-chain and the net-chain, we need to
+	// delete individual rules. This is because Windows uses non-PU-specific chains.
+
+	// delete ACLs rules for Windows
+	appACLIPset := i.getACLIPSets(containerInfo.Policy.ApplicationACLs())
+	netACLIPset := i.getACLIPSets(containerInfo.Policy.NetworkACLs())
+
+	if err := i.deleteExternalACLs(cfg, cfg.AppChain, cfg.NetChain, appACLIPset, true); err != nil {
+		zap.L().Warn("Failed to delete ACL rules for app chain", zap.Error(err))
+	}
+
+	if err := i.deleteExternalACLs(cfg, cfg.NetChain, cfg.AppChain, netACLIPset, false); err != nil {
+		zap.L().Warn("Failed to delete ACL rules for net chain", zap.Error(err))
+	}
+
+	// delete deny-all rules for Windows
+	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU, [][]string{}, [][]string{}), "Delete")
+}
+
+func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
+
+	_, rules = extractProtocolAnyRules(rules)
+
+	rulesBucket := i.sortACLsInBuckets(cfg, chain, reverseChain, rules, isAppAcls)
+
+	aclRules, err := extractACLsFromTemplate(rulesBucket)
+	if err != nil {
+		return fmt.Errorf("unable to extract rules from template: %s", err)
+	}
+
+	aclRules = transformACLRules(aclRules, cfg, rulesBucket, isAppAcls)
+
+	if err := i.processRulesFromList(aclRules, "Delete"); err != nil {
+		return fmt.Errorf("unable to delete rules - mode :%s %v", err, isAppAcls)
 	}
 
 	return nil

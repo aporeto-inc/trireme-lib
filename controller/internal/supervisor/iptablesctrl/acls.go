@@ -526,44 +526,6 @@ func (i *iptables) deleteChainRules(cfg *ACLInfo) error {
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }
 
-// deletePUChains removes all the container specific chains and basic rules
-func (i *iptables) deletePUChains(appChain, netChain string) error {
-
-	if err := i.impl.ClearChain(appPacketIPTableContext, appChain); err != nil {
-		zap.L().Warn("Failed to clear the container ack packets chain",
-			zap.String("appChain", appChain),
-			zap.String("context", appPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.DeleteChain(appPacketIPTableContext, appChain); err != nil {
-		zap.L().Warn("Failed to delete the container ack packets chain",
-			zap.String("appChain", appChain),
-			zap.String("context", appPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.ClearChain(netPacketIPTableContext, netChain); err != nil {
-		zap.L().Warn("Failed to clear the container net packets chain",
-			zap.String("netChain", netChain),
-			zap.String("context", netPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.DeleteChain(netPacketIPTableContext, netChain); err != nil {
-		zap.L().Warn("Failed to delete the container net packets chain",
-			zap.String("netChain", netChain),
-			zap.String("context", netPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	return nil
-}
-
 // setGlobalRules installs the global rules
 func (i *iptables) setGlobalRules() error {
 

@@ -216,6 +216,10 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	}
 	client := c.(*clientData)
 
+	// Terminate the connection multiplexer.
+	// Do it before shutting down servers below to avoid Accept() errors.
+	client.protomux.Close()
+
 	// Shutdown all the servers and unregister listeners.
 	for t, server := range client.netserver {
 		if err := client.protomux.UnregisterListener(t); err != nil {
@@ -225,9 +229,6 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 			zap.L().Debug("Unable to shutdown client server", zap.Error(err))
 		}
 	}
-
-	// Terminate the connection multiplexer.
-	client.protomux.Close()
 
 	// Remove the client from the cache.
 	return p.clients.Remove(puID)

@@ -94,6 +94,6 @@ func (i *goIpsetProvider) ListIPSets() ([]string, error) {
 }
 
 // NewGoIPsetProvider Return a Go IPSet Provider
-func NewGoIPsetProvider() IpsetProvider {
-	return &goIpsetProvider{}
+func NewGoIPsetProvider() (IpsetProvider, error) {
+	return &goIpsetProvider{}, nil
 }

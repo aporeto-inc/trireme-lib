@@ -178,6 +178,12 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 
 			c, err := m.root.Accept()
 			if err != nil {
+				// check if the error is due to shutdown in progress
+				select {
+				case <-m.shutdown:
+					return nil
+				default:
+				}
 				zap.L().Error("error from Accept", zap.Error(err))
 				break
 			}
