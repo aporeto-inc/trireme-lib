@@ -3,6 +3,9 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/diagnosticsreportclient"
+
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/policy"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -28,24 +31,26 @@ import (
 //
 // Why is this public when all members are private ? For golang RPC server requirements
 type RemoteEnforcer struct {
-	rpcSecret       string
-	rpcHandle       rpcwrapper.RPCServer
-	collector       statscollector.Collector
-	statsClient     statsclient.StatsClient
-	debugClient     debugclient.DebugClient
-	counterClient   counterclient.CounterClient
-	dnsReportClient dnsreportclient.DNSReportClient
-	procMountPoint  string
-	enforcer        enforcer.Enforcer
-	supervisor      supervisor.Supervisor
-	service         packetprocessor.PacketProcessor
-	secrets         secrets.Secrets
-	ctx             context.Context
-	cancel          context.CancelFunc
-	exit            chan bool
-	zapConfig       zap.Config
-	logLevel        constants.LogLevel
-	tokenIssuer     tokenissuer.TokenClient
-	enforcerType    policy.EnforcerType
-	aclmanager      ipsetmanager.ACLManager
+	rpcSecret               string
+	rpcHandle               rpcwrapper.RPCServer
+	collector               statscollector.Collector
+	statsClient             statsclient.StatsClient
+	debugClient             debugclient.DebugClient
+	diagnosticsReportClient diagnosticsreportclient.DiagnosticsReportClient
+	counterClient           counterclient.CounterClient
+	dnsReportClient         dnsreportclient.DNSReportClient
+	procMountPoint          string
+	enforcer                enforcer.Enforcer
+	supervisor              supervisor.Supervisor
+	service                 packetprocessor.PacketProcessor
+	secrets                 secrets.Secrets
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	exit                    chan bool
+	zapConfig               zap.Config
+	logLevel                constants.LogLevel
+	tokenIssuer             tokenissuer.TokenClient
+	enforcerType            policy.EnforcerType
+	aclmanager              ipsetmanager.ACLManager
+	agentVersion            semver.Version
 }

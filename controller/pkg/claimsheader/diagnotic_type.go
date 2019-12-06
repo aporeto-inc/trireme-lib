@@ -5,7 +5,9 @@ type DiagnosticType int
 
 const (
 	DiagnosticTypeNone DiagnosticType = iota
-	DiagnosticTypeToken
+	DiagnosticTypeAporetoIdentity
+	DiagnosticTypeCustomIdentity
+	DiagnosticTypeAporetoIdentityPassthrough
 )
 
 // toMask returns the mask based on the type
@@ -14,10 +16,31 @@ func (dt DiagnosticType) toMask() diagnosticTypeMask {
 	switch dt {
 	case DiagnosticTypeNone:
 		return diagnosticTypeNoneMask
-	case DiagnosticTypeToken:
-		return diagnosticTypeTokenMask
+	case DiagnosticTypeAporetoIdentity:
+		return diagnosticTypeAporetoIdentityMask
+	case DiagnosticTypeCustomIdentity:
+		return diagnosticTypeCustomIdentityMask
+	case DiagnosticTypeAporetoIdentityPassthrough:
+		return diagnosticTypeAporetoIdentityPassthroughMask
 	default:
 		return diagnosticTypeNoneMask
+	}
+}
+
+// toMask returns the mask based on the type
+func (dt DiagnosticType) String() string {
+
+	switch dt {
+	case DiagnosticTypeNone:
+		return "None"
+	case DiagnosticTypeAporetoIdentity:
+		return "AporetoIdentity"
+	case DiagnosticTypeCustomIdentity:
+		return "CustomIdentity"
+	case DiagnosticTypeAporetoIdentityPassthrough:
+		return "AporetoIdentityPassthrough"
+	default:
+		return "None"
 	}
 }
 
@@ -28,7 +51,11 @@ const (
 	// diagnosticTypeNoneMask mask that identifies compression type none
 	diagnosticTypeNoneMask diagnosticTypeMask = 0x02
 	// diagnosticTypeTokenMask mask that identifies compression type v1
-	diagnosticTypeTokenMask diagnosticTypeMask = 0x04
+	diagnosticTypeAporetoIdentityMask diagnosticTypeMask = 0x04
+	// diagnosticTypeTokenMask mask that identifies compression type v1
+	diagnosticTypeCustomIdentityMask diagnosticTypeMask = 0x06
+	// diagnosticTypeTokenMask mask that identifies compression type v1
+	diagnosticTypeAporetoIdentityPassthroughMask diagnosticTypeMask = 0x08
 	// diagnosticTypeBitMask mask that identifies compression type v1
 	diagnosticTypeBitMask diagnosticTypeMask = 0x3E
 )
@@ -39,8 +66,12 @@ func (dm diagnosticTypeMask) toType() DiagnosticType {
 	switch dm {
 	case diagnosticTypeNoneMask:
 		return DiagnosticTypeNone
-	case diagnosticTypeTokenMask:
-		return DiagnosticTypeToken
+	case diagnosticTypeAporetoIdentityMask:
+		return DiagnosticTypeAporetoIdentity
+	case diagnosticTypeCustomIdentityMask:
+		return DiagnosticTypeCustomIdentity
+	case diagnosticTypeAporetoIdentityPassthroughMask:
+		return DiagnosticTypeAporetoIdentityPassthrough
 	default:
 		return DiagnosticTypeNone
 	}

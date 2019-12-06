@@ -70,3 +70,7 @@ func (c *collectorImpl) GetAllCounterReports() []*collector.CounterReport {
 func (c *collectorImpl) GetDNSReports() chan *collector.DNSRequestReport {
 	return c.DNSReport
 }
+
+func (c *collectorImpl) GetDiagnosticsReports() chan *collector.DiagnosticsReport {
+	return c.DiagnosticsReport
+}

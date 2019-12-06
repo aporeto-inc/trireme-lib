@@ -1,7 +1,5 @@
 package claimsheader
 
-import "fmt"
-
 // NewClaimsHeader returns claims header handler
 func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 
@@ -23,7 +21,7 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 //  D  [0:5]   - Datapath version
 //  CT [6,7]   - Compressed tag type
 //  E  [8]     - Encryption enabled
-//  D  [9:12]  - Diagnostic enabled
+//  D  [9:12]  - Diagnostic type
 //  R  [13:31] - Reserved
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
@@ -82,9 +80,4 @@ func (c *ClaimsHeader) SetDatapathVersion(dv DatapathVersion) {
 func (c *ClaimsHeader) SetDiagnosticType(diagnosticType DiagnosticType) {
 
 	c.diagnosticType = diagnosticType
-}
-
-func (c *ClaimsHeader) String() string {
-
-	return fmt.Sprintf("%#v", c)
 }

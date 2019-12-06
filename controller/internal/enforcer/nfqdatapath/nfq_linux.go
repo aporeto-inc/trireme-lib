@@ -77,7 +77,6 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
-	zap.L().Info("NETSYNACK-HEAD")
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
 	var processError error
@@ -132,8 +131,8 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	v := uint32(1)
 	if tcpConn != nil {
-		if tcpConn.DiagnosticType == claimsheader.DiagnosticTypeToken {
-			zap.L().Info("DROPPING")
+		if !tcpConn.DiagnosticType.PassthroughEnabled() && tcpConn.DiagnosticType != claimsheader.DiagnosticTypeNone {
+			fmt.Println("DROPPING", tcpConn.DiagnosticType)
 			v = uint32(0)
 		}
 	}

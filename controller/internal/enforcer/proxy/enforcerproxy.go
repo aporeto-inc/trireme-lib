@@ -281,14 +281,14 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 }
 
 // RunDiagnostics is unimplemented in the envoy authorizer
-func (s *ProxyInfo) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+func (s *ProxyInfo) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
 
 	resp := &rpcwrapper.Response{}
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.RunDiagnosticsPayload{
 			ContextID:       contextID,
-			DiagnosticsInfo: diagnosticsInfo,
+			DiagnosticsConfig: diagnosticsInfo,
 		},
 	}
 

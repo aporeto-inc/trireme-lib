@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -48,6 +49,7 @@ type config struct {
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
 	aclmanager             ipsetmanager.ACLManager
+	agentVersion           semver.Version
 }
 
 // Option is provided using functional arguments.
@@ -152,6 +154,12 @@ func OptionBinaryTokens(b bool) Option {
 	}
 }
 
+func OptionAgentVersion(v semver.Version) Option {
+	return func(cfg *config) {
+		cfg.agentVersion = v
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -172,6 +180,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			t.config.agentVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
@@ -192,6 +201,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			t.config.agentVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
@@ -239,6 +249,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			t.config.agentVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)

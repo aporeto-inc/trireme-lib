@@ -169,6 +169,20 @@ func (mr *MockTriremeControllerMockRecorder) EnableIPTablesPacketTracing(ctx, pu
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }
 
+// RunDiagnostics mocks base method
+// nolint
+func (m *MockTriremeController) RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error {
+	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, puID, policy, runtime, diagnosticsInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunDiagnostics indicates an expected call of RunDiagnostics
+// nolint
+func (mr *MockTriremeControllerMockRecorder) RunDiagnostics(ctx, puID, policy, runtime, diagnosticsInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockTriremeController)(nil).RunDiagnostics), ctx, puID, policy, runtime, diagnosticsInfo)
+}
+
 // MockDebugInfo is a mock of DebugInfo interface
 // nolint
 type MockDebugInfo struct {
@@ -222,4 +236,18 @@ func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, puID st
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
+}
+
+// RunDiagnostics mocks base method
+// nolint
+func (m *MockDebugInfo) RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error {
+	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, puID, policy, runtime, diagnosticsInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunDiagnostics indicates an expected call of RunDiagnostics
+// nolint
+func (mr *MockDebugInfoMockRecorder) RunDiagnostics(ctx, puID, policy, runtime, diagnosticsInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockDebugInfo)(nil).RunDiagnostics), ctx, puID, policy, runtime, diagnosticsInfo)
 }

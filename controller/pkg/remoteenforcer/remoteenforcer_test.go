@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/golang/mock/gomock"
 	"github.com/mitchellh/hashstructure"
 	. "github.com/smartystreets/goconvey/convey"
@@ -279,6 +280,7 @@ func TestInitEnforcer(t *testing.T) {
 			tokenIssuer common.ServiceTokenIssuer,
 			binaryTokens bool,
 			aclmanager ipsetmanager.ACLManager,
+			agentVersion semver.Version,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -381,6 +383,7 @@ func TestInitEnforcer(t *testing.T) {
 					tokenIssuer common.ServiceTokenIssuer,
 					binaryTokens bool,
 					aclmanager ipsetmanager.ACLManager,
+					agentVersion semver.Version,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}

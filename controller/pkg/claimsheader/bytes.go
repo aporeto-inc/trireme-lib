@@ -4,8 +4,11 @@ package claimsheader
 type HeaderBytes []byte
 
 // ToClaimsHeader parses the bytes and returns the ClaimsHeader
-// WARNING: Caller has to make sure that headerbytes is NOT nil
 func (h HeaderBytes) ToClaimsHeader() *ClaimsHeader {
+
+	if h == nil || len(h) != maxHeaderLen {
+		return NewClaimsHeader()
+	}
 
 	compressionTypeMask := compressionTypeMask(h.extractHeaderAttribute(h[0], compressionTypeBitMask.toUint8()))
 	datapathVersionMask := datapathVersionMask(h.extractHeaderAttribute(h[0], datapathVersionBitMask.toUint8()))

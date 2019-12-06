@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -64,7 +65,7 @@ type DebugInfo interface {
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 
-	RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error
+	RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -220,7 +221,7 @@ func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 }
 
 // RunDiagnostics is unimplemented in the envoy authorizer
-func (e *enforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+func (e *enforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
 
 	return e.transport.RunDiagnostics(ctx, contextID, diagnosticsInfo)
 }
@@ -242,6 +243,7 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 	aclmanager ipsetmanager.ACLManager,
+	agentVersion semver.Version,
 ) (Enforcer, error) {
 
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
@@ -271,6 +273,7 @@ func New(
 		puFromContextID,
 		cfg,
 		aclmanager,
+		agentVersion,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)

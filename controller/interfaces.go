@@ -43,5 +43,5 @@ type DebugInfo interface {
 	// EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error
 	// RunDiagnostics runs diagnostics.
-	RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsInfo) error
+	RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error
 }

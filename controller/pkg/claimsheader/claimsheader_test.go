@@ -1,6 +1,7 @@
 package claimsheader
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -28,6 +29,87 @@ func TestHeader(t *testing.T) {
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
 				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeNone)
+				So(ch.DiagnosticType().String(), ShouldEqual, "None")
+			})
+		})
+	})
+
+	Convey("Given I create a new claims header with pass through", t, func() {
+		header := NewClaimsHeader(
+			OptionEncrypt(false),
+			OptionCompressionType(CompressionTypeV2),
+			OptionDatapathVersion(DatapathVersion1),
+			OptionDiagnosticType(DiagnosticTypeAporetoIdentity),
+		)
+
+		Convey("Then claims header should not be nil", func() {
+			So(header, ShouldNotBeNil)
+		})
+
+		Convey("Given I convert bytes to claims header", func() {
+			ch := header.ToBytes().ToClaimsHeader()
+
+			Convey("Then it should be equal", func() {
+				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
+				So(ch.Encrypt(), ShouldEqual, false)
+				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentity)
+				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentity")
+			})
+		})
+
+		Convey("Given I set change headers", func() {
+			header.SetCompressionType(CompressionTypeV2)
+			header.SetEncrypt(true)
+			header.SetDiagnosticType(DiagnosticTypeAporetoIdentityPassthrough)
+			ch := header.ToBytes().ToClaimsHeader()
+
+			Convey("Then it should be equal", func() {
+				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
+				So(ch.Encrypt(), ShouldEqual, true)
+				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentityPassthrough)
+				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentityPassthrough")
+			})
+		})
+	})
+
+	Convey("Given I create a new claims header with custom token pass through", t, func() {
+		header := NewClaimsHeader(
+			OptionEncrypt(false),
+			OptionCompressionType(CompressionTypeV2),
+			OptionDatapathVersion(DatapathVersion1),
+			OptionDiagnosticType(DiagnosticTypeCustomIdentity),
+		)
+
+		Convey("Then claims header should not be nil", func() {
+			So(header, ShouldNotBeNil)
+		})
+
+		Convey("Given I convert bytes to claims header", func() {
+			ch := header.ToBytes().ToClaimsHeader()
+
+			Convey("Then it should be equal", func() {
+				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
+				So(ch.Encrypt(), ShouldEqual, false)
+				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeCustomIdentity)
+				So(ch.DiagnosticType().String(), ShouldEqual, "CustomIdentity")
+			})
+		})
+
+		Convey("Given I set change headers", func() {
+			header.SetCompressionType(CompressionTypeV2)
+			header.SetEncrypt(true)
+			header.SetDiagnosticType(DiagnosticTypeAporetoIdentityPassthrough)
+			ch := header.ToBytes().ToClaimsHeader()
+			fmt.Println(DiagnosticTypeAporetoIdentity)
+			Convey("Then it should be equal", func() {
+				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
+				So(ch.Encrypt(), ShouldEqual, true)
+				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentityPassthrough)
+				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentityPassthrough")
 			})
 		})
 	})
@@ -79,7 +161,7 @@ func TestHeader(t *testing.T) {
 		header := NewClaimsHeader(
 			OptionEncrypt(false),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeToken),
+			OptionDiagnosticType(DiagnosticTypeAporetoIdentity),
 		)
 
 		Convey("Then claims header should not be nil", func() {
@@ -93,7 +175,7 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
 				So(ch.Encrypt(), ShouldEqual, false)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeToken)
+				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentity)
 			})
 		})
 

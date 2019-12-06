@@ -77,3 +77,8 @@ func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
 func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
 	c.DNSReport <- report
 }
+
+// CollectDiagnosticsReports collect counters from the datapath
+func (c *collectorImpl) CollectDiagnosticsEvent(report *collector.DiagnosticsReport) {
+	c.DiagnosticsReport <- report
+}

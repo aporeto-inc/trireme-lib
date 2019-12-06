@@ -59,7 +59,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (conn *connection.
 		}
 
 	case packet.TCPSynAckMask:
-		zap.L().Info("NETSYNACK-MASK")
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
 			switch err {
@@ -410,14 +409,26 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
-	claimsHeader := claimsheader.NewClaimsHeader(
-		claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
-	)
-	// never returns error
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
+	claimsHeader := claimsheader.NewClaimsHeader()
 
-	if err != nil {
-		return err
+	if conn.DiagnosticType == claimsheader.DiagnosticTypeNone {
+		claimsHeader.SetEncrypt(conn.PacketFlowPolicy.Action.Encrypted())
+	}
+
+	var tcpData []byte
+	var err error
+
+	if conn.DiagnosticType != claimsheader.DiagnosticTypeNone {
+		tcpData, err = d.processDiagnosticAppSynAckPacket(context, conn, tcpPacket, claimsHeader)
+		if err != nil {
+			return err
+		}
+	} else {
+		// never returns error
+		tcpData, err = d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Set the state for future reference
@@ -429,6 +440,12 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 // processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) error {
+
+	if conn.DiagnosticType == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
+		zap.L().Info("ACK DROPPED")
+		conn.DiagnosticType = claimsheader.DiagnosticTypeAporetoIdentity
+		return nil
+	}
 
 	// Only process the first Ack of a connection. This means that we have received
 	// as SynAck packet and we can now process the ACK.
@@ -617,8 +634,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if claims.H != nil {
 		ch := claims.H.ToClaimsHeader()
 		if ch.DiagnosticType() != claimsheader.DiagnosticTypeNone {
-			conn.DiagnosticType = ch.DiagnosticType()
-			return nil, nil, d.replyDiagnosticSynAckPacket(context, tcpPacket, ch)
+			return nil, nil, d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims)
 		}
 	}
 
@@ -679,12 +695,20 @@ type policyPair struct {
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
 func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
+	if conn.DiagnosticType == claimsheader.DiagnosticTypeCustomIdentity {
+		return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, true)
+	}
+
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
 		if _, err := d.puFromContextID.Get(conn.Context.ID()); err != nil {
 			// PU has been deleted. Ignore these packets
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrInvalidSynAck, fmt.Sprintf("Pu with ID delete %s", conn.Context.ID()))
+		}
+
+		if conn.DiagnosticType != claimsheader.DiagnosticTypeNone {
+			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
 		}
 
 		flowHash := tcpPacket.SourceAddress().String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
@@ -741,6 +765,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 	}
 
+	if claims.H.ToClaimsHeader().DiagnosticType() != claimsheader.DiagnosticTypeNone {
+		return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
+	}
+
 	// Now we can process the SynAck packet with its options
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
@@ -761,11 +789,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	if claims.H != nil {
-		ch := claims.H.ToClaimsHeader()
-		if ch.DiagnosticType() != claimsheader.DiagnosticTypeNone {
-			conn.DiagnosticType = ch.DiagnosticType()
-			fmt.Println("DIAGNOSTIC NETSYNACK")
-			return nil, nil, d.processDiagnosticNetSynAckPacket(tcpPacket, ch)
+		if claims.H.ToClaimsHeader().DiagnosticType() != claimsheader.DiagnosticTypeNone {
+			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
 		}
 	}
 
@@ -834,6 +859,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
+
+	if conn.DiagnosticType == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
+		return nil, nil, nil
+	}
 
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
 		return nil, nil, nil
@@ -973,6 +1002,11 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
+	conn, err := d.diagnosticConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeApplication), 0)
+	if err == nil {
+		return conn.(*connection.TCPConnection), nil
+	}
+
 	context, err := d.contextFromIP(true, p.Mark, p.SourcePort(), packet.IPProtocolTCP)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrSynUnexpectedPacket, fmt.Sprintf("Received unexpected syn %s sourceport %d", p.Mark, int(p.SourcePort())))
@@ -992,8 +1026,15 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 func (d *Datapath) appSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
 
+	// Is this a diagnostic packet?
+	fmt.Println("APP ACK RETRIEVE STATE", hash)
+	conn, err := d.diagnosticConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeApplication), 0)
+	if err == nil {
+		return conn.(*connection.TCPConnection), nil
+	}
+
 	// Did we see a network syn for this server PU?
-	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
+	conn, err = d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrNetSynNotSeen, err.Error())
 	}
@@ -1109,10 +1150,17 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
+
+	// Is this a diagnostic packet?
+	conn, err := d.diagnosticConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+	if err == nil {
+		return conn.(*connection.TCPConnection), nil
+	}
+
 	hash := p.L4FlowHash()
 	// ignore conn.MarkFordeletion here since these could be ack packets arriving out of order
 	// Did we see a network syn/ack packet? (PU is a client)
-	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
+	conn, err = d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err == nil {
 		if err = updateTimer(d.netReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
 			return nil, err

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -129,6 +130,8 @@ type Datapath struct {
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
 
+	agentVersion semver.Version
+
 	logLevelLock sync.RWMutex
 }
 
@@ -177,6 +180,7 @@ func New(
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
 	aclmanager ipsetmanager.ACLManager,
+	agentVersion semver.Version,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -257,6 +261,7 @@ func New(
 		puToPortsMap:                 map[string]map[string]bool{},
 		puCountersChannel:            make(chan *pucontext.PUContext, 220),
 		aclmanager:                   aclmanager,
+		agentVersion:                 agentVersion,
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -320,6 +325,7 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 		aclmanager,
+		semver.Version{},
 	)
 
 	conntrackClient, err := flowtracking.NewClient(context.Background())
@@ -743,7 +749,7 @@ func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 }
 
 // RunDiagnostics is unimplemented in the envoy authorizer
-func (d *Datapath) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsInfo) error {
+func (d *Datapath) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
 
-	return d.initiateDiagnosticSynPacket(ctx, contextID, diagnosticsInfo)
+	return d.initiateDiagnosticAppSynPacket(ctx, contextID, diagnosticsInfo)
 }

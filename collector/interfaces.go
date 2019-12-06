@@ -100,6 +100,9 @@ type EventCollector interface {
 
 	// CollectDNSRequests collects the dns requests
 	CollectDNSRequests(request *DNSRequestReport)
+
+	// CollectDiagnosticsEvent collects the diagnostics info
+	CollectDiagnosticsEvent(report *DiagnosticsReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -231,3 +234,38 @@ type CounterReport struct {
 	ContextID string
 	Counters  []Counters
 }
+
+// DiagnosticsReport object is used to report diagnostics info collected in datapath.
+type DiagnosticsReport struct {
+	Namespace     string
+	SourceID      string
+	DestinationID string
+	FlowTuple     string
+	Flags         TCPFlags
+	Latency       string
+	AgentVersion  string
+	PayloadSize   int
+	Type          string
+	Stage         Stage
+}
+
+type Stage string
+
+const (
+	Origin = "origin"
+	Reply  = "reply"
+)
+
+type TCPFlags int
+
+const (
+	Syn TCPFlags = iota
+	Fin
+	Rst
+	PSH
+	Ack
+	Urg
+	ECE
+	Cwr
+	NS
+)

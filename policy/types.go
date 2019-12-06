@@ -409,7 +409,7 @@ type RuntimeError struct {
 	Error     error
 }
 
-type DiagnosticsInfo struct {
+type DiagnosticsConfig struct {
 	Type    claimsheader.DiagnosticType
 	IP      string
 	Ports   []string

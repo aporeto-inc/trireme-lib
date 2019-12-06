@@ -185,6 +185,20 @@ func (mr *MockEnforcerMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }
 
+// RunDiagnostics mocks base method
+// nolint
+func (m *MockEnforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
+	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, contextID, diagnosticsInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunDiagnostics indicates an expected call of RunDiagnostics
+// nolint
+func (mr *MockEnforcerMockRecorder) RunDiagnostics(ctx, contextID, diagnosticsInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockEnforcer)(nil).RunDiagnostics), ctx, contextID, diagnosticsInfo)
+}
+
 // MockDebugInfo is a mock of DebugInfo interface
 // nolint
 type MockDebugInfo struct {
@@ -238,4 +252,18 @@ func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, context
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
+}
+
+// RunDiagnostics mocks base method
+// nolint
+func (m *MockDebugInfo) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
+	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, contextID, diagnosticsInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunDiagnostics indicates an expected call of RunDiagnostics
+// nolint
+func (mr *MockDebugInfoMockRecorder) RunDiagnostics(ctx, contextID, diagnosticsInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockDebugInfo)(nil).RunDiagnostics), ctx, contextID, diagnosticsInfo)
 }

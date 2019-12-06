@@ -130,6 +130,11 @@ type TokenResponsePayload struct {
 }
 
 type RunDiagnosticsPayload struct {
-	ContextID       string
-	DiagnosticsInfo *policy.DiagnosticsInfo
+	ContextID         string
+	DiagnosticsConfig *policy.DiagnosticsConfig
+}
+
+// DiagnosticsReportPayload represents the payload for diagnostics reporting.
+type DiagnosticsReportPayload struct {
+	Report *collector.DiagnosticsReport
 }
