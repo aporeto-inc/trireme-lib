@@ -289,8 +289,9 @@ func (m *managerType) DestroyUnusedIPsets() {
 			if err := ipsetHandler.Destroy(); err != nil {
 				zap.L().Warn("Failed to destroy ipset", zap.String("ipset", ipsetName), zap.Error(err))
 			}
-
 		}
+
+		ipHandler.toDestroy = nil
 	}
 
 	destroy(m.ipv4Handler)
