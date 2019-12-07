@@ -126,8 +126,10 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
 			if portContext.ClientTrustedRoots != nil {
-				if !clientCAs.AppendCertsFromPEM(portContext.Service.MutualTLSTrustedRoots) {
-					return nil, fmt.Errorf("Unable to process client CAs")
+				if len(portContext.Service.MutualTLSTrustedRoots) > 0 {
+					if !clientCAs.AppendCertsFromPEM(portContext.Service.MutualTLSTrustedRoots) {
+						return nil, fmt.Errorf("Unable to process client CAs")
+					}
 				}
 				//clientCAs = portContext.ClientTrustedRoots
 			}
@@ -149,7 +151,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
 		ClientAuth:               tls.VerifyClientCertIfGiven,
-		ClientCAs: p.ca,
+		ClientCAs:                p.ca,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -175,13 +177,13 @@ func (p *Config) newBaseTLSClientConfig() *tls.Config {
 }
 
 // GetClientCertificateFunc returns the certificate that will be used by the Proxy as a client during the TLS
-func (p *Config) GetClientCertificateFunc( _ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		p.RLock()
-		defer p.RUnlock()
-		if p.cert != nil {
-			return p.cert, nil
-		}
-		return nil, nil
+func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	p.RLock()
+	defer p.RUnlock()
+	if p.cert != nil {
+		return p.cert, nil
+	}
+	return nil, nil
 }
 
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
@@ -291,7 +293,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		DialContext:         networkDialerWithContext,
 		MaxIdleConnsPerHost: 2000,
 		MaxIdleConns:        2000,
-		ForceAttemptHTTP2: true,
+		ForceAttemptHTTP2:   true,
 	}
 
 	// Create an unencrypted transport for talking to the application. If encryption
@@ -375,30 +377,30 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
 func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		p.RLock()
-		defer p.RUnlock()
-		// First we check if this is a direct access to the public port. In this case
-		// we will use the service public certificate. Otherwise, we will return the
-		// enforcer certificate since this is internal access.
-		if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
-			ip, port := mconn.GetOriginalDestination()
-			portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+	p.RLock()
+	defer p.RUnlock()
+	// First we check if this is a direct access to the public port. In this case
+	// we will use the service public certificate. Otherwise, we will return the
+	// enforcer certificate since this is internal access.
+	if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
+		ip, port := mconn.GetOriginalDestination()
+		portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+		if err != nil {
+			return nil, fmt.Errorf("service not available: %s %d", ip.String(), port)
+		}
+		service := portContext.Service
+		if service.PublicNetworkInfo != nil && service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
+			tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
 			if err != nil {
-				return nil, fmt.Errorf("service not available: %s %d", ip.String(), port)
+				return nil, fmt.Errorf("failed to parse server certificate: %s", err)
 			}
-			service := portContext.Service
-			if service.PublicNetworkInfo != nil && service.PublicNetworkInfo.Ports.Min == uint16(port) && len(service.PublicServiceCertificate) > 0 {
-				tlsCert, err := tls.X509KeyPair(service.PublicServiceCertificate, service.PublicServiceCertificateKey)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse server certificate: %s", err)
-				}
-				return &tlsCert, nil
-			}
+			return &tlsCert, nil
 		}
-		if p.cert != nil {
-			return p.cert, nil
-		}
-		return nil, fmt.Errorf("no cert available - cert is nil")
+	}
+	if p.cert != nil {
+		return p.cert, nil
+	}
+	return nil, fmt.Errorf("no cert available - cert is nil")
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
