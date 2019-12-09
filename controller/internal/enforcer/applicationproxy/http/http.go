@@ -125,13 +125,14 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 		}
 		if portContext.Service.UserAuthorizationType == policy.UserAuthorizationMutualTLS || portContext.Service.UserAuthorizationType == policy.UserAuthorizationJWT {
 			clientCAs := p.ca
+			// now append the User given CA certPool
 			if portContext.ClientTrustedRoots != nil {
+				// append only when the certpool is given
 				if len(portContext.Service.MutualTLSTrustedRoots) > 0 {
 					if !clientCAs.AppendCertsFromPEM(portContext.Service.MutualTLSTrustedRoots) {
 						return nil, fmt.Errorf("Unable to process client CAs")
 					}
 				}
-				//clientCAs = portContext.ClientTrustedRoots
 			}
 			config := p.newBaseTLSConfig()
 			config.ClientAuth = tls.VerifyClientCertIfGiven

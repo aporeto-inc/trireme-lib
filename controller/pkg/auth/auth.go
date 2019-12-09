@@ -77,7 +77,7 @@ func (p *Processor) UpdateServiceAPIs(apis *urisearch.APICache) error {
 
 // DecodeUserClaims decodes the user claims with the user authorization method.
 func (p *Processor) DecodeUserClaims(ctx context.Context, name, userToken string, certs []*x509.Certificate) ([]string, bool, string, error) {
-	fmt.Println("\n In decode use claims with auth type: ", p.userAuthorizationType, " len of certs: ", len(certs))
+
 	switch p.userAuthorizationType {
 	case policy.UserAuthorizationMutualTLS, policy.UserAuthorizationJWT:
 		// First parse any incoming certificates and retrieve attributes from them.
