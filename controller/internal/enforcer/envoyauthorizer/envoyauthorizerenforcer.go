@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/cert"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -53,7 +53,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	}
 
 	// same logic as in app proxy
-	systemPool, err := cert.GetSystemCertPool()
+	systemPool, err := tglib.GetSystemCertPool()
 	if err != nil {
 		return nil, err
 	}
