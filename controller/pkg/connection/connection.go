@@ -158,6 +158,8 @@ type TCPConnection struct {
 	RetransmittedSynAck bool
 
 	DiagnosticType claimsheader.DiagnosticType
+	Passthrough    bool
+	SessionID      string
 
 	StartTime time.Time
 }

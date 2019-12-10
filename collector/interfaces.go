@@ -241,12 +241,12 @@ type DiagnosticsReport struct {
 	SourceID      string
 	DestinationID string
 	FlowTuple     string
-	Flags         TCPFlags
 	Latency       string
 	AgentVersion  string
 	PayloadSize   int
 	Type          string
 	Stage         Stage
+	SessionID     string
 }
 
 type Stage string
@@ -254,18 +254,4 @@ type Stage string
 const (
 	Origin = "origin"
 	Reply  = "reply"
-)
-
-type TCPFlags int
-
-const (
-	Syn TCPFlags = iota
-	Fin
-	Rst
-	PSH
-	Ack
-	Urg
-	ECE
-	Cwr
-	NS
 )

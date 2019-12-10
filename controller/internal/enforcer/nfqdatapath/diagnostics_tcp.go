@@ -24,6 +24,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/crypto"
 	"go.aporeto.io/trireme-lib/utils/netinterfaces"
 	"go.uber.org/zap"
 )
@@ -54,11 +55,6 @@ func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID
 	}
 	defer conn.Close()
 
-	srcPort, err := freeport.GetFreePort()
-	if err != nil {
-		return fmt.Errorf("unable to get free source port: %v", err)
-	}
-
 	item, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("unable to find contextID %s in cache: %v", contextID, err)
@@ -66,18 +62,23 @@ func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID
 
 	context := item.(*pucontext.PUContext)
 
-	tcpConn := connection.NewTCPConnection(context, nil)
-
-	claimsHeader := claimsheader.NewClaimsHeader(
-		claimsheader.OptionDiagnosticType(diagnosticsInfo.Type),
-	)
-
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader)
-	if err != nil {
-		return fmt.Errorf("unable to create syn token: %v", err)
-	}
-
 	for _, port := range diagnosticsInfo.Ports {
+
+		tcpConn := connection.NewTCPConnection(context, nil)
+
+		claimsHeader := claimsheader.NewClaimsHeader(
+			claimsheader.OptionDiagnosticType(diagnosticsInfo.Type),
+		)
+
+		tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader)
+		if err != nil {
+			return fmt.Errorf("unable to create syn token: %v", err)
+		}
+
+		srcPort, err := freeport.GetFreePort()
+		if err != nil {
+			return fmt.Errorf("unable to get free source port: %v", err)
+		}
 
 		dstPort, err := strconv.Atoi(port)
 		if err != nil {
@@ -89,21 +90,27 @@ func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID
 			return fmt.Errorf("unable to construct syn packet: %v", err)
 		}
 
+		sessionID, err := crypto.GenerateRandomString(20)
+		if err != nil {
+			return err
+		}
+
 		tcpConn.StartTime = time.Now()
 		tcpConn.DiagnosticType = diagnosticsInfo.Type
+		tcpConn.SessionID = sessionID
 
 		if err := write(conn, p); err != nil {
 			return fmt.Errorf("unable to send syn packet: %v", err)
 		}
 
 		d.sendOriginDiagnosticReport(
+			sessionID,
 			flowTuple(
 				tpacket.PacketTypeApplication,
 				srcIP.String(),
 				diagnosticsInfo.IP,
 				uint16(srcPort),
 				uint16(dstPort),
-				6,
 			),
 			context.ManagementID(),
 			context.ManagementNamespace(),
@@ -112,8 +119,10 @@ func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID
 			len(tcpData),
 		)
 
+		tcpConn.SetState(connection.TCPSynSend)
+
 		// Only cache it on syn.
-		d.diagnosticConnectionCache.AddOrUpdate(key(tpacket.PacketTypeApplication, srcIP.String(), diagnosticsInfo.IP, uint16(srcPort), uint16(dstPort)), tcpConn)
+		d.diagnosticConnectionCache.AddOrUpdate(flowTuple(tpacket.PacketTypeApplication, srcIP.String(), diagnosticsInfo.IP, uint16(srcPort), uint16(dstPort)), tcpConn)
 	}
 
 	return nil
@@ -124,12 +133,13 @@ func (d *Datapath) processDiagnosticNetSynPacket(context *pucontext.PUContext, t
 
 	ch := claims.H.ToClaimsHeader()
 	tcpConn.DiagnosticType = ch.DiagnosticType()
+	tcpConn.SetState(connection.TCPSynReceived)
 
 	if ch.DiagnosticType() == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
 
 		zap.L().Info("DIAGNOSTIC PACKET PT FROM APP")
-		fmt.Println(tcpPacket.L4ReverseFlowHash())
-		d.diagnosticConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(tpacket.PacketTypeNetwork), tcpConn)
+		tcpConn.Passthrough = true
+		d.diagnosticConnectionCache.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
 		return nil
 	}
 
@@ -144,8 +154,13 @@ func (d *Datapath) processDiagnosticNetSynPacket(context *pucontext.PUContext, t
 	var tcpData []byte
 
 	// Add our data here.
-	if ch.DiagnosticType() == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
-		tcpData, err = encode(context.ManagementID(), d.agentVersion.String(), flowTuple(tpacket.PacketTypeNetwork, tcpPacket.SourceAddress().String(), tcpPacket.DestinationAddress().String(), tcpPacket.SourcePort(), tcpPacket.DestPort(), 6))
+	if ch.DiagnosticType() == claimsheader.DiagnosticTypeCustomIdentity {
+		ci := &customIdentity{
+			AgentVersion:  d.agentVersion.String(),
+			TransmitterID: context.ManagementID(),
+			FlowTuple:     flowTuple(tpacket.PacketTypeApplication, tcpPacket.SourceAddress().String(), tcpPacket.DestinationAddress().String(), tcpPacket.SourcePort(), tcpPacket.DestPort()),
+		}
+		tcpData, err = encode(ci)
 		if err != nil {
 			return fmt.Errorf("unable to create synack token: %v", err)
 		}
@@ -165,96 +180,70 @@ func (d *Datapath) processDiagnosticNetSynPacket(context *pucontext.PUContext, t
 		return fmt.Errorf("unable to send synack packet: %v", err)
 	}
 
+	tcpConn.SetState(connection.TCPSynAckSend)
+
 	return nil
 }
 
 func (d *Datapath) processDiagnosticNetSynAckPacket(context *pucontext.PUContext, tcpConn *connection.TCPConnection, tcpPacket *tpacket.Packet, claims *tokens.ConnectionClaims, ext bool, custom bool) error {
 	zap.L().Info("DIAGNOSTIC SYN ACK PACKET RECV")
 
-	receiveTime := time.Now().Sub(tcpConn.StartTime)
-
-	sendAck := func() error {
-
-		zap.L().Info("DIAGNOSTIC PACKET ACK")
-
-		conn, err := dialIP(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress())
-		if err != nil {
-			return fmt.Errorf("unable to dialIP on net synack: %v", err)
-		}
-		defer conn.Close()
-
-		p, err := constructAckPacket(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress(), tcpPacket.DestPort(), tcpPacket.SourcePort(), tcpPacket.Seq())
-		if err != nil {
-			return fmt.Errorf("unable to construct ack packet: %v", err)
-		}
-
-		if err := write(conn, p); err != nil {
-			return fmt.Errorf("unable to send ack packet: %v", err)
-		}
-
+	if tcpConn.GetState() == connection.TCPSynAckReceived {
+		zap.L().Debug("Duplicate synacks")
 		return nil
 	}
 
+	receiveTime := time.Now().Sub(tcpConn.StartTime)
+	tcpConn.SetState(connection.TCPSynAckReceived)
+
 	if ext {
-		return sendAck()
+
+		d.sendReplyDiagnosticReport(&customIdentity{}, tcpConn.SessionID, receiveTime.String(), context.ManagementID(), context.ManagementNamespace(), tcpConn.DiagnosticType.String(), collector.Reply, len(tcpPacket.ReadTCPData()))
+		tcpConn.Passthrough = true
+		return nil
 	}
 
 	if custom {
 
-		data, err := decode(tcpPacket.ReadTCPData())
+		ci, err := decode(tcpPacket.ReadTCPData())
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("DATA", data)
-
-		av, _ := data[agentVersionKey]
-		flowTuple, _ := data[flowTupleKey]
-		txtLabel, _ := data[enforcerconstants.TransmitterLabel]
-
-		ci := &customIdentity{
-			agentVersion: av.(string),
-			dstID:        txtLabel.(string),
-			flowTuple:    flowTuple.(string),
-		}
-
-		d.sendReplyDiagnosticReport(ci, tcpConn.DiagnosticType.String(), receiveTime.String(), context.ManagementID(), context.ManagementNamespace(), collector.Reply, len(tcpPacket.ReadTCPData()))
+		d.sendReplyDiagnosticReport(ci, tcpConn.SessionID, receiveTime.String(), context.ManagementID(), context.ManagementNamespace(), tcpConn.DiagnosticType.String(), collector.Reply, len(tcpPacket.ReadTCPData()))
 
 		return nil
 	}
 
 	ch := claims.H.ToClaimsHeader()
-	if tcpConn.DiagnosticType == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
-		tcpConn.DiagnosticType = claimsheader.DiagnosticTypeAporetoIdentity
+
+	txtID, _ := claims.T.Get(enforcerconstants.TransmitterLabel)
+
+	ci := &customIdentity{
+		TransmitterID: txtID,
 	}
 
-	d.sendReplyDiagnosticReport(&customIdentity{}, ch.DiagnosticType().String(), receiveTime.String(), context.ManagementID(), context.ManagementNamespace(), collector.Reply, len(tcpPacket.GetTCPData()))
+	d.sendReplyDiagnosticReport(ci, tcpConn.SessionID, receiveTime.String(), context.ManagementID(), context.ManagementNamespace(), ch.DiagnosticType().String(), collector.Reply, len(tcpPacket.ReadTCPData()))
 
 	if ch.DiagnosticType() == claimsheader.DiagnosticTypeAporetoIdentityPassthrough {
-
-		return sendAck()
+		tcpConn.Passthrough = true
+		return nil
 	}
 
 	return nil
 }
 
-func (d *Datapath) sendOriginDiagnosticReport(flowTuple, srcID, namespace, diagnosticType string, stage collector.Stage, payloadSize int) {
+func (d *Datapath) sendOriginDiagnosticReport(sessionID, flowTuple, srcID, namespace, diagnosticType string, stage collector.Stage, payloadSize int) {
 
-	d.sendDiagnosticReport(d.agentVersion.String(), flowTuple, "", srcID, "", namespace, diagnosticType, stage, payloadSize)
+	d.sendDiagnosticReport(sessionID, d.agentVersion.String(), flowTuple, "", srcID, "", namespace, diagnosticType, stage, payloadSize)
 }
 
-func (d *Datapath) sendReplyDiagnosticReport(ci *customIdentity, rtt, srcID, namespace, dtype string, stage collector.Stage, payloadSize int) {
+func (d *Datapath) sendReplyDiagnosticReport(ci *customIdentity, sessionID, rtt, srcID, namespace, dtype string, stage collector.Stage, payloadSize int) {
 
-	d.sendDiagnosticReport(ci.agentVersion, ci.flowTuple, rtt, srcID, ci.agentVersion, namespace, dtype, stage, payloadSize)
+	d.sendDiagnosticReport(sessionID, ci.AgentVersion, ci.FlowTuple, rtt, srcID, ci.TransmitterID, namespace, dtype, stage, payloadSize)
 }
 
-type customIdentity struct {
-	agentVersion string
-	dstID        string
-	flowTuple    string
-}
-
-func (d *Datapath) sendDiagnosticReport(agentVersion, flowTuple, rtt, srcID, dstID, namespace, diagnosticType string, stage collector.Stage, payloadSize int) {
+func (d *Datapath) sendDiagnosticReport(sessionID, agentVersion, flowTuple, rtt, srcID, dstID, namespace, diagnosticType string, stage collector.Stage, payloadSize int) {
 
 	record := &collector.DiagnosticsReport{
 		AgentVersion:  agentVersion,
@@ -266,26 +255,10 @@ func (d *Datapath) sendDiagnosticReport(agentVersion, flowTuple, rtt, srcID, dst
 		SourceID:      srcID,
 		DestinationID: dstID,
 		Namespace:     namespace,
+		SessionID:     sessionID,
 	}
 
 	d.collector.CollectDiagnosticsEvent(record)
-}
-
-func (d *Datapath) processDiagnosticAppSynAckPacket(context *pucontext.PUContext, tcpConn *connection.TCPConnection, tcpPacket *tpacket.Packet, claimsHeader *claimsheader.ClaimsHeader) ([]byte, error) {
-
-	claimsHeader.SetDiagnosticType(tcpConn.DiagnosticType)
-
-	// d.updateCustomIdentity(
-	// 	context,
-	// 	packet.SourceAddress().String(),
-	// 	packet.DestinationAddress().String(),
-	// 	packet.SourcePort(),
-	// 	packet.DestPort(),
-	// 	6,
-	// )
-
-	tuple := flowTuple(tpacket.PacketTypeNetwork, tcpPacket.SourceAddress().String(), tcpPacket.DestinationAddress().String(), tcpPacket.SourcePort(), tcpPacket.DestPort(), 6)
-	return encode(context.ManagementID(), d.agentVersion.String(), tuple)
 }
 
 func constructSynPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, tcpData []byte, tseq uint32) ([]byte, error) {
@@ -341,24 +314,24 @@ func constructAckPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, tseq uint3
 	return constructPacket(srcIP, dstIP, srcPort, dstPort, tcp.Ack, nil, tseq, options, offset)
 }
 
-func constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte, tseq uint32, options []tcp.Option, offset uint8) ([]byte, error) {
+func constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte, ack uint32, options []tcp.Option, offset uint8) ([]byte, error) {
 
 	ipPacket := ipv4.Make()
 	ipPacket.SrcAddr = srcIP
 	ipPacket.DstAddr = dstIP
 	ipPacket.Protocol = ipv4.TCP
 
-	var ack uint32 = 0
+	var seq uint32 = rand.Uint32()
+
 	if flag == tcp.Ack {
-		ack = tseq + uint32(1)
+		seq = ack
 	}
 
 	tcpPacket := tcp.Make()
 	tcpPacket.SrcPort = srcPort
 	tcpPacket.DstPort = dstPort
 	tcpPacket.Flags = flag
-	tcpPacket.Seq = rand.Uint32()
-	tcpPacket.Ack = ack
+	tcpPacket.Seq = seq
 	tcpPacket.WindowSize = 0xAAAA
 	tcpPacket.Options = options
 	tcpPacket.DataOff = offset
@@ -428,20 +401,13 @@ func dialIP(srcIP, dstIP net.IP) (net.Conn, error) {
 	return d.Dial("ip4:tcp", dstIP.String())
 }
 
-func key(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) string {
+func flowTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) string {
+
 	if stage == tpacket.PacketTypeNetwork {
-		return dstIP + ":" + strconv.Itoa(int(dstPort))
+		return fmt.Sprintf("%s:%s:%s:%s", dstIP, srcIP, strconv.Itoa(int(dstPort)), strconv.Itoa(int(srcPort)))
 	}
 
-	return srcIP + ":" + strconv.Itoa(int(srcPort))
-}
-
-func flowTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16, proto int) string {
-	if stage == tpacket.PacketTypeNetwork {
-		return fmt.Sprintf("%s:%s:%d:%d:%d", dstIP, srcIP, dstPort, srcPort, proto)
-	}
-
-	return fmt.Sprintf("%s:%s:%d:%d:%d", srcIP, dstIP, srcPort, dstPort, proto)
+	return fmt.Sprintf("%s:%s:%s:%s", srcIP, dstIP, strconv.Itoa(int(srcPort)), strconv.Itoa(int(dstPort)))
 }
 
 func write(conn net.Conn, data []byte) error {
@@ -458,29 +424,29 @@ func write(conn net.Conn, data []byte) error {
 	return nil
 }
 
-func encode(dstID, agentVersion, flowTuple string) ([]byte, error) {
+type customIdentity struct {
+	AgentVersion  string
+	TransmitterID string
+	FlowTuple     string
+}
 
-	data := map[string]interface{}{
-		agentVersionKey:                    agentVersion,
-		enforcerconstants.TransmitterLabel: dstID,
-		flowTupleKey:                       flowTuple,
-	}
+func encode(ci *customIdentity) ([]byte, error) {
 
-	b, err := msgpack.Marshal(data)
+	b, err := msgpack.Marshal(ci)
 	if err != nil {
-		return nil, fmt.Errorf("unable to encode custom identities: %v", err)
+		return nil, fmt.Errorf("unable to encode custom identity: %v", err)
 	}
 
 	return b, nil
 }
 
-func decode(b []byte) (map[string]interface{}, error) {
+func decode(b []byte) (*customIdentity, error) {
 
-	data := map[string]interface{}{}
+	ci := &customIdentity{}
 
-	if err := msgpack.Unmarshal(b, &data); err != nil {
-		return nil, fmt.Errorf("unable to decode custom identities: %v", err)
+	if err := msgpack.Unmarshal(b, ci); err != nil {
+		return nil, fmt.Errorf("unable to decode custom identity: %v", err)
 	}
 
-	return data, nil
+	return ci, nil
 }
