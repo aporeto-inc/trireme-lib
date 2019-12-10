@@ -30,8 +30,8 @@ import (
 const (
 	// SdsSocketpath is the socket path on which the envoy will talk to the remoteEnforcer.
 	//SdsSocketpath = "@aporeto_envoy_sds"
-	//SdsSocketpath = "127.0.0.1:2999"
-	SdsSocketpath = "/var/run/sds/uds_path"
+	SdsSocketpath = "127.0.0.1:2999"
+	//SdsSocketpath = "/var/run/sds/uds_path"
 )
 
 // Options to create a SDS server to task to envoy
@@ -220,9 +220,7 @@ func (s *SdsServer) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, 
 	//s.secrets = secrets
 	s.certPEM = certPEM
 	s.keyPEM = keyPEM
-	fmt.Println("\n\n\n ** ABHI Update certs is called")
 	s.updCertsChannel <- sdsCerts{key: keyPEM, cert: certPEM, caPool: caPool}
-	fmt.Println("\n\n\n ABHI after calling the update for certs: \n\n\n")
 }
 
 // now implement the interfaces of the SDS grpc server.
@@ -268,7 +266,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		}
 		token = h[0]
 	}
-	zap.L().Info("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
+	zap.L().Debug("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
 
 	// create new connection
 	conn := &clientConn{}
@@ -362,7 +360,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			}
 		case updateCerts := <-s.updCertsChannel:
 			// 1st check if the connection is present
-			fmt.Println("\n\n ABHI **** received the update certs enforce for certs, conn: ", conn.connectionID)
+
 			_, err := s.conncache.Get(conn.connectionID)
 			if err != nil {
 				zap.L().Warn("SDS server: updCertsChannel, no connID found in cache,", zap.String("connID", conn.connectionID))
@@ -386,13 +384,13 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 
 	if apoSecret.key != "" && apoSecret.cert != "" {
 		caPEM := s.secrets.PublicSecrets().CertAuthority()
-		fmt.Println("\n\n build cer chain, caPem: ", string(caPEM))
+
 		pemCert, err = buildCertChain([]byte(apoSecret.cert), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return fmt.Errorf("SDS Server: Cannot build the cert chain")
 		}
-		fmt.Println("\n\n after building cert chain")
+
 		resp := &v2.DiscoveryResponse{
 			TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
 			VersionInfo: t.String(),
@@ -422,7 +420,7 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 			zap.L().Error("SDS Server: Cannot marshall the secret")
 			return fmt.Errorf("SDS Server: Cannot marshall the secret")
 		}
-		fmt.Println("\n\n ABHI now sending the certs here: ")
+
 		resp.Resources = append(resp.Resources, endSecret)
 		if err = conn.stream.Send(resp); err != nil {
 			zap.L().Error("SDS Server: Failed to send the resp cert")

@@ -335,6 +335,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
 	zap.L().Info("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
+
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
 	var httpReq *ext_auth.AttributeContext_HttpRequest
@@ -384,7 +385,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}
 	r := new(http.Request)
 	r.RemoteAddr = sourceIP
-	fmt.Println("\n\n Now check the app request")
+
 	resp, err := s.auth.ApplicationRequest(authRequest)
 	if err != nil {
 		if resp.PUContext != nil {
