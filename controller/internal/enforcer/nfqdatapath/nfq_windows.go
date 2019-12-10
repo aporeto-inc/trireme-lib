@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.uber.org/zap"
 )
 
@@ -40,6 +41,26 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		// Parse the packet
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
+
+		if parsedPacket.IPProto() == packet.IPProtocolUDP && parsedPacket.SourcePort() == 53 {
+			// notify PUs of DNS results
+			err := d.dnsProxy.HandleDNSResponsePacket(parsedPacket.GetUDPData(), parsedPacket.SourceAddress(), func(id string) (*pucontext.PUContext, error) {
+				puCtx, err1 := d.puFromContextID.Get(id)
+				if err1 != nil {
+					return nil, err1
+				}
+				return puCtx.(*pucontext.PUContext), nil
+			})
+			if err != nil {
+				zap.L().Error("Failed to handle DNS response", zap.Error(err))
+			}
+			// forward packet
+			dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&packetBytes[0])))
+			if dllRet == 0 {
+				zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.PacketFilterForwardProc.Name, err))
+			}
+			return 0
+		}
 
 		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
 		var processError error
