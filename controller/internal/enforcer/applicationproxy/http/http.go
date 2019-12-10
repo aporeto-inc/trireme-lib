@@ -428,7 +428,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 			return &tlsCert, nil
 		}
 		if p.cert != nil {
-			tmp := p.newBaseTLSConfig()
+
 			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
 			if err != nil {
 				return nil, fmt.Errorf("Leaf cert is missing")
