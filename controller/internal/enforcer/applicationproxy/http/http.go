@@ -191,6 +191,32 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 	p.RLock()
 	defer p.RUnlock()
 	if p.cert != nil {
+		cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+		if err != nil {
+			zap.L().Error("SDS Server: Cannot build the cert chain")
+		}
+		if cert != nil {
+			by, _ := x509CertToPem(cert)
+			pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+			if err != nil {
+				zap.L().Error("SDS Server: Cannot build the cert chain")
+			}
+			var certChain tls.Certificate
+			//certPEMBlock := []byte(rootcaBundle)
+			var certDERBlock *pem.Block
+			for {
+				certDERBlock, pemCert = pem.Decode(pemCert)
+				if certDERBlock == nil {
+					break
+				}
+				if certDERBlock.Type == "CERTIFICATE" {
+					certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+				}
+			}
+			certChain.PrivateKey = p.cert.PrivateKey
+			//certChain.Certificate
+			return &certChain, nil
+		}
 		return p.cert, nil
 	}
 	return nil, nil
@@ -389,40 +415,40 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.auth.UpdateSecrets(s)
 }
 
-func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		if p.cert != nil {
-			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
-			if err != nil {
-				zap.L().Error("SDS Server: Cannot build the cert chain")
-			}
-			if cert != nil {
-				by, _ := x509CertToPem(cert)
-				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
-				if err != nil {
-					zap.L().Error("SDS Server: Cannot build the cert chain")
-				}
-				var certChain tls.Certificate
-				//certPEMBlock := []byte(rootcaBundle)
-				var certDERBlock *pem.Block
-				for {
-					certDERBlock, pemCert = pem.Decode(pemCert)
-					if certDERBlock == nil {
-						break
-					}
-					if certDERBlock.Type == "CERTIFICATE" {
-						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
-					}
-				}
-				certChain.PrivateKey = p.cert.PrivateKey
-				//certChain.Certificate
-				return &certChain, nil
-			}
-			return p.cert, nil
-		}
-		return nil, nil
-	}
-}
+// func (p *Config) GetClientCertificateFunc() func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+// 	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+// 		if p.cert != nil {
+// 			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+// 			if err != nil {
+// 				zap.L().Error("SDS Server: Cannot build the cert chain")
+// 			}
+// 			if cert != nil {
+// 				by, _ := x509CertToPem(cert)
+// 				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+// 				if err != nil {
+// 					zap.L().Error("SDS Server: Cannot build the cert chain")
+// 				}
+// 				var certChain tls.Certificate
+// 				//certPEMBlock := []byte(rootcaBundle)
+// 				var certDERBlock *pem.Block
+// 				for {
+// 					certDERBlock, pemCert = pem.Decode(pemCert)
+// 					if certDERBlock == nil {
+// 						break
+// 					}
+// 					if certDERBlock.Type == "CERTIFICATE" {
+// 						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+// 					}
+// 				}
+// 				certChain.PrivateKey = p.cert.PrivateKey
+// 				//certChain.Certificate
+// 				return &certChain, nil
+// 			}
+// 			return p.cert, nil
+// 		}
+// 		return nil, nil
+// 	}
+// }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
