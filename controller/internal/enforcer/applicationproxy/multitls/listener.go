@@ -12,12 +12,12 @@ import (
 )
 
 // ensure that Listener implements net.Listener
-var _ net.Listener = &Listener{}
+var _ net.Listener = &listener{}
 
 // InvalidConnErr will be returned when the accepted connection is not a ProxiedConnection
 var InvalidConnErr = errors.New("multitls: invalid connection, connection must be of type ProxiedConnection")
 
-type Listener struct {
+type listener struct {
 	net.Listener
 	publicPort int
 	internal   *tls.Config
@@ -25,7 +25,7 @@ type Listener struct {
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (l *Listener) Accept() (net.Conn, error) {
+func (l *listener) Accept() (net.Conn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
@@ -47,8 +47,8 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 
 // NewMultiTLSListener will create a new multi TLS listener.
-func NewMultiTLSListener(l net.Listener, publicPort int, internal, public *tls.Config) *Listener {
-	return &Listener{
+func NewMultiTLSListener(l net.Listener, publicPort int, internal, public *tls.Config) net.Listener {
+	return &listener{
 		Listener:   l,
 		publicPort: publicPort,
 		internal:   internal,
