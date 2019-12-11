@@ -388,6 +388,7 @@ func dialIP(srcIP, dstIP net.IP) (net.Conn, error) {
 
 	d := net.Dialer{
 		Timeout:   5 * time.Second,
+		KeepAlive: -1,
 		LocalAddr: &net.IPAddr{IP: srcIP},
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
