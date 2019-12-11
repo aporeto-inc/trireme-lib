@@ -334,7 +334,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 }
 
 // egressCheck implements the AuthorizationServer for egress connections
-func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
+func (s *AuthServer) egressCheck(_ context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
 	zap.L().Info("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
 	var sourceIP, destIP string
