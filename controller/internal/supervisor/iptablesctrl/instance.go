@@ -132,10 +132,7 @@ func (i *Instance) CleanUp() error {
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) (*Instance, error) {
 
-	ips, err := provider.NewGoIPsetProvider()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create ipset provider: %s", err)
-	}
+	ips := provider.NewGoIPsetProvider()
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)

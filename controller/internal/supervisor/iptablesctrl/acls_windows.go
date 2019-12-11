@@ -18,6 +18,64 @@ import (
 	"go.uber.org/zap"
 )
 
+// create ipsets needed for Windows rules
+func (i *iptables) platformInit() error {
+
+	cfg, err := i.newACLInfo(0, "", nil, 0)
+	if err != nil {
+		return err
+	}
+
+	existingSets, err := i.ipset.ListIPSets()
+	if err != nil {
+		return err
+	}
+
+	setExists := func(s string) bool {
+		for _, existing := range existingSets {
+			if existing == s {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !setExists("TRI-v4-WindowsAllIPs") {
+		allIPsV4, err := i.ipset.NewIpset("TRI-v4-WindowsAllIPs", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = allIPsV4.Add("0.0.0.0/0", 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !setExists("TRI-v6-WindowsAllIPs") {
+		allIPsV6, err := i.ipset.NewIpset("TRI-v6-WindowsAllIPs", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = allIPsV6.Add("::/0", 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	if cfg.DNSServerIP != "" && !setExists("TRI-WindowsDNSServer") {
+		dnsIpSet, err := i.ipset.NewIpset("TRI-WindowsDNSServer", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = dnsIpSet.Add(cfg.DNSServerIP, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // addContainerChain for Windows
 func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{

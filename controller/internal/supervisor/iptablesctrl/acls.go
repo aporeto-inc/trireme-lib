@@ -539,6 +539,9 @@ func (i *iptables) setGlobalRules() error {
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
+		},
 	}).Parse(globalRules))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)

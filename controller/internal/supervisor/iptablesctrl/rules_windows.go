@@ -13,7 +13,9 @@ var triremChains = `
 var globalRules = `
 -A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
--A  GlobalRules-INPUT -p udp --sports 53 -j NFQUEUE -j MARK 83
+{{if enableDNSProxy}}
+-A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer dstIP -j NFQUEUE -j MARK 83
+{{end}}
 `
 
 // cgroupCaptureTemplate are the list of iptables commands that will hook traffic and send it to a PU specific
