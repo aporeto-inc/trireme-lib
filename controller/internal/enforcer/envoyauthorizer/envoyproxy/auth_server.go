@@ -427,13 +427,13 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 		HttpResponse: &ext_auth.CheckResponse_OkResponse{
 			OkResponse: &ext_auth.OkHttpResponse{
 				Headers: []*envoy_core.HeaderValueOption{
-					&envoy_core.HeaderValueOption{
+					{
 						Header: &envoy_core.HeaderValue{
 							Key:   aporetoKeyHeader,
 							Value: string(transmittedKey),
 						},
 					},
-					&envoy_core.HeaderValueOption{
+					{
 						Header: &envoy_core.HeaderValue{
 							Key:   aporetoAuthHeader,
 							Value: resp.Token,
