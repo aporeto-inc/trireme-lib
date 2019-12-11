@@ -359,20 +359,11 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	}
 }
 
-// Seq  ines TCPseq number by incr
+// IncreaseTCPSeq increases TCP seq number by incr
 func (p *Packet) IncreaseTCPSeq(incr uint32) {
 	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
 	p.tcpHdr.tcpSeq = p.tcpHdr.tcpSeq + incr
 	binary.BigEndian.PutUint32(buffer[tcpSeqPos:tcpSeqPos+4], p.tcpHdr.tcpSeq)
-}
-
-// IncreaseTCPSeq increases TCP seq number by incr
-func (p *Packet) Seq() uint32 {
-	return p.tcpHdr.tcpSeq
-}
-
-func (p *Packet) Ack() uint32 {
-	return p.tcpHdr.tcpAck
 }
 
 // DecreaseTCPSeq decreases TCP seq number by decr
