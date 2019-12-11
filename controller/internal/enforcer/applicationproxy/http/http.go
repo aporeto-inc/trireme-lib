@@ -38,6 +38,7 @@ const (
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
 	// any OIDC provider.
 	TriremeOIDCCallbackURI = "/aporeto/oidc/callback"
+	typeCertificate = "CERTIFICATE"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -203,7 +204,7 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 				if certDERBlock == nil {
 					break
 				}
-				if certDERBlock.Type == "CERTIFICATE" {
+				if certDERBlock.Type == typeCertificate {
 					certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 				}
 			}
@@ -448,7 +449,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 					if certDERBlock == nil {
 						break
 					}
-					if certDERBlock.Type == "CERTIFICATE" {
+					if certDERBlock.Type == typeCertificate {
 						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 					}
 				}
@@ -473,7 +474,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 
 	derBlock, _ := pem.Decode(clientPEMBlock)
 	if derBlock != nil {
-		if derBlock.Type == "CERTIFICATE" {
+		if derBlock.Type == typeCertificate {
 			cert, err := x509.ParseCertificate(derBlock.Bytes)
 			if err != nil {
 				return nil, err
@@ -489,7 +490,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		if certDERBlock.Type == "CERTIFICATE" {
+		if certDERBlock.Type == typeCertificate {
 			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 			if err != nil {
 				return nil, err
@@ -508,7 +509,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
 	for _, cert := range certChain {
-		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
 			return nil, err
 		}
 	}
@@ -518,7 +519,7 @@ func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 // x509CertToPem converts x509 to byte.
 func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
-	if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+	if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
 		return nil, err
 	}
 	return pemBytes.Bytes(), nil
