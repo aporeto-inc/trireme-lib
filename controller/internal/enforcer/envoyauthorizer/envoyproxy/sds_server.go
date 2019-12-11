@@ -23,7 +23,9 @@ import (
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/golang/protobuf/ptypes"
+
+	//"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -343,7 +345,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 			} else {
 				retSecret.Type = getTLScerts(secret)
 			}
-			endSecret, err := ptypes.MarshalAny(retSecret)
+			endSecret, err := types.MarshalAny(retSecret)
 			if err != nil {
 				zap.L().Error("SDS Server: Cannot marshall the secret", zap.Error(err))
 				continue
@@ -415,7 +417,7 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 			},
 		}
 
-		endSecret, err := ptypes.MarshalAny(retSecret)
+		endSecret, err := types.MarshalAny(retSecret)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot marshall the secret")
 			return fmt.Errorf("SDS Server: Cannot marshall the secret")
@@ -476,7 +478,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 	} else {
 		retSecret.Type = getTLScerts(secret)
 	}
-	endSecret, err := ptypes.MarshalAny(retSecret)
+	endSecret, err := types.MarshalAny(retSecret)
 	if err != nil {
 		zap.L().Error("SDS Server: Cannot marshall the secret")
 		return nil, err
