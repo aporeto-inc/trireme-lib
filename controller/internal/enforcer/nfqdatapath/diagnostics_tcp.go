@@ -85,7 +85,7 @@ func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID
 			continue
 		}
 
-		p, err := constructSynPacket(srcIP, dstIP, uint16(srcPort), uint16(dstPort), tcpData, 0)
+		p, err := constructPacket(srcIP, dstIP, uint16(srcPort), uint16(dstPort), tcp.Syn, tcpData)
 		if err != nil {
 			return fmt.Errorf("unable to construct syn packet: %v", err)
 		}
@@ -171,7 +171,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(context *pucontext.PUContext, t
 		}
 	}
 
-	p, err := constructSynAckPacket(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress(), tcpPacket.DestPort(), tcpPacket.SourcePort(), tcpData, 0)
+	p, err := constructPacket(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress(), tcpPacket.DestPort(), tcpPacket.SourcePort(), tcp.Syn|tcp.Ack, tcpData)
 	if err != nil {
 		return fmt.Errorf("unable to construct synack packet: %v", err)
 	}
@@ -261,80 +261,31 @@ func (d *Datapath) sendDiagnosticReport(sessionID, agentVersion, flowTuple, rtt,
 	d.collector.CollectDiagnosticsEvent(record)
 }
 
-func constructSynPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, tcpData []byte, tseq uint32) ([]byte, error) {
-
-	options := []tcp.Option{
-		{
-			Type: tcp.MSS,
-			Len:  4,
-			Data: []byte{0x05, 0x8C},
-		}, {
-			Type: 34, // tfo
-			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
-			Data: make([]byte, 2),
-		},
-	}
-
-	offset := uint8(7)
-
-	return constructPacket(srcIP, dstIP, srcPort, dstPort, tcp.Syn, tcpData, tseq, options, offset)
-}
-
-func constructSynAckPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, tcpData []byte, tseq uint32) ([]byte, error) {
-
-	options := []tcp.Option{
-		{
-			Type: tcp.MSS,
-			Len:  4,
-			Data: []byte{0x05, 0x8C},
-		}, {
-			Type: 34, // tfo
-			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
-			Data: make([]byte, 2),
-		},
-	}
-
-	offset := uint8(7)
-
-	return constructPacket(srcIP, dstIP, srcPort, dstPort, tcp.Syn|tcp.Ack, tcpData, tseq, options, offset)
-}
-
-func constructAckPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, tseq uint32) ([]byte, error) {
-
-	options := []tcp.Option{
-		{
-			Type: tcp.MSS,
-			Len:  4,
-			Data: []byte{0x05, 0x8C},
-		},
-	}
-
-	offset := uint8(6)
-
-	return constructPacket(srcIP, dstIP, srcPort, dstPort, tcp.Ack, nil, tseq, options, offset)
-}
-
-func constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte, ack uint32, options []tcp.Option, offset uint8) ([]byte, error) {
+func constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
 
 	ipPacket := ipv4.Make()
 	ipPacket.SrcAddr = srcIP
 	ipPacket.DstAddr = dstIP
 	ipPacket.Protocol = ipv4.TCP
 
-	var seq uint32 = rand.Uint32()
-
-	if flag == tcp.Ack {
-		seq = ack
-	}
-
 	tcpPacket := tcp.Make()
 	tcpPacket.SrcPort = srcPort
 	tcpPacket.DstPort = dstPort
 	tcpPacket.Flags = flag
-	tcpPacket.Seq = seq
+	tcpPacket.Seq = rand.Uint32()
 	tcpPacket.WindowSize = 0xAAAA
-	tcpPacket.Options = options
-	tcpPacket.DataOff = offset
+	tcpPacket.Options = []tcp.Option{
+		{
+			Type: tcp.MSS,
+			Len:  4,
+			Data: []byte{0x05, 0x8C},
+		}, {
+			Type: 34, // tfo
+			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
+			Data: make([]byte, 2),
+		},
+	}
+	tcpPacket.DataOff = uint8(7)
 
 	payload := raw.Make()
 	payload.Data = tcpData
