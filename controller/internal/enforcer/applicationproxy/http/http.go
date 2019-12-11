@@ -38,7 +38,7 @@ const (
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
 	// any OIDC provider.
 	TriremeOIDCCallbackURI = "/aporeto/oidc/callback"
-	typeCertificate = "CERTIFICATE"
+	typeCertificate        = "CERTIFICATE"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.

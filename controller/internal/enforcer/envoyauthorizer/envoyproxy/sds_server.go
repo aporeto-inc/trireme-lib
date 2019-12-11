@@ -34,6 +34,7 @@ const (
 	//SdsSocketpath = "@aporeto_envoy_sds"
 	SdsSocketpath = "127.0.0.1:2999"
 	//SdsSocketpath = "/var/run/sds/uds_path"
+	typeCertificate = "CERTIFICATE"
 )
 
 // Options to create a SDS server to task to envoy
@@ -564,7 +565,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 	clientPEMBlock := certPEM
 	derBlock, _ := pem.Decode(clientPEMBlock)
 	if derBlock != nil {
-		if derBlock.Type == "CERTIFICATE" {
+		if derBlock.Type == typeCertificate {
 			cert, err := x509.ParseCertificate(derBlock.Bytes)
 			if err != nil {
 				return nil, err
@@ -580,7 +581,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		if certDERBlock.Type == "CERTIFICATE" {
+		if certDERBlock.Type == typeCertificate {
 			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 			if err != nil {
 				return nil, err
@@ -598,7 +599,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 // x509CertToPem converts x509 to byte.
 func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
-	if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+	if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
 		return nil, err
 	}
 	return pemBytes.Bytes(), nil
@@ -608,7 +609,7 @@ func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
 func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 	var pemBytes bytes.Buffer
 	for _, cert := range certChain {
-		if err := pem.Encode(&pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
 			return nil, err
 		}
 	}
@@ -627,7 +628,7 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 		if certDERBlock == nil {
 			break
 		}
-		if certDERBlock.Type == "CERTIFICATE" {
+		if certDERBlock.Type == typeCertificate {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}
 	}
