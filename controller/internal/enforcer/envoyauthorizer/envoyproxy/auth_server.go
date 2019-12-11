@@ -24,7 +24,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	//rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	status "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 const (
@@ -322,7 +324,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	zap.L().Info("ext_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
 	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
+		Status: &status.Status{
 			Code: int32(code.Code_OK),
 		},
 		HttpResponse: &ext_auth.CheckResponse_OkResponse{
@@ -419,7 +421,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 	}
 	zap.L().Info("ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
+		Status: &status.Status{
 			Code: int32(code.Code_OK),
 		},
 		HttpResponse: &ext_auth.CheckResponse_OkResponse{
@@ -445,7 +447,7 @@ func (s *AuthServer) egressCheck(ctx context.Context, checkRequest *ext_auth.Che
 
 func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse { //nolint
 	return &ext_auth.CheckResponse{
-		Status: &rpc.Status{
+		Status: &status.Status{
 			Code: int32(rpcCode),
 		},
 		HttpResponse: &ext_auth.CheckResponse_DeniedResponse{
