@@ -53,7 +53,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 	}
 
 	// same logic as in app proxy
-	systemPool, err := tglib.GetSystemCertPool()
+	systemPool, err := tglib.SystemCertPool()
 	if err != nil {
 		return nil, err
 	}

@@ -69,7 +69,7 @@ func NewAppProxy(
 	t tcommon.ServiceTokenIssuer,
 ) (*AppProxy, error) {
 
-	systemPool, err := tglib.GetSystemCertPool()
+	systemPool, err := tglib.SystemCertPool()
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
-	systemPool, err := tglib.GetSystemCertPool()
+	systemPool, err := tglib.SystemCertPool()
 	if err != nil {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool
