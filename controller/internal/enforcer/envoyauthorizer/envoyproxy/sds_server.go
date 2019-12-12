@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -149,28 +148,37 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 	s.sdsGrpcServer = grpc.NewServer()
 	s.register(s.sdsGrpcServer)
-	if err := os.Remove(options.SocketPath); err != nil && !os.IsNotExist(err) {
-		zap.L().Error("SDS Server: envoy-reireme, failed to remove the udspath", zap.Error(err))
-		return err
-	}
-	zap.L().Debug("SDS Server: Start listening on UDS path: ", zap.Any("socketPath: ", options.SocketPath))
-	addr, _ := net.ResolveUnixAddr("unix", options.SocketPath)
 
-	sdsGrpcListener, err := net.ListenUnix("unix", addr)
+	addr, err := net.ResolveTCPAddr("tcp", options.socketPath)
 	if err != nil {
-		zap.L().Error("SDS Server:cannot listen on the socketpath", zap.Error(err))
-		return err
+		return nil, err
 	}
-	//make sure the socket path can be accessed.
-	if _, err := os.Stat(options.SocketPath); err != nil {
-		zap.L().Error("SDS Server: SDS uds file doesn't exist", zap.String("socketPath:", options.SocketPath))
-		return fmt.Errorf("sds uds file %q doesn't exist", options.SocketPath)
+	nl, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return nil, err
 	}
-	if err := os.Chmod(options.SocketPath, 0666); err != nil {
-		zap.L().Error("SDS Server: Failed to update permission", zap.String("socketPath:", options.SocketPath))
-		return fmt.Errorf("failed to update %q permission", options.SocketPath)
-	}
-	s.sdsGrpcListener = sdsGrpcListener
+	// if err := os.Remove(options.SocketPath); err != nil && !os.IsNotExist(err) {
+	// 	zap.L().Error("SDS Server: envoy-reireme, failed to remove the udspath", zap.Error(err))
+	// 	return err
+	// }
+	// zap.L().Debug("SDS Server: Start listening on UDS path: ", zap.Any("socketPath: ", options.SocketPath))
+	// addr, _ := net.ResolveUnixAddr("unix", options.SocketPath)
+
+	// sdsGrpcListener, err := net.ListenUnix("unix", addr)
+	// if err != nil {
+	// 	zap.L().Error("SDS Server:cannot listen on the socketpath", zap.Error(err))
+	// 	return err
+	// }
+	// //make sure the socket path can be accessed.
+	// if _, err := os.Stat(options.SocketPath); err != nil {
+	// 	zap.L().Error("SDS Server: SDS uds file doesn't exist", zap.String("socketPath:", options.SocketPath))
+	// 	return fmt.Errorf("sds uds file %q doesn't exist", options.SocketPath)
+	// }
+	// if err := os.Chmod(options.SocketPath, 0666); err != nil {
+	// 	zap.L().Error("SDS Server: Failed to update permission", zap.String("socketPath:", options.SocketPath))
+	// 	return fmt.Errorf("failed to update %q permission", options.SocketPath)
+	// }
+	s.sdsGrpcListener = nl
 
 	zap.L().Debug("SDS Server: run the grpc server at: ", zap.Any("addr: ", s.sdsGrpcListener.Addr()))
 	s.Run()

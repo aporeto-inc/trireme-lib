@@ -133,17 +133,7 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 
 	// register with gRPC
 	ext_auth.RegisterAuthorizationServer(s.server, s)
-	for serviceName, info := range s.server.GetServiceInfo() {
-		zap.L().Info("ext_authz_server: service info", zap.String("service", serviceName), zap.Any("info", info))
-	}
 
-	// TODO: figure out why an abstract unix socket path doesn't work
-	// Create a custom listener
-	// addr, err := net.ResolveUnixAddr("unix", s.socketPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	//nl, err := net.ListenUnix("unix", addr)
 	addr, err := net.ResolveTCPAddr("tcp", s.socketPath)
 	if err != nil {
 		return nil, err
@@ -152,25 +142,6 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 	if err != nil {
 		return nil, err
 	}
-	// if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
-	// 	fmt.Println("ABHI, envoy-reireme, failed to remove the udspath", err)
-	// 	return nil, err
-	// }
-	// fmt.Println("Start listening on UDS path: ", addr)
-	// nl, err := net.ListenUnix("unix", addr)
-	// if err != nil {
-	// 	fmt.Println("cannot listen on the socketpath", err)
-	// 	return nil, err
-	// }
-	//make sure the socket path can be accessed.
-	// if _, err := os.Stat(socketPath); err != nil {
-	// 	fmt.Println("SDS uds file doesn't exist", socketPath)
-	// 	return nil, fmt.Errorf("sds uds file %q doesn't exist", socketPath)
-	// }
-	// if err := os.Chmod(socketPath, 0666); err != nil {
-	// 	fmt.Println("Failed to update permission", socketPath)
-	// 	return nil, fmt.Errorf("failed to update %q permission", socketPath)
-	// }
 	// start and listen to the server
 	zap.L().Debug("ext_authz_server: Auth Server started the server on: ", zap.Any(" addr: ", nl.Addr()), zap.String("puID: ", puID))
 	go s.run(nl)
@@ -194,7 +165,7 @@ func (s *AuthServer) run(lis net.Listener) {
 	if err := s.server.Serve(lis); err != nil {
 		zap.L().Error("gRPC server for ext_authz failed", zap.String("puID", s.puID), zap.Error(err), zap.String("direction", s.direction.String()))
 	}
-	zap.L().Info("stopped serving gRPC for ext_authz server", zap.String("puID", s.puID), zap.String("direction", s.direction.String()))
+	zap.L().Debug("stopped serving gRPC for ext_authz server", zap.String("puID", s.puID), zap.String("direction", s.direction.String()))
 }
 
 // Stop calls the function with the same name on the backing gRPC server
@@ -222,8 +193,6 @@ func (s *AuthServer) Check(ctx context.Context, checkRequest *ext_auth.CheckRequ
 
 // ingressCheck implements the AuthorizationServer for ingress connections
 func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-	// TODO: needs to be removed before we merge: this exposes secret data, and must never be in real logs - even in the debug case
-	zap.L().Info("ext_authz ingress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
 	// now extract the attributes and call the API auth to decode and check all the claims in request.
 	var sourceIP, destIP, aporetoAuth, aporetoKey string
@@ -273,7 +242,6 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 	requestCookie := &http.Cookie{Name: aporetoAuthHeader, Value: aporetoAuth} // nolint errcheck
 	hdr := make(http.Header)
 
-	zap.L().Debug("ext_authz ingress:", zap.String("Aporeto-Auth: ", aporetoAuth), zap.String("Aporeto-key: ", aporetoKey))
 	hdr.Add(aporetoAuthHeader, aporetoAuth) //string(p.secrets.TransmittedKey()))
 	hdr.Add(aporetoKeyHeader, aporetoKey)   //resp.Token)
 
@@ -321,8 +289,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 		//flow.DropReason = "access not authorized by network policy"
 		return createDeniedCheckResponse(code.Code_PERMISSION_DENIED, envoy_type.StatusCode_Forbidden, "Access not authorized by network policy"), nil
 	}
-	zap.L().Info("ext_authz ingress: Request accepted for", zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
-	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID))
+	zap.L().Debug("ext_authz ingress: Access authorized by network policy", zap.String("puID", s.puID), zap.String("dst: ", destIP), zap.String("src: ", sourceIP))
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(code.Code_OK),
@@ -335,7 +302,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 
 // egressCheck implements the AuthorizationServer for egress connections
 func (s *AuthServer) egressCheck(_ context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-	zap.L().Info("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
+	zap.L().Debug("ext_authz egress: checkRequest", zap.String("puID", s.puID), zap.String("checkRequest", checkRequest.String()))
 
 	var sourceIP, destIP string
 	var source, dest *ext_auth.AttributeContext_Peer
@@ -419,7 +386,7 @@ func (s *AuthServer) egressCheck(_ context.Context, checkRequest *ext_auth.Check
 	} else {
 		zap.L().Error("ext_authz egress:the secrerts are nil")
 	}
-	zap.L().Info("ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
+	zap.L().Debug("ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(code.Code_OK),

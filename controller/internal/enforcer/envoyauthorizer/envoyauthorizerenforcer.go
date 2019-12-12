@@ -106,7 +106,7 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	e.Lock()
 	defer e.Unlock()
 
-	zap.L().Info("Enforce for the envoy remoteEnforcer for pu: ", zap.String("puID:", contextID))
+	zap.L().Debug("Enforce for the envoy for pu: ", zap.String("puID:", contextID))
 	// here we 1st need to create a PuContext, as the PU context will derive the
 	// serviceCtxt which will be used by the authorizer to determine the policyInfo.
 
@@ -126,7 +126,6 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// now instantiate the apiAuth and metadata
 	// create a new server if it doesn't exist yet
-	//return nil
 	if _, err := e.clients.Get(contextID); err != nil {
 		zap.L().Debug("creating new auth and sds servers", zap.String("puID", contextID))
 		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection, e.registry, e.secrets, e.tokenIssuer)
@@ -146,7 +145,6 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
 			return err
 		}
-		//sdsServer := &envoyproxy.SdsServer{}
 		// Add the EnvoyServers to our cache
 		if err := e.clients.Add(contextID, &envoyServers{ingress: ingressServer, egress: egressServer, sds: sdsServer}); err != nil {
 			ingressServer.Stop()
@@ -199,7 +197,6 @@ func (e *Enforcer) processCertificateUpdates(puInfo *policy.PUInfo, server *envo
 	}
 	// Here update the enforcer secrets because we are using the LockedSecrets.
 	// Also, send a update event to the SDS server so it can send a new cert to the envoy Sidecar.
-	//e.UpdateSecrets(e.secrets)
 	// // update all the server certs, the Write lock has already been acquired by the Enforce function, so no need to lock again.
 	server.ingress.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
 	server.egress.UpdateSecrets(&tlsCert, caPool, e.secrets, certPEM, keyPEM)
@@ -284,15 +281,6 @@ func (e *Enforcer) Unenforce(contextID string) error {
 		wg.Wait()
 	case <-shutdownCh:
 	}
-
-	// pucontext launches a go routine to periodically
-	// lookup dns names. ctx cancel signals the go routine to exit
-	// TODO: not sure what is this, check with Marcus.
-	// if existingPUContextRaw, _ := p.puContexts.Get(puID); existingPUContextRaw != nil {
-	// 	if existingPUContext, ok := existingPUContextRaw.(*pucontext.PUContext); ok {
-	// 		existingPUContext.CancelFunc()
-	// 	}
-	// }
 
 	if err := e.puContexts.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Debug("Unable to remove PU context from cache", zap.String("puID", contextID), zap.Error(err))

@@ -197,7 +197,6 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 				zap.L().Error("http: Cannot build the cert chain")
 			}
 			var certChain tls.Certificate
-			//certPEMBlock := []byte(rootcaBundle)
 			var certDERBlock *pem.Block
 			for {
 				certDERBlock, pemCert = pem.Decode(pemCert)
@@ -209,7 +208,6 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 				}
 			}
 			certChain.PrivateKey = p.cert.PrivateKey
-			//certChain.Certificate
 			return &certChain, nil
 		}
 		return p.cert, nil
