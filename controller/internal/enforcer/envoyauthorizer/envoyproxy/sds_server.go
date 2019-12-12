@@ -149,13 +149,13 @@ func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 	s.sdsGrpcServer = grpc.NewServer()
 	s.register(s.sdsGrpcServer)
 
-	addr, err := net.ResolveTCPAddr("tcp", options.socketPath)
+	addr, err := net.ResolveTCPAddr("tcp", options.SocketPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	nl, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// if err := os.Remove(options.SocketPath); err != nil && !os.IsNotExist(err) {
 	// 	zap.L().Error("SDS Server: envoy-reireme, failed to remove the udspath", zap.Error(err))
