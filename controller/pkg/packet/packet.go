@@ -313,22 +313,34 @@ func (p *Packet) ReadTCPData() []byte {
 
 // CheckTCPAuthenticationOption ensures authentication option exists at the offset provided
 func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
-
 	tcpDataStart := p.TCPDataStartBytes()
 
 	if tcpDataStart <= minTCPIPPacketLen {
 		return errTCPAuthOption
 	}
-
-	optionLength := uint16(iOptionLength)
-	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
-	// Our option was not found in the right place. We don't do anything
-	// for this packet.
-	if buffer[tcpDataStart-optionLength] != TCPAuthenticationOption {
-		return errTCPAuthOption
+	if len(p.ipHdr.Buffer) < int(p.ipHdr.ipHeaderLen)+20 {
+		return errors.New("Invalid Packet")
 	}
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen+20:]
 
-	return
+	for i := 0; i < len(buffer); {
+
+		if buffer[i] == 0 || buffer[i] == 1 {
+			i++
+			continue
+		} else if buffer[i] != TCPAuthenticationOption {
+			if len(buffer) <= i+1 {
+				return errTCPAuthOption
+			}
+			i = i + int(buffer[i+1])
+		} else if buffer[i] == TCPAuthenticationOption {
+			return nil
+		} else {
+			return errTCPAuthOption
+		}
+
+	}
+	return errTCPAuthOption
 }
 
 // FixupIPHdrOnDataModify modifies the IP header fields and checksum
