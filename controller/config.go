@@ -48,10 +48,18 @@ type config struct {
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
 	aclmanager             ipsetmanager.ACLManager
+	ipv6Enabled            bool
 }
 
 // Option is provided using functional arguments.
 type Option func(*config)
+
+//OptionIPv6Enable is an option to enable ipv6
+func OptionIPv6Enable(ipv6Enabled bool) Option {
+	return func(cfg *config) {
+		cfg.ipv6Enabled = ipv6Enabled
+	}
+}
 
 //OptionIPSetManager is an option to provide ipsetmanager
 func OptionIPSetManager(manager ipsetmanager.ACLManager) Option {
@@ -260,6 +268,7 @@ func (t *trireme) newSupervisors() error {
 			t.config.runtimeCfg,
 			t.config.service,
 			t.config.aclmanager,
+			t.config.ipv6Enabled,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -281,6 +290,7 @@ func (t *trireme) newSupervisors() error {
 			t.config.runtimeCfg,
 			t.config.service,
 			t.config.aclmanager,
+			t.config.ipv6Enabled,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 )
@@ -17,8 +16,8 @@ const (
 )
 
 type ipv6 struct {
-	ipt          provider.IptablesProvider
-	ipv6Disabled bool
+	ipt         provider.IptablesProvider
+	ipv6Enabled bool
 }
 
 var ipsetV6Param *ipset.Params
@@ -29,17 +28,16 @@ func init() {
 
 // GetIPv6Impl creates the instance of ipv6 struct which implements
 // the interface ipImpl
-func GetIPv6Impl() (IPImpl, error) {
-
+func GetIPv6Impl(ipv6Enabled bool) (IPImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err == nil {
 		// test if the system supports ip6tables
 		if _, err = ipt.ListChains("mangle"); err == nil {
-			return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil
+			return &ipv6{ipt: ipt, ipv6Enabled: ipv6Enabled}, nil
 		}
 	}
 
-	return &ipv6{ipt: ipt, ipv6Disabled: constants.Ipv6Disabled}, nil
+	return &ipv6{ipt: nil, ipv6Enabled: false}, nil
 }
 
 func (i *ipv6) GetIPSetPrefix() string {
@@ -75,7 +73,7 @@ func (i *ipv6) ProtocolAllowed(proto string) bool {
 }
 
 func (i *ipv6) Append(table, chain string, rulespec ...string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -83,7 +81,7 @@ func (i *ipv6) Append(table, chain string, rulespec ...string) error {
 }
 
 func (i *ipv6) Insert(table, chain string, pos int, rulespec ...string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -91,7 +89,7 @@ func (i *ipv6) Insert(table, chain string, pos int, rulespec ...string) error {
 }
 
 func (i *ipv6) ListChains(table string) ([]string, error) {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil, nil
 	}
 
@@ -99,7 +97,7 @@ func (i *ipv6) ListChains(table string) ([]string, error) {
 }
 
 func (i *ipv6) ClearChain(table, chain string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -107,7 +105,7 @@ func (i *ipv6) ClearChain(table, chain string) error {
 }
 
 func (i *ipv6) DeleteChain(table, chain string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -115,7 +113,7 @@ func (i *ipv6) DeleteChain(table, chain string) error {
 }
 
 func (i *ipv6) NewChain(table, chain string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -123,7 +121,7 @@ func (i *ipv6) NewChain(table, chain string) error {
 }
 
 func (i *ipv6) Commit() error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 
@@ -131,7 +129,7 @@ func (i *ipv6) Commit() error {
 }
 
 func (i *ipv6) Delete(table, chain string, rulespec ...string) error {
-	if i.ipv6Disabled || i.ipt == nil {
+	if !i.ipv6Enabled || i.ipt == nil {
 		return nil
 	}
 

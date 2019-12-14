@@ -48,4 +48,5 @@ type RemoteEnforcer struct {
 	tokenIssuer     tokenissuer.TokenClient
 	enforcerType    policy.EnforcerType
 	aclmanager      ipsetmanager.ACLManager
+	ipv6Enabled     bool
 }
