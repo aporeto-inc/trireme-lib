@@ -280,19 +280,19 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
-// RunDiagnostics is unimplemented in the envoy authorizer
-func (s *ProxyInfo) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
+// Ping is unimplemented in the envoy authorizer
+func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
 	resp := &rpcwrapper.Response{}
 
 	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.RunDiagnosticsPayload{
-			ContextID:       contextID,
-			DiagnosticsConfig: diagnosticsInfo,
+		Payload: &rpcwrapper.PingPayload{
+			ContextID:  contextID,
+			PingConfig: pingConfig,
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.RunDiagnostics, request, resp); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Ping, request, resp); err != nil {
 		return fmt.Errorf("unable to run diagnostics %s -- %s", err, resp.Status)
 	}
 

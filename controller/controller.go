@@ -145,11 +145,11 @@ func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, 
 	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
-func (t *trireme) RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error {
+func (t *trireme) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
-	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].RunDiagnostics(ctx, puID, diagnosticsInfo)
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].Ping(ctx, puID, pingConfig)
 }
 
 // UpdateSecrets updates the secrets of the controllers.

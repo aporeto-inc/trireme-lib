@@ -27,10 +27,10 @@ func OptionDatapathVersion(datapathVersion DatapathVersion) Option {
 	}
 }
 
-// OptionDiagnostic sets diagnostic type
-func OptionDiagnosticType(diagnosticType DiagnosticType) Option {
+// OptionPing sets ping type
+func OptionPingType(pingType PingType) Option {
 
 	return func(c *ClaimsHeader) {
-		c.diagnosticType = diagnosticType
+		c.pingType = pingType
 	}
 }

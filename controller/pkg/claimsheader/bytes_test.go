@@ -13,7 +13,7 @@ func TestHeaderBytes(t *testing.T) {
 			OptionCompressionType(CompressionTypeV2),
 			OptionEncrypt(true),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeNone),
+			OptionPingType(PingTypeNone),
 		).ToBytes()
 
 		Convey("Then header bytes should not be nil", func() {
@@ -27,7 +27,7 @@ func TestHeaderBytes(t *testing.T) {
 				So(ch.compressionType, ShouldEqual, CompressionTypeV2)
 				So(ch.encrypt, ShouldEqual, true)
 				So(ch.datapathVersion, ShouldEqual, DatapathVersion1)
-				So(ch.diagnosticType, ShouldEqual, DiagnosticTypeNone)
+				So(ch.pingType, ShouldEqual, PingTypeNone)
 			})
 		})
 	})

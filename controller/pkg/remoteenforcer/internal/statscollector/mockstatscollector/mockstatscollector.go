@@ -134,18 +134,18 @@ func (mr *MockCollectorReaderMockRecorder) GetDNSReports() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollectorReader)(nil).GetDNSReports))
 }
 
-// GetDiagnosticsReports mocks base method
+// GetPingReports mocks base method
 // nolint
-func (m *MockCollectorReader) GetDiagnosticsReports() chan *collector.DiagnosticsReport {
-	ret := m.ctrl.Call(m, "GetDiagnosticsReports")
-	ret0, _ := ret[0].(chan *collector.DiagnosticsReport)
+func (m *MockCollectorReader) GetPingReports() chan *collector.PingReport {
+	ret := m.ctrl.Call(m, "GetPingReports")
+	ret0, _ := ret[0].(chan *collector.PingReport)
 	return ret0
 }
 
-// GetDiagnosticsReports indicates an expected call of GetDiagnosticsReports
+// GetPingReports indicates an expected call of GetPingReports
 // nolint
-func (mr *MockCollectorReaderMockRecorder) GetDiagnosticsReports() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDiagnosticsReports", reflect.TypeOf((*MockCollectorReader)(nil).GetDiagnosticsReports))
+func (mr *MockCollectorReaderMockRecorder) GetPingReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPingReports", reflect.TypeOf((*MockCollectorReader)(nil).GetPingReports))
 }
 
 // MockCollector is a mock of Collector interface
@@ -271,18 +271,18 @@ func (mr *MockCollectorMockRecorder) GetDNSReports() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollector)(nil).GetDNSReports))
 }
 
-// GetDiagnosticsReports mocks base method
+// GetPingReports mocks base method
 // nolint
-func (m *MockCollector) GetDiagnosticsReports() chan *collector.DiagnosticsReport {
-	ret := m.ctrl.Call(m, "GetDiagnosticsReports")
-	ret0, _ := ret[0].(chan *collector.DiagnosticsReport)
+func (m *MockCollector) GetPingReports() chan *collector.PingReport {
+	ret := m.ctrl.Call(m, "GetPingReports")
+	ret0, _ := ret[0].(chan *collector.PingReport)
 	return ret0
 }
 
-// GetDiagnosticsReports indicates an expected call of GetDiagnosticsReports
+// GetPingReports indicates an expected call of GetPingReports
 // nolint
-func (mr *MockCollectorMockRecorder) GetDiagnosticsReports() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDiagnosticsReports", reflect.TypeOf((*MockCollector)(nil).GetDiagnosticsReports))
+func (mr *MockCollectorMockRecorder) GetPingReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPingReports", reflect.TypeOf((*MockCollector)(nil).GetPingReports))
 }
 
 // CollectFlowEvent mocks base method
@@ -369,14 +369,14 @@ func (mr *MockCollectorMockRecorder) CollectDNSRequests(request interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDNSRequests", reflect.TypeOf((*MockCollector)(nil).CollectDNSRequests), request)
 }
 
-// CollectDiagnosticsEvent mocks base method
+// CollectPingEvent mocks base method
 // nolint
-func (m *MockCollector) CollectDiagnosticsEvent(report *collector.DiagnosticsReport) {
-	m.ctrl.Call(m, "CollectDiagnosticsEvent", report)
+func (m *MockCollector) CollectPingEvent(report *collector.PingReport) {
+	m.ctrl.Call(m, "CollectPingEvent", report)
 }
 
-// CollectDiagnosticsEvent indicates an expected call of CollectDiagnosticsEvent
+// CollectPingEvent indicates an expected call of CollectPingEvent
 // nolint
-func (mr *MockCollectorMockRecorder) CollectDiagnosticsEvent(report interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDiagnosticsEvent", reflect.TypeOf((*MockCollector)(nil).CollectDiagnosticsEvent), report)
+func (mr *MockCollectorMockRecorder) CollectPingEvent(report interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPingEvent", reflect.TypeOf((*MockCollector)(nil).CollectPingEvent), report)
 }

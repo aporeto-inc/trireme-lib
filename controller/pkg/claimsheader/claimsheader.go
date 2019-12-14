@@ -29,7 +29,7 @@ func (c *ClaimsHeader) ToBytes() HeaderBytes {
 	claimsHeaderData[0] |= c.datapathVersion.toMask().toUint8()
 	claimsHeaderData[0] |= c.compressionType.toMask().toUint8()
 	claimsHeaderData[1] |= boolToUint8(c.encrypt)
-	claimsHeaderData[1] |= c.diagnosticType.toMask().toUint8()
+	claimsHeaderData[1] |= c.pingType.toMask().toUint8()
 
 	return claimsHeaderData
 }
@@ -52,10 +52,10 @@ func (c *ClaimsHeader) DatapathVersion() DatapathVersion {
 	return c.datapathVersion
 }
 
-// DiagnosticType returns diagnostic type
-func (c *ClaimsHeader) DiagnosticType() DiagnosticType {
+// PingType returns ping type
+func (c *ClaimsHeader) PingType() PingType {
 
-	return c.diagnosticType
+	return c.pingType
 }
 
 // SetCompressionType sets the compression type
@@ -76,8 +76,8 @@ func (c *ClaimsHeader) SetDatapathVersion(dv DatapathVersion) {
 	c.datapathVersion = dv
 }
 
-// SetDiagnosticType sets the diagnosticType
-func (c *ClaimsHeader) SetDiagnosticType(diagnosticType DiagnosticType) {
+// SetPingType sets the ping type
+func (c *ClaimsHeader) SetPingType(pingType PingType) {
 
-	c.diagnosticType = diagnosticType
+	c.pingType = pingType
 }

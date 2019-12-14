@@ -129,12 +129,12 @@ type TokenResponsePayload struct {
 	Token string `json:",omitempty"`
 }
 
-type RunDiagnosticsPayload struct {
-	ContextID         string
-	DiagnosticsConfig *policy.DiagnosticsConfig
+type PingPayload struct {
+	ContextID  string
+	PingConfig *policy.PingConfig
 }
 
 // DiagnosticsReportPayload represents the payload for diagnostics reporting.
-type DiagnosticsReportPayload struct {
-	Report *collector.DiagnosticsReport
+type PingReportPayload struct {
+	Report *collector.PingReport
 }

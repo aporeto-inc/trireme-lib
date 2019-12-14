@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -129,8 +131,8 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	v := uint32(1)
 	if tcpConn != nil {
-		if !tcpConn.Passthrough {
-			fmt.Println("DROPPING", tcpConn.DiagnosticType)
+		if !tcpConn.PingConfig.Passthrough && tcpConn.PingConfig.Type != claimsheader.PingTypeNone {
+			fmt.Println("DROPPING", tcpConn.PingConfig.Type)
 			v = uint32(0)
 		}
 	}

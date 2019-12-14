@@ -122,14 +122,14 @@ func (mr *MockEventCollectorMockRecorder) CollectDNSRequests(request interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDNSRequests", reflect.TypeOf((*MockEventCollector)(nil).CollectDNSRequests), request)
 }
 
-// CollectDiagnosticsEvent mocks base method
+// CollectPingEvent mocks base method
 // nolint
-func (m *MockEventCollector) CollectDiagnosticsEvent(report *collector.DiagnosticsReport) {
-	m.ctrl.Call(m, "CollectDiagnosticsEvent", report)
+func (m *MockEventCollector) CollectPingEvent(report *collector.PingReport) {
+	m.ctrl.Call(m, "CollectPingEvent", report)
 }
 
-// CollectDiagnosticsEvent indicates an expected call of CollectDiagnosticsEvent
+// CollectPingEvent indicates an expected call of CollectPingEvent
 // nolint
-func (mr *MockEventCollectorMockRecorder) CollectDiagnosticsEvent(report interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDiagnosticsEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectDiagnosticsEvent), report)
+func (mr *MockEventCollectorMockRecorder) CollectPingEvent(report interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPingEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectPingEvent), report)
 }

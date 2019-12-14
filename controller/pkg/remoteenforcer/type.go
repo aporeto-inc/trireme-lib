@@ -3,8 +3,6 @@ package remoteenforcer
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/diagnosticsreportclient"
-
 	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -17,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
@@ -31,26 +30,26 @@ import (
 //
 // Why is this public when all members are private ? For golang RPC server requirements
 type RemoteEnforcer struct {
-	rpcSecret               string
-	rpcHandle               rpcwrapper.RPCServer
-	collector               statscollector.Collector
-	statsClient             statsclient.StatsClient
-	debugClient             debugclient.DebugClient
-	diagnosticsReportClient diagnosticsreportclient.DiagnosticsReportClient
-	counterClient           counterclient.CounterClient
-	dnsReportClient         dnsreportclient.DNSReportClient
-	procMountPoint          string
-	enforcer                enforcer.Enforcer
-	supervisor              supervisor.Supervisor
-	service                 packetprocessor.PacketProcessor
-	secrets                 secrets.Secrets
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	exit                    chan bool
-	zapConfig               zap.Config
-	logLevel                constants.LogLevel
-	tokenIssuer             tokenissuer.TokenClient
-	enforcerType            policy.EnforcerType
-	aclmanager              ipsetmanager.ACLManager
-	agentVersion            semver.Version
+	rpcSecret        string
+	rpcHandle        rpcwrapper.RPCServer
+	collector        statscollector.Collector
+	statsClient      statsclient.StatsClient
+	debugClient      debugclient.DebugClient
+	pingReportClient pingreportclient.PingReportClient
+	counterClient    counterclient.CounterClient
+	dnsReportClient  dnsreportclient.DNSReportClient
+	procMountPoint   string
+	enforcer         enforcer.Enforcer
+	supervisor       supervisor.Supervisor
+	service          packetprocessor.PacketProcessor
+	secrets          secrets.Secrets
+	ctx              context.Context
+	cancel           context.CancelFunc
+	exit             chan bool
+	zapConfig        zap.Config
+	logLevel         constants.LogLevel
+	tokenIssuer      tokenissuer.TokenClient
+	enforcerType     policy.EnforcerType
+	aclmanager       ipsetmanager.ACLManager
+	agentVersion     semver.Version
 }

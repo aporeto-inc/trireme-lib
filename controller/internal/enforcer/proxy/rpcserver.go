@@ -87,15 +87,15 @@ func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Res
 	return nil
 }
 
-// DiagnosticsEvent is called from the remote to post dns requests
-func (r *ProxyRPCServer) DiagnosticsEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// PingEvent is called from the remote to post dns requests
+func (r *ProxyRPCServer) PingEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		return errors.New("message sender cannot be verified")
 	}
 
-	payload := req.Payload.(rpcwrapper.DiagnosticsReportPayload)
+	payload := req.Payload.(rpcwrapper.PingReportPayload)
 	zap.L().Debug("Posting DNS requests")
-	r.collector.CollectDiagnosticsEvent(payload.Report)
+	r.collector.CollectPingEvent(payload.Report)
 
 	payload.Report = nil
 	return nil

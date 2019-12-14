@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	"go.aporeto.io/trireme-lib/utils/portspec"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 
 	"github.com/docker/go-connections/nat"
@@ -409,11 +411,11 @@ type RuntimeError struct {
 	Error     error
 }
 
-type DiagnosticsConfig struct {
-	Type    claimsheader.DiagnosticType
-	IP      string
-	Ports   []string
-	Retries int
+type PingConfig struct {
+	Type     claimsheader.PingType
+	IP       string
+	Ports    []*portspec.PortSpec
+	Requests int
 }
 
 // Fnv32Hash hash the given data by Fnv32-bit algorithm.

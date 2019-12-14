@@ -169,18 +169,18 @@ func (mr *MockTriremeControllerMockRecorder) EnableIPTablesPacketTracing(ctx, pu
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }
 
-// RunDiagnostics mocks base method
+// Ping mocks base method
 // nolint
-func (m *MockTriremeController) RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error {
-	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, puID, policy, runtime, diagnosticsInfo)
+func (m *MockTriremeController) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
+	ret := m.ctrl.Call(m, "Ping", ctx, puID, policy, runtime, pingConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RunDiagnostics indicates an expected call of RunDiagnostics
+// Ping indicates an expected call of Ping
 // nolint
-func (mr *MockTriremeControllerMockRecorder) RunDiagnostics(ctx, puID, policy, runtime, diagnosticsInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockTriremeController)(nil).RunDiagnostics), ctx, puID, policy, runtime, diagnosticsInfo)
+func (mr *MockTriremeControllerMockRecorder) Ping(ctx, puID, policy, runtime, pingConfig interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockTriremeController)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
 }
 
 // MockDebugInfo is a mock of DebugInfo interface
@@ -238,16 +238,16 @@ func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, puID, poli
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }
 
-// RunDiagnostics mocks base method
+// Ping mocks base method
 // nolint
-func (m *MockDebugInfo) RunDiagnostics(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, diagnosticsInfo *policy.DiagnosticsConfig) error {
-	ret := m.ctrl.Call(m, "RunDiagnostics", ctx, puID, policy, runtime, diagnosticsInfo)
+func (m *MockDebugInfo) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
+	ret := m.ctrl.Call(m, "Ping", ctx, puID, policy, runtime, pingConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RunDiagnostics indicates an expected call of RunDiagnostics
+// Ping indicates an expected call of Ping
 // nolint
-func (mr *MockDebugInfoMockRecorder) RunDiagnostics(ctx, puID, policy, runtime, diagnosticsInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiagnostics", reflect.TypeOf((*MockDebugInfo)(nil).RunDiagnostics), ctx, puID, policy, runtime, diagnosticsInfo)
+func (mr *MockDebugInfoMockRecorder) Ping(ctx, puID, policy, runtime, pingConfig interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDebugInfo)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
 }

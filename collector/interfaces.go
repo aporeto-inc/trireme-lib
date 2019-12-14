@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -101,8 +103,8 @@ type EventCollector interface {
 	// CollectDNSRequests collects the dns requests
 	CollectDNSRequests(request *DNSRequestReport)
 
-	// CollectDiagnosticsEvent collects the diagnostics info
-	CollectDiagnosticsEvent(report *DiagnosticsReport)
+	// CollectPingEvent collects the ping info
+	CollectPingEvent(report *PingReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -236,15 +238,18 @@ type CounterReport struct {
 }
 
 // DiagnosticsReport object is used to report diagnostics info collected in datapath.
-type DiagnosticsReport struct {
+type PingReport struct {
 	Namespace     string
 	SourceID      string
 	DestinationID string
 	FlowTuple     string
 	Latency       string
 	AgentVersion  string
+	Protocol      int
+	ServiceType   string
 	PayloadSize   int
-	Type          string
+	Request       int
+	Type          claimsheader.PingType
 	Stage         Stage
 	SessionID     string
 }

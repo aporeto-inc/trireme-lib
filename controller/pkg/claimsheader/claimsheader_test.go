@@ -14,7 +14,7 @@ func TestHeader(t *testing.T) {
 			OptionEncrypt(true),
 			OptionCompressionType(CompressionTypeV2),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeNone),
+			OptionPingType(PingTypeNone),
 		).ToBytes()
 
 		Convey("Then claims header should not be nil", func() {
@@ -28,8 +28,8 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeNone)
-				So(ch.DiagnosticType().String(), ShouldEqual, "None")
+				So(ch.PingType(), ShouldEqual, PingTypeNone)
+				So(ch.PingType().String(), ShouldEqual, "None")
 			})
 		})
 	})
@@ -39,7 +39,7 @@ func TestHeader(t *testing.T) {
 			OptionEncrypt(false),
 			OptionCompressionType(CompressionTypeV2),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeAporetoIdentity),
+			OptionPingType(PingTypeDefaultIdentity),
 		)
 
 		Convey("Then claims header should not be nil", func() {
@@ -53,23 +53,23 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, false)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentity)
-				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentity")
+				So(ch.PingType(), ShouldEqual, PingTypeDefaultIdentity)
+				So(ch.PingType().String(), ShouldEqual, "DefaultIdentity")
 			})
 		})
 
 		Convey("Given I set change headers", func() {
 			header.SetCompressionType(CompressionTypeV2)
 			header.SetEncrypt(true)
-			header.SetDiagnosticType(DiagnosticTypeAporetoIdentityPassthrough)
+			header.SetPingType(PingTypeDefaultIdentityPassthrough)
 			ch := header.ToBytes().ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentityPassthrough)
-				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentityPassthrough")
+				So(ch.PingType(), ShouldEqual, PingTypeDefaultIdentityPassthrough)
+				So(ch.PingType().String(), ShouldEqual, "DefaultIdentityPassthrough")
 			})
 		})
 	})
@@ -79,7 +79,7 @@ func TestHeader(t *testing.T) {
 			OptionEncrypt(false),
 			OptionCompressionType(CompressionTypeV2),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeCustomIdentity),
+			OptionPingType(PingTypeCustomIdentity),
 		)
 
 		Convey("Then claims header should not be nil", func() {
@@ -93,23 +93,23 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, false)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeCustomIdentity)
-				So(ch.DiagnosticType().String(), ShouldEqual, "CustomIdentity")
+				So(ch.PingType(), ShouldEqual, PingTypeCustomIdentity)
+				So(ch.PingType().String(), ShouldEqual, "CustomIdentity")
 			})
 		})
 
 		Convey("Given I set change headers", func() {
 			header.SetCompressionType(CompressionTypeV2)
 			header.SetEncrypt(true)
-			header.SetDiagnosticType(DiagnosticTypeAporetoIdentityPassthrough)
+			header.SetPingType(PingTypeDefaultIdentityPassthrough)
 			ch := header.ToBytes().ToClaimsHeader()
-			fmt.Println(DiagnosticTypeAporetoIdentity)
+			fmt.Println(PingTypeDefaultIdentity)
 			Convey("Then it should be equal", func() {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentityPassthrough)
-				So(ch.DiagnosticType().String(), ShouldEqual, "AporetoIdentityPassthrough")
+				So(ch.PingType(), ShouldEqual, PingTypeDefaultIdentityPassthrough)
+				So(ch.PingType().String(), ShouldEqual, "DefaultIdentityPassthrough")
 			})
 		})
 	})
@@ -161,7 +161,7 @@ func TestHeader(t *testing.T) {
 		header := NewClaimsHeader(
 			OptionEncrypt(false),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionDiagnosticType(DiagnosticTypeAporetoIdentity),
+			OptionPingType(PingTypeDefaultIdentity),
 		)
 
 		Convey("Then claims header should not be nil", func() {
@@ -175,21 +175,21 @@ func TestHeader(t *testing.T) {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeNone)
 				So(ch.Encrypt(), ShouldEqual, false)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeAporetoIdentity)
+				So(ch.PingType(), ShouldEqual, PingTypeDefaultIdentity)
 			})
 		})
 
 		Convey("Given I set different compression type and encrypt", func() {
 			header.SetCompressionType(CompressionTypeV2)
 			header.SetEncrypt(true)
-			header.SetDiagnosticType(DiagnosticTypeNone)
+			header.SetPingType(PingTypeNone)
 			ch := header.ToBytes().ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
 				So(ch.CompressionType(), ShouldEqual, CompressionTypeV2)
 				So(ch.Encrypt(), ShouldEqual, true)
 				So(ch.DatapathVersion(), ShouldEqual, DatapathVersion1)
-				So(ch.DiagnosticType(), ShouldEqual, DiagnosticTypeNone)
+				So(ch.PingType(), ShouldEqual, PingTypeNone)
 			})
 		})
 	})

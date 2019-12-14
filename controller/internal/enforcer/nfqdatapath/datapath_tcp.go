@@ -410,8 +410,8 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	claimsHeader := claimsheader.NewClaimsHeader()
-	if conn.DiagnosticType != claimsheader.DiagnosticTypeNone {
-		claimsHeader.SetDiagnosticType(conn.DiagnosticType)
+	if conn.PingConfig.Type != claimsheader.PingTypeNone {
+		claimsHeader.SetPingType(conn.PingConfig.Type)
 	} else {
 		claimsHeader.SetEncrypt(conn.PacketFlowPolicy.Action.Encrypted())
 	}
@@ -618,7 +618,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	if claims.H != nil {
 		ch := claims.H.ToClaimsHeader()
-		if ch.DiagnosticType() != claimsheader.DiagnosticTypeNone {
+		if ch.PingType() != claimsheader.PingTypeNone {
 			return nil, nil, d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims)
 		}
 	}
@@ -688,7 +688,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrInvalidSynAck, fmt.Sprintf("Pu with ID delete %s", conn.Context.ID()))
 		}
 
-		if conn.DiagnosticType != claimsheader.DiagnosticTypeNone {
+		if conn.PingConfig.Type != claimsheader.PingTypeNone {
 			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
 		}
 
@@ -723,7 +723,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return pkt, nil, nil
 	}
 
-	if conn.DiagnosticType == claimsheader.DiagnosticTypeCustomIdentity {
+	if conn.PingConfig.Type == claimsheader.PingTypeCustomIdentity {
 		return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true)
 	}
 
@@ -770,7 +770,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	if claims.H != nil {
-		if claims.H.ToClaimsHeader().DiagnosticType() != claimsheader.DiagnosticTypeNone {
+		if claims.H.ToClaimsHeader().PingType() != claimsheader.PingTypeNone {
 			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
 		}
 	}

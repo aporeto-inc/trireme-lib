@@ -8,8 +8,8 @@ type ClaimsHeader struct {
 	encrypt bool
 	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
-	// diagnosticType represents diagnostic type
-	diagnosticType DiagnosticType
+	// pingType represents ping type
+	pingType PingType
 }
 
 // boolToUint8 converts bool to uint8

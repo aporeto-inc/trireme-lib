@@ -79,6 +79,6 @@ func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
 }
 
 // CollectDiagnosticsReports collect counters from the datapath
-func (c *collectorImpl) CollectDiagnosticsEvent(report *collector.DiagnosticsReport) {
-	c.DiagnosticsReport <- report
+func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
+	c.PingReports <- report
 }

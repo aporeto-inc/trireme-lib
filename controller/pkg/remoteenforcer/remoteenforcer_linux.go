@@ -16,8 +16,6 @@ import (
 	"sync"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/diagnosticsreportclient"
-
 	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -30,6 +28,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
@@ -59,7 +58,7 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
-	diagnosticsReportClient diagnosticsreportclient.DiagnosticsReportClient,
+	pingReportClient pingreportclient.PingReportClient,
 	counterClient counterclient.CounterClient,
 	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
@@ -88,8 +87,8 @@ func newRemoteEnforcer(
 		}
 	}
 
-	if diagnosticsReportClient == nil {
-		diagnosticsReportClient, err = diagnosticsreportclient.NewDiagnosticsReportClient(collector)
+	if pingReportClient == nil {
+		pingReportClient, err = pingreportclient.NewPingReportClient(collector)
 		if err != nil {
 			return nil, err
 		}
@@ -126,24 +125,24 @@ func newRemoteEnforcer(
 	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
 
 	return &RemoteEnforcer{
-		collector:               collector,
-		service:                 service,
-		rpcSecret:               secret,
-		rpcHandle:               rpcHandle,
-		procMountPoint:          procMountPoint,
-		statsClient:             statsClient,
-		debugClient:             debugClient,
-		counterClient:           counterClient,
-		dnsReportClient:         dnsReportClient,
-		ctx:                     ctx,
-		cancel:                  cancel,
-		exit:                    make(chan bool),
-		zapConfig:               zapConfig,
-		tokenIssuer:             tokenIssuer,
-		enforcerType:            enforcerType,
-		aclmanager:              aclmanager,
-		diagnosticsReportClient: diagnosticsReportClient,
-		agentVersion:            agentVersion,
+		collector:        collector,
+		service:          service,
+		rpcSecret:        secret,
+		rpcHandle:        rpcHandle,
+		procMountPoint:   procMountPoint,
+		statsClient:      statsClient,
+		debugClient:      debugClient,
+		counterClient:    counterClient,
+		dnsReportClient:  dnsReportClient,
+		ctx:              ctx,
+		cancel:           cancel,
+		exit:             make(chan bool),
+		zapConfig:        zapConfig,
+		tokenIssuer:      tokenIssuer,
+		enforcerType:     enforcerType,
+		aclmanager:       aclmanager,
+		pingReportClient: pingReportClient,
+		agentVersion:     agentVersion,
 	}, nil
 }
 
@@ -210,8 +209,8 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
-	if err = s.diagnosticsReportClient.Run(s.ctx); err != nil {
-		resp.Status = "DiagnosticsReportClient" + err.Error()
+	if err = s.pingReportClient.Run(s.ctx); err != nil {
+		resp.Status = "pingReportClient" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -456,8 +455,8 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 	return nil
 }
 
-// RunDiagnostics enable nfq datapath packet tracing
-func (s *RemoteEnforcer) RunDiagnostics(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// Ping enable nfq datapath packet tracing
+func (s *RemoteEnforcer) Ping(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "enable datapath packet tracing auth failed"
@@ -467,9 +466,9 @@ func (s *RemoteEnforcer) RunDiagnostics(req rpcwrapper.Request, resp *rpcwrapper
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	payload := req.Payload.(rpcwrapper.RunDiagnosticsPayload)
+	payload := req.Payload.(rpcwrapper.PingPayload)
 
-	if err := s.enforcer.RunDiagnostics(context.TODO(), payload.ContextID, payload.DiagnosticsConfig); err != nil {
+	if err := s.enforcer.Ping(context.TODO(), payload.ContextID, payload.PingConfig); err != nil {
 		resp.Status = err.Error()
 		return err
 	}

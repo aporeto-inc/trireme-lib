@@ -749,7 +749,7 @@ func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 }
 
 // RunDiagnostics is unimplemented in the envoy authorizer
-func (d *Datapath) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
+func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
-	return d.initiateDiagnosticAppSynPacket(ctx, contextID, diagnosticsInfo)
+	return d.initiateDiagnosticAppSynPacket(ctx, contextID, pingConfig)
 }

@@ -12,12 +12,12 @@ func (h HeaderBytes) ToClaimsHeader() *ClaimsHeader {
 
 	compressionTypeMask := compressionTypeMask(h.extractHeaderAttribute(h[0], compressionTypeBitMask.toUint8()))
 	datapathVersionMask := datapathVersionMask(h.extractHeaderAttribute(h[0], datapathVersionBitMask.toUint8()))
-	diagnosticTypeMask := diagnosticTypeMask(h.extractHeaderAttribute(h[1], diagnosticTypeBitMask.toUint8()))
+	pingTypeMask := pingTypeMask(h.extractHeaderAttribute(h[1], pingTypeBitMask.toUint8()))
 
 	return &ClaimsHeader{
 		compressionType: compressionTypeMask.toType(),
 		encrypt:         uint8ToBool(h.extractHeaderAttribute(h[1], encryptionEnabledBit)),
-		diagnosticType:  diagnosticTypeMask.toType(),
+		pingType:        pingTypeMask.toType(),
 		datapathVersion: datapathVersionMask.toType(),
 	}
 }

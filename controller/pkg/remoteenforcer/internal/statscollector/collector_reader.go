@@ -71,6 +71,6 @@ func (c *collectorImpl) GetDNSReports() chan *collector.DNSRequestReport {
 	return c.DNSReport
 }
 
-func (c *collectorImpl) GetDiagnosticsReports() chan *collector.DiagnosticsReport {
-	return c.DiagnosticsReport
+func (c *collectorImpl) GetPingReports() chan *collector.PingReport {
+	return c.PingReports
 }

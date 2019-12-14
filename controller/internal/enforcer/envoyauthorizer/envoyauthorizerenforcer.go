@@ -139,6 +139,6 @@ func (e *Enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 }
 
 // RunDiagnostics is unimplemented in the envoy authorizer
-func (e *Enforcer) RunDiagnostics(ctx context.Context, contextID string, diagnosticsInfo *policy.DiagnosticsConfig) error {
+func (e *Enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 	return nil
 }
