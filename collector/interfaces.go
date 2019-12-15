@@ -239,19 +239,20 @@ type CounterReport struct {
 
 // DiagnosticsReport object is used to report diagnostics info collected in datapath.
 type PingReport struct {
-	Namespace     string
-	SourceID      string
-	DestinationID string
-	FlowTuple     string
-	Latency       string
-	AgentVersion  string
-	Protocol      int
-	ServiceType   string
-	PayloadSize   int
-	Request       int
-	Type          claimsheader.PingType
-	Stage         Stage
-	SessionID     string
+	SourceID             string
+	SourceNamespace      string
+	DestinationID        string
+	DestinationNamespace string
+	FlowTuple            string
+	Latency              string
+	AgentVersion         string
+	Protocol             int
+	ServiceType          string
+	PayloadSize          int
+	Request              int
+	Type                 claimsheader.PingType
+	Stage                Stage
+	SessionID            string
 }
 
 type Stage string
