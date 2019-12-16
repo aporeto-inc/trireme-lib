@@ -21,6 +21,7 @@ type SocketWriter interface {
 	CloseSocket() error
 }
 
+//PacketMetaData is platform-specific data about the packet
 type PacketMetadata struct {
 }
 

@@ -28,6 +28,7 @@ type rawsocket struct {
 	insockv6 *socketv6
 }
 
+//PacketMetaData is platform-specific data about the packet
 type PacketMetadata struct {
 }
 
