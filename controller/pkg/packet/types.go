@@ -197,6 +197,6 @@ type Packet struct {
 	SvcMetadata interface{}
 	// Connection Metadata
 	ConnectionMetadata interface{}
-	// Windows Metadata
-	WindowsMetadata interface{}
+	// Platform Metadata (needed for Windows)
+	PlatformMetadata interface{}
 }

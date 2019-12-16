@@ -41,7 +41,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		mark := int(packetInfo.Mark)
 		parsedPacket, err := packet.New(uint64(packetType), packetBytes, strconv.Itoa(mark), true)
 
-		parsedPacket.WindowsMetadata = &afinetrawsocket.WindowsPacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
+		parsedPacket.PlatformMetadata = &afinetrawsocket.PacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
 		var processError error
 		var tcpConn *connection.TCPConnection
 		var udpConn *connection.UDPConnection
@@ -101,7 +101,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
 		}
 
-		if parsedPacket.WindowsMetadata.(*afinetrawsocket.WindowsPacketMetadata).IgnoreFlow {
+		if parsedPacket.PlatformMetadata.(*afinetrawsocket.PacketMetadata).IgnoreFlow {
 			packetInfo.IgnoreFlow = 1
 		}
 		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))

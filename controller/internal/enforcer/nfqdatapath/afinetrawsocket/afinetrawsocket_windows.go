@@ -13,7 +13,7 @@ import (
 type rawsocket struct {
 }
 
-type WindowsPacketMetadata struct {
+type PacketMetadata struct {
 	PacketInfo frontman.PacketInfo
 	IgnoreFlow bool
 }
@@ -31,7 +31,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver, data interface{}) error
+	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -39,16 +39,15 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	return &rawsocket{}, nil
 }
 
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interface{}) error {
-	w, _ := data.(*WindowsPacketMetadata)
-	if w == nil {
-		return errors.New("no WindowsPacketMetadata for WriteSocket")
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
+	if data == nil {
+		return errors.New("no PacketMetadata for WriteSocket")
 	}
-	return w.udpForward(buf, version)
+	return data.udpForward(buf, version)
 }
 
 // UdpForward takes a raw udp packet and sends it to the driver to be sent on the network
-func (w *WindowsPacketMetadata) udpForward(buf []byte, version packet.IPver) error {
+func (w *PacketMetadata) udpForward(buf []byte, version packet.IPver) error {
 	// set packet info.
 	// could set port/addr in packet info but not required by the driver for forwarding of the packet.
 	w.PacketInfo.Outbound = 1

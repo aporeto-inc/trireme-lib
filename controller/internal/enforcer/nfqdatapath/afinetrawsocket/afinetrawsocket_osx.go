@@ -17,8 +17,11 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver, data interface{}) error
+	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
 	CloseSocket() error
+}
+
+type PacketMetadata struct {
 }
 
 type rawsocket struct { // nolint
@@ -26,13 +29,11 @@ type rawsocket struct { // nolint
 
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
-
 	return nil, nil
-
 }
 
 // WriteSocket writes data into raw socket.
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interface{}) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
 	//This is an IP frame dest address at byte[16]
 
 	return nil
