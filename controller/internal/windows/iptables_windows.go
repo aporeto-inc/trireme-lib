@@ -47,7 +47,7 @@ type WindowsRuleSpec struct {
 }
 
 // converts a WindowsRuleSpec back into a string for an iptables rule
-func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec) string {
+func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, error) {
 	rulespec := ""
 	if winRuleSpec.Protocol > 0 && winRuleSpec.Protocol < math.MaxUint8 {
 		rulespec += fmt.Sprintf("-p %d ", winRuleSpec.Protocol)
@@ -120,7 +120,13 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec) string {
 	if winRuleSpec.Log {
 		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupId, winRuleSpec.LogPrefix)
 	}
-	return strings.TrimSpace(rulespec)
+	rulespec = strings.TrimSpace(rulespec)
+	if validate {
+		if _, err := ParseRuleSpec(rulespec); err != nil {
+			return "", err
+		}
+	}
+	return rulespec, nil
 }
 
 // parse comma-separated list of port or port ranges
