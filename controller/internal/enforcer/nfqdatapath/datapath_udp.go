@@ -495,7 +495,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-		if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(udpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err = d.conntrack.UpdateApplicationFlowMark(
@@ -613,7 +613,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
-		if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(udpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err := d.conntrack.UpdateNetworkFlowMark(
@@ -674,7 +674,7 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-	if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+	if err := d.ignoreFlow(udpPacket); err != nil {
 		zap.L().Error("Failed to ignore flow", zap.Error(err))
 	}
 	if err = d.conntrack.UpdateNetworkFlowMark(

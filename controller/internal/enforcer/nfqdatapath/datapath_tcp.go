@@ -384,7 +384,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			zap.L().Debug("Failed to remove cache entries")
 		}
 
-		if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(tcpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err := d.conntrack.UpdateApplicationFlowMark(
@@ -479,7 +479,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			// It means it is a new SSH Session connection, we mark
 			// the packet and let it go through.
 			if context.Type() == common.SSHSessionPU {
-				if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+				if err := d.ignoreFlow(tcpPacket); err != nil {
 					zap.L().Error("Failed to ignore flow", zap.Error(err))
 				}
 				if err := d.conntrack.UpdateApplicationFlowMark(
@@ -509,7 +509,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			return conn.Context.PuContextError(pucontext.ErrRejectPacket, fmt.Sprintf("Rejected due to policy %s", policy.PolicyID))
 		}
 
-		if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(tcpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err := d.conntrack.UpdateApplicationFlowMark(
@@ -537,7 +537,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		if !conn.ServiceConnection && tcpPacket.SourceAddress().String() != tcpPacket.DestinationAddress().String() &&
 			!(tcpPacket.SourceAddress().IsLoopback() && tcpPacket.DestinationAddress().IsLoopback()) {
 
-			if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+			if err := d.ignoreFlow(tcpPacket); err != nil {
 				zap.L().Error("Failed to ignore flow", zap.Error(err))
 			}
 
@@ -860,7 +860,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		}
 
-		if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(tcpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err := d.conntrack.UpdateNetworkFlowMark(
@@ -920,7 +920,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
-			if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+			if err := d.ignoreFlow(tcpPacket); err != nil {
 				zap.L().Error("Failed to ignore flow", zap.Error(err))
 			}
 			go func() {
@@ -1165,7 +1165,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
 
-	if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+	if err := d.ignoreFlow(tcpPacket); err != nil {
 		zap.L().Error("Failed to ignore flow", zap.Error(err))
 	}
 	if err := d.conntrack.UpdateNetworkFlowMark(
@@ -1187,7 +1187,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 // releaseUnmonitoredFlow releases the flow and updates the conntrack table
 func (d *Datapath) releaseUnmonitoredFlow(tcpPacket *packet.Packet) {
 
-	if err := d.ignoreFlow(tcpPacket, tcpPacket.WindowsMetadata); err != nil {
+	if err := d.ignoreFlow(tcpPacket); err != nil {
 		zap.L().Error("Failed to ignore flow", zap.Error(err))
 	}
 	zap.L().Debug("Releasing flow", zap.String("flow", tcpPacket.L4FlowHash()))

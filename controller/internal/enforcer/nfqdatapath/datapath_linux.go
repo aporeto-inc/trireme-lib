@@ -32,7 +32,7 @@ func adjustConntrack(mode constants.ModeType) {
 }
 
 // ignoreFlow is for Windows. use flowtracking interface for Linux.
-func (d *Datapath) ignoreFlow(pkt *packet.Packet, data interface{}) error {
+func (d *Datapath) ignoreFlow(pkt *packet.Packet) error {
 	return nil
 }
 

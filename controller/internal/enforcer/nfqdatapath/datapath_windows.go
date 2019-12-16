@@ -17,9 +17,9 @@ func adjustConntrack(mode constants.ModeType) {
 
 // ignoreFlow is for Windows, because we need a way to explicitly notify of an 'ignore flow' condition,
 // without going through flowtracking, to be called synchronously in datapath processing
-func (c *Datapath) ignoreFlow(pkt *packet.Packet, data interface{}) error {
-	windata, _ := data.(*afinetrawsocket.WindowsPacketMetadata)
-	if windata == nil {
+func (c *Datapath) ignoreFlow(pkt *packet.Packet) error {
+	windata, ok := pkt.WindowsMetadata.(*afinetrawsocket.WindowsPacketMetadata)
+	if !ok {
 		return errors.New("no WindowsPacketMetadata for ignoreFlow")
 	}
 	windata.IgnoreFlow = true
