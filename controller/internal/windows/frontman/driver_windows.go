@@ -16,7 +16,7 @@ var (
 	// - create new proxy socket
 	// - call FrontmanApplyDestHandle to update WFP redirect data
 	// - connect on the new proxy socket
-	// - free native data by calling FrontmanFreeDestHandle
+	// - free kernel data by calling FrontmanFreeDestHandle
 	GetDestInfoProc     = driverDll.NewProc("FrontmanGetDestInfo")
 	ApplyDestHandleProc = driverDll.NewProc("FrontmanApplyDestHandle")
 	FreeDestHandleProc  = driverDll.NewProc("FrontmanFreeDestHandle")

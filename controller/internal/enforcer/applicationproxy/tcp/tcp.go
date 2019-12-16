@@ -114,9 +114,9 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 				return
 			}
 			if protoListener, ok := listener.(*protomux.ProtoListener); ok {
-				// Windows: we don't really need the native data map for plain tcp (we can get it from the conn).
+				// Windows: we don't really need the platform-specific data map for plain tcp (we can get it from the conn).
 				// So just remove from the map here.
-				markedconn.RemoveNativeData(protoListener.Listener, conn)
+				markedconn.RemovePlatformData(protoListener.Listener, conn)
 			}
 			go p.handle(ctx, conn)
 		}
@@ -133,9 +133,9 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
 	upConnP := upConn.(*markedconn.ProxiedConnection)
 	ip, port := upConnP.GetOriginalDestination()
-	nativeData := upConnP.GetNativeData()
+	platformData := upConnP.GetPlatformData()
 
-	downConn, err := p.downConnection(ctx, ip, port, nativeData)
+	downConn, err := p.downConnection(ctx, ip, port, platformData)
 	if err != nil {
 
 		flowproperties := &proxyFlowProperties{
@@ -279,14 +279,14 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, nativeData *markedconn.NativeData) (net.Conn, error) {
+func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, platformData *markedconn.PlatformData) (net.Conn, error) {
 
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
 	}
 
-	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, proxyMarkInt)
 
 }
 

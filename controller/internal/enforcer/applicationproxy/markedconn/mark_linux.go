@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func makeDialer(mark int, nativeData *NativeData) net.Dialer {
+func makeDialer(mark int, platformData *PlatformData) net.Dialer {
 	return net.Dialer{
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {

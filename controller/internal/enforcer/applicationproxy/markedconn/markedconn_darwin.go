@@ -12,7 +12,7 @@ import (
 )
 
 // DialMarkedWithContext dials a TCP connection and associates a mark. Propagates the context.
-func DialMarkedWithContext(ctx context.Context, network string, addr string, nativeData *NativeData, mark int) (net.Conn, error) {
+func DialMarkedWithContext(ctx context.Context, network string, addr string, platformData *PlatformData, mark int) (net.Conn, error) {
 	d := net.Dialer{}
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -57,8 +57,8 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
 }
 
-// GetNativeData gets the native socket data (needed for Windows)
-func (p *ProxiedConnection) GetNativeData() *NativeData {
+// GetPlatformData gets the socket data (needed for Windows)
+func (p *ProxiedConnection) GetPlatformData() *PlatformData {
 	return nil
 }
 

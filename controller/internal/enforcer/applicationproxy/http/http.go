@@ -261,11 +261,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, fmt.Errorf("invalid destination address")
 		}
-		var nativeData *markedconn.NativeData
+		var platformData *markedconn.PlatformData
 		if protoListener != nil {
-			nativeData = markedconn.TakeNativeData(protoListener.Listener, raddr.IP, raddr.Port)
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -284,11 +284,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		var nativeData *markedconn.NativeData
+		var platformData *markedconn.PlatformData
 		if protoListener != nil {
-			nativeData = markedconn.TakeNativeData(protoListener.Listener, raddr.IP, raddr.Port)
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -303,11 +303,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(context.Background())
 			return nil, err
 		}
-		var nativeData *markedconn.NativeData
+		var platformData *markedconn.PlatformData
 		if protoListener != nil {
-			nativeData = markedconn.TakeNativeData(protoListener.Listener, raddr.IP, raddr.Port)
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -326,11 +326,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		var nativeData *markedconn.NativeData
+		var platformData *markedconn.PlatformData
 		if protoListener != nil {
-			nativeData = markedconn.TakeNativeData(protoListener.Listener, raddr.IP, raddr.Port)
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), nativeData, p.mark)
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)

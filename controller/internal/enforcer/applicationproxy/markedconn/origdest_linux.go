@@ -28,11 +28,11 @@ type sockaddr6 struct {
 
 type origDest func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
-func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *NativeData, error) {
+func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *PlatformData, error) {
 	return getOriginalDestInternal(rawConn, v4Proto, syscall.Syscall6)
 }
 
-func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest) (net.IP, int, *NativeData, error) { // nolint interfacer{
+func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest) (net.IP, int, *PlatformData, error) { // nolint interfacer{
 	var getsockopt func(fd uintptr)
 	var netIP net.IP
 	var port int
