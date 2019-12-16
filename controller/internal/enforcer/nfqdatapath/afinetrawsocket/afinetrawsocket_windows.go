@@ -13,7 +13,7 @@ import (
 type rawsocket struct {
 }
 
-//PacketMetaData is platform-specific data about the packet
+// PacketMetadata is platform-specific data about the packet
 type PacketMetadata struct {
 	PacketInfo frontman.PacketInfo
 	IgnoreFlow bool
