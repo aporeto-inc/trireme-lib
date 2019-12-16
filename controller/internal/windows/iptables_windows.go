@@ -3,6 +3,7 @@
 package windows
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -340,4 +341,83 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	}
 
 	return result, nil
+}
+
+// Equal compares a WindowsRuleMatchSet to another for equality
+func (w *WindowsRuleMatchSet) Equal(other *WindowsRuleMatchSet) bool {
+	if other == nil {
+		return false
+	}
+	return w.MatchSetName == other.MatchSetName &&
+		w.MatchSetNegate == other.MatchSetNegate &&
+		w.MatchSetDstIp == other.MatchSetDstIp &&
+		w.MatchSetDstPort == other.MatchSetDstPort &&
+		w.MatchSetSrcIp == other.MatchSetSrcIp &&
+		w.MatchSetSrcPort == other.MatchSetSrcPort
+}
+
+// Equal compares a WindowsRulePortRange to another for equality
+func (w *WindowsRulePortRange) Equal(other *WindowsRulePortRange) bool {
+	if other == nil {
+		return false
+	}
+	return w.PortStart == other.PortStart && w.PortEnd == other.PortEnd
+}
+
+// Equal compares a WindowsRuleSpec to another for equality
+func (w *WindowsRuleSpec) Equal(other *WindowsRuleSpec) bool {
+	if other == nil {
+		return false
+	}
+	equalSoFar := w.Protocol == other.Protocol &&
+		w.Action == other.Action &&
+		w.ProxyPort == other.ProxyPort &&
+		w.Mark == other.Mark &&
+		w.Log == other.Log &&
+		w.LogPrefix == other.LogPrefix &&
+		w.GroupId == other.GroupId &&
+		w.MatchBytesOffset == other.MatchBytesOffset &&
+		bytes.Equal(w.MatchBytes, other.MatchBytes) &&
+		len(w.MatchSrcPort) == len(other.MatchSrcPort) &&
+		len(w.MatchDstPort) == len(other.MatchDstPort) &&
+		len(w.MatchSet) == len(other.MatchSet)
+	if !equalSoFar {
+		return false
+	}
+	// we checked lengths above, but now continue to compare slices for equality.
+	// note: we assume equal slices have elements in the same order.
+	for i := 0; i < len(w.MatchSrcPort); i++ {
+		if w.MatchSrcPort[i] == nil {
+			if other.MatchSrcPort[i] != nil {
+				return false
+			}
+			continue
+		}
+		if !w.MatchSrcPort[i].Equal(other.MatchSrcPort[i]) {
+			return false
+		}
+	}
+	for i := 0; i < len(w.MatchDstPort); i++ {
+		if w.MatchDstPort[i] == nil {
+			if other.MatchDstPort[i] != nil {
+				return false
+			}
+			continue
+		}
+		if !w.MatchDstPort[i].Equal(other.MatchDstPort[i]) {
+			return false
+		}
+	}
+	for i := 0; i < len(w.MatchSet); i++ {
+		if w.MatchSet[i] == nil {
+			if other.MatchSet[i] != nil {
+				return false
+			}
+			continue
+		}
+		if !w.MatchSet[i].Equal(other.MatchSet[i]) {
+			return false
+		}
+	}
+	return true
 }

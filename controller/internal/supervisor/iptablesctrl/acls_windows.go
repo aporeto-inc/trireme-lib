@@ -4,7 +4,6 @@ package iptablesctrl
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"text/template"
 
@@ -130,7 +129,7 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 	winRuleSpec2.LogPrefix = ""
 	winRuleSpec2.GroupId = 0
 	winRuleSpec2.Action = 0
-	if reflect.DeepEqual(winRuleSpec1, winRuleSpec2) {
+	if winRuleSpec1.Equal(winRuleSpec2) {
 		winRuleSpec1.Log = true
 		winRuleSpec1.LogPrefix = logPrefix
 		winRuleSpec1.GroupId = groupId
