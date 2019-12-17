@@ -113,23 +113,16 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 				return fmt.Errorf("unable to send syn packet: %v", err)
 			}
 
-			agentVersion := ""
-			ftuple := ""
-			if pingConfig.Type == claimsheader.PingTypeCustomIdentity {
-				agentVersion = d.agentVersion.String()
-				ftuple = flowTuple(
+			d.sendOriginPingReport(
+				sessionID,
+				d.agentVersion.String(),
+				flowTuple(
 					tpacket.PacketTypeApplication,
 					srcIP.String(),
 					pingConfig.IP,
 					uint16(srcPort),
 					dstPort,
-				)
-			}
-
-			d.sendOriginPingReport(
-				sessionID,
-				agentVersion,
-				ftuple,
+				),
 				context,
 				pingConfig.Type,
 				len(tcpData),
