@@ -75,7 +75,7 @@ func (p *pingReportClient) sendRequest(report *collector.PingReport) {
 		&request,
 		&rpcwrapper.Response{},
 	); err != nil {
-		zap.L().Error("RPC failure in sending dns reports", zap.Error(err))
+		zap.L().Error("RPC failure in sending ping reports", zap.Error(err))
 	}
 }
 

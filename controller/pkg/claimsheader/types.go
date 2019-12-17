@@ -8,7 +8,7 @@ type ClaimsHeader struct {
 	encrypt bool
 	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
-	// pingType represents ping type
+	// PingType represents ping type
 	pingType PingType
 }
 

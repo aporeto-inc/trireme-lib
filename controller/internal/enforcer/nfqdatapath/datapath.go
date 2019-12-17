@@ -84,14 +84,13 @@ type Datapath struct {
 	// If we don't receife a return SynAck in 20 seconds, it expires
 	sourcePortConnectionCache cache.DataStore
 
-	diagnosticConnectionCache cache.DataStore
-
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
 	appOrigConnectionTracker  cache.DataStore
 	appReplyConnectionTracker cache.DataStore
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
+	diagnosticConnectionCache cache.DataStore
 
 	udpSourcePortConnectionCache cache.DataStore
 
