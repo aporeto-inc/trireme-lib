@@ -688,6 +688,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrInvalidSynAck, fmt.Sprintf("Pu with ID delete %s", conn.Context.ID()))
 		}
 
+		// Diagnostic packet from an external network.
 		if conn.PingConfig.Type != claimsheader.PingTypeNone {
 			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
 		}
@@ -723,6 +724,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return pkt, nil, nil
 	}
 
+	// Diagnostic packet with custom information.
 	if conn.PingConfig.Type == claimsheader.PingTypeCustomIdentity {
 		return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true)
 	}
@@ -769,6 +771,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
+	// Diagnostic packet with default token/identity.
 	if claims.H != nil {
 		if claims.H.ToClaimsHeader().PingType() != claimsheader.PingTypeNone {
 			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)

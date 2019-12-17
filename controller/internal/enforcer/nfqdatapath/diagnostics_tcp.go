@@ -36,11 +36,11 @@ const (
 
 func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
-	zap.L().Debug("Initiating diagnostics (syn)")
-
 	if pingConfig == nil {
 		return nil
 	}
+
+	zap.L().Debug("Initiating diagnostics (syn)")
 
 	srcIP, err := getSrcIP()
 	if err != nil {
@@ -192,12 +192,12 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		}
 		tcpData, err = ci.encode()
 		if err != nil {
-			return fmt.Errorf("unable to create synack token: %v", err)
+			return err
 		}
 	} else {
 		tcpData, err = d.tokenAccessor.CreateSynAckPacketToken(context, &tcpConn.Auth, ch)
 		if err != nil {
-			return fmt.Errorf("unable to create synack token: %v", err)
+			return fmt.Errorf("unable to create default synack token: %v", err)
 		}
 	}
 
@@ -261,7 +261,7 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 
 	txtID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
-		return fmt.Errorf("unknown packet")
+		return fmt.Errorf("missing transmitter label")
 	}
 
 	ci := &customIdentity{
@@ -271,7 +271,7 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 	d.sendReplyPingReport(ci, tcpConn, context, receiveTime.String(), len(tcpPacket.ReadTCPData()))
 
 	if tcpConn.PingConfig.Type == claimsheader.PingTypeDefaultIdentityPassthrough {
-		zap.L().Debug("Processing diagnostic network synack packet: aporetopassthrough")
+		zap.L().Debug("Processing diagnostic network synack packet: defaultpassthrough")
 		tcpConn.PingConfig.Passthrough = true
 		return nil
 	}
