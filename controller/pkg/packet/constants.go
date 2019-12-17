@@ -7,6 +7,8 @@ const (
 	minUDPIPPacketLen = 8
 	// minIPHdrSize
 	minIPv4HdrSize = 20
+	// maxTCPHeaderSize is the max size of TCP header with options
+	maxTCPOptionSize = 40
 )
 
 // IP Header field position constants
