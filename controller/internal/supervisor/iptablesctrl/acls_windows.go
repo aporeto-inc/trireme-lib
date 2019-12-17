@@ -63,6 +63,8 @@ func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) er
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU, [][]string{}, [][]string{}), "Delete")
 }
 
+// delete windows acl rules explicitly, because we can't just clear chains.
+// note: the same transforms etc that apply in addExternalACLs must also apply here.
 func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
 	_, rules = extractProtocolAnyRules(rules)
@@ -87,9 +89,23 @@ func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain s
 func (i *iptables) removeGlobalHooksPre() {
 }
 
-// try to merge two acl rules (one log and one accept/drop) into one for Windows
-func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRuleSpec {
+type ruleTransformData struct {
+	isAppAcls bool
+	aclRule   []string
+}
 
+// try to merge two acl rules (one log and one accept/drop) into one for Windows
+func makeTerminatingRuleFromPair(ruleData1, ruleData2 *ruleTransformData) *winipt.WindowsRuleSpec {
+
+	if ruleData1 == nil || ruleData2 == nil {
+		return nil
+	}
+	if ruleData1.isAppAcls != ruleData2.isAppAcls {
+		// must be in same direction in order to combine
+		return nil
+	}
+
+	aclRule1, aclRule2 := ruleData1.aclRule, ruleData2.aclRule
 	if aclRule1 == nil || aclRule2 == nil {
 		return nil
 	}
@@ -173,37 +189,74 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 // while not strictly necessary now for Windows, we still try to combine a log (non-terminating rule) and another terminating rule.
 func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo, isAppAcls bool) [][]string {
 
+	// handle reverse rules by first building a structure that maintains an app/net direction per rule
+	rulesToProcess := make([]*ruleTransformData, len(aclRules))
+	for i, r := range aclRules {
+		rulesToProcess[i] = &ruleTransformData{isAppAcls: isAppAcls, aclRule: r}
+	}
+
+	// find the reverse rules and reverse their direction
+	for _, rr := range rulesBucket.ReverseRules {
+		revTable, revChain := rr[0], rr[1]
+		revRule, err := winipt.ParseRuleSpec(rr[2:]...)
+		if err != nil {
+			zap.L().Error("transformACLRules failed to parse reverse rule", zap.Error(err))
+			continue
+		}
+		found := false
+		for _, r := range rulesToProcess {
+			if r.isAppAcls != isAppAcls {
+				// skip already-reversed rules
+				continue
+			}
+			rule, err := winipt.ParseRuleSpec(r.aclRule[2:]...)
+			if err != nil {
+				zap.L().Error("transformACLRules failed to parse rule", zap.Error(err))
+				continue
+			}
+			table, chain := r.aclRule[0], r.aclRule[1]
+			if table == revTable && chain == revChain && rule.Equal(revRule) {
+				r.isAppAcls = !isAppAcls
+				found = true
+				break
+			}
+		}
+		if !found {
+			zap.L().Warn("transformACLRules could not find reverse rule")
+		}
+	}
+
 	var result [][]string
 
-	// in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
+	// now in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
 	// if they are, then combine them into one rule.
-	var aclRule1, aclRule2 []string
-	for i := 0; i < len(aclRules) || aclRule1 != nil; i++ {
-		if aclRule1 == nil {
-			aclRule1 = aclRules[i]
+	var ruleData1, ruleData2 *ruleTransformData
+	for i := 0; i < len(rulesToProcess) || ruleData1 != nil; i++ {
+		if ruleData1 == nil {
+			ruleData1 = rulesToProcess[i]
 			i++
 		}
-		if i < len(aclRules) {
-			aclRule2 = aclRules[i]
+		if i < len(rulesToProcess) {
+			ruleData2 = rulesToProcess[i]
 		}
-		table, chain := aclRule1[0], aclRule1[1]
-		winRule := makeTerminatingRuleFromPair(aclRule1, aclRule2)
+		table, chain, isAppAclsLocal := ruleData1.aclRule[0], ruleData1.aclRule[1], ruleData1.isAppAcls
+		winRule := makeTerminatingRuleFromPair(ruleData1, ruleData2)
 		if winRule == nil {
 			// not combinable, so work on rule 1
 			var err error
-			winRule, err = winipt.ParseRuleSpec(aclRule1[2:]...)
-			aclRule1 = aclRule2
-			aclRule2 = nil
+			winRule, err = winipt.ParseRuleSpec(ruleData1.aclRule[2:]...)
+			ruleData1 = ruleData2
+			ruleData2 = nil
 			if err != nil {
 				zap.L().Error("transformACLRules failed", zap.Error(err))
 				continue
 			}
 		} else {
-			aclRule1 = nil
-			aclRule2 = nil
+			ruleData1 = nil
+			ruleData2 = nil
 		}
 		// process rule
-		xformedRule, err := processWindowsACLRule(table, chain, winRule, cfg, isAppAcls)
+		xformedRule, err := processWindowsACLRule(table, chain, winRule, cfg, isAppAclsLocal)
 		if err != nil {
 			zap.L().Error("transformACLRules failed", zap.Error(err))
 			continue
