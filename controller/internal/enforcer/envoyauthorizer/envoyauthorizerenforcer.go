@@ -332,7 +332,7 @@ func (e *Enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 	return nil
 }
 
-// RunDiagnostics is unimplemented in the envoy authorizer
+// Ping is unimplemented in the envoy authorizer
 func (e *Enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 	return nil
 }

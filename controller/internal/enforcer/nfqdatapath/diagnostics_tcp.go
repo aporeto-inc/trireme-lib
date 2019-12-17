@@ -34,7 +34,7 @@ const (
 	flowTupleKey    = "flowTuple"
 )
 
-func (d *Datapath) initiateDiagnosticAppSynPacket(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
 	zap.L().Debug("Initiating diagnostics (syn)")
 
@@ -137,7 +137,6 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 			)
 
 			tcpConn.SetState(connection.TCPSynSend)
-
 			d.diagnosticConnectionCache.AddOrUpdate(
 				flowTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP, uint16(srcPort), dstPort),
 				tcpConn,

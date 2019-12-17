@@ -150,6 +150,11 @@ func (t *trireme) Ping(ctx context.Context, puID string, policy *policy.PUPolicy
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
+
+	if t.config.mode != constants.RemoteContainer {
+		return fmt.Errorf("ping can be run only from remoteenforcer, mode: %v", t.config.mode)
+	}
+
 	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].Ping(ctx, puID, pingConfig)
 }
 

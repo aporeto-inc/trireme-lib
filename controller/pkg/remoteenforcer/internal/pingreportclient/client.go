@@ -14,11 +14,11 @@ import (
 
 const (
 	pingReportContextID = "UNUSED"
-	pingRPCCommand      = "ProxyRPCServer.PingEvent"
+	pingRPCCommand      = "ProxyRPCServer.PostPingEvent"
 )
 
-// dsnReportClient  This is the struct for storing state for the rpc client
-// which reports dns requests back to the controller process
+// pingReportClient  This is the struct for storing state for the rpc client
+// which reports ping events back to the controller process
 type pingReportClient struct {
 	collector         statscollector.Collector
 	rpchdl            *rpcwrapper.RPCWrapper
@@ -27,7 +27,7 @@ type pingReportClient struct {
 	stop              chan bool
 }
 
-// NewPingReportClient initializes a new dns report client
+// NewPingReportClient initializes a new ping report client
 func NewPingReportClient(cr statscollector.Collector) (PingReportClient, error) {
 
 	p := &pingReportClient{

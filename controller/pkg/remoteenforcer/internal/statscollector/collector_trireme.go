@@ -78,7 +78,7 @@ func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
 	c.DNSReport <- report
 }
 
-// CollectDiagnosticsReports collect counters from the datapath
+// CollectPingEvent collect ping events from the datapath
 func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
 	c.PingReports <- report
 }

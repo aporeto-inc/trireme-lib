@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 

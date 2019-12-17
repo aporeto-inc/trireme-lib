@@ -280,7 +280,7 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
-// Ping is unimplemented in the envoy authorizer
+// Ping runs ping from the given config.
 func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
 	resp := &rpcwrapper.Response{}
@@ -293,7 +293,7 @@ func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *poli
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Ping, request, resp); err != nil {
-		return fmt.Errorf("unable to run diagnostics %s -- %s", err, resp.Status)
+		return fmt.Errorf("unable to run ping %s -- %s", err, resp.Status)
 	}
 
 	return nil

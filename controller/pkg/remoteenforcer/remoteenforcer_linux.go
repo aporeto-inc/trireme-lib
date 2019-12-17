@@ -455,11 +455,11 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 	return nil
 }
 
-// Ping enable nfq datapath packet tracing
+// Ping runs ping to the given config
 func (s *RemoteEnforcer) Ping(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "enable datapath packet tracing auth failed"
+		resp.Status = "ping auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 

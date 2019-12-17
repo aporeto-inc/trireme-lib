@@ -1,6 +1,6 @@
 package claimsheader
 
-// PingType defines the diagnostic type.
+// PingType defines the ping type.
 type PingType int
 
 const (
