@@ -9,10 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"

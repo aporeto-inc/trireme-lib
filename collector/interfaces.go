@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -103,7 +102,7 @@ type EventCollector interface {
 	// CollectDNSRequests collects the dns requests
 	CollectDNSRequests(request *DNSRequestReport)
 
-	// CollectPingEvent collects the ping info
+	// CollectPingEvent collects the ping events
 	CollectPingEvent(report *PingReport)
 }
 
@@ -237,7 +236,7 @@ type CounterReport struct {
 	Counters  []Counters
 }
 
-// DiagnosticsReport object is used to report diagnostics info collected in datapath.
+// PingReport represents a single ping report from datapath.
 type PingReport struct {
 	SourceID             string
 	SourceNamespace      string

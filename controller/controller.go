@@ -145,6 +145,7 @@ func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, 
 	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
+// Ping runs ping based on the given config.
 func (t *trireme) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()

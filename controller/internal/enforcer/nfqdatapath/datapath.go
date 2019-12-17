@@ -748,7 +748,7 @@ func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 	return nil
 }
 
-// RunDiagnostics is unimplemented in the envoy authorizer
+// RunDiagnostics runs ping to the given config.
 func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
 	return d.initiateDiagnosticAppSynPacket(ctx, contextID, pingConfig)

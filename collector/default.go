@@ -38,7 +38,7 @@ func (d *DefaultCollector) CollectCounterEvent(report *CounterReport) {}
 // CollectDNSRequests collect counters from the datapath
 func (d *DefaultCollector) CollectDNSRequests(report *DNSRequestReport) {}
 
-// CollectPingEvent collect ping from the datapath
+// CollectPingEvent collects ping events from the datapath
 func (d *DefaultCollector) CollectPingEvent(report *PingReport) {}
 
 // StatsFlowHash is a hash function to hash flows

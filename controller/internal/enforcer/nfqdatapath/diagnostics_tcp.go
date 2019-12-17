@@ -260,7 +260,10 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 		return nil
 	}
 
-	txtID, _ := claims.T.Get(enforcerconstants.TransmitterLabel)
+	txtID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
+	if !ok {
+		return fmt.Errorf("unknown packet")
+	}
 
 	ci := &customIdentity{
 		TransmitterID: txtID,

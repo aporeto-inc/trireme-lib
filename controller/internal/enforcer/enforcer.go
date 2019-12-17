@@ -65,6 +65,7 @@ type DebugInfo interface {
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
 
+	// Ping runs ping based on the given config.
 	Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error
 }
 
