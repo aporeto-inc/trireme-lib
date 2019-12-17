@@ -449,7 +449,7 @@ func TestAuthOptions(t *testing.T) {
 		0x22, 0x63, 0x9b, 0x9d,
 		0x22, 0x4, 0x0, 0x0,
 	}
-	badTcpOptions := []byte{
+	badTCPOptions := []byte{
 		0x45, 0x00, 0x00, 0x40,
 		0x7b, 0xd6, 0x40, 0x00,
 		0x40, 0x06, 0xcd, 0x9d,
@@ -531,7 +531,7 @@ func TestAuthOptions(t *testing.T) {
 		t.Errorf("There is no TCP AUTH Option but we are reporting it")
 	}
 
-	pkt, err = New(1, badTcpOptions, "2", true)
+	pkt, err = New(1, badTCPOptions, "2", true)
 	if err != nil {
 		t.Errorf("Packet not parsed %s", err)
 	}
