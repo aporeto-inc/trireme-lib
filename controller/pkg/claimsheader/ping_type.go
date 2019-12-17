@@ -44,20 +44,15 @@ func (dt PingType) String() string {
 	}
 }
 
-// pingTypeMask defines the compression mask.
+// pingTypeMask defines the ping type mask.
 type pingTypeMask uint8
 
 const (
-	// PingTypeNoneMask mask that identifies compression type none
-	pingTypeNoneMask pingTypeMask = 0x02
-	// pingTypeTokenMask mask that identifies compression type v1
-	pingTypeDefaultIdentityMask pingTypeMask = 0x04
-	// pingTypeTokenMask mask that identifies compression type v1
-	pingTypeCustomIdentityMask pingTypeMask = 0x06
-	// pingTypeTokenMask mask that identifies compression type v1
+	pingTypeNoneMask                       pingTypeMask = 0x02
+	pingTypeDefaultIdentityMask            pingTypeMask = 0x04
+	pingTypeCustomIdentityMask             pingTypeMask = 0x06
 	pingTypeDefaultIdentityPassthroughMask pingTypeMask = 0x08
-	// pingTypeBitMask mask that identifies compression type v1
-	pingTypeBitMask pingTypeMask = 0x3E
+	pingTypeBitMask                        pingTypeMask = 0x3E
 )
 
 // toType returns the type based on mask

@@ -147,11 +147,14 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 	tcpPacket *tpacket.Packet,
 	claims *tokens.ConnectionClaims,
 ) error {
-	zap.L().Debug("Processing diagnostic network syn packet")
 
 	ch := claims.H.ToClaimsHeader()
 	tcpConn.PingConfig.Type = ch.PingType()
 	tcpConn.SetState(connection.TCPSynReceived)
+
+	zap.L().Debug("Processing diagnostic network syn packet",
+		zap.String("pingType", ch.PingType().String()),
+	)
 
 	if ch.PingType() == claimsheader.PingTypeDefaultIdentityPassthrough {
 		zap.L().Debug("Processing diagnostic network syn packet: defaultpassthrough")
@@ -224,7 +227,11 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 	ext bool,
 	custom bool,
 ) error {
-	zap.L().Debug("Processing diagnostic network synack packet")
+	zap.L().Debug("Processing diagnostic network synack packet",
+		zap.Bool("externalNetwork", ext),
+		zap.Bool("customPayload", custom),
+		zap.String("pingType", tcpConn.PingConfig.Type.String()),
+	)
 
 	if tcpConn.GetState() == connection.TCPSynAckReceived {
 		zap.L().Debug("Ignoring duplicate synack packets")
