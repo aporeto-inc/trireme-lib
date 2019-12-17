@@ -750,6 +750,5 @@ func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 
 // RunDiagnostics runs ping to the given config.
 func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
-
 	return d.initiateDiagnosticAppSynPacket(ctx, contextID, pingConfig)
 }
