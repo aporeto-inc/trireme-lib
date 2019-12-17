@@ -40,6 +40,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	return &rawsocket{}, nil
 }
 
+// WriteSocket on Windows calls into the driver to forward the packet
 func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
 	if data == nil {
 		return errors.New("no PacketMetadata for WriteSocket")
@@ -47,7 +48,7 @@ func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *Packe
 	return data.udpForward(buf, version)
 }
 
-// UdpForward takes a raw udp packet and sends it to the driver to be sent on the network
+// udpForward takes a raw udp packet and sends it to the driver to be sent on the network
 func (w *PacketMetadata) udpForward(buf []byte, version packet.IPver) error {
 	// set packet info.
 	// could set port/addr in packet info but not required by the driver for forwarding of the packet.
