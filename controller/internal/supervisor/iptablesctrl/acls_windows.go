@@ -179,29 +179,31 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 	// note: we assume that reverse rules are the ones we add for UDP established reverse flows.
 	// we handle this in the windows driver so we don't need a rule for it.
 	// again: our driver assumes that all UDP acl rules will have a reverse flow added.
-	for _, rr := range rulesBucket.ReverseRules {
-		revTable, revChain := rr[0], rr[1]
-		revRule, err := winipt.ParseRuleSpec(rr[2:]...)
-		if err != nil {
-			zap.L().Error("transformACLRules failed to parse reverse rule", zap.Error(err))
-			continue
-		}
-		found := false
-		for i, r := range aclRules {
-			rule, err := winipt.ParseRuleSpec(r[2:]...)
+	if rulesBucket != nil {
+		for _, rr := range rulesBucket.ReverseRules {
+			revTable, revChain := rr[0], rr[1]
+			revRule, err := winipt.ParseRuleSpec(rr[2:]...)
 			if err != nil {
-				zap.L().Error("transformACLRules failed to parse rule", zap.Error(err))
+				zap.L().Error("transformACLRules failed to parse reverse rule", zap.Error(err))
 				continue
 			}
-			table, chain := r[0], r[1]
-			if table == revTable && chain == revChain && rule.Equal(revRule) {
-				found = true
-				aclRules = append(aclRules[:i], aclRules[i+1:]...)
-				break
+			found := false
+			for i, r := range aclRules {
+				rule, err := winipt.ParseRuleSpec(r[2:]...)
+				if err != nil {
+					zap.L().Error("transformACLRules failed to parse rule", zap.Error(err))
+					continue
+				}
+				table, chain := r[0], r[1]
+				if table == revTable && chain == revChain && rule.Equal(revRule) {
+					found = true
+					aclRules = append(aclRules[:i], aclRules[i+1:]...)
+					break
+				}
 			}
-		}
-		if !found {
-			zap.L().Warn("transformACLRules could not find reverse rule")
+			if !found {
+				zap.L().Warn("transformACLRules could not find reverse rule")
+			}
 		}
 	}
 
