@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -2011,6 +2012,12 @@ func Test_OperationWithContainersV4(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestImpl(t *testing.T) {
+	instance, err := NewInstance(nil, constants.LocalServer, nil, true)
+	assert.Equal(t, instance != nil, true, "instance should not be nil")
+	assert.Equal(t, err == nil, true, "err should be nil")
 }
 
 func printTable(t map[string]map[string][]string) {
