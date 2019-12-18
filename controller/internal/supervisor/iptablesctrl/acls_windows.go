@@ -4,7 +4,6 @@ package iptablesctrl
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"text/template"
 
@@ -161,21 +160,21 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 		return nil
 	}
 
-	// save action/log properties
-	action := winRuleSpec1.Action
-	logPrefix := winRuleSpec2.LogPrefix
-	groupId := winRuleSpec2.GroupId
-	if action == 0 {
+	// save action/log properties, as long as one rule is an action and the other is nflog
+	action := 0
+	logPrefix := ""
+	groupId := 0
+	if action == 0 && winRuleSpec1.Action != 0 && winRuleSpec2.Log {
+		action = winRuleSpec1.Action
+		logPrefix = winRuleSpec2.LogPrefix
+		groupId = winRuleSpec2.GroupId
+	}
+	if action == 0 && winRuleSpec2.Action != 0 && winRuleSpec1.Log {
 		action = winRuleSpec2.Action
-		if action == 0 {
-			return nil
-		}
 		logPrefix = winRuleSpec1.LogPrefix
 		groupId = winRuleSpec1.GroupId
-		if !winRuleSpec1.Log {
-			return nil
-		}
-	} else if !winRuleSpec2.Log {
+	}
+	if action == 0 {
 		return nil
 	}
 
@@ -188,7 +187,7 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 	winRuleSpec2.LogPrefix = ""
 	winRuleSpec2.GroupId = 0
 	winRuleSpec2.Action = 0
-	if reflect.DeepEqual(winRuleSpec1, winRuleSpec2) {
+	if winRuleSpec1.Equal(winRuleSpec2) {
 		winRuleSpec1.Log = true
 		winRuleSpec1.LogPrefix = logPrefix
 		winRuleSpec1.GroupId = groupId
@@ -201,13 +200,14 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 // take a parsed acl rule and clean it up, returning an acl rule in []string format
 func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleSpec, cfg *ACLInfo, isAppAcls bool) ([]string, error) {
 	// update chain name
-	if cfg.PUType == common.HostPU {
+	switch cfg.PUType {
+	case common.HostPU:
 		if isAppAcls {
 			chain = "HostPU-OUTPUT"
 		} else {
 			chain = "HostPU-INPUT"
 		}
-	} else if cfg.PUType == common.HostNetworkPU {
+	case common.HostNetworkPU:
 		if isAppAcls {
 			chain = "HostSvcRules-OUTPUT"
 			// TODO(windows): do we need to set source port based on PU?
@@ -221,10 +221,10 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 				winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.UDPPorts)
 			}
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("unexpected Windows PU: %v", cfg.PUType)
 	}
-	rulespec := winipt.MakeRuleSpecText(winRuleSpec)
+	rulespec, _ := winipt.MakeRuleSpecText(winRuleSpec, false)
 	return append([]string{table, chain}, strings.Split(rulespec, " ")...), nil
 }
 

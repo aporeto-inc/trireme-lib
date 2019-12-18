@@ -28,6 +28,10 @@ type rawsocket struct {
 	insockv6 *socketv6
 }
 
+// PacketMetadata is platform-specific data about the packet
+type PacketMetadata struct {
+}
+
 const (
 	// RawSocketMark is the mark asserted on all packet sent out of this socket
 	RawSocketMark = 0x63
@@ -41,7 +45,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver, data interface{}) error
+	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -125,7 +129,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	}, nil
 }
 
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data interface{}) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
 	// copy the dest addr
 	if version == packet.V4 {
 		copy(sock.insockv4.insock.Addr[:], buf[16:20])

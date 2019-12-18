@@ -14,12 +14,12 @@ import (
 
 // DialMarkedWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.
-func DialMarkedWithContext(ctx context.Context, network string, addr string, nativeData *NativeData, mark int) (net.Conn, error) {
-	// nativeData is for Windows
-	if nativeData != nil && nativeData.postConnectFunc != nil {
-		defer nativeData.postConnectFunc(nativeData.handle)
+func DialMarkedWithContext(ctx context.Context, network string, addr string, platformData *PlatformData, mark int) (net.Conn, error) {
+	// platformData is for Windows
+	if platformData != nil && platformData.postConnectFunc != nil {
+		defer platformData.postConnectFunc(platformData.handle)
 	}
-	d := makeDialer(mark, nativeData)
+	d := makeDialer(mark, platformData)
 
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -43,9 +43,9 @@ func NewSocketListener(ctx context.Context, port string, mark int) (net.Listener
 	}
 
 	return ProxiedListener{
-		netListener:    listener,
-		mark:           mark,
-		nativeDataCtrl: NewNativeDataControl(),
+		netListener:      listener,
+		mark:             mark,
+		platformDataCtrl: NewPlatformDataControl(),
 	}, nil
 }
 
@@ -55,11 +55,11 @@ type ProxiedConnection struct {
 	originalIP            net.IP
 	originalPort          int
 	originalTCPConnection *net.TCPConn
-	nativeData            *NativeData
+	platformData          *PlatformData
 }
 
-// NativeData is native proxy/socket data (platform-specific)
-type NativeData struct {
+// PlatformData is proxy/socket data (platform-specific)
+type PlatformData struct {
 	handle          uintptr
 	postConnectFunc func(fd uintptr)
 }
@@ -69,9 +69,9 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
 }
 
-// GetNativeData gets the native socket data (needed for Windows)
-func (p *ProxiedConnection) GetNativeData() *NativeData {
-	return p.nativeData
+// GetPlatformData gets the platform-specific socket data (needed for Windows)
+func (p *ProxiedConnection) GetPlatformData() *PlatformData {
+	return p.platformData
 }
 
 // GetTCPConnection returns the TCP connection object.
@@ -126,16 +126,16 @@ func (p *ProxiedConnection) SetWriteDeadline(t time.Time) error {
 
 // ProxiedListener is a proxied listener that uses proxied connections.
 type ProxiedListener struct {
-	netListener    net.Listener
-	mark           int
-	nativeDataCtrl *NativeDataControl
+	netListener      net.Listener
+	mark             int
+	platformDataCtrl *PlatformDataControl
 }
 
 type passFD interface {
 	Control(func(uintptr)) error
 }
 
-func getOriginalDestination(conn *net.TCPConn) (net.IP, int, *NativeData, error) { // nolint interfacer
+func getOriginalDestination(conn *net.TCPConn) (net.IP, int, *PlatformData, error) { // nolint interfacer
 
 	rawconn, err := conn.SyscallConn()
 	if err != nil {
@@ -165,18 +165,18 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, fmt.Errorf("Not a tcp connection - ignoring")
 	}
 
-	ip, port, nativeData, err := getOriginalDestination(tcpConn)
+	ip, port, platformData, err := getOriginalDestination(tcpConn)
 	if err != nil {
 		zap.L().Error("Failed to discover original destination - aborting", zap.Error(err))
 		return nil, err
 	}
-	l.nativeDataCtrl.StoreNativeData(ip, port, nativeData)
+	l.platformDataCtrl.StorePlatformData(ip, port, platformData)
 
 	return &ProxiedConnection{
 		originalIP:            ip,
 		originalPort:          port,
 		originalTCPConnection: tcpConn,
-		nativeData:            nativeData,
+		platformData:          platformData,
 	}, nil
 }
 

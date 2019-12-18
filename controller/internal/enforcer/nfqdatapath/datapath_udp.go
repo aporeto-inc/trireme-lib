@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -130,7 +132,8 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 					zap.L().Error("Failed to encrypt queued packet")
 				}
 			}
-			err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), p.WindowsMetadata)
+			udpPacket.PlatformMetadata = p.PlatformMetadata
+			err = d.writeUDPSocket(udpPacket.GetBuffer(0), udpPacket)
 			if err != nil {
 				zap.L().Error("Unable to transmit Queued UDP packets", zap.Error(err))
 			}
@@ -377,7 +380,7 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 	}
 	// Attach the UDP data and token
 	newPacket.UDPTokenAttach(udpOptions, udpData)
-	newPacket.WindowsMetadata = udpPacket.WindowsMetadata
+	newPacket.PlatformMetadata = udpPacket.PlatformMetadata
 
 	// send packet
 	err = d.writeWithRetransmit(newPacket, conn, conn.SynChannel())
@@ -401,7 +404,7 @@ func (d *Datapath) writeWithRetransmit(udpPacket *packet.Packet, conn *connectio
 	localBuffer := make([]byte, len(buffer))
 	copy(localBuffer, buffer)
 
-	if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion(), udpPacket.WindowsMetadata); err != nil {
+	if err := d.writeUDPSocket(localBuffer, udpPacket); err != nil {
 		zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 		return err
 	}
@@ -413,7 +416,7 @@ func (d *Datapath) writeWithRetransmit(udpPacket *packet.Packet, conn *connectio
 			case <-stop:
 				return
 			case <-time.After(delay):
-				if err := d.udpSocketWriter.WriteSocket(localBuffer, udpPacket.IPversion(), udpPacket.WindowsMetadata); err != nil {
+				if err := d.writeUDPSocket(localBuffer, udpPacket); err != nil {
 					zap.L().Error("Failed to write control packet to socket", zap.Error(err))
 				}
 			}
@@ -487,7 +490,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), udpPacket.WindowsMetadata)
+	err = d.writeUDPSocket(udpPacket.GetBuffer(0), udpPacket)
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 		return err
@@ -495,7 +498,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-		if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(udpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err = d.conntrack.UpdateApplicationFlowMark(
@@ -613,7 +616,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
-		if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+		if err := d.ignoreFlow(udpPacket); err != nil {
 			zap.L().Error("Failed to ignore flow", zap.Error(err))
 		}
 		if err := d.conntrack.UpdateNetworkFlowMark(
@@ -646,7 +649,7 @@ func (d *Datapath) sendUDPFinPacket(udpPacket *packet.Packet) (err error) {
 
 	zap.L().Info("Sending udp fin ack packet", zap.String("packet", udpPacket.L4FlowHash()))
 	// no need for retransmits here.
-	err = d.udpSocketWriter.WriteSocket(udpPacket.GetBuffer(0), udpPacket.IPversion(), udpPacket.WindowsMetadata)
+	err = d.writeUDPSocket(udpPacket.GetBuffer(0), udpPacket)
 	if err != nil {
 		zap.L().Debug("Unable to send fin packet on raw socket", zap.Error(err))
 		return pucontext.PuContextError(pucontext.ErrUDPDropFin, "Unable to send fin packet on raw socket"+err.Error())
@@ -674,7 +677,7 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	zap.L().Debug("Updating the connmark label", zap.String("flow", udpPacket.L4FlowHash()))
-	if err := d.ignoreFlow(udpPacket, udpPacket.WindowsMetadata); err != nil {
+	if err := d.ignoreFlow(udpPacket); err != nil {
 		zap.L().Error("Failed to ignore flow", zap.Error(err))
 	}
 	if err = d.conntrack.UpdateNetworkFlowMark(
@@ -692,4 +695,12 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 	}
 
 	return nil
+}
+
+// note: for platforms that need it (Windows), please ensure that udpPacket.PlatformMetadata is set.
+// thus, for any Packets created outside of the driver packet callback, the originating metadata must be
+// propagated to the udpPacket argument before this call.
+func (d *Datapath) writeUDPSocket(buf []byte, udpPacket *packet.Packet) error {
+	metadata, _ := udpPacket.PlatformMetadata.(*afinetrawsocket.PacketMetadata)
+	return d.udpSocketWriter.WriteSocket(buf, udpPacket.IPversion(), metadata)
 }

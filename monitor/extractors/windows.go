@@ -58,12 +58,12 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 	options := policy.OptionsType{}
 	for index, s := range event.Services {
 		if s.Port != 0 && s.Ports == nil {
-			if pspec, err := portspec.NewPortSpec(s.Port, s.Port, nil); err == nil {
-				event.Services[index].Ports = pspec
-				event.Services[index].Port = 0
-			} else {
+			pspec, err := portspec.NewPortSpec(s.Port, s.Port, nil)
+			if err != nil {
 				return nil, fmt.Errorf("Invalid Port Spec %s", err)
 			}
+			event.Services[index].Ports = pspec
+			event.Services[index].Port = 0
 		}
 	}
 	options.Services = event.Services

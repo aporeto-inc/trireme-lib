@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *NativeData, error) {
+func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *PlatformData, error) {
 	var netIP net.IP
 	var port int
 	var destHandle uintptr
@@ -43,7 +43,7 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Native
 			netIP = net.ParseIP(ipAddrStr)
 			if netIP == nil {
 				err = fmt.Errorf("%s failed to get valid IP (%s)", frontman.GetDestInfoProc.Name, ipAddrStr)
-				// FrontmanGetDestInfo returned success, so clean up acquired native resources
+				// FrontmanGetDestInfo returned success, so clean up acquired resources
 				freeFunc(fd)
 			}
 		}
@@ -57,5 +57,5 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Native
 		return nil, 0, nil, err
 	}
 
-	return netIP, port, &NativeData{destHandle, freeFunc}, nil
+	return netIP, port, &PlatformData{destHandle, freeFunc}, nil
 }
