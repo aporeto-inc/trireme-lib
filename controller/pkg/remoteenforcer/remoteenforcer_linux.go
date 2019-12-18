@@ -553,7 +553,7 @@ func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload)
 		payload.Configuration,
 		s.service,
 		s.aclmanager,
-		s.ipv6Enabled,
+		payload.IPv6Enabled,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to setup supervisor: %s", err)

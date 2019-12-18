@@ -224,6 +224,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.remoteParameters,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.ipv6Enabled,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
