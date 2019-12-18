@@ -10,11 +10,16 @@ var triremChains = `
 -t OUTPUT  -N HostPU-OUTPUT
 -t INPUT   -N HostPU-INPUT
 `
+
+// globalRules are the rules not tied to a PU chain.
+// note that the --queue-force option, which is non-standard and not ideal, was added specifically for the incoming DNS rule,
+// and there is no general 'force' flag for actions other than NFQ, at the moment.
+// by 'force' we mean that we do not respect any 'ignore flow' state in the driver when this rule matches.
 var globalRules = `
 -A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
 {{if enableDNSProxy}}
--A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer srcIP -j NFQUEUE -j MARK 83
+-A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer srcIP -j NFQUEUE --queue-force -j MARK 83
 {{end}}
 `
 

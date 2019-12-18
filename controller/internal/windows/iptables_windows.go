@@ -117,6 +117,8 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 		rulespec += fmt.Sprintf("-j REDIRECT --to-ports %d ", winRuleSpec.ProxyPort)
 	case frontman.FilterActionNfq:
 		rulespec += fmt.Sprintf("-j NFQUEUE -j MARK %d ", winRuleSpec.Mark)
+	case frontman.FilterActionForceNfq:
+		rulespec += fmt.Sprintf("-j NFQUEUE --queue-force -j MARK %d ", winRuleSpec.Mark)
 	}
 	if winRuleSpec.Log {
 		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupId, winRuleSpec.LogPrefix)
@@ -179,6 +181,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	opt.String("match", "") // "--match multiport" ignored
 	groupIdOpt := opt.Int("nflog-group", 0)
 	logPrefixOpt := opt.String("nflog-prefix", "")
+	nfqForceOpt := opt.Bool("queue-force", false)
 
 	_, err := opt.Parse(rulespec)
 	if err != nil {
@@ -306,6 +309,9 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 		switch (*actionOpt)[i] {
 		case "NFQUEUE":
 			result.Action = frontman.FilterActionNfq
+			if *nfqForceOpt {
+				result.Action = frontman.FilterActionForceNfq
+			}
 		case "REDIRECT":
 			result.Action = frontman.FilterActionProxy
 		case "ACCEPT":
@@ -330,7 +336,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 			return nil, errors.New("rulespec not valid: invalid action")
 		}
 	}
-	if result.Action == frontman.FilterActionNfq && result.Mark == 0 {
+	if result.Mark == 0 && (result.Action == frontman.FilterActionNfq || result.Action == frontman.FilterActionForceNfq) {
 		return nil, errors.New("rulespec not valid: nfq action needs to set mark")
 	}
 
