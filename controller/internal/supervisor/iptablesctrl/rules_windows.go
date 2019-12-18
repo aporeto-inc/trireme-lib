@@ -14,7 +14,7 @@ var globalRules = `
 -A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
 {{if enableDNSProxy}}
--A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer dstIP -j NFQUEUE -j MARK 83
+-A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer srcIP -j NFQUEUE -j MARK 83
 {{end}}
 `
 
