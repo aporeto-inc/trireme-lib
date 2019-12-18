@@ -89,11 +89,6 @@ func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain s
 func (i *iptables) removeGlobalHooksPre() {
 }
 
-type ruleTransformData struct {
-	isAppAcls bool
-	aclRule   []string
-}
-
 // try to merge two acl rules (one log and one accept/drop) into one for Windows
 func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRuleSpec {
 
@@ -221,7 +216,7 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 			i++
 		}
 		if i < len(aclRules) {
-			aclRule1 = aclRules[i]
+			aclRule2 = aclRules[i]
 		}
 		table, chain := aclRule1[0], aclRule1[1]
 		winRule := makeTerminatingRuleFromPair(aclRule1, aclRule2)
