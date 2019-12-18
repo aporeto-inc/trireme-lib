@@ -121,6 +121,8 @@ func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) er
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU, [][]string{}, [][]string{}), "Delete")
 }
 
+// delete windows acl rules explicitly, because we can't just clear chains.
+// note: the same transforms etc that apply in addExternalACLs must also apply here.
 func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
 	_, rules = extractProtocolAnyRules(rules)
@@ -231,9 +233,41 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 // while not strictly necessary now for Windows, we still try to combine a log (non-terminating rule) and another terminating rule.
 func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo, isAppAcls bool) [][]string {
 
+	// find the reverse rules and remove them.
+	// note: we assume that reverse rules are the ones we add for UDP established reverse flows.
+	// we handle this in the windows driver so we don't need a rule for it.
+	// again: our driver assumes that all UDP acl rules will have a reverse flow added.
+	if rulesBucket != nil {
+		for _, rr := range rulesBucket.ReverseRules {
+			revTable, revChain := rr[0], rr[1]
+			revRule, err := winipt.ParseRuleSpec(rr[2:]...)
+			if err != nil {
+				zap.L().Error("transformACLRules failed to parse reverse rule", zap.Error(err))
+				continue
+			}
+			found := false
+			for i, r := range aclRules {
+				rule, err := winipt.ParseRuleSpec(r[2:]...)
+				if err != nil {
+					zap.L().Error("transformACLRules failed to parse rule", zap.Error(err))
+					continue
+				}
+				table, chain := r[0], r[1]
+				if table == revTable && chain == revChain && rule.Equal(revRule) {
+					found = true
+					aclRules = append(aclRules[:i], aclRules[i+1:]...)
+					break
+				}
+			}
+			if !found {
+				zap.L().Warn("transformACLRules could not find reverse rule")
+			}
+		}
+	}
+
 	var result [][]string
 
-	// in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
+	// now in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
 	// if they are, then combine them into one rule.
 	var aclRule1, aclRule2 []string
 	for i := 0; i < len(aclRules) || aclRule1 != nil; i++ {
