@@ -336,3 +336,8 @@ func TestDeleteChain(t *testing.T) {
 		})
 	})
 }
+
+func TestProvider(t *testing.T) {
+	NewGoIPTablesProviderV4([]string{})
+	NewGoIPTablesProviderV6([]string{})
+}
