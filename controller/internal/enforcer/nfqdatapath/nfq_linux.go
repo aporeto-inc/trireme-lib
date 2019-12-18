@@ -92,6 +92,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	}
 
+	// TODO: Use error types and handle it in switch case here
 	if processError != nil {
 		zap.L().Debug("Dropping packet on network path",
 			zap.Error(processError),
@@ -131,7 +132,6 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	v := uint32(1)
 	if tcpConn != nil {
 		if !tcpConn.PingConfig.Passthrough && tcpConn.PingConfig.Type != claimsheader.PingTypeNone {
-			fmt.Println("DROPPING", tcpConn.PingConfig.Type)
 			v = uint32(0)
 		}
 	}

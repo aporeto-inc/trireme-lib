@@ -619,7 +619,10 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if claims.H != nil {
 		ch := claims.H.ToClaimsHeader()
 		if ch.PingType() != claimsheader.PingTypeNone {
-			return nil, nil, d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims)
+			if err := d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims); err != nil {
+				zap.L().Error("unable to process diagnostic network syn", zap.Error(err))
+				return nil, nil, err
+			}
 		}
 	}
 
@@ -690,7 +693,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Diagnostic packet from an external network.
 		if conn.PingConfig.Type != claimsheader.PingTypeNone {
-			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
+			if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false); err != nil {
+				zap.L().Error("unable to process diagnostic network synack (externalnetwork)", zap.Error(err))
+				return nil, nil, err
+			}
 		}
 
 		flowHash := tcpPacket.SourceAddress().String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
@@ -726,7 +732,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Diagnostic packet with custom information.
 	if conn.PingConfig.Type == claimsheader.PingTypeCustomIdentity {
-		return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true)
+		if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true); err != nil {
+			zap.L().Error("unable to process diagnostic network synack (custompayload)", zap.Error(err))
+			return nil, nil, err
+		}
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
@@ -774,7 +783,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Diagnostic packet with default token/identity.
 	if claims.H != nil {
 		if claims.H.ToClaimsHeader().PingType() != claimsheader.PingTypeNone {
-			return nil, nil, d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
+			if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false); err != nil {
+				zap.L().Error("unable to process diagnostic network synack", zap.Error(err))
+				return nil, nil, err
+			}
 		}
 	}
 
