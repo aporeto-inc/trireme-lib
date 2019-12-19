@@ -8,6 +8,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
@@ -131,19 +132,19 @@ func (i *Instance) CleanUp() error {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ebpf ebpf.BPFModule) (*Instance, error) {
 
 	ips := provider.NewGoIPsetProvider()
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
-	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode, aclmanager)
+	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode, aclmanager, ebpf)
 	ipv6Impl, err := GetIPv6Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
-	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode, aclmanager)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode, aclmanager, ebpf)
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }

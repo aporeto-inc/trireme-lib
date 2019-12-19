@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
+	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/env"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
@@ -44,7 +45,7 @@ type ProxyInfo struct {
 	cfg                    *runtime.Configuration
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
-
+	isBPFEnabled           bool
 	sync.RWMutex
 }
 
@@ -258,6 +259,11 @@ func (s *ProxyInfo) SetTargetNetworks(cfg *runtime.Configuration) error {
 	return nil
 }
 
+// GetBPFObject returns the bpf object
+func (s *ProxyInfo) GetBPFObject() ebpf.BPFModule {
+	return nil
+}
+
 // GetFilterQueue returns the current FilterQueueConfig.
 func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
@@ -296,6 +302,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			Secrets:                s.Secrets.PublicSecrets(),
 			Configuration:          s.cfg,
 			BinaryTokens:           s.binaryTokens,
+			IsBPFEnabled:           s.isBPFEnabled,
 		},
 	}
 
@@ -319,6 +326,7 @@ func NewProxyEnforcer(
 	remoteParameters *env.RemoteParameters,
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
+	isBPFEnabled bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -348,5 +356,6 @@ func NewProxyEnforcer(
 		cfg:                    cfg,
 		tokenIssuer:            tokenIssuer,
 		binaryTokens:           binaryTokens,
+		isBPFEnabled:           isBPFEnabled,
 	}
 }

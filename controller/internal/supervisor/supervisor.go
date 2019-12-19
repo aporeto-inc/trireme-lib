@@ -82,7 +82,9 @@ func NewSupervisor(
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager)
+	bpf := enforcerInstance.GetBPFObject()
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager, bpf)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}

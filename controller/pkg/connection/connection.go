@@ -2,6 +2,8 @@ package connection
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -114,6 +116,13 @@ type AuthInfo struct {
 	RemoteServiceContext []byte
 }
 
+type TCPTuple struct {
+	SourceAddress      net.IP
+	DestinationAddress net.IP
+	SourcePort         uint16
+	DestinationPort    uint16
+}
+
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
 	sync.RWMutex
@@ -154,6 +163,8 @@ type TCPConnection struct {
 	MarkForDeletion bool
 
 	RetransmittedSynAck bool
+
+	TCPtuple *TCPTuple
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -162,6 +173,10 @@ func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item int
 	if conn, ok := item.(*TCPConnection); ok {
 		conn.Cleanup(true)
 	}
+}
+
+func (tcpTuple *TCPTuple) String() string {
+	return "sip: " + tcpTuple.SourceAddress.String() + " dip: " + tcpTuple.DestinationAddress.String() + " sport: " + strconv.Itoa(int(tcpTuple.SourcePort)) + " dport: " + strconv.Itoa(int(tcpTuple.DestinationPort))
 }
 
 // String returns a printable version of connection
@@ -232,6 +247,12 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Context: context,
 		Auth: AuthInfo{
 			LocalContext: nonce,
+		},
+		TCPtuple: &TCPTuple{
+			SourceAddress:      p.SourceAddress(),
+			DestinationAddress: p.DestinationAddress(),
+			SourcePort:         p.SourcePort(),
+			DestinationPort:    p.DestPort(),
 		},
 	}
 }

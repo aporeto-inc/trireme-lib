@@ -2,14 +2,12 @@ package provider
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/coreos/go-iptables/iptables"
-	version "github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 )
 
@@ -52,35 +50,45 @@ type BatchProvider struct {
 	// Allowing for custom commit functions for testing
 	commitFunc func(buf *bytes.Buffer) error
 	sync.Mutex
+	cmd        string
 	restoreCmd string
 	quote      bool
 }
 
 const (
+	cmdV4        = "iptables --wait"
+	cmdV6        = "ip6tables --wait"
 	restoreCmdV4 = "iptables-restore"
 	restoreCmdV6 = "ip6tables-restore"
 )
 
+func TestIptablesPinned(bpf string) error {
+	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
+	_, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	cmd = exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -D OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
+	_, err = cmd.CombinedOutput()
+	if err != nil {
+		zap.L().Error("Error removing rule")
+	}
+
+	return nil
+}
+
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
 func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.New()
-	if err != nil {
-		return nil, err
-	}
 
 	batchTablesMap := map[string]bool{}
-	// We will only support the batch method if there is iptables-restore and iptables
-	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
-	// This will allow us to support older kernel versions.
-	if restoreHasWait(restoreCmdV4) {
-		for _, t := range batchTables {
-			batchTablesMap[t] = true
-		}
+	for _, t := range batchTables {
+		batchTablesMap[t] = true
 	}
 
 	b := &BatchProvider{
-		ipt:         ipt,
+		cmd:         cmdV4,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
@@ -95,23 +103,14 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
 func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
-	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-	if err != nil {
-		return nil, err
-	}
 
 	batchTablesMap := map[string]bool{}
-	// We will only support the batch method if there is iptables-restore and iptables
-	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
-	// This will allow us to support older kernel versions.
-	if restoreHasWait(restoreCmdV6) {
-		for _, t := range batchTables {
-			batchTablesMap[t] = true
-		}
+	for _, t := range batchTables {
+		batchTablesMap[t] = true
 	}
 
 	b := &BatchProvider{
-		ipt:         ipt,
+		cmd:         cmdV6,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV6,
@@ -142,6 +141,16 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 	}
 }
 
+func createIPtablesCommand(iptablesCmd, table, chain, action string, rulespec ...string) []string {
+	cmd := strings.Fields(iptablesCmd)
+	cmd = append(cmd, "-t")
+	cmd = append(cmd, table)
+	cmd = append(cmd, action)
+	cmd = append(cmd, chain)
+	cmd = append(cmd, rulespec...)
+	return cmd
+}
+
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
@@ -149,7 +158,14 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.Append(table, chain, rulespec...)
+		cmd := createIPtablesCommand(b.cmd, table, chain, "-A", rulespec...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
@@ -175,7 +191,13 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.Insert(table, chain, pos, rulespec...)
+		cmd := createIPtablesCommand(b.cmd, table, chain, "-I", rulespec...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
@@ -205,17 +227,23 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
-
 	b.Lock()
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.Delete(table, chain, rulespec...)
+		cmd := createIPtablesCommand(b.cmd, table, chain, "-D", rulespec...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
 		return nil
 	}
+
 	if _, ok := b.rules[table][chain]; !ok {
 		return nil
 	}
@@ -244,12 +272,41 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 	return nil
 }
 
+// ListChains returns a slice containing the name of each chain in the specified table.
+func listChains(iptablesCmd, table string) ([]string, error) {
+	cmd := strings.Fields(iptablesCmd)
+	cmd = append(cmd, []string{"-t", table, "-S"}...)
+
+	execCmd := exec.Command("aporeto-iptables", cmd...)
+	out, err := execCmd.CombinedOutput()
+	if err != nil {
+		return nil, errors.New(string(out))
+	}
+
+	result := strings.Split(string(out), "\n")
+
+	// Iterate over rules to find all default (-P) and user-specified (-N) chains.
+	// Chains definition always come before rules.
+	// Format is the following:
+	// -P OUTPUT ACCEPT
+	// -N Custom
+	var chains []string
+	for _, val := range result {
+		if strings.HasPrefix(val, "-P") || strings.HasPrefix(val, "-N") {
+			chains = append(chains, strings.Fields(val)[1])
+		} else {
+			break
+		}
+	}
+	return chains, nil
+}
+
 // ListChains will provide a list of the current chains.
 func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	b.Lock()
 	defer b.Unlock()
 
-	chains, err := b.ipt.ListChains(table)
+	chains, err := listChains(b.cmd, table)
 	if err != nil {
 		return []string{}, err
 	}
@@ -281,7 +338,14 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.ClearChain(table, chain)
+		cmd := strings.Fields(b.cmd)
+		cmd = append(cmd, []string{"-t", table, "-F", chain}...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
@@ -297,12 +361,18 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
-
 	b.Lock()
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.DeleteChain(table, chain)
+		cmd := strings.Fields(b.cmd)
+		cmd = append(cmd, []string{"-t", table, "-X", chain}...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
@@ -319,7 +389,14 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 	defer b.Unlock()
 
 	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.NewChain(table, chain)
+		cmd := strings.Fields(b.cmd)
+		cmd = append(cmd, []string{"-t", table, "-N", chain}...)
+		execCmd := exec.Command("aporeto-iptables", cmd...)
+		s, err := execCmd.CombinedOutput()
+		if err != nil {
+			return errors.New(string(s))
+		}
+		return nil
 	}
 
 	if _, ok := b.rules[table]; !ok {
@@ -388,7 +465,7 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 // restore will save the current DB to iptables.
 func (b *BatchProvider) restore(buf *bytes.Buffer) error {
 
-	cmd := exec.Command(b.restoreCmd, "--wait")
+	cmd := exec.Command("aporeto-iptables", b.restoreCmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -411,33 +488,4 @@ func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
 	for i, rule := range rulesspec {
 		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
 	}
-}
-
-func restoreHasWait(restoreCmd string) bool {
-	cmd := exec.Command(restoreCmd, "--version")
-	cmd.Stdin = bytes.NewReader([]byte{})
-	bytes, err := cmd.CombinedOutput()
-	if err != nil {
-		// Cannot retrieve version - assume no wait.
-		return false
-	}
-
-	versionMatcher := regexp.MustCompile(`v([0-9]+(\.[0-9]+)+)`)
-	match := versionMatcher.FindStringSubmatch(string(bytes))
-	if match == nil || len(match) < 2 {
-		// Cannot match version - assume no wait.
-		return false
-	}
-
-	restoreVersion, err := version.NewVersion(match[1])
-	if err != nil {
-		return false
-	}
-
-	minimumVersion, err := version.NewVersion("1.6.2")
-	if err != nil {
-		return false
-	}
-
-	return !restoreVersion.LessThan(minimumVersion)
 }

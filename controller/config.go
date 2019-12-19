@@ -36,6 +36,7 @@ type config struct {
 	// Configurations for fine tuning internal components.
 	mode                   constants.ModeType
 	fq                     *fqconfig.FilterQueue
+	isBPFEnabled           bool
 	linuxProcess           bool
 	mutualAuth             bool
 	packetLogs             bool
@@ -52,6 +53,13 @@ type config struct {
 
 // Option is provided using functional arguments.
 type Option func(*config)
+
+//OptionBPFSupported is an option
+func OptionBPFEnabled(bpfEnabled bool) Option {
+	return func(cfg *config) {
+		cfg.isBPFEnabled = bpfEnabled
+	}
+}
 
 //OptionIPSetManager is an option to provide ipsetmanager
 func OptionIPSetManager(manager ipsetmanager.ACLManager) Option {
@@ -172,6 +180,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			t.config.isBPFEnabled,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
@@ -192,6 +201,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			false,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
@@ -216,6 +226,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.remoteParameters,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.isBPFEnabled,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
@@ -239,6 +250,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			false,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)

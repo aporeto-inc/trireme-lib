@@ -50,6 +50,7 @@ type ACLInfo struct {
 	// Chains
 	MainAppChain        string
 	MainNetChain        string
+	BPFPath             string
 	HostInput           string
 	HostOutput          string
 	NetworkSvcInput     string
@@ -99,14 +100,15 @@ type ACLInfo struct {
 	TCPPortSet string
 
 	// ProxyRules
-	DestIPSet    string
-	SrvIPSet     string
-	ProxyPort    string
-	DNSProxyPort string
-	DNSServerIP  string
-	CgroupMark   string
-	ProxyMark    string
-	ProxySetName string
+	DestIPSet     string
+	SrvIPSet      string
+	ProxyPort     string
+	DNSProxyPort  string
+	DNSServerIP   string
+	CgroupMark    string
+	ProxyMark     string
+	AuthPhaseMark string
+	ProxySetName  string
 
 	// UID PUs
 	Mark    string
@@ -243,6 +245,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		QueueBalanceNetAck:      i.fqc.GetNetworkQueueAckStr(),
 		InitialMarkVal:          strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		CgroupMark:              mark,
 		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
 		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
@@ -267,7 +270,6 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ProxyPort:    servicePort,
 		DNSProxyPort: dnsProxyPort,
 		DNSServerIP:  parseDNSServerIP(),
-		CgroupMark:   mark,
 		ProxyMark:    proxyMark,
 		ProxySetName: proxySetName,
 
@@ -279,6 +281,10 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		NFLOGPrefix:            policy.DefaultLogPrefix(contextID),
 		NFLOGAcceptPrefix:      policy.DefaultAcceptLogPrefix(contextID),
 		DefaultNFLOGDropPrefix: policy.DefaultDroppedPacketLogPrefix(contextID),
+	}
+
+	if i.bpf != nil {
+		cfg.BPFPath = i.bpf.GetBPFPath()
 	}
 
 	return cfg, nil

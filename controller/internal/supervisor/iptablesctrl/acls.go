@@ -149,6 +149,9 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		"joinRule": func(rule []string) string {
 			return strings.Join(rule, " ")
 		},
+		"isBPFEnabled": func() bool {
+			return i.bpf != nil
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -589,6 +592,9 @@ func (i *iptables) setGlobalRules() error {
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
+		},
+		"isBPFEnabled": func() bool {
+			return i.bpf != nil
 		},
 	}).Parse(globalRules))
 

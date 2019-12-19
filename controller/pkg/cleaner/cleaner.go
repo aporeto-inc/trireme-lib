@@ -14,7 +14,7 @@ import (
 // other packages for housekeeping.
 func CleanAllTriremeACLs() error {
 	ips := provider.NewGoIPsetProvider()
-	ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, ipsetmanager.CreateIPsetManager(ips, ips))
+	ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, ipsetmanager.CreateIPsetManager(ips, ips), nil)
 	if err != nil {
 		return fmt.Errorf("unable to initialize cleaning iptables controller:  %s", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
@@ -65,8 +66,7 @@ const (
 	appPacketIPTableContext  = "mangle"
 	netPacketIPTableContext  = "mangle"
 	appProxyIPTableContext   = "nat"
-
-	proxyMark = "0x40"
+	proxyMark                = "0x40"
 )
 
 type iptables struct {
@@ -82,6 +82,7 @@ type iptables struct {
 	cfg                   *runtime.Configuration
 	contextIDToPortSetMap cache.DataStore
 	aclmanager            ipsetmanager.ACLManager
+	bpf                   ebpf.BPFModule
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
@@ -123,7 +124,7 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
+func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ebpf ebpf.BPFModule) *iptables {
 
 	return &iptables{
 		impl:                  impl,
@@ -135,6 +136,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 		aclmanager:            aclmanager,
+		bpf:                   ebpf,
 	}
 }
 
@@ -207,6 +209,10 @@ func (i *iptables) Run(ctx context.Context) error {
 	// if we gracefully terminate.
 	if err := i.setGlobalRules(); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
+	}
+
+	if err := i.impl.Commit(); err != nil {
+		return err
 	}
 
 	return nil
