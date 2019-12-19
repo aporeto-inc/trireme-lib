@@ -139,6 +139,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		&env.RemoteParameters{},
 		nil,
 		false,
+		false,
 	)
 	return policyEnf
 }
