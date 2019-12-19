@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -1023,4 +1024,19 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestIpv6Disable(t *testing.T) {
+	ipv6Instance := &ipv6{ipv6Enabled: false}
+
+	assert.Equal(t, ipv6Instance.Append("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.Insert("", "", 0) == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.ClearChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.DeleteChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.NewChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.Commit() == nil, true, "error should be nil")
+	chains, err := ipv6Instance.ListChains("")
+
+	assert.Equal(t, chains == nil, true, "chains should be nil")
+	assert.Equal(t, err == nil, true, "error should be nil")
 }
