@@ -116,6 +116,7 @@ type AuthInfo struct {
 	RemoteServiceContext []byte
 }
 
+//TCPTuple contains the 4 tuple for tcp connection
 type TCPTuple struct {
 	SourceAddress      net.IP
 	DestinationAddress net.IP

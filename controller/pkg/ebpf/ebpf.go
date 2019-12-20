@@ -20,9 +20,9 @@ import (
 )
 
 type ebpfModule struct {
-	m           *bpflib.Module
-	session_map *bpflib.Map
-	bpfPath     string
+	m          *bpflib.Module
+	sessionMap *bpflib.Map
+	bpfPath    string
 }
 
 type flow struct {
@@ -39,7 +39,9 @@ func removeOldBPFFiles() {
 
 	removeFiles := func(path string, info os.FileInfo, err error) error {
 		if strings.Contains(path, bpfPrefix) {
-			os.Remove(path)
+			if err := os.Remove(path); err != nil {
+				zap.L().Debug("Failed to remove file", zap.String("path", path), zap.Error(err))
+			}
 		}
 		return nil
 	}
@@ -71,11 +73,14 @@ func ISeBPFSupported() bool {
 	return true
 }
 
+//LoadBPF loads the bpf object in the memory and also pins the bpf to the file system.
 func LoadBPF() BPFModule {
 	bpf := &ebpfModule{}
 
 	bpf.bpfPath = bpfPath + bpfPrefix + strconv.Itoa(os.Getpid())
-	os.Remove(bpf.bpfPath)
+	if err := os.Remove(bpf.bpfPath); err != nil {
+		zap.L().Debug("Failed to remove bpf file", zap.Error(err))
+	}
 
 	buf, err := bpfbuild.Asset("socket-filter-bpf.o")
 	if err != nil {
@@ -102,14 +107,14 @@ func LoadBPF() BPFModule {
 		return nil
 	}
 
-	session_map := m.Map("sessions")
-	if session_map == nil {
+	sessionMap := m.Map("sessions")
+	if sessionMap == nil {
 		zap.L().Info("Failed to load sessions map")
 		return nil
 	}
 
 	bpf.m = m
-	bpf.session_map = session_map
+	bpf.sessionMap = sessionMap
 
 	return bpf
 }
@@ -125,7 +130,7 @@ func (ebpf *ebpfModule) CreateFlow(tcpTuple *connection.TCPTuple) {
 
 	val = 1
 
-	err := ebpf.m.UpdateElement(ebpf.session_map, unsafe.Pointer(&key), unsafe.Pointer(&val), 0)
+	err := ebpf.m.UpdateElement(ebpf.sessionMap, unsafe.Pointer(&key), unsafe.Pointer(&val), 0)
 	if err != nil {
 		zap.L().Debug("Update bpf map failed",
 			zap.String("packet", tcpTuple.String()),
@@ -141,7 +146,7 @@ func (ebpf *ebpfModule) RemoveFlow(tcpTuple *connection.TCPTuple) {
 	key.srcPort = tcpTuple.SourcePort
 	key.dstPort = tcpTuple.DestinationPort
 
-	err := ebpf.m.DeleteElement(ebpf.session_map, unsafe.Pointer(&key))
+	err := ebpf.m.DeleteElement(ebpf.sessionMap, unsafe.Pointer(&key))
 	if err != nil {
 		zap.L().Debug("Delete bpf map failed",
 			zap.String("packet", tcpTuple.String()),
@@ -154,5 +159,7 @@ func (ebpf *ebpfModule) GetBPFPath() string {
 }
 
 func (ebpf *ebpfModule) Cleanup() {
-	os.Remove(ebpf.bpfPath)
+	if err := os.Remove(ebpf.bpfPath); err != nil {
+		zap.L().Error("Failed to remove bpf file during cleanup", zap.Error(err))
+	}
 }

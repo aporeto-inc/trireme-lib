@@ -318,6 +318,7 @@ func (e *Enforcer) Run(ctx context.Context) error {
 	return nil
 }
 
+// GetBPFObject is unimplemented in the envoy authorizer
 func (e *Enforcer) GetBPFObject() ebpf.BPFModule {
 	return nil
 }

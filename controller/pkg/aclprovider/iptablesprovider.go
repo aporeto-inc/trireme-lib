@@ -62,6 +62,7 @@ const (
 	restoreCmdV6 = "ip6tables-restore"
 )
 
+// TestIptablesPinned returns error if the kernel doesn't support bpf pinning in iptables
 func TestIptablesPinned(bpf string) error {
 	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
 	_, err := cmd.CombinedOutput()

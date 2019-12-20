@@ -54,7 +54,7 @@ type config struct {
 // Option is provided using functional arguments.
 type Option func(*config)
 
-//OptionBPFSupported is an option
+// OptionBPFSupported is an option
 func OptionBPFEnabled(bpfEnabled bool) Option {
 	return func(cfg *config) {
 		cfg.isBPFEnabled = bpfEnabled
