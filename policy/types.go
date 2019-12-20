@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
@@ -411,7 +412,7 @@ type RuntimeError struct {
 
 type PingConfig struct {
 	Type     claimsheader.PingType
-	IP       string
+	IP       net.IP
 	Ports    []*portspec.PortSpec
 	Requests int
 }
