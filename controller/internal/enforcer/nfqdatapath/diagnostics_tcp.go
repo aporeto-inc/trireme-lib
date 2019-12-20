@@ -279,7 +279,6 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 }
 
 // constructTCPPacket constructs a valid tcp packet that can be sent on wire.
-// checksum is calculated by the library. (https://github.com/ghedo/go.pkt/blob/master/packet/tcp/pkt.go#L181)
 func constructTCPPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
 
 	// pseudo header.
