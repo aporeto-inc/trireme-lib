@@ -22,6 +22,12 @@ required = ["github.com/docker/distribution"]
   name = "github.com/ti-mo/conntrack"
   source = "https://github.com/aporeto-inc/conntrack.git"
   revision = "309d2d6a30782ae8f0c68f2dda0774966523e469"
+
+[[override]]
+  name = "github.com/ti-mo/netfilter"
+  source = "https://github.com/ti-mo/netfilter.git"
+  revision = "f20d5b6348074c6c2e0045b4b967be7815adae89"
+
   
 #
 # The most significant dependency for the Kubernetes monitor: the controller-runtime
