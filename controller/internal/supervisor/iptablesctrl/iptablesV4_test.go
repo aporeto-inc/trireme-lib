@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -22,7 +23,7 @@ import (
 func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvider, iptv4 provider.IptablesProvider, iptv6 provider.IptablesProvider, mode constants.ModeType) (*Instance, error) {
 
 	ipv4Impl := &ipv4{ipt: iptv4}
-	ipv6Impl := &ipv6{ipt: iptv6, ipv6Disabled: false}
+	ipv6Impl := &ipv6{ipt: iptv6, ipv6Enabled: true}
 
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
@@ -2011,6 +2012,12 @@ func Test_OperationWithContainersV4(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestImpl(t *testing.T) {
+	instance, err := NewInstance(nil, constants.LocalServer, nil, true)
+	assert.Equal(t, instance != nil, true, "instance should not be nil")
+	assert.Equal(t, err == nil, true, "err should be nil")
 }
 
 func printTable(t map[string]map[string][]string) {

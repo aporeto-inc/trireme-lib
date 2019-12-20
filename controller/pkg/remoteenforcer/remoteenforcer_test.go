@@ -292,6 +292,7 @@ func TestInitEnforcer(t *testing.T) {
 			cfg *runtime.Configuration,
 			p packetprocessor.PacketProcessor,
 			aclmanager ipsetmanager.ACLManager,
+			ipv6Enabled bool,
 		) (supervisor.Supervisor, error) {
 			return mockSupevisor, nil
 		}
@@ -411,6 +412,7 @@ func TestInitEnforcer(t *testing.T) {
 					cfg *runtime.Configuration,
 					p packetprocessor.PacketProcessor,
 					aclmanager ipsetmanager.ACLManager,
+					ipv6Enabled bool,
 				) (supervisor.Supervisor, error) {
 					return nil, fmt.Errorf("failed supervisor")
 				}

@@ -52,6 +52,7 @@ type InitRequestPayload struct {
 	Secrets                secrets.PublicSecrets  `json:",omitempty"`
 	Configuration          *runtime.Configuration `json:",omitempty"`
 	BinaryTokens           bool                   `json:",omitempty"`
+	IPv6Enabled            bool                   `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers

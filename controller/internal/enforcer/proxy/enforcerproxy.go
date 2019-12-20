@@ -44,6 +44,7 @@ type ProxyInfo struct {
 	cfg                    *runtime.Configuration
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
+	ipv6Enabled            bool
 
 	sync.RWMutex
 }
@@ -315,6 +316,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			Secrets:                s.Secrets.PublicSecrets(),
 			Configuration:          s.cfg,
 			BinaryTokens:           s.binaryTokens,
+			IPv6Enabled:            s.ipv6Enabled,
 		},
 	}
 
@@ -338,6 +340,7 @@ func NewProxyEnforcer(
 	remoteParameters *env.RemoteParameters,
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
+	ipv6Enabled bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -367,5 +370,6 @@ func NewProxyEnforcer(
 		cfg:                    cfg,
 		tokenIssuer:            tokenIssuer,
 		binaryTokens:           binaryTokens,
+		ipv6Enabled:            ipv6Enabled,
 	}
 }
