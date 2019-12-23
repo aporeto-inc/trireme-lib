@@ -183,6 +183,9 @@ func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPs
 		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
 	}
 
+	sortedAppAnyRules = transformACLRules(sortedAppAnyRules, cfg, sortedAppAnyRulesBuckets, true)
+	sortedNetAnyRules = transformACLRules(sortedNetAnyRules, cfg, sortedNetAnyRulesBuckets, false)
+
 	return sortedAppAnyRules, sortedNetAnyRules, nil
 }
 

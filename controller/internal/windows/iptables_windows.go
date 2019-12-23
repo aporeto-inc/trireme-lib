@@ -191,6 +191,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	result := &WindowsRuleSpec{}
 
 	// protocol
+	isProtoAnyRule := false
 	switch strings.ToLower(*protocolOpt) {
 	case "tcp":
 		result.Protocol = packet.IPProtocolTCP
@@ -202,6 +203,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 		fallthrough
 	case "all":
 		result.Protocol = -1
+		isProtoAnyRule = true
 	default:
 		result.Protocol, err = strconv.Atoi(*protocolOpt)
 		if err != nil {
@@ -270,12 +272,12 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 				} else if strings.HasPrefix(ipPortSpecLower, "src") {
 					matchSet.MatchSetSrcIp = true
 				}
-				if strings.HasSuffix(ipPortSpecLower, "dst") {
+				if strings.HasSuffix(ipPortSpecLower, "dst") && !isProtoAnyRule {
 					matchSet.MatchSetDstPort = true
 					if result.Protocol < 1 {
 						return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
 					}
-				} else if strings.HasSuffix(ipPortSpecLower, "src") {
+				} else if strings.HasSuffix(ipPortSpecLower, "src") && !isProtoAnyRule {
 					matchSet.MatchSetSrcPort = true
 					if result.Protocol < 1 {
 						return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")

@@ -118,7 +118,11 @@ func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) er
 
 	// delete deny-all rules for Windows
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
-	return i.processRulesFromList(i.trapRules(cfg, isHostPU, [][]string{}, [][]string{}), "Delete")
+	appAnyRules, netAnyRules, err := i.getProtocolAnyRules(cfg, appACLIPset, netACLIPset)
+	if err != nil {
+		return err
+	}
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU, appAnyRules, netAnyRules), "Delete")
 }
 
 // delete windows acl rules explicitly, because we can't just clear chains.
