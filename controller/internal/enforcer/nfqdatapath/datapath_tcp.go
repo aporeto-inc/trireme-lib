@@ -1115,7 +1115,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
 // It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
@@ -1128,9 +1127,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
 	hash := p.L4FlowHash()
-
 	// ignore conn.MarkFordeletion here since these could be ack packets arriving out of order
 	// Did we see a network syn/ack packet? (PU is a client)
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
