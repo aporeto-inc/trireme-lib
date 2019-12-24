@@ -46,7 +46,7 @@ func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pi
 		return fmt.Errorf("unable to get source ip: %v", err)
 	}
 
-	conn, err := dial(srcIP, pingConfig.IP)
+	conn, err := dialWithMark(srcIP, pingConfig.IP)
 	if err != nil {
 		return fmt.Errorf("unable to dial on app syn: %v", err)
 	}
@@ -54,11 +54,13 @@ func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pi
 
 	item, err := d.puFromContextID.Get(contextID)
 	if err != nil {
-		return fmt.Errorf("unable to find contextID %s in cache: %v", contextID, err)
+		return fmt.Errorf("unable to find context with ID %s in cache: %v", contextID, err)
 	}
 
-	// NOTE: This never fails
-	context := item.(*pucontext.PUContext)
+	context, ok := item.(*pucontext.PUContext)
+	if !ok {
+		return fmt.Errorf("inavlid pu context: %v", contextID)
+	}
 
 	for i := 1; i <= pingConfig.Requests; i++ {
 		if err := d.sendSynPacket(context, pingConfig, conn, srcIP, i); err != nil {
@@ -101,15 +103,15 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 				return err
 			}
 
+			if err := write(conn, p); err != nil {
+				return fmt.Errorf("unable to send syn packet: %v", err)
+			}
+
 			tcpConn.PingConfig = &connection.PingConfig{
 				StartTime: time.Now(),
 				Type:      pingConfig.Type,
 				SessionID: sessionID,
 				Request:   request,
-			}
-
-			if err := write(conn, p); err != nil {
-				return fmt.Errorf("unable to send syn packet: %v", err)
 			}
 
 			d.sendOriginPingReport(
@@ -129,8 +131,8 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 			)
 
 			tcpConn.SetState(connection.TCPSynSend)
-			d.diagnosticConnectionCache.AddOrUpdate(
-				flowTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP.String(), uint16(srcPort), dstPort),
+			d.sourcePortConnectionCache.AddOrUpdate(
+				packetTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP.String(), uint16(srcPort), dstPort),
 				tcpConn,
 			)
 		}
@@ -159,11 +161,11 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		zap.L().Debug("Processing diagnostic network syn packet: defaultpassthrough")
 
 		tcpConn.PingConfig.Passthrough = true
-		d.diagnosticConnectionCache.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
+		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
 		return nil
 	}
 
-	conn, err := dial(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress())
+	conn, err := dialWithMark(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress())
 	if err != nil {
 		return fmt.Errorf("unable to dial on net syn: %v", err)
 	}
@@ -213,7 +215,6 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 	}
 
 	tcpConn.SetState(connection.TCPSynAckSend)
-
 	return nil
 }
 
@@ -340,7 +341,7 @@ func getSrcIP(dstIP net.IP) (net.IP, error) {
 	return ip, nil
 }
 
-// flowTuple returns the tuple based on the stage in format <sip:dip:spt:dpt>
+// flowTuple returns the tuple based on the stage in format <sip:dip:spt:dpt> or <dip:sip:dpt:spt>
 func flowTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) string {
 
 	if stage == tpacket.PacketTypeNetwork {
@@ -350,12 +351,22 @@ func flowTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) strin
 	return fmt.Sprintf("%s:%s:%s:%s", srcIP, dstIP, strconv.Itoa(int(srcPort)), strconv.Itoa(int(dstPort)))
 }
 
-// dial opens raw ipv4:tcp socket and connects to the remote network.
-func dial(srcIP, dstIP net.IP) (net.Conn, error) {
+// packetTuple returns the tuple based on the stage in format <sip:spt> or <dip:dpt>
+func packetTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) string {
+
+	if stage == tpacket.PacketTypeNetwork {
+		return dstIP + ":" + strconv.Itoa(int(dstPort))
+	}
+
+	return srcIP + ":" + strconv.Itoa(int(srcPort))
+}
+
+// dialWithMark opens raw ipv4:tcp socket and connects to the remote network.
+func dialWithMark(srcIP, dstIP net.IP) (net.Conn, error) {
 
 	d := net.Dialer{
 		Timeout:   5 * time.Second,
-		KeepAlive: -1,
+		KeepAlive: -1, // keepalive disabled.
 		LocalAddr: &net.IPAddr{IP: srcIP},
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {

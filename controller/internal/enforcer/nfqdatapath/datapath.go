@@ -90,7 +90,6 @@ type Datapath struct {
 	appReplyConnectionTracker cache.DataStore
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
-	diagnosticConnectionCache cache.DataStore
 
 	udpSourcePortConnectionCache cache.DataStore
 
@@ -229,7 +228,6 @@ func New(
 
 		puFromContextID: puFromContextID,
 
-		diagnosticConnectionCache: cache.NewCacheWithExpiration("diagnosticConnectionCache", time.Second*24),
 		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
 		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),

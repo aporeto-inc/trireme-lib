@@ -254,9 +254,22 @@ type PingReport struct {
 	SessionID            string
 }
 
-type Stage string
+// Stage represents the checkpoint when the report is sent.
+type Stage int
 
 const (
-	Origin = "origin"
-	Reply  = "reply"
+	Origin Stage = iota
+	Reply
 )
+
+func (s Stage) String() string {
+
+	switch s {
+	case Origin:
+		return "origin"
+	case Reply:
+		return "reply"
+	default:
+		return "unknown"
+	}
+}

@@ -619,10 +619,11 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if claims.H != nil {
 		ch := claims.H.ToClaimsHeader()
 		if ch.PingType() != claimsheader.PingTypeNone {
-			if err := d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims); err != nil {
+			err := d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims)
+			if err != nil {
 				zap.L().Error("unable to process diagnostic network syn", zap.Error(err))
-				return nil, nil, err
 			}
+			return nil, nil, err
 		}
 	}
 
@@ -693,10 +694,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Diagnostic packet from an external network.
 		if conn.PingConfig.Type != claimsheader.PingTypeNone {
-			if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false); err != nil {
+			err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
+			if err != nil {
 				zap.L().Error("unable to process diagnostic network synack (externalnetwork)", zap.Error(err))
-				return nil, nil, err
 			}
+			return nil, nil, err
 		}
 
 		flowHash := tcpPacket.SourceAddress().String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
@@ -732,10 +734,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Diagnostic packet with custom information.
 	if conn.PingConfig.Type == claimsheader.PingTypeCustomIdentity {
-		if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true); err != nil {
+		err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true)
+		if err != nil {
 			zap.L().Error("unable to process diagnostic network synack (custompayload)", zap.Error(err))
-			return nil, nil, err
 		}
+		return nil, nil, err
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
@@ -783,10 +786,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Diagnostic packet with default token/identity.
 	if claims.H != nil {
 		if claims.H.ToClaimsHeader().PingType() != claimsheader.PingTypeNone {
-			if err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false); err != nil {
+			err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
+			if err != nil {
 				zap.L().Error("unable to process diagnostic network synack", zap.Error(err))
-				return nil, nil, err
 			}
+			return nil, nil, err
 		}
 	}
 
@@ -1013,14 +1017,8 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 func (d *Datapath) appSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
 
-	// Is this a diagnostic packet?
-	conn, err := d.diagnosticConnectionCache.GetReset(hash, 0)
-	if err == nil {
-		return conn.(*connection.TCPConnection), nil
-	}
-
 	// Did we see a network syn for this server PU?
-	conn, err = d.appReplyConnectionTracker.GetReset(hash, 0)
+	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrNetSynNotSeen, err.Error())
 	}
@@ -1118,13 +1116,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 // It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	// Is this a diagnostic packet?
-	conn, err := d.diagnosticConnectionCache.GetReset(p.L4ReverseFlowHash(), 0)
-	if err == nil {
-		return conn.(*connection.TCPConnection), nil
-	}
-
-	conn, err = d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		return nil, pucontext.PuContextError(pucontext.ErrNonPUTraffic, fmt.Sprintf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
 	}
@@ -1139,15 +1131,9 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 
 	hash := p.L4FlowHash()
 
-	// Is this a diagnostic packet?
-	conn, err := d.diagnosticConnectionCache.GetReset(hash, 0)
-	if err == nil {
-		return conn.(*connection.TCPConnection), nil
-	}
-
 	// ignore conn.MarkFordeletion here since these could be ack packets arriving out of order
 	// Did we see a network syn/ack packet? (PU is a client)
-	conn, err = d.netReplyConnectionTracker.GetReset(hash, 0)
+	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err == nil {
 		if err = updateTimer(d.netReplyConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
 			return nil, err
