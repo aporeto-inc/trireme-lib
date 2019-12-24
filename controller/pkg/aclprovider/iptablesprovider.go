@@ -144,6 +144,14 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 	}
 }
 
+// SupportsIPv6 conveys support for IPv6
+func (b *BatchProvider) SupportsIPv6() bool {
+	if _, err = b.ListChains("mangle"); err == nil {
+		return true
+	}
+	return false
+}
+
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {

@@ -76,6 +76,11 @@ func boolToUint8(b bool) uint8 {
 	return 0
 }
 
+// SupportsIPv6 conveys support for IPv6
+func (b *BatchProvider) SupportsIPv6() bool {
+	return true
+}
+
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
