@@ -5,6 +5,7 @@ package provider
 import (
 	"testing"
 
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -337,4 +338,13 @@ func TestDeleteChain(t *testing.T) {
 			So(len(p.rules[mangle]), ShouldEqual, 0)
 		})
 	})
+}
+
+func TestProvider(t *testing.T) {
+	b, err := NewGoIPTablesProviderV4([]string{})
+	assert.Equal(t, b != nil, true, "go iptables should not be nil")
+	assert.Equal(t, err == nil, true, "error should be nil")
+	b, err = NewGoIPTablesProviderV6([]string{})
+	assert.Equal(t, b != nil, true, "go iptables should not be nil")
+	assert.Equal(t, err == nil, true, "error should be nil")
 }

@@ -130,7 +130,7 @@ func (i *Instance) CleanUp() error {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ipv6Enabled bool) (*Instance, error) {
 
 	ips, err := provider.NewGoIPsetProvider()
 	if err != nil {
@@ -141,7 +141,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager 
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
 	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode, aclmanager)
-	ipv6Impl, err := GetIPv6Impl()
+	ipv6Impl, err := GetIPv6Impl(ipv6Enabled)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}

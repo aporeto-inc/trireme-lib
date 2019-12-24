@@ -30,7 +30,7 @@ func newSupervisor(
 	aclmanager ipsetmanager.ACLManager,
 ) (*Config, error) {
 
-	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager)
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager, false)
 	if err != nil {
 		return nil, err
 	}

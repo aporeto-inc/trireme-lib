@@ -17,7 +17,7 @@ func CleanAllTriremeACLs() error {
 	if err != nil {
 		return fmt.Errorf("unable to create ipset provider:  %s", err)
 	}
-	ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, ipsetmanager.CreateIPsetManager(ips, ips))
+	ipt, err := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, ipsetmanager.CreateIPsetManager(ips, ips), true)
 	if err != nil {
 		return fmt.Errorf("unable to initialize cleaning iptables controller:  %s", err)
 	}
