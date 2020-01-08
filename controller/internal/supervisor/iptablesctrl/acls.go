@@ -626,6 +626,24 @@ func (i *iptables) setGlobalRules() error {
 // removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
 // no errors if these things fail.
 func (i *iptables) removeGlobalHooksPre() {
+	chains := [][]string{
+		{
+			"nat",
+			"TRI-Redir-Net",
+		},
+		{
+			"nat",
+			"TRI-Redir-App",
+		},
+		{
+			"mangle",
+			"TRI-App",
+		},
+		{
+			"mangle",
+			"TRI-Net",
+		},
+	}
 	rules := [][]string{
 		{
 			"nat",
@@ -642,6 +660,20 @@ func (i *iptables) removeGlobalHooksPre() {
 			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
 			"-j", "TRI-Redir-App",
 		},
+		{
+			"mangle",
+			"INPUT",
+			"-m","set","!",
+			"--match-set","TRI-Excluded", "src",
+			"-j","TRI-Net",
+		},
+		{
+			"mangle",
+			"OUTPUT",
+			"-m","set","!",
+			"--match-set","TRI-Excluded", "dst",
+			"-j","TRI-App"
+		},
 	}
 
 	for _, rule := range rules {
@@ -649,6 +681,17 @@ func (i *iptables) removeGlobalHooksPre() {
 			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
 		}
 	}
+	
+	for _,chain := range chains {
+		if err := i.impl.ClearChain(chain[0],chain[1]);err != nil {
+			zap.L().Debug("Error while flushing", zap.Strings("chain", chain))
+		}
+		if err := i.impl.DeleteChain(chain[0],chain[1]);err != nil {
+			zap.L().Debug("Error while deleting", zap.Strings("chain", chain))
+		}
+	}
+	
+	
 
 }
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
