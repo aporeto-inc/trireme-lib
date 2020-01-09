@@ -183,6 +183,9 @@ func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPs
 		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
 	}
 
+	sortedAppAnyRules = transformACLRules(sortedAppAnyRules, cfg, sortedAppAnyRulesBuckets, true)
+	sortedNetAnyRules = transformACLRules(sortedNetAnyRules, cfg, sortedNetAnyRulesBuckets, false)
+
 	return sortedAppAnyRules, sortedNetAnyRules, nil
 }
 
@@ -538,6 +541,9 @@ func (i *iptables) setGlobalRules() error {
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
+		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
 		},
 	}).Parse(globalRules))
 

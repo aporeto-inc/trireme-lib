@@ -51,6 +51,7 @@ const (
 	FilterActionBlock
 	FilterActionProxy
 	FilterActionNfq
+	FilterActionForceNfq
 )
 
 const (

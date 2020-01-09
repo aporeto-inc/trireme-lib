@@ -38,9 +38,9 @@ func (n *NfLogWindows) NfLogHandler(logPacketInfo *frontman.LogPacketInfo, packe
 	var puIsSource bool
 	switch uint16(logPacketInfo.GroupId) {
 	case n.ipv4groupSource:
-		puIsSource = true
-	case n.ipv4groupDest:
 		puIsSource = false
+	case n.ipv4groupDest:
+		puIsSource = true
 	default:
 		return fmt.Errorf("unrecognized log group id: %d", logPacketInfo.GroupId)
 	}

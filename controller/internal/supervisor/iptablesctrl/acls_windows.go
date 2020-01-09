@@ -17,6 +17,64 @@ import (
 	"go.uber.org/zap"
 )
 
+// create ipsets needed for Windows rules
+func (i *iptables) platformInit() error {
+
+	cfg, err := i.newACLInfo(0, "", nil, 0)
+	if err != nil {
+		return err
+	}
+
+	existingSets, err := i.ipset.ListIPSets()
+	if err != nil {
+		return err
+	}
+
+	setExists := func(s string) bool {
+		for _, existing := range existingSets {
+			if existing == s {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !setExists("TRI-v4-WindowsAllIPs") {
+		allIPsV4, err := i.ipset.NewIpset("TRI-v4-WindowsAllIPs", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = allIPsV4.Add("0.0.0.0/0", 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !setExists("TRI-v6-WindowsAllIPs") {
+		allIPsV6, err := i.ipset.NewIpset("TRI-v6-WindowsAllIPs", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = allIPsV6.Add("::/0", 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	if cfg.DNSServerIP != "" && !setExists("TRI-WindowsDNSServer") {
+		dnsIpSet, err := i.ipset.NewIpset("TRI-WindowsDNSServer", "hash:net", nil)
+		if err != nil {
+			return err
+		}
+		err = dnsIpSet.Add(cfg.DNSServerIP, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // addContainerChain for Windows
 func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
@@ -60,9 +118,15 @@ func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) er
 
 	// delete deny-all rules for Windows
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
-	return i.processRulesFromList(i.trapRules(cfg, isHostPU, [][]string{}, [][]string{}), "Delete")
+	appAnyRules, netAnyRules, err := i.getProtocolAnyRules(cfg, appACLIPset, netACLIPset)
+	if err != nil {
+		return err
+	}
+	return i.processRulesFromList(i.trapRules(cfg, isHostPU, appAnyRules, netAnyRules), "Delete")
 }
 
+// delete windows acl rules explicitly, because we can't just clear chains.
+// note: the same transforms etc that apply in addExternalACLs must also apply here.
 func (i *iptables) deleteExternalACLs(cfg *ACLInfo, chain string, reverseChain string, rules []aclIPset, isAppAcls bool) error {
 
 	_, rules = extractProtocolAnyRules(rules)
@@ -173,9 +237,41 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 // while not strictly necessary now for Windows, we still try to combine a log (non-terminating rule) and another terminating rule.
 func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo, isAppAcls bool) [][]string {
 
+	// find the reverse rules and remove them.
+	// note: we assume that reverse rules are the ones we add for UDP established reverse flows.
+	// we handle this in the windows driver so we don't need a rule for it.
+	// again: our driver assumes that all UDP acl rules will have a reverse flow added.
+	if rulesBucket != nil {
+		for _, rr := range rulesBucket.ReverseRules {
+			revTable, revChain := rr[0], rr[1]
+			revRule, err := winipt.ParseRuleSpec(rr[2:]...)
+			if err != nil {
+				zap.L().Error("transformACLRules failed to parse reverse rule", zap.Error(err))
+				continue
+			}
+			found := false
+			for i, r := range aclRules {
+				rule, err := winipt.ParseRuleSpec(r[2:]...)
+				if err != nil {
+					zap.L().Error("transformACLRules failed to parse rule", zap.Error(err))
+					continue
+				}
+				table, chain := r[0], r[1]
+				if table == revTable && chain == revChain && rule.Equal(revRule) {
+					found = true
+					aclRules = append(aclRules[:i], aclRules[i+1:]...)
+					break
+				}
+			}
+			if !found {
+				zap.L().Warn("transformACLRules could not find reverse rule")
+			}
+		}
+	}
+
 	var result [][]string
 
-	// in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
+	// now in the loop, compare successive rules to see if they are equal, disregarding their action or log properties.
 	// if they are, then combine them into one rule.
 	var aclRule1, aclRule2 []string
 	for i := 0; i < len(aclRules) || aclRule1 != nil; i++ {

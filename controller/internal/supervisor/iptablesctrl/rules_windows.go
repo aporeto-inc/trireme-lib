@@ -10,9 +10,17 @@ var triremChains = `
 -t OUTPUT  -N HostPU-OUTPUT
 -t INPUT   -N HostPU-INPUT
 `
+
+// globalRules are the rules not tied to a PU chain.
+// note that the --queue-force option, which is non-standard and not ideal, was added specifically for the incoming DNS rule,
+// and there is no general 'force' flag for actions other than NFQ, at the moment.
+// by 'force' we mean that we do not respect any 'ignore flow' state in the driver when this rule matches.
 var globalRules = `
 -A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
+{{if enableDNSProxy}}
+-A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer srcIP -j NFQUEUE --queue-force -j MARK 83
+{{end}}
 `
 
 // cgroupCaptureTemplate are the list of iptables commands that will hook traffic and send it to a PU specific
@@ -73,8 +81,21 @@ var acls = `
 // windows uses it as a final deny-all.
 var packetCaptureTemplate = `
 {{if isHostPU}}
+{{range appAnyRules}}
+{{joinRule .}}
+{{end}}
+{{range netAnyRules}}
+{{joinRule .}}
+{{end}}
 -A HostPU-OUTPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs dstIP -j DROP -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 -A HostPU-INPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs srcIP -j DROP -j NFLOG --nflog-group 11 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
+{{else}}
+{{range appAnyRules}}
+{{joinRule .}}
+{{end}}
+{{range netAnyRules}}
+{{joinRule .}}
+{{end}}
 {{end}}
 `
 

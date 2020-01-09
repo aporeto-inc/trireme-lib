@@ -101,3 +101,7 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 	// pass through on linux
 	return aclRules
 }
+
+func (i *iptables) platformInit() error {
+	return nil
+}

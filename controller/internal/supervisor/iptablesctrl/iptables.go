@@ -186,6 +186,11 @@ func (i *iptables) Run(ctx context.Context) error {
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
 
+	// Windows needs to initialize some ipsets
+	if err := i.platformInit(); err != nil {
+		return err
+	}
+
 	// Initialize all the global Trireme chains. There are several global chaims
 	// that apply to all PUs:
 	// Tri-App/Tri-Net are the main chains for the egress/ingress directions

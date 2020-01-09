@@ -320,6 +320,15 @@ func TestParseRuleSpecAction(t *testing.T) {
 		})
 	})
 
+	Convey("When I parse a rule with a force nfq action", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p tcp -m set --match-set TRI-ipset-1 srcIP,srcPort -j NFQUEUE --queue-force -j MARK 100", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should route to nfq (without honoring ignore-flow) and set the mark", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionForceNfq)
+			So(ruleSpec.Mark, ShouldEqual, 100)
+		})
+	})
+
 	Convey("When I parse a rule with a proxy action", t, func() {
 		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p tcp -m set --match-set TRI-ipset-1 dstPort -j REDIRECT --to-ports 20992", " ")...)
 		So(err, ShouldBeNil)
