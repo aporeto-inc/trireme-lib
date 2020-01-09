@@ -65,7 +65,7 @@ const (
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 	ipt, err := iptables.New()
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
 	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
 	if err != nil {
 		return nil, err
@@ -142,6 +142,14 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 		batchTables: batchTablesMap,
 		commitFunc:  commit,
 	}
+}
+
+// SupportsIPv6 conveys support for IPv6
+func (b *BatchProvider) SupportsIPv6() bool {
+	if _, err = b.ListChains("mangle"); err == nil {
+		return true
+	}
+	return false
 }
 
 // Append will append the provided rule to the local cache or call
