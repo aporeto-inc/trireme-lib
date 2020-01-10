@@ -12,6 +12,15 @@ required = ["github.com/docker/distribution"]
   name = "github.com/docker/distribution"
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
+[[override]]
+  name = "github.com/ti-mo/netfilter"
+  version = "=0.3.0"
+
+# as per github.com/ti-mo/netfilter go.mod file
+[[constraint]]
+  name = "github.com/mdlayher/netlink"
+  revision = "a1644773bc99cfd147417f646434a663b5892505"
+
 #
 # The most significant dependency for the Kubernetes monitor: the controller-runtime
 # NOTE: change with care and always adjust the Kubernetes dependencies below
