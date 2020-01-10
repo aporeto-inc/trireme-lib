@@ -84,7 +84,7 @@ func (d *DNSCollector) CollectUserEvent(record *collector.UserRecord) {}
 func (d *DNSCollector) CollectTraceEvent(records []string) {}
 
 // CollectPingEvent collects ping events
-func (d *DNSCollector) CollectPingEvent(records []string) {}
+func (d *DNSCollector) CollectPingEvent(report *collector.PingReport) {}
 
 // CollectPacketEvent collects packet events from the datapath
 func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
