@@ -42,6 +42,7 @@ func newRemoteEnforcer(
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
+	agentVersion semver.Version,
 ) (*RemoteEnforcer, error) {
 	return nil, nil
 }
