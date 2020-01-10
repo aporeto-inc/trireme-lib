@@ -9,7 +9,6 @@ import (
 	"strings"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 )
 
@@ -113,7 +112,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	if IsIpv6Supported() && !constants.Ipv6Disabled {
+	if IsIpv6Supported() {
 		sockv6, err = createSocketv6()
 		if err != nil {
 			return nil, err
