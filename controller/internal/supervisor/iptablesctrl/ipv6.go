@@ -26,20 +26,6 @@ func init() {
 	ipsetV6Param = &ipset.Params{HashFamily: "inet6"}
 }
 
-// GetIPv6Impl creates the instance of ipv6 struct which implements
-// the interface ipImpl
-func GetIPv6Impl(ipv6Enabled bool) (IPImpl, error) {
-	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
-	if err == nil {
-		// test if the system supports ip6tables
-		if ipt.SupportsIPv6() {
-			return &ipv6{ipt: ipt, ipv6Enabled: ipv6Enabled}, nil
-		}
-	}
-
-	return &ipv6{ipt: nil, ipv6Enabled: false}, nil
-}
-
 func (i *ipv6) GetIPSetPrefix() string {
 	return chainPrefix + ipv6String
 }
