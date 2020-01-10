@@ -146,7 +146,7 @@ func NewCustomBatchProvider(ipt BaseIPTables, commit func(buf *bytes.Buffer) err
 
 // SupportsIPv6 conveys support for IPv6
 func (b *BatchProvider) SupportsIPv6() bool {
-	if _, err = b.ListChains("mangle"); err == nil {
+	if _, err := b.ListChains("mangle"); err == nil {
 		return true
 	}
 	return false
