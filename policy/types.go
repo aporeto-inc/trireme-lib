@@ -410,6 +410,7 @@ type RuntimeError struct {
 	Error     error
 }
 
+// PingConfig holds the configuration to run ping.
 type PingConfig struct {
 	Type     claimsheader.PingType
 	IP       net.IP

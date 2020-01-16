@@ -162,6 +162,7 @@ func OptionBinaryTokens(b bool) Option {
 	}
 }
 
+// OptionAgentVersion is an option to set agent version.
 func OptionAgentVersion(v semver.Version) Option {
 	return func(cfg *config) {
 		cfg.agentVersion = v

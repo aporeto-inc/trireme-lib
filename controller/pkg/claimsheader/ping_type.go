@@ -3,6 +3,7 @@ package claimsheader
 // PingType defines the ping type.
 type PingType int
 
+// PingType options.
 const (
 	PingTypeNone PingType = iota
 	PingTypeDefaultIdentity
@@ -11,9 +12,9 @@ const (
 )
 
 // toMask returns the mask based on the type
-func (dt PingType) toMask() pingTypeMask {
+func (pt PingType) toMask() pingTypeMask {
 
-	switch dt {
+	switch pt {
 	case PingTypeNone:
 		return pingTypeNoneMask
 	case PingTypeDefaultIdentity:
@@ -28,9 +29,9 @@ func (dt PingType) toMask() pingTypeMask {
 }
 
 // toMask returns the mask based on the type
-func (dt PingType) String() string {
+func (pt PingType) String() string {
 
-	switch dt {
+	switch pt {
 	case PingTypeNone:
 		return "None"
 	case PingTypeDefaultIdentity:
@@ -47,6 +48,7 @@ func (dt PingType) String() string {
 // pingTypeMask defines the ping type mask.
 type pingTypeMask uint8
 
+// PingTypeMask options.
 const (
 	pingTypeNoneMask                       pingTypeMask = 0x02
 	pingTypeDefaultIdentityMask            pingTypeMask = 0x04
@@ -56,9 +58,9 @@ const (
 )
 
 // toType returns the type based on mask
-func (dm pingTypeMask) toType() PingType {
+func (pm pingTypeMask) toType() PingType {
 
-	switch dm {
+	switch pm {
 	case pingTypeNoneMask:
 		return PingTypeNone
 	case pingTypeDefaultIdentityMask:
@@ -73,7 +75,7 @@ func (dm pingTypeMask) toType() PingType {
 }
 
 // toUint8 returns uint8 from PingTypemask
-func (cm pingTypeMask) toUint8() uint8 {
+func (pm pingTypeMask) toUint8() uint8 {
 
-	return uint8(cm)
+	return uint8(pm)
 }

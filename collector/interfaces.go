@@ -257,6 +257,7 @@ type PingReport struct {
 // Stage represents the checkpoint when the report is sent.
 type Stage int
 
+// Stage options.
 const (
 	Origin Stage = iota
 	Reply

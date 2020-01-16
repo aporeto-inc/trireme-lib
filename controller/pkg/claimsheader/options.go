@@ -27,7 +27,7 @@ func OptionDatapathVersion(datapathVersion DatapathVersion) Option {
 	}
 }
 
-// OptionPing sets ping type
+// OptionPingType sets ping type
 func OptionPingType(pingType PingType) Option {
 
 	return func(c *ClaimsHeader) {

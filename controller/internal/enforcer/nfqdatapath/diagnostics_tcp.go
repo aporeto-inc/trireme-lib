@@ -28,12 +28,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	agentVersionKey = "agentVersion"
-	flowTupleKey    = "flowTuple"
-)
-
-func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, pingConfig *policy.PingConfig) error {
 
 	if pingConfig == nil {
 		return nil
@@ -50,7 +45,7 @@ func (d *Datapath) initiateDiagnostics(ctx context.Context, contextID string, pi
 	if err != nil {
 		return fmt.Errorf("unable to dial on app syn: %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() // nolint:errcheck
 
 	item, err := d.puFromContextID.Get(contextID)
 	if err != nil {
@@ -169,7 +164,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 	if err != nil {
 		return fmt.Errorf("unable to dial on net syn: %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() // nolint:errcheck
 
 	var tcpData []byte
 	// If diagnostic type is custom, we add custom payload.
@@ -238,7 +233,7 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 		return nil
 	}
 
-	receiveTime := time.Now().Sub(tcpConn.PingConfig.StartTime)
+	receiveTime := time.Since(tcpConn.PingConfig.StartTime)
 	tcpConn.SetState(connection.TCPSynAckReceived)
 
 	// Synack from externalnetwork.
@@ -313,8 +308,8 @@ func constructTCPPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.F
 	payload := raw.Make()
 	payload.Data = tcpData
 
-	tcpPacket.SetPayload(payload)
-	ipPacket.SetPayload(tcpPacket)
+	tcpPacket.SetPayload(payload)  // nolint:errcheck
+	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
 
 	// pack the layers together.
 	buf, err := layers.Pack(tcpPacket, payload)

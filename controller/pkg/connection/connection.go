@@ -115,6 +115,7 @@ type AuthInfo struct {
 	RemoteServiceContext []byte
 }
 
+// PingConfig holds ping configuration per connection.
 type PingConfig struct {
 	StartTime   time.Time
 	Type        claimsheader.PingType
