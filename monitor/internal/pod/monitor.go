@@ -138,7 +138,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.handlers, m.sandboxExtractor, m.eventsCh)
+	dc := NewDeleteController(mgr.GetClient(), m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
