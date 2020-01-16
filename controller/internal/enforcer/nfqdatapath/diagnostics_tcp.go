@@ -54,12 +54,16 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 
 	context, ok := item.(*pucontext.PUContext)
 	if !ok {
-		return fmt.Errorf("inavlid pu context: %v", contextID)
+		return fmt.Errorf("invalid pu context: %v", contextID)
 	}
 
 	for i := 1; i <= pingConfig.Requests; i++ {
-		if err := d.sendSynPacket(context, pingConfig, conn, srcIP, i); err != nil {
-			return err
+		for _, ports := range pingConfig.Ports {
+			for dstPort := ports.Min; dstPort <= ports.Max; dstPort++ {
+				if err := d.sendSynPacket(context, pingConfig, conn, srcIP, dstPort, i); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -67,71 +71,66 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 }
 
 // sendSynPacket sends tcp syn packet to the socket. It also dispatches a report.
-func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, request int) error {
+func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, dstPort uint16, request int) error {
 
-	for _, ports := range pingConfig.Ports {
-		for dstPort := ports.Min; dstPort <= ports.Max; dstPort++ {
+	tcpConn := connection.NewTCPConnection(context, nil)
 
-			tcpConn := connection.NewTCPConnection(context, nil)
+	claimsHeader := claimsheader.NewClaimsHeader(
+		claimsheader.OptionPingType(pingConfig.Type),
+	)
 
-			claimsHeader := claimsheader.NewClaimsHeader(
-				claimsheader.OptionPingType(pingConfig.Type),
-			)
-
-			tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader)
-			if err != nil {
-				return fmt.Errorf("unable to create syn token: %v", err)
-			}
-
-			srcPort, err := freeport.GetFreePort()
-			if err != nil {
-				return fmt.Errorf("unable to get free source port: %v", err)
-			}
-
-			p, err := constructTCPPacket(srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
-			if err != nil {
-				return fmt.Errorf("unable to construct syn packet: %v", err)
-			}
-
-			sessionID, err := crypto.GenerateRandomString(20)
-			if err != nil {
-				return err
-			}
-
-			if err := write(conn, p); err != nil {
-				return fmt.Errorf("unable to send syn packet: %v", err)
-			}
-
-			tcpConn.PingConfig = &connection.PingConfig{
-				StartTime: time.Now(),
-				Type:      pingConfig.Type,
-				SessionID: sessionID,
-				Request:   request,
-			}
-
-			d.sendOriginPingReport(
-				sessionID,
-				d.agentVersion.String(),
-				flowTuple(
-					tpacket.PacketTypeApplication,
-					srcIP.String(),
-					pingConfig.IP.String(),
-					uint16(srcPort),
-					dstPort,
-				),
-				context,
-				pingConfig.Type,
-				len(tcpData),
-				request,
-			)
-
-			tcpConn.SetState(connection.TCPSynSend)
-			d.sourcePortConnectionCache.AddOrUpdate(
-				packetTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP.String(), uint16(srcPort), dstPort),
-				tcpConn,
-			)
-		}
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader)
+	if err != nil {
+		return fmt.Errorf("unable to create syn token: %v", err)
 	}
+
+	srcPort, err := freeport.GetFreePort()
+	if err != nil {
+		return fmt.Errorf("unable to get free source port: %v", err)
+	}
+
+	p, err := constructTCPPacket(srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
+	if err != nil {
+		return fmt.Errorf("unable to construct syn packet: %v", err)
+	}
+
+	sessionID, err := crypto.GenerateRandomString(20)
+	if err != nil {
+		return err
+	}
+
+	if err := write(conn, p); err != nil {
+		return fmt.Errorf("unable to send syn packet: %v", err)
+	}
+
+	tcpConn.PingConfig = &connection.PingConfig{
+		StartTime: time.Now(),
+		Type:      pingConfig.Type,
+		SessionID: sessionID,
+		Request:   request,
+	}
+
+	d.sendOriginPingReport(
+		sessionID,
+		d.agentVersion.String(),
+		flowTuple(
+			tpacket.PacketTypeApplication,
+			srcIP.String(),
+			pingConfig.IP.String(),
+			uint16(srcPort),
+			dstPort,
+		),
+		context,
+		pingConfig.Type,
+		len(tcpData),
+		request,
+	)
+
+	tcpConn.SetState(connection.TCPSynSend)
+	d.sourcePortConnectionCache.AddOrUpdate(
+		packetTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP.String(), uint16(srcPort), dstPort),
+		tcpConn,
+	)
 
 	return nil
 }
