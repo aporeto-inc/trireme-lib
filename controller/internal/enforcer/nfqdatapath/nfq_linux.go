@@ -10,6 +10,7 @@ import (
 	"time"
 
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
@@ -73,7 +74,6 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
-
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
 	var processError error
@@ -90,6 +90,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	}
 
+	// TODO: Use error types and handle it in switch case here
 	if processError != nil {
 		zap.L().Debug("Dropping packet on network path",
 			zap.Error(processError),
@@ -126,6 +127,13 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		return
 	}
 
+	v := uint32(1)
+	if tcpConn != nil {
+		if !tcpConn.PingConfig.Passthrough && tcpConn.PingConfig.Type != claimsheader.PingTypeNone {
+			v = uint32(0)
+		}
+	}
+
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		// // Accept the packet
 		buffer := make([]byte, netPacket.IPTotalLen())
@@ -133,9 +141,9 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
 
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), v, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), v, uint32(p.Mark), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
 	}
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{

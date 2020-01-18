@@ -8,6 +8,8 @@ type ClaimsHeader struct {
 	encrypt bool
 	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
+	// PingType represents ping type
+	pingType PingType
 }
 
 // boolToUint8 converts bool to uint8
@@ -15,15 +17,15 @@ type ClaimsHeader struct {
 func boolToUint8(e bool) uint8 {
 
 	if !e {
-		return 0x00
+		return zeroBit
 	}
 
 	return encryptionEnabledBit
 }
 
-// uint32ToBool converts uint8 to bool
+// uint8ToBool converts uint8 to bool
 // to populate the struct based on n
-func uint32ToBool(n uint32) bool {
+func uint8ToBool(n uint8) bool {
 
-	return n == encryptionEnabledMask
+	return n == encryptionEnabledBit
 }

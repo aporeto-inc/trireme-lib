@@ -369,7 +369,7 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 
 	udpOptions := packet.CreateUDPAuthMarker(packet.UDPSynMask)
 
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
 	if err != nil {
 		return err
 	}

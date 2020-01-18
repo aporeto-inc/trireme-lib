@@ -16,6 +16,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
@@ -27,6 +28,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
@@ -56,11 +58,13 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
+	pingReportClient pingreportclient.PingReportClient,
 	counterClient counterclient.CounterClient,
 	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
+	agentVersion semver.Version,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -78,6 +82,13 @@ func newRemoteEnforcer(
 
 	if debugClient == nil {
 		debugClient, err = debugclient.NewDebugClient(collector)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if pingReportClient == nil {
+		pingReportClient, err = pingreportclient.NewPingReportClient(collector)
 		if err != nil {
 			return nil, err
 		}
@@ -114,22 +125,24 @@ func newRemoteEnforcer(
 	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
 
 	return &RemoteEnforcer{
-		collector:       collector,
-		service:         service,
-		rpcSecret:       secret,
-		rpcHandle:       rpcHandle,
-		procMountPoint:  procMountPoint,
-		statsClient:     statsClient,
-		debugClient:     debugClient,
-		counterClient:   counterClient,
-		dnsReportClient: dnsReportClient,
-		ctx:             ctx,
-		cancel:          cancel,
-		exit:            make(chan bool),
-		zapConfig:       zapConfig,
-		tokenIssuer:     tokenIssuer,
-		enforcerType:    enforcerType,
-		aclmanager:      aclmanager,
+		collector:        collector,
+		service:          service,
+		rpcSecret:        secret,
+		rpcHandle:        rpcHandle,
+		procMountPoint:   procMountPoint,
+		statsClient:      statsClient,
+		debugClient:      debugClient,
+		counterClient:    counterClient,
+		dnsReportClient:  dnsReportClient,
+		ctx:              ctx,
+		cancel:           cancel,
+		exit:             make(chan bool),
+		zapConfig:        zapConfig,
+		tokenIssuer:      tokenIssuer,
+		enforcerType:     enforcerType,
+		aclmanager:       aclmanager,
+		pingReportClient: pingReportClient,
+		agentVersion:     agentVersion,
 	}, nil
 }
 
@@ -193,6 +206,11 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	if err = s.debugClient.Run(s.ctx); err != nil {
 		resp.Status = "DebugClient" + err.Error()
+		return fmt.Errorf(resp.Status)
+	}
+
+	if err = s.pingReportClient.Run(s.ctx); err != nil {
+		resp.Status = "pingReportClient" + err.Error()
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -437,6 +455,28 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 	return nil
 }
 
+// Ping runs ping to the given config
+func (s *RemoteEnforcer) Ping(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "ping auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload := req.Payload.(rpcwrapper.PingPayload)
+
+	if err := s.enforcer.Ping(context.TODO(), payload.ContextID, payload.PingConfig); err != nil {
+		resp.Status = err.Error()
+		return err
+	}
+
+	resp.Status = ""
+	return nil
+}
+
 // SetLogLevel sets log level.
 func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
@@ -530,6 +570,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		s.tokenIssuer,
 		payload.BinaryTokens,
 		s.aclmanager,
+		s.agentVersion,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -588,7 +629,7 @@ func (s *RemoteEnforcer) cleanup() {
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config, agentVersion semver.Version) error {
 
 	// Before doing anything validate that we are in the right namespace.
 	if err := validateNamespace(); err != nil {
@@ -615,7 +656,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, zapConfig, enforcerType)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, nil, nil, nil, zapConfig, enforcerType, agentVersion)
 	if err != nil {
 		return err
 	}
