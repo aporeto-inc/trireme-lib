@@ -15,7 +15,7 @@ func (dv DatapathVersion) toMask() datapathVersionMask { // nolint
 		return datapathVersion
 	}
 
-	return 0x00
+	return zeroBit
 }
 
 // datapathVersion is the enforcer version
@@ -40,10 +40,4 @@ func (dm datapathVersionMask) toType() DatapathVersion {
 func (dm datapathVersionMask) toUint8() uint8 {
 
 	return uint8(dm)
-}
-
-// toUint8 returns uint8 from datapathVersionMask
-func (dm datapathVersionMask) toUint32() uint32 {
-
-	return uint32(dm)
 }

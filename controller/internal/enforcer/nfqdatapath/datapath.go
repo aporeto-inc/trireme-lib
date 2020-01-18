@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -127,6 +128,8 @@ type Datapath struct {
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
 
+	agentVersion semver.Version
+
 	logLevelLock sync.RWMutex
 }
 
@@ -175,6 +178,7 @@ func New(
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
 	aclmanager ipsetmanager.ACLManager,
+	agentVersion semver.Version,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -254,6 +258,7 @@ func New(
 		puToPortsMap:                 map[string]map[string]bool{},
 		puCountersChannel:            make(chan *pucontext.PUContext, 220),
 		aclmanager:                   aclmanager,
+		agentVersion:                 agentVersion,
 	}
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
@@ -317,6 +322,7 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 		aclmanager,
+		semver.Version{},
 	)
 
 	conntrackClient, err := flowtracking.NewClient(context.Background())
@@ -737,4 +743,9 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
+}
+
+// Ping runs ping to the given config.
+func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	return d.initiateDiagnostics(ctx, contextID, pingConfig)
 }

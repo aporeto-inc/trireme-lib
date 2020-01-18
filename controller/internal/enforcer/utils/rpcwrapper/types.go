@@ -129,3 +129,14 @@ type TokenRequestPayload struct {
 type TokenResponsePayload struct {
 	Token string `json:",omitempty"`
 }
+
+// PingPayload represents the payload for ping config.
+type PingPayload struct {
+	ContextID  string
+	PingConfig *policy.PingConfig
+}
+
+// PingReportPayload represents the payload for ping reporting.
+type PingReportPayload struct {
+	Report *collector.PingReport
+}

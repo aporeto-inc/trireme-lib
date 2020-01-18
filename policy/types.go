@@ -4,9 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -405,6 +408,14 @@ type OptionsType struct {
 type RuntimeError struct {
 	ContextID string
 	Error     error
+}
+
+// PingConfig holds the configuration to run ping.
+type PingConfig struct {
+	Type     claimsheader.PingType
+	IP       net.IP
+	Ports    []*portspec.PortSpec
+	Requests int
 }
 
 // Fnv32Hash hash the given data by Fnv32-bit algorithm.

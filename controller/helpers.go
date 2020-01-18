@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/blang/semver"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -9,9 +10,9 @@ import (
 )
 
 // LaunchRemoteEnforcer launches a remote enforcer instance.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config, agentVersion semver.Version) error {
 
-	return remoteenforcer.LaunchRemoteEnforcer(service, zapConfig)
+	return remoteenforcer.LaunchRemoteEnforcer(service, zapConfig, agentVersion)
 }
 
 // addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.

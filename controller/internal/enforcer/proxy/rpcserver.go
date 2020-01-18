@@ -9,7 +9,6 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.uber.org/zap"
 )
 
 // ProxyRPCServer This struct is a receiver for Statsserver and maintains a handle to the RPC ProxyRPCServer.
@@ -65,7 +64,6 @@ func (r *ProxyRPCServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapp
 
 	payload := req.Payload.(rpcwrapper.CounterReportPayload)
 	for _, record := range payload.CounterReports {
-		zap.L().Debug("Posting Remote counters")
 		r.collector.CollectCounterEvent(record)
 	}
 
@@ -80,8 +78,20 @@ func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Res
 	}
 
 	payload := req.Payload.(rpcwrapper.DNSReportPayload)
-	zap.L().Debug("Posting DNS requests")
 	r.collector.CollectDNSRequests(payload.Report)
+
+	payload.Report = nil
+	return nil
+}
+
+// PostPingEvent is called from the remote to post ping events
+func (r *ProxyRPCServer) PostPingEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	payload := req.Payload.(rpcwrapper.PingReportPayload)
+	r.collector.CollectPingEvent(payload.Report)
 
 	payload.Report = nil
 	return nil

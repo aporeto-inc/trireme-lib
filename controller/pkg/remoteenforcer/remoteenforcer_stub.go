@@ -5,7 +5,9 @@ package remoteenforcer
 import (
 	"context"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -36,17 +38,19 @@ func newRemoteEnforcer(
 	statsClient statsclient.StatsClient,
 	collector statscollector.Collector,
 	debugClient debugclient.DebugClient,
+	pingReportClient pingreportclient.PingReportClient,
 	counterClient counterclient.CounterClient,
 	dnsReportClient dnsreportclient.DNSReportClient,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
+	agentVersion semver.Version,
 ) (*RemoteEnforcer, error) {
 	return nil, nil
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config, agentVersion semver.Version) error {
 	return nil
 }
 

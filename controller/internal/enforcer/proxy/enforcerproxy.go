@@ -281,6 +281,25 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
+// Ping runs ping from the given config.
+func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+
+	resp := &rpcwrapper.Response{}
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.PingPayload{
+			ContextID:  contextID,
+			PingConfig: pingConfig,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Ping, request, resp); err != nil {
+		return fmt.Errorf("unable to run ping %s -- %s", err, resp.Status)
+	}
+
+	return nil
+}
+
 // initRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 
