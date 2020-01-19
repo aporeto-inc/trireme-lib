@@ -1,3 +1,5 @@
+// +build !windows
+
 package nfqdatapath
 
 import (
@@ -12,8 +14,8 @@ import (
 	"github.com/aporeto-inc/gopkt/layers"
 	"github.com/aporeto-inc/gopkt/packet/ipv4"
 	"github.com/aporeto-inc/gopkt/packet/raw"
+	"github.com/aporeto-inc/gopkt/packet/routing"
 	"github.com/aporeto-inc/gopkt/packet/tcp"
-	"github.com/aporeto-inc/gopkt/routing"
 	"github.com/phayes/freeport"
 	"github.com/vmihailenco/msgpack"
 	"go.aporeto.io/trireme-lib/collector"

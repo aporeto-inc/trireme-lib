@@ -12,7 +12,7 @@ import (
 func adjustConntrack(mode constants.ModeType) {
 }
 
-func (c *Datapath) ignoreFlow(pkt *packet.Packet) error {
+func (d *Datapath) ignoreFlow(pkt *packet.Packet) error {
 	return nil
 }
 

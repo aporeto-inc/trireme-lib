@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -859,6 +858,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 		copy(report.Payload, msg.p.GetBuffer(0))
 	}
 	d.collector.CollectPacketEvent(report)
+}
 
 // Ping runs ping to the given config.
 func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
