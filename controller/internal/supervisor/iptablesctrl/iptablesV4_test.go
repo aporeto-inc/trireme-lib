@@ -1,3 +1,5 @@
+// +build !windows
+
 package iptablesctrl
 
 import (
@@ -1100,7 +1102,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", puInfoUpdated)
 						i.iptv4.aclmanager.RemoveExternalNets("pu1")
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
@@ -1987,7 +1989,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", "0", "0", common.ContainerPU)
+					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()

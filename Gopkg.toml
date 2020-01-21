@@ -74,6 +74,10 @@ required = ["github.com/docker/distribution"]
   branch = "master"
 
 [[constraint]]
+  name = "go.aporeto.io/tg"
+  branch = "master"
+
+[[constraint]]
   name = "github.com/hashicorp/go-version"
   version = "v1.0.0"
 

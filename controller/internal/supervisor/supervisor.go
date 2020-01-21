@@ -152,15 +152,10 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cfg := data.(*cacheData)
-	proxyPort := cfg.containerInfo.Policy.ServicesListeningPort()
-	dnsProxyPort := cfg.containerInfo.Policy.DNSProxyPort()
-
-	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
-	puType := cfg.containerInfo.Runtime.PUType()
 
 	// TODO (varks): Similar to configureRules and UpdateRules, DeleteRules should take
 	// only contextID and *policy.PUInfo as function parameters.
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, proxyPort, dnsProxyPort, puType); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, cfg.containerInfo); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 

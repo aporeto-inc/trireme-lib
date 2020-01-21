@@ -33,7 +33,7 @@ func TestGetOrigDestV4(t *testing.T) {
 	}
 
 	test := &testPassFD{}
-	ip, port, _ := getOriginalDestInternal(test, true, testGetOrigV4)
+	ip, port, _, _ := getOriginalDestInternal(test, true, testGetOrigV4)
 	assert.Equal(t, ip.String(), "127.0.0.1", "ip should be 127.0.0.1")
 	assert.Equal(t, port, 3000, "port should be 3000")
 }
@@ -51,7 +51,7 @@ func TestGetOrigDestV6(t *testing.T) {
 	}
 
 	test := &testPassFD{}
-	ip, port, _ := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	ip, port, _, _ := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
 	assert.Equal(t, ip.String(), "::1", "ip should be ::1")
 	assert.Equal(t, port, 3000, "port should be 3000")
 }
@@ -63,7 +63,7 @@ func TestGetOrigDestV4Err1(t *testing.T) {
 	}
 
 	test := &testPassFD{}
-	_, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
+	_, _, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
 
 	assert.Equal(t, err != nil, true, "error should not be nil")
 }
@@ -74,7 +74,7 @@ func TestGetOrigDestV6Err1(t *testing.T) {
 	}
 
 	test := &testPassFD{}
-	_, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	_, _, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
 	assert.Equal(t, err != nil, true, "error should not be nil")
 }
 
@@ -85,7 +85,7 @@ func TestGetOrigDestV4Err2(t *testing.T) {
 	}
 
 	test := &testPassFD{}
-	_, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
+	_, _, _, err := getOriginalDestInternal(test, true, testGetOrigV4) //nolint
 	assert.Equal(t, err != nil, true, "error should not be nil")
 }
 
@@ -96,7 +96,7 @@ func TestGetOrigDestV6Err2(t *testing.T) {
 
 	test := &testPassFD{}
 
-	_, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
+	_, _, _, err := getOriginalDestInternal(test, false, testGetOrigV6) //nolint
 	assert.Equal(t, err != nil, true, "error should not be nil")
 }
 
