@@ -73,12 +73,6 @@ func (cm compressionTypeMask) toUint8() uint8 {
 	return uint8(cm)
 }
 
-// toUint8 returns uint8 from compressiontypemask
-func (cm compressionTypeMask) toUint32() uint32 {
-
-	return uint32(cm)
-}
-
 // CompressionTypeToTagLength converts CompressionType to length.
 func CompressionTypeToTagLength(t CompressionType) int {
 

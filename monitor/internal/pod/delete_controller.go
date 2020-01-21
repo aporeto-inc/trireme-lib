@@ -16,7 +16,7 @@ import (
 )
 
 // deleteControllerReconcileFunc is the reconciler function signature for the DeleteController
-type deleteControllerReconcileFunc func(context.Context, client.Client, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent)
+type deleteControllerReconcileFunc func(context.Context, client.Client, string, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent)
 
 // DeleteController is responsible for cleaning up after Kubernetes because we
 // are missing our native ID on the last reconcile event where the pod has already
@@ -25,8 +25,9 @@ type deleteControllerReconcileFunc func(context.Context, client.Client, *config.
 // It pretty much facilitates the work of a finalizer without needing a finalizer and
 // also only kicking in once a pod has *really* been deleted.
 type DeleteController struct {
-	client  client.Client
-	handler *config.ProcessorConfig
+	client   client.Client
+	nodeName string
+	handler  *config.ProcessorConfig
 
 	deleteCh           chan DeleteEvent
 	reconcileCh        chan struct{}
@@ -45,9 +46,10 @@ type DeleteObject struct {
 }
 
 // NewDeleteController creates a new DeleteController.
-func NewDeleteController(c client.Client, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) *DeleteController {
+func NewDeleteController(c client.Client, nodeName string, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) *DeleteController {
 	return &DeleteController{
 		client:             c,
+		nodeName:           nodeName,
 		handler:            pc,
 		deleteCh:           make(chan DeleteEvent, 1000),
 		reconcileCh:        make(chan struct{}),
@@ -85,9 +87,9 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 				m[ev.PodUID] = obj
 			}
 		case <-c.reconcileCh:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
+			c.reconcileFunc(backgroundCtx, c.client, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
 		case <-t.C:
-			c.reconcileFunc(backgroundCtx, c.client, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
+			c.reconcileFunc(backgroundCtx, c.client, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh)
 		case <-z:
 			t.Stop()
 			return nil
@@ -96,14 +98,13 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 }
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
-func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
+func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	for podUID, req := range m {
-		deleteControllerProcessItem(backgroundCtx, c, pc, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh)
+		deleteControllerProcessItem(backgroundCtx, c, nodeName, pc, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
-	//var err error
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent) {
 	var ok bool
 	var delObj DeleteObject
 	if delObj, ok = m[podUID]; !ok {
@@ -133,6 +134,25 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 			// we don't really care, we just warn
 			zap.L().Warn("DeleteController: Failed to get pod from Kubernetes API", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
 		}
+		return
+	}
+
+	// For StatefulSets we need to account for another special case: pods that move between nodes *keep* the same UID, so they won't fit the check below.
+	// However, we can simply double-check the node name in the same way how we already filter events in the watcher/monitor
+	if pod.Spec.NodeName != nodeName {
+		zap.L().Debug("DeleteController: the pod is now on a different node, send destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("podNodeName", pod.Spec.NodeName), zap.String("nodeName", nodeName))
+		if err := pc.Policy.HandlePUEvent(
+			ctx,
+			podUID,
+			common.EventDestroy,
+			policy.NewPURuntimeWithDefaults(),
+		); err != nil {
+			// we don't really care, we just warn
+			zap.L().Warn("DeleteController: Failed to handle destroy event", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
+		}
+		// we only fire events away, we don't really care about the error anyway
+		// it is up to the policy engine to make sense of that
+		delete(m, podUID)
 		return
 	}
 

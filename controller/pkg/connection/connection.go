@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
@@ -114,6 +115,15 @@ type AuthInfo struct {
 	RemoteServiceContext []byte
 }
 
+// PingConfig holds ping configuration per connection.
+type PingConfig struct {
+	StartTime   time.Time
+	Type        claimsheader.PingType
+	Passthrough bool
+	SessionID   string
+	Request     int
+}
+
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
 	sync.RWMutex
@@ -156,6 +166,9 @@ type TCPConnection struct {
 	RetransmittedSynAck bool
 
 	expiredConnection bool
+
+	// PingConfig is the config of the enforcer ping diagnostic feature
+	PingConfig *PingConfig
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -234,8 +247,9 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 	}
 
 	return &TCPConnection{
-		state:   TCPSynSend,
-		Context: context,
+		PingConfig: &PingConfig{},
+		state:      TCPSynSend,
+		Context:    context,
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},

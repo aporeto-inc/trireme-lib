@@ -332,7 +332,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
+			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsheader.NewClaimsHeader())
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
 			}
