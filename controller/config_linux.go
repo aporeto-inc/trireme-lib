@@ -25,6 +25,7 @@ func (t *trireme) setupEnvoyAuthorizer() error {
 		t.config.tokenIssuer,
 		t.config.binaryTokens,
 		t.config.aclmanager,
+		t.config.isBPFEnabled,
 		t.config.agentVersion,
 	)
 	return err
