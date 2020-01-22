@@ -1,4 +1,4 @@
-// +build !rhel6, !windows
+// +build !rhel6
 
 package ebpf
 
