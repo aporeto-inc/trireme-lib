@@ -1,4 +1,4 @@
-// +build rhel6
+// +build windows
 
 package ebpf
 
