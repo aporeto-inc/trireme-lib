@@ -46,6 +46,7 @@ type ProxyInfo struct {
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
 	isBPFEnabled           bool
+	ipv6Enabled            bool
 	sync.RWMutex
 }
 
@@ -286,6 +287,25 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
+// Ping runs ping from the given config.
+func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+
+	resp := &rpcwrapper.Response{}
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.PingPayload{
+			ContextID:  contextID,
+			PingConfig: pingConfig,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Ping, request, resp); err != nil {
+		return fmt.Errorf("unable to run ping %s -- %s", err, resp.Status)
+	}
+
+	return nil
+}
+
 // initRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 
@@ -303,6 +323,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			Configuration:          s.cfg,
 			BinaryTokens:           s.binaryTokens,
 			IsBPFEnabled:           s.isBPFEnabled,
+			IPv6Enabled:            s.ipv6Enabled,
 		},
 	}
 
@@ -327,6 +348,7 @@ func NewProxyEnforcer(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 	isBPFEnabled bool,
+	ipv6Enabled bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -357,5 +379,6 @@ func NewProxyEnforcer(
 		tokenIssuer:            tokenIssuer,
 		binaryTokens:           binaryTokens,
 		isBPFEnabled:           isBPFEnabled,
+		ipv6Enabled:            ipv6Enabled,
 	}
 }

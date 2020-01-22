@@ -8,6 +8,7 @@ import (
 	"net"
 	"sync"
 
+	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/collector"
 	tcommon "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
@@ -68,7 +69,7 @@ func NewAppProxy(
 	t tcommon.ServiceTokenIssuer,
 ) (*AppProxy, error) {
 
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := tglib.SystemCertPool()
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +142,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// Create the network listener and cache it so that we can terminate it later.
 	l, err := p.createNetworkListener(ctx, ":"+puInfo.Policy.ServicesListeningPort())
 	if err != nil {
+		zap.L().Error("Failed to create network listener", zap.Error(err))
 		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Policy.ServicesListeningPort(), err)
 	}
 
@@ -213,6 +215,10 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	}
 	client := c.(*clientData)
 
+	// Terminate the connection multiplexer.
+	// Do it before shutting down servers below to avoid Accept() errors.
+	client.protomux.Close()
+
 	// Shutdown all the servers and unregister listeners.
 	for t, server := range client.netserver {
 		if err := client.protomux.UnregisterListener(t); err != nil {
@@ -222,9 +228,6 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 			zap.L().Debug("Unable to shutdown client server", zap.Error(err))
 		}
 	}
-
-	// Terminate the connection multiplexer.
-	client.protomux.Close()
 
 	// Remove the client from the cache.
 	return p.clients.Remove(puID)
@@ -308,7 +311,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
-	systemPool, err := x509.SystemCertPool()
+	systemPool, err := tglib.SystemCertPool()
 	if err != nil {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return p.systemCAPool

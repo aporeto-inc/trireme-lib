@@ -77,3 +77,8 @@ func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
 func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
 	c.DNSReport <- report
 }
+
+// CollectPingEvent collect ping events from the datapath
+func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
+	c.PingReports <- report
+}

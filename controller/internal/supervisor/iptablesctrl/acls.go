@@ -1,3 +1,5 @@
+// +build linux windows
+
 package iptablesctrl
 
 import (
@@ -152,6 +154,9 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		"isBPFEnabled": func() bool {
 			return i.bpf != nil
 		},
+		"isHostPU": func() bool {
+			return isHostPU
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -180,6 +185,9 @@ func (i *iptables) getProtocolAnyRules(cfg *ACLInfo, appRules, netRules []aclIPs
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable extract net protocol any rules: %v", err)
 	}
+
+	sortedAppAnyRules = transformACLRules(sortedAppAnyRules, cfg, sortedAppAnyRulesBuckets, true)
+	sortedNetAnyRules = transformACLRules(sortedNetAnyRules, cfg, sortedNetAnyRulesBuckets, false)
 
 	return sortedAppAnyRules, sortedNetAnyRules, nil
 }
@@ -217,26 +225,6 @@ func extractProtocolAnyRules(rules []aclIPset) (anyRules []aclIPset, otherRules 
 	}
 
 	return anyRules, otherRules
-}
-
-// addContainerChain adds a chain for the specific container and redirects traffic there
-// This simplifies significantly the management and makes the iptable rules more readable
-// All rules related to a container are contained within the dedicated chain
-func (i *iptables) addContainerChain(appChain string, netChain string) error {
-
-	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
-		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
-	}
-
-	// if err := i.impl.NewChain(appProxyIPTableContext, appChain); err != nil {
-	// 	return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, appPacketIPTableContext, err)
-	// }
-
-	if err := i.impl.NewChain(netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, netPacketIPTableContext, err)
-	}
-
-	return nil
 }
 
 // processRulesFromList is a generic helper that parses a set of rules and sends the corresponding
@@ -521,6 +509,8 @@ func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain stri
 		return fmt.Errorf("unable to extract rules from template: %s", err)
 	}
 
+	aclRules = transformACLRules(aclRules, cfg, rulesBucket, isAppAcls)
+
 	if err := i.processRulesFromList(aclRules, "Append"); err != nil {
 		return fmt.Errorf("unable to install rules - mode :%s %v", err, isAppAcls)
 	}
@@ -542,44 +532,6 @@ func (i *iptables) deleteChainRules(cfg *ACLInfo) error {
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }
 
-// deletePUChains removes all the container specific chains and basic rules
-func (i *iptables) deletePUChains(appChain, netChain string) error {
-
-	if err := i.impl.ClearChain(appPacketIPTableContext, appChain); err != nil {
-		zap.L().Warn("Failed to clear the container ack packets chain",
-			zap.String("appChain", appChain),
-			zap.String("context", appPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.DeleteChain(appPacketIPTableContext, appChain); err != nil {
-		zap.L().Warn("Failed to delete the container ack packets chain",
-			zap.String("appChain", appChain),
-			zap.String("context", appPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.ClearChain(netPacketIPTableContext, netChain); err != nil {
-		zap.L().Warn("Failed to clear the container net packets chain",
-			zap.String("netChain", netChain),
-			zap.String("context", netPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	if err := i.impl.DeleteChain(netPacketIPTableContext, netChain); err != nil {
-		zap.L().Warn("Failed to delete the container net packets chain",
-			zap.String("netChain", netChain),
-			zap.String("context", netPacketIPTableContext),
-			zap.Error(err),
-		)
-	}
-
-	return nil
-}
-
 // setGlobalRules installs the global rules
 func (i *iptables) setGlobalRules() error {
 
@@ -595,6 +547,9 @@ func (i *iptables) setGlobalRules() error {
 		},
 		"isBPFEnabled": func() bool {
 			return i.bpf != nil
+		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
 		},
 	}).Parse(globalRules))
 
@@ -629,34 +584,6 @@ func (i *iptables) setGlobalRules() error {
 	return nil
 }
 
-// removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
-// no errors if these things fail.
-func (i *iptables) removeGlobalHooksPre() {
-	rules := [][]string{
-		{
-			"nat",
-			"PREROUTING",
-			"-p", "tcp",
-			"-m", "addrtype",
-			"--dst-type", "LOCAL",
-			"-m", "set", "!", "--match-set", "TRI-Excluded", "src",
-			"-j", "TRI-Redir-Net",
-		},
-		{
-			"nat",
-			"OUTPUT",
-			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
-			"-j", "TRI-Redir-App",
-		},
-	}
-
-	for _, rule := range rules {
-		if err := i.impl.Delete(rule[0], rule[1], rule[2:]...); err != nil {
-			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
-		}
-	}
-
-}
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	// This func is a chance to remove rules that don't fit in your templates.
 	// This should ideally not be used

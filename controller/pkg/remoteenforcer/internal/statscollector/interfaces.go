@@ -13,6 +13,7 @@ type CollectorReader interface {
 	GetAllDataPathPacketRecords() []*collector.PacketReport
 	GetAllCounterReports() []*collector.CounterReport
 	GetDNSReports() chan *collector.DNSRequestReport
+	GetPingReports() chan *collector.PingReport
 }
 
 // Collector interface implements

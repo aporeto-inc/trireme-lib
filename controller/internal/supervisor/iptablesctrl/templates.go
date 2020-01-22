@@ -84,6 +84,7 @@ type ACLInfo struct {
 	TargetTCPNetSet         string
 	TargetUDPNetSet         string
 	ExclusionsSet           string
+	IpsetPrefix             string
 
 	// IPv4 IPv6
 	DefaultIP     string
@@ -249,6 +250,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
 		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
+		IpsetPrefix:             ipsetPrefix,
 
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),

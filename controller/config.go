@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -49,6 +50,8 @@ type config struct {
 	tokenIssuer            common.ServiceTokenIssuer
 	binaryTokens           bool
 	aclmanager             ipsetmanager.ACLManager
+	ipv6Enabled            bool
+	agentVersion           semver.Version
 }
 
 // Option is provided using functional arguments.
@@ -58,6 +61,13 @@ type Option func(*config)
 func OptionBPFEnabled(bpfEnabled bool) Option {
 	return func(cfg *config) {
 		cfg.isBPFEnabled = bpfEnabled
+	}
+}
+
+//OptionIPv6Enable is an option to enable ipv6
+func OptionIPv6Enable(ipv6Enabled bool) Option {
+	return func(cfg *config) {
+		cfg.ipv6Enabled = ipv6Enabled
 	}
 }
 
@@ -160,6 +170,13 @@ func OptionBinaryTokens(b bool) Option {
 	}
 }
 
+// OptionAgentVersion is an option to set agent version.
+func OptionAgentVersion(v semver.Version) Option {
+	return func(cfg *config) {
+		cfg.agentVersion = v
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -181,28 +198,12 @@ func (t *trireme) newEnforcers() error {
 			t.config.binaryTokens,
 			t.config.aclmanager,
 			t.config.isBPFEnabled,
+			t.config.agentVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
 		}
-		t.enforcers[constants.LocalEnvoyAuthorizer], err = enforcer.New(
-			t.config.mutualAuth,
-			t.config.fq,
-			t.config.collector,
-			t.config.service,
-			t.config.secret,
-			t.config.serverID,
-			t.config.validity,
-			constants.LocalEnvoyAuthorizer,
-			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout,
-			t.config.packetLogs,
-			t.config.runtimeCfg,
-			t.config.tokenIssuer,
-			t.config.binaryTokens,
-			t.config.aclmanager,
-			false,
-		)
+		err = t.setupEnvoyAuthorizer()
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalEnvoyAuthorizer enforcer: %s ", err)
 		}
@@ -227,6 +228,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.isBPFEnabled,
+			t.config.ipv6Enabled,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
@@ -251,6 +253,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.binaryTokens,
 			t.config.aclmanager,
 			false,
+			t.config.agentVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -272,12 +275,17 @@ func (t *trireme) newSupervisors() error {
 			t.config.runtimeCfg,
 			t.config.service,
 			t.config.aclmanager,
+			t.config.ipv6Enabled,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
 		}
+
 		t.supervisors[constants.LocalServer] = sup
-		t.supervisors[constants.LocalEnvoyAuthorizer] = noopSup
+		err = t.setupEnvoySupervisor(noopSup)
+		if err != nil {
+			return fmt.Errorf("Could Not create envoy supervisor :: received error %v", err)
+		}
 	}
 
 	if t.config.mode == constants.RemoteContainer {
@@ -293,6 +301,7 @@ func (t *trireme) newSupervisors() error {
 			t.config.runtimeCfg,
 			t.config.service,
 			t.config.aclmanager,
+			t.config.ipv6Enabled,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)

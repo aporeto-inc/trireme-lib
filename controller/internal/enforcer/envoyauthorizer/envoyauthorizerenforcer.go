@@ -337,3 +337,8 @@ func (e *Enforcer) EnableDatapathPacketTracing(ctx context.Context, contextID st
 func (e *Enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
 }
+
+// Ping is unimplemented in the envoy authorizer
+func (e *Enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	return nil
+}

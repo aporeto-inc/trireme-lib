@@ -175,9 +175,19 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		case <-m.shutdown:
 			return nil
 		default:
+
 			c, err := m.root.Accept()
 			if err != nil {
-				return err
+				// check if the error is due to shutdown in progress
+				select {
+				case <-m.shutdown:
+					return nil
+				default:
+				}
+				// if it is an actual error (which can happen in Windows we can't get origin ip/port from our driver),
+				// then log an error and continue accepting connections.
+				zap.L().Error("error from Accept", zap.Error(err))
+				break
 			}
 			m.wg.Add(1)
 			go m.serve(c)

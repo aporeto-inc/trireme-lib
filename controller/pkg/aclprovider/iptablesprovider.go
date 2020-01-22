@@ -1,3 +1,5 @@
+// +build linux darwin
+
 package provider
 
 import (
@@ -81,7 +83,11 @@ func TestIptablesPinned(bpf string) error {
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
+	ipt, err := iptables.New()
+	if err != nil {
+		return nil, err
+	}
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {
@@ -103,7 +109,11 @@ func NewGoIPTablesProviderV4(batchTables []string) (*BatchProvider, error) {
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (*BatchProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
+	ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+	if err != nil {
+		return nil, err
+	}
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {

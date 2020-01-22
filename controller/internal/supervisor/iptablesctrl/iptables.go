@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
 	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
@@ -61,12 +60,7 @@ const (
 	// HostModeOutput represent the chain that contains Hostmode output rules.
 	HostModeOutput = chainPrefix + "Hst-App"
 
-	ipTableSectionOutput     = "OUTPUT"
-	ipTableSectionPreRouting = "PREROUTING"
-	appPacketIPTableContext  = "mangle"
-	netPacketIPTableContext  = "mangle"
-	appProxyIPTableContext   = "nat"
-	proxyMark                = "0x40"
+	proxyMark = "0x40"
 )
 
 type iptables struct {
@@ -188,10 +182,17 @@ func (i *iptables) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create global sets: %s", err)
 	}
-
+	if err = targetTCPSet.Flush(); err != nil {
+		return fmt.Errorf("unable to flush target TCP set: %s", err)
+	}
 	i.targetTCPSet = targetTCPSet
 	i.targetUDPSet = targetUDPSet
 	i.excludedNetworksSet = excludedSet
+
+	// Windows needs to initialize some ipsets
+	if err := i.platformInit(); err != nil {
+		return err
+	}
 
 	// Initialize all the global Trireme chains. There are several global chaims
 	// that apply to all PUs:
@@ -227,6 +228,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// applies to Linux type PUs. A port set is associated with every PU,
 	// and packets matching this destination get associated with the context
 	// of the PU.
+
 	if err = i.createPortSet(contextID, pu.Runtime.Options().UserID); err != nil {
 		return err
 	}
@@ -243,6 +245,7 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// The outgoing sets capture all traffic towards specific destinations
 	// as proxied traffic. Incoming sets correspond to the listening
 	// services.
+
 	if err = i.createProxySets(cfg.ProxySetName); err != nil {
 		return err
 	}
@@ -266,8 +269,8 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	return nil
 }
 
-func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, dnsProxyPort string, puType common.PUType) error {
-	cfg, err := i.newACLInfo(version, contextID, nil, puType)
+func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, containerInfo *policy.PUInfo) error {
+	cfg, err := i.newACLInfo(version, contextID, nil, containerInfo.Runtime.PUType())
 	if err != nil {
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
 		return err
@@ -278,9 +281,9 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	cfg.CgroupMark = mark
 	cfg.Mark = mark
 	cfg.UID = username
-	cfg.PUType = puType
-	cfg.ProxyPort = proxyPort
-	cfg.DNSProxyPort = dnsProxyPort
+	cfg.PUType = containerInfo.Runtime.PUType()
+	cfg.ProxyPort = containerInfo.Policy.ServicesListeningPort()
+	cfg.DNSProxyPort = containerInfo.Policy.DNSProxyPort()
 	// We clean up the chain rules first, so that we can delete the chains.
 	// If any rule is not deleted, then the chain will show as busy.
 	if err := i.deleteChainRules(cfg); err != nil {
@@ -290,7 +293,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	// We can now delete the chains we have created for this PU. Note that
 	// in every case we only create two chains for every PU. All other
 	// chains are global.
-	if err = i.deletePUChains(cfg.AppChain, cfg.NetChain); err != nil {
+	if err = i.deletePUChains(cfg, containerInfo); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
@@ -347,7 +350,7 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Delete the old chains, since there are not references any more.
-	if err := i.deletePUChains(oldCfg.AppChain, oldCfg.NetChain); err != nil {
+	if err := i.deletePUChains(oldCfg, oldContainerInfo); err != nil {
 		return err
 	}
 
@@ -483,16 +486,20 @@ func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ip
 
 	for _, t := range targetSetNames {
 		_, ok := setIndex[t]
+
 		createdSet, err := ips.NewIpset(t, "hash:net", params)
+
 		if err != nil {
 			if !ok {
 				return nil, nil, nil, err
 			}
+
 			createdSet = ips.GetIpset(t)
 		}
 		if err = createdSet.Flush(); err != nil {
 			return nil, nil, nil, err
 		}
+
 		targetSets[t] = createdSet
 	}
 
@@ -529,7 +536,7 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	netACLIPset := i.getACLIPSets(policyrules.NetworkACLs())
 
 	// Install the PU specific chain first.
-	if err := i.addContainerChain(cfg.AppChain, cfg.NetChain); err != nil {
+	if err := i.addContainerChain(cfg); err != nil {
 		return err
 	}
 

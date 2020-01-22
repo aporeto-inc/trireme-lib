@@ -261,7 +261,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 	// we return.
 	uncompressTags(binaryClaims, publicKeyClaims)
 
-	connClaims := ConvertToJWTClaims(binaryClaims).ConnectionClaims
+	connClaims := ConvertToJWTClaims(binaryClaims, header).ConnectionClaims
 
 	// Cache the token and the token string and the claims and return the
 	// connection claims.
@@ -304,7 +304,7 @@ func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonc
 		return nil, nil, nil, fmt.Errorf("unable to verify ack token: %s", err)
 	}
 
-	return ConvertToJWTClaims(binaryClaims).ConnectionClaims, nonce, nil, nil
+	return ConvertToJWTClaims(binaryClaims, header).ConnectionClaims, nonce, nil, nil
 }
 
 func (c *BinaryJWTConfig) verifyClaimsHeader(h *claimsheader.ClaimsHeader) error {

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 )
 
@@ -28,6 +27,10 @@ type rawsocket struct {
 	insockv6 *socketv6
 }
 
+// PacketMetadata is platform-specific data about the packet
+type PacketMetadata struct {
+}
+
 const (
 	// RawSocketMark is the mark asserted on all packet sent out of this socket
 	RawSocketMark = 0x63
@@ -41,7 +44,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver) error
+	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -113,7 +116,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	if IsIpv6Supported() && !constants.Ipv6Disabled {
+	if IsIpv6Supported() {
 		sockv6, err = createSocketv6()
 		if err != nil {
 			return nil, err
@@ -125,7 +128,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	}, nil
 }
 
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
 	// copy the dest addr
 	if version == packet.V4 {
 		copy(sock.insockv4.insock.Addr[:], buf[16:20])
