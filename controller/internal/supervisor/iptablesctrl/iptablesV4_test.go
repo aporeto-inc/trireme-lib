@@ -2017,7 +2017,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 }
 
 func TestImpl(t *testing.T) {
-	instance, err := NewInstance(nil, constants.LocalServer, nil, true)
+	instance, err := NewInstance(nil, constants.LocalServer, nil, true, nil)
 	assert.Equal(t, instance != nil, true, "instance should not be nil")
 	assert.Equal(t, err == nil, true, "err should be nil")
 }
