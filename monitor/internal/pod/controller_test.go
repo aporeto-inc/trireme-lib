@@ -242,6 +242,7 @@ func TestController(t *testing.T) {
 			enableHostPods:    true,
 			deleteCh:          deleteCh,
 			deleteReconcileCh: deleteReconcileCh,
+			resyncInfo:        NewResyncInfoChan(),
 
 			// taken from original file
 			handlePUEventTimeout:   5 * time.Second,
