@@ -23,11 +23,17 @@ func TestResyncWithAllPods(t *testing.T) {
 				Name:      "pod1",
 				Namespace: "default",
 			},
+			Spec: corev1.PodSpec{
+				NodeName: "node",
+			},
 		}
 		pod2 := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod2",
 				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node",
 			},
 		}
 		c := fakeclient.NewFakeClient(pod1, pod2)
