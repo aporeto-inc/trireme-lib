@@ -41,7 +41,7 @@ var (
 )
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}) *ReconcilePod {
+func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}, resyncInfo *ResyncInfoChan) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
 		scheme:            mgr.GetScheme(),
@@ -54,6 +54,7 @@ func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadat
 		enableHostPods:    enableHostPods,
 		deleteCh:          deleteCh,
 		deleteReconcileCh: deleteReconcileCh,
+		resyncInfo:        resyncInfo,
 
 		// TODO: should move into configuration
 		handlePUEventTimeout:   60 * time.Second,
@@ -121,16 +122,30 @@ type ReconcilePod struct {
 	enableHostPods    bool
 	deleteCh          chan<- DeleteEvent
 	deleteReconcileCh chan<- struct{}
+	resyncInfo        *ResyncInfoChan
 
 	metadataExtractTimeout time.Duration
 	handlePUEventTimeout   time.Duration
 	netclsProgramTimeout   time.Duration
 }
 
+func (r *ReconcilePod) resyncHelper(nn string) {
+	if r.resyncInfo != nil {
+		r.resyncInfo.SendInfo(nn)
+	}
+}
+
 // Reconcile reads that state of the cluster for a pod object
 func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
 	nn := request.NamespacedName.String()
+
+	// we do this very early on:
+	// whatever happened to the processing of this pod event, we are telling the Resync handler
+	// that we have seen it. Even if we have not sent an event to the policy engine,
+	// it means that most likely we are okay for an existing PU to be deleted first
+	defer r.resyncHelper(nn)
+
 	var puID, sandboxID string
 	var err error
 	// Fetch the corresponding pod object.
