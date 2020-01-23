@@ -23,23 +23,29 @@ func TestResyncWithAllPods(t *testing.T) {
 				Name:      "pod1",
 				Namespace: "default",
 			},
+			Spec: corev1.PodSpec{
+				NodeName: "node",
+			},
 		}
 		pod2 := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod2",
 				Namespace: "default",
 			},
+			Spec: corev1.PodSpec{
+				NodeName: "node",
+			},
 		}
 		c := fakeclient.NewFakeClient(pod1, pod2)
 
 		Convey("resync should fail if there is no client", func() {
-			err := ResyncWithAllPods(ctx, nil, resyncInfo, evCh)
+			err := ResyncWithAllPods(ctx, nil, resyncInfo, evCh, "node")
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "pod: no client available")
 		})
 
 		Convey("resync should fail if there is no event channel", func() {
-			err := ResyncWithAllPods(ctx, c, resyncInfo, nil)
+			err := ResyncWithAllPods(ctx, c, resyncInfo, nil, "node")
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "pod: no event source available")
 		})
@@ -48,7 +54,7 @@ func TestResyncWithAllPods(t *testing.T) {
 			resyncInfo.EnableNeedsInfo()
 			resyncInfo.SendInfo("default/pod1")
 			resyncInfo.SendInfo("default/pod2")
-			err := ResyncWithAllPods(ctx, c, resyncInfo, evCh)
+			err := ResyncWithAllPods(ctx, c, resyncInfo, evCh, "node")
 			So(err, ShouldBeNil)
 			allPods := []string{"pod1", "pod2"}
 			collectedPods := []string{}

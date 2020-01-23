@@ -190,7 +190,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		// this will block until every pod at this point in time has been seeing at least one `Reconcile` call
 		// we do this so that we build up our internal PU cache in the policy engine,
 		// so that when we remove stale pods on startup, we don't remove them and create them again
-		if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh); err != nil {
+		if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode); err != nil {
 			zap.L().Warn("Pod resync failed", zap.Error(err))
 		}
 		return nil
@@ -216,7 +216,7 @@ func (m *PodMonitor) Resync(ctx context.Context) error {
 		return errors.New("pod: client has not been initialized yet")
 	}
 
-	return ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh)
+	return ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode)
 }
 
 type runnable struct {
