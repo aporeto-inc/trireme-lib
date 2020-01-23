@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"go.uber.org/zap"
 )
 
 // PodMonitor implements a monitor that sends pod events upstream
@@ -189,7 +191,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		// we do this so that we build up our internal PU cache in the policy engine,
 		// so that when we remove stale pods on startup, we don't remove them and create them again
 		if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh); err != nil {
-			// not important enough to fail
+			zap.L().Warn("Pod resync failed", zap.Error(err))
 		}
 		return nil
 	}

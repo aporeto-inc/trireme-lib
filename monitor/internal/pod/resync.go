@@ -10,12 +10,15 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+
+	"go.uber.org/zap"
 )
 
 // ResyncWithAllPods is called from the implemented resync, it will list all pods
 // and fire them down the event source (the generic event channel).
 // It will block until every pod at the time of calling has been calling `Reconcile` at least once.
 func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, evCh chan<- event.GenericEvent) error {
+	zap.L().Debug("Pod resync: starting to resync all pods")
 	if c == nil {
 		return errors.New("pod: no client available")
 	}
@@ -42,6 +45,7 @@ func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, 
 			m[fmt.Sprintf("%s/%s", podNamespace, podName)] = false
 		}
 	}
+	zap.L().Debug("Pod resync: pods that need to be resynced", zap.Any("pods", m))
 
 	// Request that the controller reports to us from now on
 	i.EnableNeedsInfo()
@@ -60,7 +64,10 @@ waitLoop:
 	for {
 		info := <-*i.GetInfoCh()
 		if _, ok := m[info]; ok {
+			zap.L().Debug("Pod resync: pod that is part of the resync", zap.String("pod", info))
 			m[info] = true
+		} else {
+			zap.L().Debug("Pod resync: *not* a pod that is part of the resync", zap.String("pod", info))
 		}
 
 		// now check if we can abort already
@@ -72,6 +79,7 @@ waitLoop:
 		break waitLoop
 	}
 	i.DisableNeedsInfo()
+	zap.L().Debug("Pod resync: finished resyncing all pods")
 
 	return nil
 }
