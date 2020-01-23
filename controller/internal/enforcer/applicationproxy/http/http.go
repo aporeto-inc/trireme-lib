@@ -21,6 +21,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
@@ -224,6 +225,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if p.server != nil {
 		return fmt.Errorf("Server already running")
 	}
+
+	// for usage by callbacks below
+	protoListener, _ := l.(*protomux.ProtoListener)
+
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
@@ -256,7 +261,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, fmt.Errorf("invalid destination address")
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -275,7 +284,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -290,7 +303,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(context.Background())
 			return nil, err
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -309,7 +326,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)

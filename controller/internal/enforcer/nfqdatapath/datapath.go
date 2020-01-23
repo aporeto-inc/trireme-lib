@@ -4,18 +4,19 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
-	"os/exec"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -191,23 +192,7 @@ func New(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-
-		sysctlCmd, err := exec.LookPath("sysctl")
-		if err != nil {
-			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
-		}
-
-		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
-			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
-		}
-
-		if mode == constants.LocalServer && !buildflags.IsLegacyKernel() {
-			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
-			}
-		}
+		adjustConntrack(mode)
 	}
 
 	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
@@ -589,8 +574,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector, d.aclmanager)
 	}
 
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	d.startInterceptors(ctx)
 
 	go d.nflogger.Run(ctx)
 	go d.counterCollector(ctx)
@@ -628,7 +612,7 @@ func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
 
 // CleanUp implements the cleanup interface.
 func (d *Datapath) CleanUp() error {
-	// TODO add any cleaning up we need to do here.
+	d.cleanupPlatform()
 	return nil
 }
 
@@ -743,6 +727,137 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
 	return nil
+}
+
+func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{
+		Payload: make([]byte, 64),
+	}
+	if msg.udpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Namespace = d.puFromIP.ManagementNamespace()
+		report.Encrypt = false
+
+	} else {
+		//udpConn is not nil
+		if value, err = d.packetTracingCache.Get(msg.udpConn.Context.ID()); err != nil {
+			return
+		}
+		report.Encrypt = msg.udpConn.ServiceConnection
+		report.Claims = msg.udpConn.Context.Identity().GetSlice()
+		report.PUID = msg.udpConn.Context.ManagementID()
+		report.Namespace = msg.udpConn.Context.ManagementNamespace()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+	report.Protocol = int(packet.IPProtocolUDP)
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
+	report.DestinationPort = int(msg.p.DestPort())
+	report.SourcePort = int(msg.p.SourcePort())
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLen())
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
+
+	d.collector.CollectPacketEvent(report)
+}
+
+func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
+	var value interface{}
+	var err error
+	report := &collector.PacketReport{}
+
+	if msg.tcpConn == nil {
+		if d.puFromIP == nil {
+			return
+		}
+
+		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+			//not being traced return
+			return
+		}
+
+		report.Claims = d.puFromIP.Identity().GetSlice()
+		report.PUID = d.puFromIP.ManagementID()
+		report.Encrypt = false
+		report.Namespace = d.puFromIP.ManagementNamespace()
+
+	} else {
+
+		if value, err = d.packetTracingCache.Get(msg.tcpConn.Context.ID()); err != nil {
+			//not being traced return
+			return
+		}
+		//tcpConn is not nil
+		report.Encrypt = msg.tcpConn.ServiceConnection
+		report.Claims = msg.tcpConn.Context.Identity().GetSlice()
+		report.PUID = msg.tcpConn.Context.ManagementID()
+		report.Namespace = msg.tcpConn.Context.ManagementNamespace()
+	}
+
+	if msg.network && !packettracing.IsNetworkPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	} else if !msg.network && !packettracing.IsApplicationPacketTraced(value.(*tracingCacheEntry).direction) {
+		return
+	}
+
+	report.TCPFlags = int(msg.p.GetTCPFlags())
+	report.Protocol = int(packet.IPProtocolTCP)
+	report.DestinationIP = msg.p.DestinationAddress().String()
+	report.SourceIP = msg.p.SourceAddress().String()
+	report.DestinationPort = int(msg.p.DestPort())
+	report.SourcePort = int(msg.p.SourcePort())
+	if msg.err != nil {
+		report.DropReason = msg.err.Error()
+		report.Event = packettracing.PacketDropped
+	} else {
+		report.DropReason = ""
+		report.Event = packettracing.PacketReceived
+	}
+	report.Length = int(msg.p.IPTotalLen())
+	report.Mark = msg.Mark
+	report.PacketID, _ = strconv.Atoi(msg.p.ID())
+	report.TriremePacket = true
+	// Memory allocation must be done only if we are sure we transmitting
+	// the report. Leads to unnecessary memory operations otherwise
+	// that affect performance
+	report.Payload = make([]byte, 64)
+	buf := msg.p.GetBuffer(0)
+	if len(buf) > 64 {
+		copy(report.Payload, msg.p.GetBuffer(0)[0:64])
+	} else {
+		copy(report.Payload, msg.p.GetBuffer(0))
+	}
+	d.collector.CollectPacketEvent(report)
 }
 
 // Ping runs ping to the given config.

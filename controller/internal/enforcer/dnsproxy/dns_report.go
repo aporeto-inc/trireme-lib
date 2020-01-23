@@ -1,4 +1,4 @@
-// +build linux !darwin
+// +build linux windows
 
 package dnsproxy
 

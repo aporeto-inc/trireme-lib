@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -112,6 +113,11 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 			if err != nil {
 				return
 			}
+			if protoListener, ok := listener.(*protomux.ProtoListener); ok {
+				// Windows: we don't really need the platform-specific data map for plain tcp (we can get it from the conn).
+				// So just remove from the map here.
+				markedconn.RemovePlatformData(protoListener.Listener, conn)
+			}
 			go p.handle(ctx, conn)
 		}
 	}
@@ -125,9 +131,11 @@ func (p *Proxy) ShutDown() error {
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	defer upConn.Close() // nolint
-	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
+	upConnP := upConn.(*markedconn.ProxiedConnection)
+	ip, port := upConnP.GetOriginalDestination()
+	platformData := upConnP.GetPlatformData()
 
-	downConn, err := p.downConnection(ctx, ip, port)
+	downConn, err := p.downConnection(ctx, ip, port, platformData)
 	if err != nil {
 
 		flowproperties := &proxyFlowProperties{
@@ -271,32 +279,15 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int) (net.Conn, error) {
+func (p *Proxy) downConnection(ctx context.Context, ip net.IP, port int, platformData *markedconn.PlatformData) (net.Conn, error) {
 
 	raddr := &net.TCPAddr{
 		IP:   ip,
 		Port: port,
 	}
 
-	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), proxyMarkInt)
+	return markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, proxyMarkInt)
 
-}
-
-// CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
-// We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
-
-	// If the backend is not a local IP it means that we are a client.
-	if p.isLocal(upConn) {
-		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
-	}
-
-	isEncrypted, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
-	if err != nil {
-		return false, err
-	}
-
-	return isEncrypted, nil
 }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
@@ -320,10 +311,9 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP, uint16(downPort))
-	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized by Application ACLs")
+	isEncrypted, err = p.CheckExternalNetwork(puContext, downIP, downPort, flowproperties, true)
+	if err != nil {
+		return false, err
 	}
 
 	for {
@@ -417,11 +407,9 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	conn.SetState(connection.ServerReceivePeerToken)
 
 	// First validate that L3 policies do not require a reject.
-	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP, uint16(backendport))
-	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		flowProperties.SourceType = collector.EndPointTypeExternalIP
-		p.reportRejectedFlow(flowProperties, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized by Network ACLs")
+	isEncrypted, err = p.CheckExternalNetwork(puContext, upConn.RemoteAddr().(*net.TCPAddr).IP, backendport, flowProperties, false)
+	if err != nil {
+		return false, err
 	}
 
 	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
@@ -494,6 +482,41 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			return isEncrypted, nil
 		}
 	}
+}
+
+// CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
+// We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
+func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
+
+	// If the backend is not a local IP it means that we are a client.
+	if p.isLocal(upConn) {
+		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
+	}
+
+	isEncrypted, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
+	if err != nil {
+		return false, err
+	}
+
+	return isEncrypted, nil
+}
+
+// CheckExternalNetwork checks if external network access is allowed
+func (p *Proxy) CheckExternalNetwork(puContext *pucontext.PUContext, IP net.IP, Port int, flowproperties *proxyFlowProperties, network bool) (bool, error) {
+	var networkReport *policy.FlowPolicy
+	var networkPolicy *policy.FlowPolicy
+	var noNetAccessPolicy error
+	if network {
+		networkReport, networkPolicy, noNetAccessPolicy = puContext.ApplicationACLPolicyFromAddr(IP, uint16(Port))
+	} else {
+		networkReport, networkPolicy, noNetAccessPolicy = puContext.NetworkACLPolicyFromAddr(IP, uint16(Port))
+
+	}
+	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Application ACLs")
+	}
+	return false, nil
 }
 
 func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {

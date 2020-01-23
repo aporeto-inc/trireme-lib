@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -83,13 +82,13 @@ func (i *Instance) ConfigureRules(version int, contextID string, pu *policy.PUIn
 // for cleaning all ACLs and associated chains, as well as ll the sets
 // that we have created. Note, that this only clears up the state
 // for a given processing unit.
-func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, proxyPort string, dnsProxyPort string, puType common.PUType) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, username string, containerInfo *policy.PUInfo) error {
 
-	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, dnsProxyPort, puType); err != nil {
+	if err := i.iptv4.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, containerInfo); err != nil {
 		zap.L().Warn("Delete rules for iptables v4 returned error")
 	}
 
-	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, proxyPort, dnsProxyPort, puType); err != nil {
+	if err := i.iptv6.DeleteRules(version, contextID, tcpPorts, udpPorts, mark, username, containerInfo); err != nil {
 		zap.L().Warn("Delete rules for iptables v6 returned error")
 	}
 

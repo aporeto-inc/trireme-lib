@@ -21,7 +21,7 @@ func TestRecordDroppedPacket(t *testing.T) {
 		puInfo := policy.NewPUInfo(puID, "/ns", common.ContainerPU)
 		pu, err := pucontext.NewPU("contextID", puInfo, 5*time.Second)
 		So(err, ShouldBeNil)
-		nflogger := NewNFLogger(10, 11, nil, nil)
+
 		Convey("I report a packet with length less than 64 bytes", func() {
 			//	packetbuf := make([]byte, 40)
 			PacketFlow := packetgen.NewTemplateFlow()
@@ -36,7 +36,7 @@ func TestRecordDroppedPacket(t *testing.T) {
 			ipPacket, err := packet.New(packet.PacketTypeNetwork, nfPacket.Payload, "", false)
 			So(err, ShouldBeNil)
 			nfPacket.Protocol = ipPacket.IPProto()
-			report, err := nflogger.(*nfLog).recordDroppedPacket(nfPacket, pu, true)
+			report, err := recordDroppedPacket(nfPacket.Payload, nfPacket.Protocol, nfPacket.SrcIP, nfPacket.DstIP, nfPacket.SrcPort, nfPacket.DstPort, pu, true)
 			So(report.TriremePacket, ShouldBeFalse)
 			So(err, ShouldBeNil)
 			So(len(report.Payload), ShouldEqual, len(nfPacket.Payload))
@@ -60,7 +60,7 @@ func TestRecordDroppedPacket(t *testing.T) {
 			nfPacket.SrcIP = ipPacket.SourceAddress()
 			nfPacket.DstIP = ipPacket.DestinationAddress()
 			So(err, ShouldBeNil)
-			report, err := nflogger.(*nfLog).recordDroppedPacket(nfPacket, pu, true)
+			report, err := recordDroppedPacket(nfPacket.Payload, nfPacket.Protocol, nfPacket.SrcIP, nfPacket.DstIP, nfPacket.SrcPort, nfPacket.DstPort, pu, true)
 			So(err, ShouldBeNil)
 			So(report.TriremePacket, ShouldBeFalse)
 			So(report.Protocol, ShouldEqual, int(packet.IPProtocolTCP))

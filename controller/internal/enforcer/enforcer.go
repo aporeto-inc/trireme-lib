@@ -200,8 +200,11 @@ func (e *enforcer) SetLogLevel(level constants.LogLevel) error {
 	return nil
 }
 
-// Cleanup implements the cleanup interface. Not much to do here.
+// Cleanup implements the cleanup interface.
 func (e *enforcer) CleanUp() error {
+	if e.transport != nil {
+		return e.transport.CleanUp()
+	}
 	return nil
 }
 
@@ -278,7 +281,7 @@ func New(
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("App proxy %s", err)
 	}
 
 	return &enforcer{

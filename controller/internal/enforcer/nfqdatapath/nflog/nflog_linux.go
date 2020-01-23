@@ -4,16 +4,10 @@ package nflog
 
 import (
 	"context"
-	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -91,159 +85,6 @@ func (a *nfLog) nflogErrorHandler(err error) {
 	zap.L().Error("Error while processing nflog packet", zap.Error(err))
 }
 
-func (a *nfLog) recordCounters(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) {
-	switch buf.Protocol {
-	case packet.IPProtocolTCP:
-		pu.IncrementCounters(pucontext.ErrDroppedTCPPackets)
-	case packet.IPProtocolUDP:
-		pu.IncrementCounters(pucontext.ErrDroppedUDPPackets)
-		if puIsSource {
-			switch buf.DstPort {
-			case 53:
-				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
-			case 67, 68:
-				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
-			case 123:
-				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
-			}
-		} else {
-			switch buf.SrcPort {
-			case 53:
-				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
-			case 67, 68:
-				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
-			case 123:
-				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
-			}
-		}
-
-	case packet.IPProtocolICMP:
-		pu.IncrementCounters(pucontext.ErrDroppedICMPPackets)
-
-	}
-}
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext, puIsSource bool) (*collector.PacketReport, error) {
-
-	report := &collector.PacketReport{}
-
-	report.PUID = pu.ManagementID()
-	report.Namespace = pu.ManagementNamespace()
-	ipPacket, err := packet.New(packet.PacketTypeNetwork, buf.Payload, "", false)
-	if err == nil {
-		report.Length = int(ipPacket.GetIPLength())
-		report.PacketID, _ = strconv.Atoi(ipPacket.ID())
-
-	} else {
-		zap.L().Debug("payload not valid", zap.Error(err))
-		return nil, err
-	}
-	a.recordCounters(buf, pu, puIsSource)
-	if buf.Protocol == packet.IPProtocolTCP || buf.Protocol == packet.IPProtocolUDP {
-		report.SourcePort = int(buf.Ports.SrcPort)
-		report.DestinationPort = int(buf.Ports.DstPort)
-	}
-	if buf.Protocol == packet.IPProtocolTCP {
-		report.TCPFlags = int(ipPacket.GetTCPFlags())
-	}
-	report.Protocol = int(buf.Protocol)
-	report.DestinationIP = buf.DstIP.String()
-	report.SourceIP = buf.SrcIP.String()
-	report.TriremePacket = false
-	report.DropReason = collector.PacketDrop
-
-	if buf.Payload == nil {
-		report.Payload = []byte{}
-		return report, nil
-	}
-	if len(buf.Payload) <= 64 {
-		report.Payload = make([]byte, len(buf.Payload))
-		copy(report.Payload, buf.Payload)
-
-	} else {
-		report.Payload = make([]byte, 64)
-		copy(report.Payload, buf.Payload[0:64])
-	}
-
-	return report, nil
-}
-
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
-
-	var packetReport *collector.PacketReport
-	var err error
-
-	// `hashID:policyID:extServiceID:action`
-	parts := strings.SplitN(buf.Prefix, ":", 4)
-	if len(parts) != 4 {
-		return nil, nil, fmt.Errorf("nflog: prefix doesn't contain sufficient information: %s", buf.Prefix)
-	}
-	hashID, policyID, extServiceID, encodedAction := parts[0], parts[1], parts[2], parts[3]
-
-	pu, err := a.getPUContext(hashID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if encodedAction == "10" {
-		packetReport, err = a.recordDroppedPacket(buf, pu, puIsSource)
-		pu.PuContextError(pucontext.ErrDroppedPackets, "dropped Packet outside flow") // nolint
-		return nil, packetReport, err
-	}
-
-	action, _, err := policy.EncodedStringToAction(encodedAction)
-	if err != nil {
-		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
-	}
-
-	dropReason := ""
-	if action.Rejected() {
-		dropReason = collector.PolicyDrop
-	}
-
-	// point fix for now.
-	var destination *collector.EndPoint
-	if buf.Protocol == packet.IPProtocolUDP || buf.Protocol == packet.IPProtocolTCP {
-		destination = &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: buf.DstPort,
-		}
-	} else {
-		destination = &collector.EndPoint{
-			IP: buf.DstIP.String(),
-		}
-	}
-
-	record := &collector.FlowRecord{
-		ContextID: pu.ID(),
-		Source: &collector.EndPoint{
-			IP: buf.SrcIP.String(),
-		},
-		Destination: destination,
-		DropReason:  dropReason,
-		PolicyID:    policyID,
-		Tags:        pu.Annotations().Copy(),
-		Action:      action,
-		L4Protocol:  buf.Protocol,
-		Namespace:   pu.ManagementNamespace(),
-		Count:       1,
-	}
-
-	if action.Observed() {
-		record.ObservedAction = action
-		record.ObservedPolicyID = policyID
-	}
-
-	if puIsSource {
-		record.Source.Type = collector.EnpointTypePU
-		record.Source.ID = pu.ManagementID()
-		record.Destination.Type = collector.EndPointTypeExternalIP
-		record.Destination.ID = extServiceID
-	} else {
-		record.Source.Type = collector.EndPointTypeExternalIP
-		record.Source.ID = extServiceID
-		record.Destination.Type = collector.EnpointTypePU
-		record.Destination.ID = pu.ManagementID()
-	}
-
-	return record, packetReport, nil
+	return recordFromNFLogData(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, puIsSource)
 }
