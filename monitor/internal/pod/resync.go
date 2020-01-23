@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -17,7 +18,7 @@ import (
 // ResyncWithAllPods is called from the implemented resync, it will list all pods
 // and fire them down the event source (the generic event channel).
 // It will block until every pod at the time of calling has been calling `Reconcile` at least once.
-func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, evCh chan<- event.GenericEvent) error {
+func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, evCh chan<- event.GenericEvent, nodeName string) error {
 	zap.L().Debug("Pod resync: starting to resync all pods")
 	if c == nil {
 		return errors.New("pod: no client available")
@@ -39,6 +40,9 @@ func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, 
 	// build a map of pods that we will expect to turn true
 	m := make(map[string]bool)
 	for _, pod := range list.Items {
+		if pod.Spec.NodeName != nodeName {
+			continue
+		}
 		podName := pod.GetName()
 		podNamespace := pod.GetNamespace()
 		if podName != "" && podNamespace != "" {
@@ -52,6 +56,9 @@ func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, 
 
 	// fire away events to the controller
 	for _, pod := range list.Items {
+		if pod.Spec.NodeName != nodeName {
+			continue
+		}
 		p := pod.DeepCopy()
 		evCh <- event.GenericEvent{
 			Meta:   p.GetObjectMeta(),
@@ -60,14 +67,24 @@ func ResyncWithAllPods(ctx context.Context, c client.Client, i *ResyncInfoChan, 
 	}
 
 	// now wait for all pods to have reported back
+	begin := time.Now()
 waitLoop:
 	for {
-		info := <-*i.GetInfoCh()
-		if _, ok := m[info]; ok {
-			zap.L().Debug("Pod resync: pod that is part of the resync", zap.String("pod", info))
-			m[info] = true
-		} else {
-			zap.L().Debug("Pod resync: *not* a pod that is part of the resync", zap.String("pod", info))
+		if time.Since(begin) > (time.Second * 60) {
+			zap.L().Warn("Pod resync: failed to reconcile on all pods. Unblocking now anyway.")
+			break waitLoop
+		}
+
+		select {
+		case info := <-*i.GetInfoCh():
+			if _, ok := m[info]; ok {
+				zap.L().Debug("Pod resync: pod that is part of the resync", zap.String("pod", info))
+				m[info] = true
+			} else {
+				zap.L().Debug("Pod resync: *not* a pod that is part of the resync", zap.String("pod", info))
+			}
+		case <-time.After(time.Second * 5):
+			zap.L().Debug("Pod resync: timeout waiting for pod reconcile")
 		}
 
 		// now check if we can abort already
