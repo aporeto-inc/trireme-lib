@@ -21,6 +21,7 @@ const (
 	Kubernetes
 	SSH
 	Pod
+	Windows
 )
 
 // MonitorConfig specifies the configs for monitors.

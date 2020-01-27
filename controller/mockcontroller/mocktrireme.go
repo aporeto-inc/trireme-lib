@@ -169,6 +169,20 @@ func (mr *MockTriremeControllerMockRecorder) EnableIPTablesPacketTracing(ctx, pu
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockTriremeController)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
 }
 
+// Ping mocks base method
+// nolint
+func (m *MockTriremeController) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
+	ret := m.ctrl.Call(m, "Ping", ctx, puID, policy, runtime, pingConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping
+// nolint
+func (mr *MockTriremeControllerMockRecorder) Ping(ctx, puID, policy, runtime, pingConfig interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockTriremeController)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
+}
+
 // MockDebugInfo is a mock of DebugInfo interface
 // nolint
 type MockDebugInfo struct {
@@ -222,4 +236,18 @@ func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, puID st
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, puID, policy, runtime, interval)
+}
+
+// Ping mocks base method
+// nolint
+func (m *MockDebugInfo) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
+	ret := m.ctrl.Call(m, "Ping", ctx, puID, policy, runtime, pingConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping
+// nolint
+func (mr *MockDebugInfoMockRecorder) Ping(ctx, puID, policy, runtime, pingConfig interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDebugInfo)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
 }

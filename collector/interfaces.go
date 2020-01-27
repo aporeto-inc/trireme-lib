@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/v11/policy"
 )
@@ -100,6 +101,9 @@ type EventCollector interface {
 
 	// CollectDNSRequests collects the dns requests
 	CollectDNSRequests(request *DNSRequestReport)
+
+	// CollectPingEvent collects the ping events
+	CollectPingEvent(report *PingReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -230,4 +234,43 @@ type CounterReport struct {
 	Namespace string
 	ContextID string
 	Counters  []Counters
+}
+
+// PingReport represents a single ping report from datapath.
+type PingReport struct {
+	SourceID             string
+	SourceNamespace      string
+	DestinationID        string
+	DestinationNamespace string
+	FlowTuple            string
+	Latency              string
+	AgentVersion         string
+	Protocol             int
+	ServiceType          string
+	PayloadSize          int
+	Request              int
+	Type                 claimsheader.PingType
+	Stage                Stage
+	SessionID            string
+}
+
+// Stage represents the checkpoint when the report is sent.
+type Stage int
+
+// Stage options.
+const (
+	Origin Stage = iota
+	Reply
+)
+
+func (s Stage) String() string {
+
+	switch s {
+	case Origin:
+		return "origin"
+	case Reply:
+		return "reply"
+	default:
+		return "unknown"
+	}
 }

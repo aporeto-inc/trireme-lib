@@ -1,10 +1,12 @@
 package httpproxy
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,7 +21,9 @@ import (
 	"go.aporeto.io/trireme-lib/v11/common"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/apiauth"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/protomux"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/metadata"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/bufferpool"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
@@ -35,6 +39,7 @@ const (
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
 	// any OIDC provider.
 	TriremeOIDCCallbackURI = "/aporeto/oidc/callback"
+	typeCertificate        = "CERTIFICATE"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -182,6 +187,30 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 	p.RLock()
 	defer p.RUnlock()
 	if p.cert != nil {
+		cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+		if err != nil {
+			zap.L().Error("http: Cannot build the cert chain")
+		}
+		if cert != nil {
+			by, _ := x509CertToPem(cert)
+			pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+			if err != nil {
+				zap.L().Error("http: Cannot build the cert chain")
+			}
+			var certChain tls.Certificate
+			var certDERBlock *pem.Block
+			for {
+				certDERBlock, pemCert = pem.Decode(pemCert)
+				if certDERBlock == nil {
+					break
+				}
+				if certDERBlock.Type == typeCertificate {
+					certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+				}
+			}
+			certChain.PrivateKey = p.cert.PrivateKey
+			return &certChain, nil
+		}
 		return p.cert, nil
 	}
 	return nil, nil
@@ -190,19 +219,25 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
 // listener should be already a TLS listener.
 func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error {
-
 	p.Lock()
 	defer p.Unlock()
 
 	if p.server != nil {
 		return fmt.Errorf("Server already running")
 	}
+
+	// for usage by callbacks below
+	protoListener, _ := l.(*protomux.ProtoListener)
+
 	// If its an encrypted, wrap the listener in a TLS context. This is activated
 	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
 		config := p.newBaseTLSConfig()
 		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
 			return p.clientTLSConfiguration(helloMsg.Conn, config)
+		}
+		config.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return p.cert, nil
 		}
 		l = tls.NewListener(l, config)
 	}
@@ -211,11 +246,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	reportStats := func(ctx context.Context) {
 		if state := ctx.Value(statsContextKey); state != nil {
-			if r, ok := state.(*connectionState); ok {
-				r.stats.Action = policy.Reject
-				r.stats.DropReason = collector.UnableToDial
-				r.stats.PolicyID = collector.DefaultEndPoint
-				p.collector.CollectFlowEvent(r.stats)
+			if r, ok := state.(*flowstats.ConnectionState); ok {
+				r.Stats.Action = policy.Reject
+				r.Stats.DropReason = collector.UnableToDial
+				r.Stats.PolicyID = collector.DefaultEndPoint
+				p.collector.CollectFlowEvent(r.Stats)
 			}
 		}
 	}
@@ -226,7 +261,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, fmt.Errorf("invalid destination address")
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -245,7 +284,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -260,7 +303,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(context.Background())
 			return nil, err
 		}
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -279,7 +326,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			return nil, err
 		}
 		raddr.Port = pctx.TargetPort
-		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), p.mark)
+		var platformData *markedconn.PlatformData
+		if protoListener != nil {
+			platformData = markedconn.TakePlatformData(protoListener.Listener, raddr.IP, raddr.Port)
+		}
+		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
 			reportStats(context.Background())
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
@@ -349,7 +400,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		<-ctx.Done()
 		p.server.Close() // nolint
 	}()
-
 	go p.server.Serve(l) // nolint
 
 	return nil
@@ -397,6 +447,38 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 			}
 			return &tlsCert, nil
 		}
+		if p.cert != nil {
+
+			cert, err := x509.ParseCertificate(p.cert.Certificate[0])
+			if err != nil {
+				return nil, fmt.Errorf("Leaf cert is missing")
+			}
+			if cert != nil {
+				by, _ := x509CertToPem(cert)
+				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+				if err != nil {
+					zap.L().Error("http: Cannot build the cert chain")
+					return nil, fmt.Errorf("Cannot build the cert chain")
+				}
+				var certChain tls.Certificate
+				//certPEMBlock := []byte(rootcaBundle)
+				var certDERBlock *pem.Block
+				for {
+					certDERBlock, pemCert = pem.Decode(pemCert)
+					if certDERBlock == nil {
+						break
+					}
+					if certDERBlock.Type == typeCertificate {
+						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+					}
+				}
+				certChain.PrivateKey = p.cert.PrivateKey
+				//certChain.Certificate
+				return &certChain, nil
+			}
+			return p.cert, nil
+		}
+		return nil, fmt.Errorf("no cert available - cert is nil")
 	}
 	if p.cert != nil {
 		return p.cert, nil
@@ -404,10 +486,66 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 	return nil, fmt.Errorf("no cert available - cert is nil")
 }
 
+func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
+	zap.L().Debug("http:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
+	certChain := []*x509.Certificate{}
+	clientPEMBlock := certPEM
+
+	derBlock, _ := pem.Decode(clientPEMBlock)
+	if derBlock != nil {
+		if derBlock.Type == typeCertificate {
+			cert, err := x509.ParseCertificate(derBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", derBlock.Type)
+		}
+	}
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, caPEM = pem.Decode(caPEM)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == typeCertificate {
+			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certChain = append(certChain, cert)
+		} else {
+			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
+		}
+	}
+	by, _ := x509CertChainToPem(certChain)
+	zap.L().Debug("http: After building the cert chain: ", zap.String("certChain: ", string(by)))
+	return x509CertChainToPem(certChain)
+}
+
+// x509CertChainToPem converts chain of x509 certs to byte.
+func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	for _, cert := range certChain {
+		if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
+			return nil, err
+		}
+	}
+	return pemBytes.Bytes(), nil
+}
+
+// x509CertToPem converts x509 to byte.
+func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
+	var pemBytes bytes.Buffer
+	if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
+		return nil, err
+	}
+	return pemBytes.Bytes(), nil
+}
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	// Authorize the request by calling the authorizer library.
@@ -421,26 +559,26 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	resp, err := p.auth.ApplicationRequest(authRequest)
 	if err != nil {
 		if resp.PUContext != nil {
-			state := newAppConnectionState(p.puContext, r, authRequest, resp)
-			state.stats.Action = resp.Action
-			state.stats.PolicyID = resp.NetworkPolicyID
-			p.collector.CollectFlowEvent(state.stats)
+			state := flowstats.NewAppConnectionState(p.puContext, r, authRequest, resp)
+			state.Stats.Action = resp.Action
+			state.Stats.PolicyID = resp.NetworkPolicyID
+			p.collector.CollectFlowEvent(state.Stats)
 		}
 		http.Error(w, err.Error(), err.(*apiauth.AuthError).Status())
 		return
 	}
 
-	state := newAppConnectionState(p.puContext, r, authRequest, resp)
+	state := flowstats.NewAppConnectionState(p.puContext, r, authRequest, resp)
 	if resp.External {
-		defer p.collector.CollectFlowEvent(state.stats)
+		defer p.collector.CollectFlowEvent(state.Stats)
 	}
 
 	if resp.HookMethod != "" {
 		if hook, ok := p.hooks[resp.HookMethod]; ok {
 			if isHook, err := hook(w, r); err != nil || isHook {
 				if err != nil {
-					state.stats.Action = policy.Reject
-					state.stats.DropReason = collector.PolicyDrop
+					state.Stats.Action = policy.Reject
+					state.Stats.DropReason = collector.PolicyDrop
 				}
 				return
 			}
@@ -475,7 +613,6 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
 	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -510,10 +647,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		userID = userData.ID
 	}
 
-	state := newNetworkConnectionState(p.puContext, userID, request, response)
-	defer p.collector.CollectFlowEvent(state.stats)
+	state := flowstats.NewNetworkConnectionState(p.puContext, userID, request, response)
+	defer p.collector.CollectFlowEvent(state.Stats)
 
 	if err != nil {
+
 		zap.L().Debug("Authorization error",
 			zap.Reflect("Error", err),
 			zap.String("URI", r.RequestURI),
@@ -562,7 +700,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		r.URL, err = url.ParseRequestURI(httpPrefix + r.Host)
 	}
 	if err != nil {
-		state.stats.DropReason = collector.InvalidFormat
+		state.Stats.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}
@@ -571,7 +709,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header = response.Header
 
 	// Update the statistics and forward the request. We always encrypt downstream
-	state.stats.Action = policy.Accept | policy.Encrypt
+	state.Stats.Action = policy.Accept | policy.Encrypt
 
 	// // Treat the remote proxy scenario where the destination IPs are in a remote
 	// // host. Check of network rules that allow this transfer and report the corresponding
@@ -587,6 +725,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// 		defer p.collector.CollectFlowEvent(reportDownStream(state.stats, action))
 	// 	}
 	// }
+
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))

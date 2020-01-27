@@ -1,4 +1,4 @@
-// +build linux !darwin
+// +build linux
 
 package dnsproxy
 
@@ -82,6 +82,9 @@ func (d *DNSCollector) CollectUserEvent(record *collector.UserRecord) {}
 
 // CollectTraceEvent collects iptables trace events
 func (d *DNSCollector) CollectTraceEvent(records []string) {}
+
+// CollectPingEvent collects ping events
+func (d *DNSCollector) CollectPingEvent(report *collector.PingReport) {}
 
 // CollectPacketEvent collects packet events from the datapath
 func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}

@@ -26,15 +26,24 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		nodeName := "test1"
 		pod1 := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod1",
 				Namespace: "default",
 				UID:       types.UID("aaaa"),
 			},
+			Spec: corev1.PodSpec{
+				NodeName: nodeName,
+			},
 		}
 		c := fakeclient.NewFakeClient(pod1)
 		eventsCh := make(chan event.GenericEvent)
+		go func() {
+			for {
+				<-eventsCh
+			}
+		}()
 		handler := mockpolicy.NewMockResolver(ctrl)
 
 		pc := &config.ProcessorConfig{
@@ -49,7 +58,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		Convey("then no destroy events should be sent if there is nothing in the state right now", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), common.EventDestroy, gomock.Any()).Return(nil).Times(0)
 			m := make(map[string]DeleteObject)
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -61,8 +70,20 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
 			So(m, ShouldHaveLength, 1)
+		})
+
+		Convey("then a destroy event should be sent if the pod with the same namespaced name and UID still exists in the Kubernetes API, but is now on a different node", func() {
+			handler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), common.EventDestroy, gomock.Any()).Return(nil).Times(1)
+			m := make(map[string]DeleteObject)
+			nn := client.ObjectKey{
+				Name:      "pod1",
+				Namespace: "default",
+			}
+			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
+			deleteControllerReconcile(ctx, c, "test2", pc, itemProcessTimeout, m, nil, eventsCh)
+			So(m, ShouldBeEmpty)
 		})
 
 		Convey("then a destroy event should be sent if the pod with the same namespaced name but *different* UID exists in the Kubernetes API", func() {
@@ -73,7 +94,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -86,7 +107,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -99,7 +120,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -112,7 +133,24 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			So(m, ShouldBeEmpty)
+		})
+
+		sandboxExtractor := func(context.Context, *corev1.Pod) (string, error) {
+			return "different", nil
+		}
+
+		Convey("then a destroy event should be sent if the pod exists in the Kubernetes API, but the sandbox has changed", func() {
+			handler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), common.EventDestroy, gomock.Any()).Return(nil).Times(1)
+			m := make(map[string]DeleteObject)
+
+			nn := client.ObjectKey{
+				Name:      "pod1",
+				Namespace: "default",
+			}
+			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn}
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, sandboxExtractor, eventsCh)
 			So(m, ShouldBeEmpty)
 		})
 	})
@@ -122,16 +160,20 @@ func TestDeleteController(t *testing.T) {
 	Convey("Given a delete controller", t, func() {
 		z := make(chan struct{})
 
+		nodeName := "test1"
 		testMap := make(map[string]DeleteObject)
 		eventsCh := make(chan event.GenericEvent)
+		go func() {
+			<-eventsCh
+		}()
 		//nolint:unparam
-		reconcileFunc := func(ctx context.Context, c client.Client, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) {
+		reconcileFunc := func(ctx context.Context, c client.Client, nodeName string, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) {
 			for k, v := range m {
 				testMap[k] = v
 			}
 		}
 
-		dc := NewDeleteController(nil, nil, nil, eventsCh)
+		dc := NewDeleteController(nil, nodeName, nil, nil, eventsCh)
 		dc.deleteCh = make(chan DeleteEvent)
 		dc.reconcileCh = make(chan struct{})
 		dc.tickerPeriod = 1 * time.Second

@@ -30,7 +30,7 @@ func newSupervisor(
 	aclmanager ipsetmanager.ACLManager,
 ) (*Config, error) {
 
-	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager)
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager, false)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
 			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -193,7 +193,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -242,7 +242,7 @@ func TestUnsupervise(t *testing.T) {
 
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")

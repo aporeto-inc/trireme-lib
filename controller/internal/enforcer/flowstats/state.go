@@ -1,4 +1,4 @@
-package httpproxy
+package flowstats
 
 import (
 	"net"
@@ -11,15 +11,15 @@ import (
 	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
-// connectionState captures the connection state. This state
+// ConnectionState captures the connection state. This state
 // is passed to the RoundTripper for any last minute adjustments.
-type connectionState struct {
-	stats  *collector.FlowRecord
-	cookie *http.Cookie
+type ConnectionState struct {
+	Stats  *collector.FlowRecord
+	Cookie *http.Cookie
 }
 
-// newAppConnectionState will create the initial connection state object.
-func newAppConnectionState(nativeID string, r *http.Request, authRequest *apiauth.Request, resp *apiauth.AppAuthResponse) *connectionState {
+// NewAppConnectionState will create the initial connection state object.
+func NewAppConnectionState(nativeID string, r *http.Request, authRequest *apiauth.Request, resp *apiauth.AppAuthResponse) *ConnectionState {
 
 	sourceIP := "0.0.0.0/0"
 	sourcePort := 0
@@ -28,8 +28,8 @@ func newAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 		sourcePort = sourceAddress.Port
 	}
 
-	return &connectionState{
-		stats: &collector.FlowRecord{
+	return &ConnectionState{
+		Stats: &collector.FlowRecord{
 			ContextID: nativeID,
 			Destination: &collector.EndPoint{
 				URI:        r.Method + " " + r.RequestURI,
@@ -59,8 +59,8 @@ func newAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 	}
 }
 
-// newNetworkConnectionState will create the initial connection state object.
-func newNetworkConnectionState(nativeID string, userID string, r *apiauth.Request, d *apiauth.NetworkAuthResponse) *connectionState {
+// NewNetworkConnectionState will create the initial connection state object.
+func NewNetworkConnectionState(nativeID string, userID string, r *apiauth.Request, d *apiauth.NetworkAuthResponse) *ConnectionState {
 
 	var mgmtID, namespace, serviceID string
 	var tags *policy.TagStore
@@ -103,8 +103,8 @@ func newNetworkConnectionState(nativeID string, userID string, r *apiauth.Reques
 		action = d.Action
 	}
 
-	c := &connectionState{
-		stats: &collector.FlowRecord{
+	c := &ConnectionState{
+		Stats: &collector.FlowRecord{
 			ContextID: nativeID,
 			Destination: &collector.EndPoint{
 				ID:         mgmtID,
@@ -134,10 +134,10 @@ func newNetworkConnectionState(nativeID string, userID string, r *apiauth.Reques
 	}
 
 	if d != nil && d.Action.Rejected() {
-		c.stats.DropReason = d.DropReason
+		c.Stats.DropReason = d.DropReason
 	}
 
-	c.cookie = d.Cookie
+	c.Cookie = d.Cookie
 
 	return c
 }

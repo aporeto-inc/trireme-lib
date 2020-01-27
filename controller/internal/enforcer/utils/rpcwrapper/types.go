@@ -52,6 +52,7 @@ type InitRequestPayload struct {
 	Secrets                secrets.PublicSecrets  `json:",omitempty"`
 	Configuration          *runtime.Configuration `json:",omitempty"`
 	BinaryTokens           bool                   `json:",omitempty"`
+	IPv6Enabled            bool                   `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers
@@ -127,4 +128,15 @@ type TokenRequestPayload struct {
 // TokenResponsePayload returns the issued token.
 type TokenResponsePayload struct {
 	Token string `json:",omitempty"`
+}
+
+// PingPayload represents the payload for ping config.
+type PingPayload struct {
+	ContextID  string
+	PingConfig *policy.PingConfig
+}
+
+// PingReportPayload represents the payload for ping reporting.
+type PingReportPayload struct {
+	Report *collector.PingReport
 }

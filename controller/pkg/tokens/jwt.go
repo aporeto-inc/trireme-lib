@@ -89,12 +89,19 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
 func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
 
+	// Set the appropriate claims header
+	claimsHeader.SetCompressionType(c.compressionType)
+	claimsHeader.SetDatapathVersion(c.datapathVersion)
+
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
 		&ConnectionClaims{
 			T:   claims.T,
 			EK:  claims.EK,
 			RMT: claims.RMT,
+			H:   claimsHeader.ToBytes(),
+			ID:  claims.ID,
+			CT:  claims.CT,
 		},
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(c.ValidityPeriod).Unix(),
@@ -106,11 +113,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 		allclaims.Issuer = c.Issuer
 		allclaims.LCL = claims.LCL
 	}
-
-	// Set the appropriate claims header
-	claimsHeader.SetCompressionType(c.compressionType)
-	claimsHeader.SetDatapathVersion(c.datapathVersion)
-	claims.H = claimsHeader.ToBytes()
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())

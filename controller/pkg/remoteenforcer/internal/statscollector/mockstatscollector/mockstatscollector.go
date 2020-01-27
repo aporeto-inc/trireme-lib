@@ -134,6 +134,20 @@ func (mr *MockCollectorReaderMockRecorder) GetDNSReports() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollectorReader)(nil).GetDNSReports))
 }
 
+// GetPingReports mocks base method
+// nolint
+func (m *MockCollectorReader) GetPingReports() chan *collector.PingReport {
+	ret := m.ctrl.Call(m, "GetPingReports")
+	ret0, _ := ret[0].(chan *collector.PingReport)
+	return ret0
+}
+
+// GetPingReports indicates an expected call of GetPingReports
+// nolint
+func (mr *MockCollectorReaderMockRecorder) GetPingReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPingReports", reflect.TypeOf((*MockCollectorReader)(nil).GetPingReports))
+}
+
 // MockCollector is a mock of Collector interface
 // nolint
 type MockCollector struct {
@@ -257,6 +271,20 @@ func (mr *MockCollectorMockRecorder) GetDNSReports() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSReports", reflect.TypeOf((*MockCollector)(nil).GetDNSReports))
 }
 
+// GetPingReports mocks base method
+// nolint
+func (m *MockCollector) GetPingReports() chan *collector.PingReport {
+	ret := m.ctrl.Call(m, "GetPingReports")
+	ret0, _ := ret[0].(chan *collector.PingReport)
+	return ret0
+}
+
+// GetPingReports indicates an expected call of GetPingReports
+// nolint
+func (mr *MockCollectorMockRecorder) GetPingReports() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPingReports", reflect.TypeOf((*MockCollector)(nil).GetPingReports))
+}
+
 // CollectFlowEvent mocks base method
 // nolint
 func (m *MockCollector) CollectFlowEvent(record *collector.FlowRecord) {
@@ -339,4 +367,16 @@ func (m *MockCollector) CollectDNSRequests(request *collector.DNSRequestReport) 
 // nolint
 func (mr *MockCollectorMockRecorder) CollectDNSRequests(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectDNSRequests", reflect.TypeOf((*MockCollector)(nil).CollectDNSRequests), request)
+}
+
+// CollectPingEvent mocks base method
+// nolint
+func (m *MockCollector) CollectPingEvent(report *collector.PingReport) {
+	m.ctrl.Call(m, "CollectPingEvent", report)
+}
+
+// CollectPingEvent indicates an expected call of CollectPingEvent
+// nolint
+func (mr *MockCollectorMockRecorder) CollectPingEvent(report interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPingEvent", reflect.TypeOf((*MockCollector)(nil).CollectPingEvent), report)
 }

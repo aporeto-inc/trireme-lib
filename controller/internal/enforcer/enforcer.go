@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/envoyauthorizer"
 
 	"go.aporeto.io/trireme-lib/v11/collector"
@@ -63,6 +64,9 @@ type DebugInfo interface {
 
 	// EnablePacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 	EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error
+
+	// Ping runs ping based on the given config.
+	Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -196,8 +200,11 @@ func (e *enforcer) SetLogLevel(level constants.LogLevel) error {
 	return nil
 }
 
-// Cleanup implements the cleanup interface. Not much to do here.
+// Cleanup implements the cleanup interface.
 func (e *enforcer) CleanUp() error {
+	if e.transport != nil {
+		return e.transport.CleanUp()
+	}
 	return nil
 }
 
@@ -217,6 +224,11 @@ func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 	return nil
 }
 
+// Ping runs ping to the given config.
+func (e *enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	return e.transport.Ping(ctx, contextID, pingConfig)
+}
+
 // New returns a new policy enforcer that implements both the data paths.
 func New(
 	mutualAuthorization bool,
@@ -234,6 +246,7 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 	aclmanager ipsetmanager.ACLManager,
+	agentVersion semver.Version,
 ) (Enforcer, error) {
 
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
@@ -263,11 +276,12 @@ func New(
 		puFromContextID,
 		cfg,
 		aclmanager,
+		agentVersion,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("App proxy %s", err)
 	}
 
 	return &enforcer{

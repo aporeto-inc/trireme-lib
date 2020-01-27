@@ -2,6 +2,8 @@ package httpproxy
 
 import (
 	"net/http"
+
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/flowstats"
 )
 
 // TriremeRoundTripper is the Trireme RoundTripper that will handle
@@ -32,12 +34,12 @@ func (t *TriremeRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		return res, nil
 	}
 
-	state, ok := data.(*connectionState)
-	if ok && state.cookie == nil {
+	state, ok := data.(*flowstats.ConnectionState)
+	if ok && state.Cookie == nil {
 		return res, nil
 	}
 
-	if v := state.cookie.String(); v != "" {
+	if v := state.Cookie.String(); v != "" {
 		res.Header.Add("Set-Cookie", v)
 	}
 

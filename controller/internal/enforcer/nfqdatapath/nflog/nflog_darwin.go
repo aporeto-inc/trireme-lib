@@ -1,4 +1,4 @@
-// +build darwin !linux
+// +build darwin
 
 package nflog
 
@@ -10,11 +10,12 @@ import (
 
 // nfLog TODO
 type nfLog struct {
+	getPUContext GetPUContextFunc // not called
 }
 
 // NewNFLogger provides an NFLog instance
 func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUContext GetPUContextFunc, collector collector.EventCollector) NFLogger {
-	return &nfLog{}
+	return &nfLog{getPUContext: getPUContext}
 }
 
 func (n *nfLog) Run(ctx context.Context) {}

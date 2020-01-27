@@ -4,6 +4,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
@@ -28,7 +29,7 @@ type BinaryJWTClaims struct {
 }
 
 // ConvertToJWTClaims converts to old claims
-func ConvertToJWTClaims(b *BinaryJWTClaims) *JWTClaims {
+func ConvertToJWTClaims(b *BinaryJWTClaims, header claimsheader.HeaderBytes) *JWTClaims {
 	return &JWTClaims{
 		ConnectionClaims: &ConnectionClaims{
 			T:   policy.NewTagStoreFromSlice(b.T),
@@ -37,6 +38,7 @@ func ConvertToJWTClaims(b *BinaryJWTClaims) *JWTClaims {
 			LCL: b.LCL,
 			EK:  b.EK,
 			ID:  b.ID,
+			H:   header,
 		},
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: b.ExpiresAt,

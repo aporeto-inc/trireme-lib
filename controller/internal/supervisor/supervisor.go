@@ -65,6 +65,7 @@ func NewSupervisor(
 	cfg *runtime.Configuration,
 	p packetprocessor.PacketProcessor,
 	aclmanager ipsetmanager.ACLManager,
+	ipv6Enabled bool,
 ) (Supervisor, error) {
 
 	// for certain modes we do not want to launch a supervisor at all, so we are going to launch a noop supervisor
@@ -82,7 +83,7 @@ func NewSupervisor(
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager)
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, aclmanager, ipv6Enabled)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
@@ -151,15 +152,10 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cfg := data.(*cacheData)
-	proxyPort := cfg.containerInfo.Policy.ServicesListeningPort()
-	dnsProxyPort := cfg.containerInfo.Policy.DNSProxyPort()
-
-	// If local server, delete pu specific chains in Trireme/NetworkSvc/Hostmode chains.
-	puType := cfg.containerInfo.Runtime.PUType()
 
 	// TODO (varks): Similar to configureRules and UpdateRules, DeleteRules should take
 	// only contextID and *policy.PUInfo as function parameters.
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, proxyPort, dnsProxyPort, puType); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.username, cfg.containerInfo); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 

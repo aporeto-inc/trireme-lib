@@ -1,3 +1,5 @@
+// +build linux !windows
+
 package podmonitor
 
 import (
@@ -16,6 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"go.uber.org/zap"
 )
 
 // PodMonitor implements a monitor that sends pod events upstream
@@ -35,12 +39,14 @@ type PodMonitor struct {
 	kubeCfg                   *rest.Config
 	kubeClient                client.Client
 	eventsCh                  chan event.GenericEvent
+	resyncInfo                *ResyncInfoChan
 }
 
 // New returns a new kubernetes monitor.
 func New() *PodMonitor {
 	podMonitor := &PodMonitor{
-		eventsCh: make(chan event.GenericEvent),
+		eventsCh:   make(chan event.GenericEvent),
+		resyncInfo: NewResyncInfoChan(),
 	}
 
 	return podMonitor
@@ -121,7 +127,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// ensure to run the reset net_cls
-	// NOTE: we also call this during resync, however, that is not called at startup
+	// NOTE: we also call this during resync, however, that is not called at startup (we call ResyncWithAllPods instead before we return)
 	if m.resetNetcls == nil {
 		return errors.New("pod: missing net_cls reset implementation")
 	}
@@ -138,13 +144,13 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.handlers, m.sandboxExtractor, m.eventsCh)
+	dc := NewDeleteController(mgr.GetClient(), m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh)
 	if err := mgr.Add(dc); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
 	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh())
+	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh(), m.resyncInfo)
 	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
@@ -181,6 +187,14 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return errors.New("pod: controller did not start within 5s")
 	case <-controllerStarted:
 		m.kubeClient = mgr.GetClient()
+
+		// call ResyncWithAllPods before we return from here
+		// this will block until every pod at this point in time has been seeing at least one `Reconcile` call
+		// we do this so that we build up our internal PU cache in the policy engine,
+		// so that when we remove stale pods on startup, we don't remove them and create them again
+		if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode); err != nil {
+			zap.L().Warn("Pod resync failed", zap.Error(err))
+		}
 		return nil
 	}
 }
@@ -204,7 +218,7 @@ func (m *PodMonitor) Resync(ctx context.Context) error {
 		return errors.New("pod: client has not been initialized yet")
 	}
 
-	return ResyncWithAllPods(ctx, m.kubeClient, m.eventsCh)
+	return ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode)
 }
 
 type runnable struct {

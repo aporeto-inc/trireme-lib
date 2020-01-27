@@ -1,3 +1,5 @@
+// +build !windows
+
 package iptablesctrl
 
 import (
@@ -7,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/v11/common"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"
@@ -662,7 +665,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", puInfoUpdated)
 						So(err, ShouldBeNil)
 
 						t := i.iptv6.impl.RetrieveTable()
@@ -998,7 +1001,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv6.DeleteRules(0, "pu1", "0", "0", "10", "", "0", "0", common.ContainerPU)
+					err := i.iptv6.DeleteRules(0, "pu1", "0", "0", "10", "", puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv6.impl.RetrieveTable()
@@ -1023,4 +1026,19 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestIpv6Disable(t *testing.T) {
+	ipv6Instance := &ipv6{ipv6Enabled: false}
+
+	assert.Equal(t, ipv6Instance.Append("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.Insert("", "", 0) == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.ClearChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.DeleteChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.NewChain("", "") == nil, true, "error should be nil")
+	assert.Equal(t, ipv6Instance.Commit() == nil, true, "error should be nil")
+	chains, err := ipv6Instance.ListChains("")
+
+	assert.Equal(t, chains == nil, true, "chains should be nil")
+	assert.Equal(t, err == nil, true, "error should be nil")
 }

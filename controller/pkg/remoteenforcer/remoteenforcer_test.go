@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/golang/mock/gomock"
 	"github.com/mitchellh/hashstructure"
 	. "github.com/smartystreets/goconvey/convey"
@@ -30,6 +31,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
 	mockdnsreportclient "go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/dnsreportclient/mockdnsreport"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/pingreportclient/mockpingreportclient"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient"
@@ -222,13 +224,14 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 		collector := mockstatscollector.NewMockCollector(ctrl)
 		counterclient := mockcounterclient.NewMockCounterClient(ctrl)
 		dnsreportclient := mockdnsreportclient.NewMockDNSReportClient(ctrl)
+		pingreportclient := mockpingreportclient.NewMockPingReportClient(ctrl)
 		tokenclient := mocktokenclient.NewMockTokenClient(ctrl)
 		Convey("When I try to create new server with no env set", func() {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, counterclient, dnsreportclient, tokenclient, zap.Config{}, policy.EnforcerMapping)
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, pingreportclient, counterclient, dnsreportclient, tokenclient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -256,6 +259,7 @@ func TestInitEnforcer(t *testing.T) {
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
+		mockPingReportClient := mockpingreportclient.NewMockPingReportClient(ctrl)
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
 		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
 		mockCounterClient := mockcounterclient.NewMockCounterClient(ctrl)
@@ -279,6 +283,7 @@ func TestInitEnforcer(t *testing.T) {
 			tokenIssuer common.ServiceTokenIssuer,
 			binaryTokens bool,
 			aclmanager ipsetmanager.ACLManager,
+			agentVersion semver.Version,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -290,6 +295,7 @@ func TestInitEnforcer(t *testing.T) {
 			cfg *runtime.Configuration,
 			p packetprocessor.PacketProcessor,
 			aclmanager ipsetmanager.ACLManager,
+			ipv6Enabled bool,
 		) (supervisor.Supervisor, error) {
 			return mockSupevisor, nil
 		}
@@ -307,7 +313,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockCounterClient, mockDNSReportClient, mockTokenClient, zap.Config{}, policy.EnforcerMapping)
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockPingReportClient, mockCounterClient, mockDNSReportClient, mockTokenClient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
@@ -381,6 +387,7 @@ func TestInitEnforcer(t *testing.T) {
 					tokenIssuer common.ServiceTokenIssuer,
 					binaryTokens bool,
 					aclmanager ipsetmanager.ACLManager,
+					agentVersion semver.Version,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}
@@ -408,6 +415,7 @@ func TestInitEnforcer(t *testing.T) {
 					cfg *runtime.Configuration,
 					p packetprocessor.PacketProcessor,
 					aclmanager ipsetmanager.ACLManager,
+					ipv6Enabled bool,
 				) (supervisor.Supervisor, error) {
 					return nil, fmt.Errorf("failed supervisor")
 				}
@@ -507,6 +515,31 @@ func TestInitEnforcer(t *testing.T) {
 					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
 				})
 			})
+
+			Convey("When I try to instantiate the enforcer and the ping client fails to run, it should clean up", func() {
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
+
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.Payload = initTestEnfReqPayload()
+
+				mockEnf.EXPECT().Run(server.ctx).Return(nil)
+				mockStats.EXPECT().Run(server.ctx).Return(nil)
+				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
+				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+				mockPingReportClient.EXPECT().Run(server.ctx).Return(fmt.Errorf("failed"))
+				mockSupevisor.EXPECT().CleanUp()
+				mockEnf.EXPECT().CleanUp()
+
+				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldNotBeNil)
+					So(err, ShouldResemble, errors.New("pingReportClientfailed"))
+				})
+			})
+
 			Convey("When i try to instantiate the enforcer and counter Client fails to run it should cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
@@ -519,6 +552,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+				mockPingReportClient.EXPECT().Run(server.ctx).Return(nil)
 				mockCounterClient.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
 				mockSupevisor.EXPECT().CleanUp()
 				mockEnf.EXPECT().CleanUp()
@@ -543,6 +577,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
 				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
+				mockPingReportClient.EXPECT().Run(server.ctx).Return(nil)
 				mockCounterClient.EXPECT().Run(server.ctx).Return(nil)
 				mockTokenClient.EXPECT().Run(server.ctx).Return(nil)
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)

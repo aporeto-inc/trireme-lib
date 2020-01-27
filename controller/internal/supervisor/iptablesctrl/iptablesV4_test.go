@@ -1,3 +1,5 @@
+// +build !windows
+
 package iptablesctrl
 
 import (
@@ -8,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/v11/common"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"
@@ -22,7 +25,7 @@ import (
 func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvider, iptv4 provider.IptablesProvider, iptv6 provider.IptablesProvider, mode constants.ModeType) (*Instance, error) {
 
 	ipv4Impl := &ipv4{ipt: iptv4}
-	ipv6Impl := &ipv6{ipt: iptv6, ipv6Disabled: false}
+	ipv6Impl := &ipv6{ipt: iptv6, ipv6Enabled: true}
 
 	fq := fqconfig.NewFilterQueueWithDefaults()
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
@@ -1099,7 +1102,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", "0", "0", common.LinuxProcessPU)
+						err := i.iptv4.DeleteRules(1, "pu1", "0", "5000", "10", "", puInfoUpdated)
 						i.iptv4.aclmanager.RemoveExternalNets("pu1")
 						So(err, ShouldBeNil)
 						err = i.DeletePortFromPortSet("pu1", "8080")
@@ -1986,7 +1989,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 				}
 
 				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", "0", "0", common.ContainerPU)
+					err := i.iptv4.DeleteRules(0, "pu1", "0", "0", "10", "", puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv4.impl.RetrieveTable()
@@ -2011,6 +2014,12 @@ func Test_OperationWithContainersV4(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestImpl(t *testing.T) {
+	instance, err := NewInstance(nil, constants.LocalServer, nil, true)
+	assert.Equal(t, instance != nil, true, "instance should not be nil")
+	assert.Equal(t, err == nil, true, "err should be nil")
 }
 
 func printTable(t map[string]map[string][]string) {
