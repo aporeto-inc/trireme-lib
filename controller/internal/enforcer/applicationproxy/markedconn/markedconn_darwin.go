@@ -47,6 +47,12 @@ type ProxiedConnection struct {
 	originalTCPConnection *net.TCPConn
 }
 
+// PlatformData is proxy/socket data (platform-specific)
+type PlatformData struct {
+	handle          uintptr
+	postConnectFunc func(fd uintptr)
+}
+
 // GetTCPConnection returns the TCP connection object.
 func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
 	return p.originalTCPConnection
