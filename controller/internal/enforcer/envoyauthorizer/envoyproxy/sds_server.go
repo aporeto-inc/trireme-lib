@@ -1,10 +1,8 @@
 package envoyproxy
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net"
 	"sync"
@@ -12,9 +10,11 @@ import (
 
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/certbuilder"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -33,7 +33,6 @@ const (
 	//SdsSocketpath = "@aporeto_envoy_sds"
 	SdsSocketpath = "127.0.0.1:2999"
 	//SdsSocketpath = "/var/run/sds/uds_path"
-	typeCertificate = "CERTIFICATE"
 )
 
 // Options to create a SDS server to task to envoy
@@ -396,7 +395,7 @@ func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error
 	if apoSecret.key != "" && apoSecret.cert != "" {
 		caPEM := s.secrets.PublicSecrets().CertAuthority()
 
-		pemCert, err = buildCertChain([]byte(apoSecret.cert), caPEM)
+		pemCert, err = certbuilder.BuildCertChain([]byte(apoSecret.cert), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return fmt.Errorf("SDS Server: Cannot build the cert chain")
@@ -523,8 +522,8 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 	caPEM := s.secrets.PublicSecrets().CertAuthority()
 	if req.ResourceNames[0] == "default" {
 
-		expTime, _ = getExpTimeFromCert([]byte(certPEM))
-		pemCert, _ = buildCertChain([]byte(certPEM), caPEM)
+		expTime, _ = certbuilder.GetExpTimeFromCert([]byte(certPEM))
+		pemCert, _ = certbuilder.BuildCertChain([]byte(certPEM), caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server: Cannot build the cert chain")
 			return nil
@@ -532,8 +531,8 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 
 	} else {
 
-		expTime, _ = getExpTimeFromCert(caPEM)
-		pemCert, err = getTopRootCa(caPEM)
+		expTime, _ = certbuilder.GetExpTimeFromCert(caPEM)
+		pemCert, err = certbuilder.GetTopRootCa(caPEM)
 		if err != nil {
 			zap.L().Error("SDS Server:  Cannot build the Root cert chain")
 		}
@@ -564,105 +563,6 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 		Version:      t.String(),
 	}
 
-}
-
-func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	zap.L().Debug("SDS Server:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
-	certChain := []*x509.Certificate{}
-	//certPEMBlock := caPEM
-	clientPEMBlock := certPEM
-	derBlock, _ := pem.Decode(clientPEMBlock)
-	if derBlock != nil {
-		if derBlock.Type == typeCertificate {
-			cert, err := x509.ParseCertificate(derBlock.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			certChain = append(certChain, cert)
-		} else {
-			return nil, fmt.Errorf("invalid pem block type: %s", derBlock.Type)
-		}
-	}
-	var certDERBlock *pem.Block
-	for {
-		certDERBlock, caPEM = pem.Decode(caPEM)
-		if certDERBlock == nil {
-			break
-		}
-		if certDERBlock.Type == typeCertificate {
-			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			certChain = append(certChain, cert)
-		} else {
-			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
-		}
-	}
-	by, _ := x509CertChainToPem(certChain)
-	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("certChain: ", string(by)))
-	return x509CertChainToPem(certChain)
-}
-
-// x509CertToPem converts x509 to byte.
-func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
-	var pemBytes bytes.Buffer
-	if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
-		return nil, err
-	}
-	return pemBytes.Bytes(), nil
-}
-
-// x509CertChainToPem converts chain of x509 certs to byte.
-func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
-	var pemBytes bytes.Buffer
-	for _, cert := range certChain {
-		if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
-			return nil, err
-		}
-	}
-	return pemBytes.Bytes(), nil
-}
-
-// getTopRootCa get the top root CA
-func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
-	zap.L().Debug("SDS Server: BEFORE root cert is :", zap.String("root_cert: ", string(certPEMBlock)))
-	//rootCert := []*x509.Certificate{}
-	var certChain tls.Certificate
-	//certPEMBlock := []byte(rootcaBundle)
-	var certDERBlock *pem.Block
-	for {
-		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
-		if certDERBlock == nil {
-			break
-		}
-		if certDERBlock.Type == typeCertificate {
-			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
-		}
-	}
-	zap.L().Debug("SDS Server: the root ca is:", zap.String("cert: ", string(certChain.Certificate[len(certChain.Certificate)-1])))
-	x509Cert, err := x509.ParseCertificate(certChain.Certificate[len(certChain.Certificate)-1])
-	if err != nil {
-		panic(err)
-	}
-	by, _ := x509CertToPem(x509Cert)
-	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("rootCert: ", string(by)))
-	return x509CertToPem(x509Cert)
-}
-
-// getExpTimeFromCert gets the exp time from the cert, assumning the cert is in pem encoded.
-func getExpTimeFromCert(cert []byte) (time.Time, error) {
-	block, _ := pem.Decode(cert)
-	if block == nil {
-		zap.L().Error("getExpTimeFromCert: error while pem decode")
-		return time.Time{}, fmt.Errorf("Cannot decode the pem certs")
-	}
-	x509Cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		zap.L().Error("failed to parse the certs", zap.Error(err))
-		return time.Time{}, err
-	}
-	return x509Cert.NotAfter, nil
 }
 
 func getRootCert(secret *secretItem) *envoy_api_v2_auth.Secret_ValidationContext {

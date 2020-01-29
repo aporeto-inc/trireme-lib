@@ -1,7 +1,6 @@
 package httpproxy
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -24,6 +23,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/certbuilder"
 	"go.aporeto.io/trireme-lib/controller/pkg/bufferpool"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -38,7 +38,6 @@ const (
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
 	// any OIDC provider.
 	TriremeOIDCCallbackURI = "/aporeto/oidc/callback"
-	typeCertificate        = "CERTIFICATE"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -191,8 +190,8 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 			zap.L().Error("http: Cannot build the cert chain")
 		}
 		if cert != nil {
-			by, _ := x509CertToPem(cert)
-			pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+			by, _ := certbuilder.X509CertToPem(cert)
+			pemCert, err := certbuilder.BuildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
 			if err != nil {
 				zap.L().Error("http: Cannot build the cert chain")
 			}
@@ -203,7 +202,7 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 				if certDERBlock == nil {
 					break
 				}
-				if certDERBlock.Type == typeCertificate {
+				if certDERBlock.Type == certbuilder.TypeCertificate {
 					certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 				}
 			}
@@ -433,8 +432,8 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 				return nil, fmt.Errorf("Leaf cert is missing")
 			}
 			if cert != nil {
-				by, _ := x509CertToPem(cert)
-				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+				by, _ := certbuilder.X509CertToPem(cert)
+				pemCert, err := certbuilder.BuildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
 				if err != nil {
 					zap.L().Error("http: Cannot build the cert chain")
 					return nil, fmt.Errorf("Cannot build the cert chain")
@@ -447,7 +446,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 					if certDERBlock == nil {
 						break
 					}
-					if certDERBlock.Type == typeCertificate {
+					if certDERBlock.Type == certbuilder.TypeCertificate {
 						certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 					}
 				}
@@ -465,63 +464,6 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 	return nil, fmt.Errorf("no cert available - cert is nil")
 }
 
-func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	zap.L().Debug("http:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
-	certChain := []*x509.Certificate{}
-	clientPEMBlock := certPEM
-
-	derBlock, _ := pem.Decode(clientPEMBlock)
-	if derBlock != nil {
-		if derBlock.Type == typeCertificate {
-			cert, err := x509.ParseCertificate(derBlock.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			certChain = append(certChain, cert)
-		} else {
-			return nil, fmt.Errorf("invalid pem block type: %s", derBlock.Type)
-		}
-	}
-	var certDERBlock *pem.Block
-	for {
-		certDERBlock, caPEM = pem.Decode(caPEM)
-		if certDERBlock == nil {
-			break
-		}
-		if certDERBlock.Type == typeCertificate {
-			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			certChain = append(certChain, cert)
-		} else {
-			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
-		}
-	}
-	by, _ := x509CertChainToPem(certChain)
-	zap.L().Debug("http: After building the cert chain: ", zap.String("certChain: ", string(by)))
-	return x509CertChainToPem(certChain)
-}
-
-// x509CertChainToPem converts chain of x509 certs to byte.
-func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
-	var pemBytes bytes.Buffer
-	for _, cert := range certChain {
-		if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
-			return nil, err
-		}
-	}
-	return pemBytes.Bytes(), nil
-}
-
-// x509CertToPem converts x509 to byte.
-func x509CertToPem(cert *x509.Certificate) ([]byte, error) {
-	var pemBytes bytes.Buffer
-	if err := pem.Encode(&pemBytes, &pem.Block{Type: typeCertificate, Bytes: cert.Raw}); err != nil {
-		return nil, err
-	}
-	return pemBytes.Bytes(), nil
-}
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
