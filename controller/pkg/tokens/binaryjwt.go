@@ -513,7 +513,7 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error
 	sigPosition := int(binary.BigEndian.Uint16(data[lengthPosition : lengthPosition+2]))
 
 	// The token must be long enough to have at least 1 byte of signature.
-	if len(data) < sigPosition+1 {
+	if len(data) < sigPosition+1 || sigPosition == 0 {
 		return nil, nil, nil, nil, fmt.Errorf("no signature in the token")
 	}
 
