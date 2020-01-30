@@ -215,8 +215,7 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 		}
 	case common.HostNetworkPU:
 		if isAppAcls {
-			chain = "HostSvcRules-OUTPUT"
-			// TODO(windows): do we need to set source port based on PU?
+			return nil, nil
 		} else {
 			chain = "HostSvcRules-INPUT"
 			// in Windows, our host svc chain is for all host svc PUs, so we need to set destination port
@@ -304,7 +303,9 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 			zap.L().Error("transformACLRules failed", zap.Error(err))
 			continue
 		}
-		result = append(result, xformedRule)
+		if xformedRule != nil {
+			result = append(result, xformedRule)
+		}
 	}
 
 	if result == nil {
