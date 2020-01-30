@@ -18,27 +18,27 @@ func TestTransformACLRuleHostSvc(t *testing.T) {
 	Convey("When I parse some acl rules", t, func() {
 
 		var aclRules [][]string
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 1:65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6", " "))
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 1:65535 -j DROP", " "))
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 17 -m set --match-set TRI-v4-TargetUDP src --match multiport --dports 80,443,8080:8443 -j ACCEPT", " "))
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m set --match-set TRI-v4-ext-z4QRD1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d9e2e2d8431510001bcc931:5d61b8f4884e46000146bcd9:3", " "))
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m set --match-set TRI-v4-ext-z4QRD1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
-		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m state --state NEW -m set --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 1:65535 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 1:65535 -j DROP", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 17 -m set --match-set TRI-v4-TargetUDP src --match multiport --dports 80,443,8080:8443 -j ACCEPT", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m set --match-set TRI-v4-ext-z4QRD1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d9e2e2d8431510001bcc931:5d61b8f4884e46000146bcd9:3", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m set --match-set TRI-v4-ext-z4QRD1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m state --state NEW -m set --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
 
 		aclInfo := &ACLInfo{}
 		aclInfo.TCPPorts = "80,443"
 		aclInfo.UDPPorts = ""
-		aclInfo.PUType = common.HostNetworkPU
+		aclInfo.PUType = common.HostPU
 
 		xformedRules := transformACLRules(aclRules, aclInfo, nil, true)
 
 		Convey("Adjacent like ones should be merged", func() {
 
 			So(xformedRules, ShouldHaveLength, 4)
-			So(xformedRules[0][1], ShouldEqual, "HostSvcRules-OUTPUT")
-			So(xformedRules[1][1], ShouldEqual, "HostSvcRules-OUTPUT")
-			So(xformedRules[2][1], ShouldEqual, "HostSvcRules-OUTPUT")
-			So(xformedRules[3][1], ShouldEqual, "HostSvcRules-OUTPUT")
+			So(xformedRules[0][1], ShouldEqual, "HostPU-OUTPUT")
+			So(xformedRules[1][1], ShouldEqual, "HostPU-OUTPUT")
+			So(xformedRules[2][1], ShouldEqual, "HostPU-OUTPUT")
+			So(xformedRules[3][1], ShouldEqual, "HostPU-OUTPUT")
 
 			// check combined rule 1 and 2
 			// OUTPUT HostSvcRules-OUTPUT -p 6 --dports 1:65535 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dstIP,dstPort -m set ! --match-set TRI-v4-TargetTCP dstIP,dstPort -j DROP -j NFLOG --nflog-group 0 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6
@@ -67,7 +67,7 @@ func TestTransformACLRuleHostSvc(t *testing.T) {
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeTrue)
 
 			// check singular rule 3
-			// OUTPUT TRI-App-1114oqLQAD-0 -p 17 -m set --match-set TRI-v4-TargetUDP src --match multiport --dports 80,443,8080:8443 -j ACCEPT
+			// OUTPUT TRI-App-hostZ7PbqL-0 -p 17 -m set --match-set TRI-v4-TargetUDP src --match multiport --dports 80,443,8080:8443 -j ACCEPT
 			rs, err = windows.ParseRuleSpec(xformedRules[1][2:]...)
 
 			So(err, ShouldBeNil)
@@ -110,7 +110,7 @@ func TestTransformACLRuleHostSvc(t *testing.T) {
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeTrue)
 
 			// check last rule 6
-			// OUTPUT TRI-App-1114oqLQAD-0 -p 6 -m state --state NEW -m set --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT
+			// OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m state --state NEW -m set --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT
 			rs, err = windows.ParseRuleSpec(xformedRules[3][2:]...)
 
 			So(err, ShouldBeNil)
