@@ -19,15 +19,15 @@ func LoadBPF() BPFModule {
 	return nil
 }
 
-func (*ebpfRhel6) CreateFlow(*packet.Packet) {
+func (*ebpfDarwin) CreateFlow(*packet.Packet) {
 }
 
-func (*ebpfRhel6) RemoveFlow(*packet.Packet) {
+func (*ebpfDarwin) RemoveFlow(*packet.Packet) {
 }
 
-func (*ebpfRhel6) Cleanup() {
+func (*ebpfDarwin) Cleanup() {
 }
 
-func (*ebpfRhel6) GetBPFPath() string {
+func (*ebpfDarwin) GetBPFPath() string {
 	return ""
 }
