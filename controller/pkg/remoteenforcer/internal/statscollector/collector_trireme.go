@@ -61,24 +61,30 @@ func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	// trace event collection in done from the main enforcer
 	c.Lock()
 	defer c.Unlock()
-	zap.L().Debug("Collected Packet Event")
-	c.DatapathPacketReports = append(c.DatapathPacketReports, report)
 
+	c.Reports <- &Report{DatapathPacketReport, report}
 }
 
 // CollectCounterEvent collect counters from the datapath
 func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
 	c.Lock()
 	defer c.Unlock()
-	c.CounterReports = append(c.CounterReports, report)
+
+	c.Reports <- &Report{CounterReport, report}
 }
 
 // CollectCounterEvent collect counters from the datapath
 func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
-	c.DNSReport <- report
+	c.Lock()
+	defer c.Unlock()
+
+	c.Reports <- &Report{DNSReport, report}
 }
 
 // CollectPingEvent collect ping events from the datapath
 func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
-	c.PingReports <- report
+	c.Lock()
+	defer c.Unlock()
+
+	c.Reports <- &Report{PingReport, report}
 }

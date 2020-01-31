@@ -66,7 +66,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 		select {
 		case <-ticker.C:
 
-			flows := s.collector.GetAllRecords()
+			flows := s.collector.GetFlowRecords()
 			users := s.collector.GetUserRecords()
 			if flows == nil && users == nil {
 				continue
@@ -104,7 +104,7 @@ func (s *statsClient) sendRequest(flows map[string]*collector.FlowRecord, users 
 // SendStats sends all the stats from the cache
 func (s *statsClient) SendStats() {
 
-	flows := s.collector.GetAllRecords()
+	flows := s.collector.GetFlowRecords()
 	users := s.collector.GetUserRecords()
 	if flows == nil && users == nil {
 		zap.L().Debug("Flows and UserRecords are nil while sending stats to collector")

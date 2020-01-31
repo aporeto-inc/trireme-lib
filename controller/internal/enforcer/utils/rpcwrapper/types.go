@@ -23,10 +23,21 @@ const (
 	IPSets
 )
 
+type PayloadType int
+
+const (
+	// Report payload types
+	DebugReport PayloadType = iota
+	DNSReport
+	CounterReport
+	PingReport
+)
+
 //Request exported
 type Request struct {
-	HashAuth []byte
-	Payload  interface{}
+	HashAuth    []byte
+	PayloadType PayloadType
+	Payload     interface{}
 }
 
 //exported consts from the package
@@ -83,19 +94,10 @@ type StatsPayload struct {
 	Users map[string]*collector.UserRecord `json:",omitempty"`
 }
 
-// DebugPacketPayload is the enforcer packet report from remote enforcers
-type DebugPacketPayload struct {
-	PacketRecords []*collector.PacketReport
-}
-
-// DNSReportPayload represents the payload for dns reporting.
-type DNSReportPayload struct {
-	Report *collector.DNSRequestReport
-}
-
-// CounterReportPayload is the counter report from remote enforcer
-type CounterReportPayload struct {
-	CounterReports []*collector.CounterReport
+// ReportPayload is the generic report from remote enforcer
+type ReportPayload struct {
+	Type    PayloadType
+	Payload interface{}
 }
 
 //SetTargetNetworksPayload carries the payload for target networks
@@ -134,9 +136,4 @@ type TokenResponsePayload struct {
 type PingPayload struct {
 	ContextID  string
 	PingConfig *policy.PingConfig
-}
-
-// PingReportPayload represents the payload for ping reporting.
-type PingReportPayload struct {
-	Report *collector.PingReport
 }
