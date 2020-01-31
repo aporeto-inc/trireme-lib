@@ -37,6 +37,7 @@ type config struct {
 	// Configurations for fine tuning internal components.
 	mode                   constants.ModeType
 	fq                     *fqconfig.FilterQueue
+	isBPFEnabled           bool
 	linuxProcess           bool
 	mutualAuth             bool
 	packetLogs             bool
@@ -55,6 +56,13 @@ type config struct {
 
 // Option is provided using functional arguments.
 type Option func(*config)
+
+// OptionBPFEnabled is an option
+func OptionBPFEnabled(bpfEnabled bool) Option {
+	return func(cfg *config) {
+		cfg.isBPFEnabled = bpfEnabled
+	}
+}
 
 //OptionIPv6Enable is an option to enable ipv6
 func OptionIPv6Enable(ipv6Enabled bool) Option {
@@ -189,6 +197,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			t.config.isBPFEnabled,
 			t.config.agentVersion,
 		)
 		if err != nil {
@@ -218,6 +227,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.remoteParameters,
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
+			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
@@ -242,6 +252,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.tokenIssuer,
 			t.config.binaryTokens,
 			t.config.aclmanager,
+			false,
 			t.config.agentVersion,
 		)
 		if err != nil {
