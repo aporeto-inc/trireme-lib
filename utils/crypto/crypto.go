@@ -14,8 +14,7 @@ import (
 	"errors"
 	"fmt"
 
-	"go.aporeto.io/tg/tglib/windowscertbug"
-
+	"go.aporeto.io/trireme-lib/utils/windowscertbug"
 	"go.uber.org/zap"
 )
 
