@@ -13,9 +13,9 @@ import (
 
 	bpflib "github.com/iovisor/gobpf/elf"
 	"github.com/iovisor/gobpf/pkg/bpffs"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf/bpfbuild"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf/bpfbuild"
 	"go.uber.org/zap"
 )
 

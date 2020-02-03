@@ -11,7 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	constants "go.aporeto.io/trireme-lib/v11/controller/constants"
-	ebpf "go.aporeto.io/trireme-lib/controller/pkg/ebpf"
+	ebpf "go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
 	fqconfig "go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	packettracing "go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"

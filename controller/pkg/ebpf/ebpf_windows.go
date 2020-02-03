@@ -3,7 +3,7 @@
 package ebpf
 
 import (
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 )
 
 var BPFPath = "/sys/fs/bpf/app-ack"
