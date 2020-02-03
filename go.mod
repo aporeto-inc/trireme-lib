@@ -3,11 +3,7 @@ module go.aporeto.io/trireme-lib/v11
 go 1.13
 
 require (
-    // aporeto repos
-	go.aporeto.io/netlink-go v1.40.0
-	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 // indirect
-
-    // others
+	// others
 	github.com/DavidGamba/go-getoptions v0.17.0
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/aporeto-inc/go-ipset v0.0.0-20191002024208-fab1debc861a
@@ -55,6 +51,9 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/vulcand/oxy v1.0.0 // indirect
+	// aporeto repos
+	go.aporeto.io/netlink-go v1.40.0
+	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191009170851-d66e71096ffb
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
@@ -66,6 +65,7 @@ require (
 
 // Kubernetes ( consistent with https://github.com/aporeto-inc/aporeto-operator/blob/master/go.mod )
 require (
+	go.aporeto.io/trireme-lib v10.259.0+incompatible
 	k8s.io/api v0.0.0-20191102065807-b98ecd433b91
 	k8s.io/apimachinery v0.0.0-20191102025618-50aa20a7b23f
 	k8s.io/client-go v0.0.0-20191016110837-54936ba21026

@@ -14,7 +14,8 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/secretsproxy"
+    "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/secretsproxy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packetprocessor"
@@ -38,6 +39,9 @@ type Enforcer interface {
 
 	// GetFilterQueue returns the current FilterQueueConfig.
 	GetFilterQueue() *fqconfig.FilterQueue
+
+	// GetBPFObject returns the bpf pobject
+	GetBPFObject() ebpf.BPFModule
 
 	// Run starts the PolicyEnforcer.
 	Run(ctx context.Context) error
@@ -208,6 +212,11 @@ func (e *enforcer) CleanUp() error {
 	return nil
 }
 
+//GetBPFObject returns the bpf object
+func (e *enforcer) GetBPFObject() ebpf.BPFModule {
+	return e.transport.GetBPFObject()
+}
+
 // GetFilterQueue returns the current FilterQueueConfig of the transport path.
 func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
@@ -246,6 +255,7 @@ func New(
 	tokenIssuer common.ServiceTokenIssuer,
 	binaryTokens bool,
 	aclmanager ipsetmanager.ACLManager,
+	isBPFEnabled bool,
 	agentVersion semver.Version,
 ) (Enforcer, error) {
 
@@ -276,6 +286,7 @@ func New(
 		puFromContextID,
 		cfg,
 		aclmanager,
+		isBPFEnabled,
 		agentVersion,
 	)
 

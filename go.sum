@@ -776,6 +776,8 @@ go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 h1:ngw1NIPglTWLQnjgz2IKiH
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8/go.mod h1:ylsR0KTuv3cSfWPRDfv8ff1rKvuCUWdKDE3+kaVtmjc=
 go.aporeto.io/trireme-lib v10.256.0+incompatible h1:max95gZEiga4nesLvTjPbzhXwVaJWnQ4Thpq6adiEHY=
 go.aporeto.io/trireme-lib v10.256.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
+go.aporeto.io/trireme-lib v10.259.0+incompatible h1:iiyPTrCQk0lj0l7CxK4v4F87i6Q+pzwdVo9O0YaHvnU=
+go.aporeto.io/trireme-lib v10.259.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.15.0/go.mod h1:UffZAU+4sDEINUGP/B7UfBBkq4fqLu9zXAX7ke6CHW0=

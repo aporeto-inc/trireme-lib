@@ -1,6 +1,6 @@
 language: go
 sudo: required
-dist: trusty
+dist: bionic
 
 go_import_path: go.aporeto.io/trireme-lib
 
@@ -47,11 +47,22 @@ before_install:
   - cd $old
 
 install:
+<<<<<<< HEAD
   - go list -m all || true
+  - scripts/fix_bpf
 
 script:
   - ./scripts/lint.sh
   - ./scripts/test.sh
+=======
+  - dep ensure
+  - ./fix_bpf
+  - dep status || true
+
+script:
+  - GO111MODULE=off ./.test.sh
+  - golangci-lint run --deadline=10m --disable-all --exclude-use-default=false --enable=errcheck --enable=goimports --enable=ineffassign --enable=govet --enable=golint --enable=unused --enable=structcheck --enable=varcheck --enable=deadcode --enable=unconvert --enable=goconst --enable=gosimple --enable=misspell --enable=staticcheck --enable=unparam --enable=prealloc --enable=nakedret --enable=gofmt --enable=typecheck --skip-dirs=vendor/github.com/iovisor ./...
+>>>>>>> master
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

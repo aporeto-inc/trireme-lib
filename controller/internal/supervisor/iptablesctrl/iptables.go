@@ -13,13 +13,13 @@ import (
 	"github.com/spaolacci/murmur3"
 	"go.aporeto.io/trireme-lib/v11/buildflags"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"
-	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+    provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+    "go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/v11/controller/runtime"
 	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 	"go.aporeto.io/trireme-lib/v11/policy"
-	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -75,6 +75,7 @@ type iptables struct {
 	cfg                   *runtime.Configuration
 	contextIDToPortSetMap cache.DataStore
 	aclmanager            ipsetmanager.ACLManager
+	bpf                   ebpf.BPFModule
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
@@ -116,7 +117,7 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 	}
 }
 
-func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager) *iptables {
+func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ebpf ebpf.BPFModule) *iptables {
 
 	return &iptables{
 		impl:                  impl,
@@ -128,6 +129,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
 		aclmanager:            aclmanager,
+		bpf:                   ebpf,
 	}
 }
 
@@ -207,6 +209,10 @@ func (i *iptables) Run(ctx context.Context) error {
 	// if we gracefully terminate.
 	if err := i.setGlobalRules(); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
+	}
+
+	if err := i.impl.Commit(); err != nil {
+		return err
 	}
 
 	return nil

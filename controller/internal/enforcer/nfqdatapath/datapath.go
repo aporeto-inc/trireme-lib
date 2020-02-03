@@ -4,6 +4,7 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
@@ -128,6 +130,8 @@ type Datapath struct {
 
 	puToPortsMap      map[string]map[string]bool
 	puCountersChannel chan *pucontext.PUContext
+	// bpf module
+	bpf ebpf.BPFModule
 
 	agentVersion semver.Version
 
@@ -160,6 +164,19 @@ func createPolicy(networks []string) policy.IPRuleList {
 	return rules
 }
 
+func getCacheEntryRemoveCB(d *Datapath) cache.ExpirationNotifier {
+	f := func(cache cache.DataStore, key interface{}, val interface{}) {
+		conn := val.(*connection.TCPConnection)
+		t := conn.TCPtuple
+
+		if d.bpf != nil {
+			d.bpf.RemoveFlow(t)
+		}
+	}
+
+	return f
+}
+
 // New will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
@@ -179,6 +196,7 @@ func New(
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
 	aclmanager ipsetmanager.ACLManager,
+	isBPFEnabled bool,
 	agentVersion semver.Version,
 ) *Datapath {
 
@@ -188,6 +206,28 @@ func New(
 		if err != nil {
 			ExternalIPCacheTimeout = time.Second
 		}
+	}
+
+	var bpf ebpf.BPFModule
+
+	if isBPFEnabled {
+		if bpf = ebpf.LoadBPF(); bpf != nil {
+			zap.L().Info("eBPF is Enabled in the system")
+
+			conntrackCmd, err := exec.LookPath("conntrack")
+			if err != nil {
+				zap.L().Error("Failed to find conntrack command", zap.Error(err))
+			} else {
+				cmd := exec.Command(conntrackCmd, "-F")
+				if err := cmd.Run(); err != nil {
+					zap.L().Error("Failed to flush conntrack", zap.Error(err))
+				}
+			}
+		} else {
+			zap.L().Info("eBPF is disabled as it is not supported")
+		}
+	} else {
+		zap.L().Info("eBPF is disabled as it is not supported")
 	}
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
@@ -213,12 +253,9 @@ func New(
 
 		puFromContextID: puFromContextID,
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-
+		sourcePortConnectionCache:    cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appReplyConnectionTracker:    cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netReplyConnectionTracker:    cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
 		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
 		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
@@ -243,8 +280,13 @@ func New(
 		puToPortsMap:                 map[string]map[string]bool{},
 		puCountersChannel:            make(chan *pucontext.PUContext, 220),
 		aclmanager:                   aclmanager,
+		bpf:                          bpf,
 		agentVersion:                 agentVersion,
 	}
+
+	removeEntryCB := getCacheEntryRemoveCB(d)
+	d.appOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, removeEntryCB)
+	d.netOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, removeEntryCB)
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
@@ -307,6 +349,7 @@ func NewWithDefaults(
 		puFromContextID,
 		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
 		aclmanager,
+		false,
 		semver.Version{},
 	)
 
@@ -551,6 +594,11 @@ func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
 	return d.targetNetworks.AddRuleList(targetacl)
 }
 
+// GetBPFObject returns the bpf object
+func (d *Datapath) GetBPFObject() ebpf.BPFModule {
+	return d.bpf
+}
+
 // GetFilterQueue returns the filter queues used by the data path
 func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 
@@ -612,7 +660,12 @@ func (d *Datapath) SetLogLevel(level constants.LogLevel) error {
 
 // CleanUp implements the cleanup interface.
 func (d *Datapath) CleanUp() error {
+
+	if d.bpf != nil {
+		d.bpf.Cleanup()
+	}
 	d.cleanupPlatform()
+
 	return nil
 }
 

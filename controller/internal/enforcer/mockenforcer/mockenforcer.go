@@ -11,6 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	constants "go.aporeto.io/trireme-lib/v11/controller/constants"
+	ebpf "go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	fqconfig "go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	packettracing "go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
 	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
@@ -85,6 +86,20 @@ func (m *MockEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
 // nolint
 func (mr *MockEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilterQueue", reflect.TypeOf((*MockEnforcer)(nil).GetFilterQueue))
+}
+
+// GetBPFObject mocks base method
+// nolint
+func (m *MockEnforcer) GetBPFObject() ebpf.BPFModule {
+	ret := m.ctrl.Call(m, "GetBPFObject")
+	ret0, _ := ret[0].(ebpf.BPFModule)
+	return ret0
+}
+
+// GetBPFObject indicates an expected call of GetBPFObject
+// nolint
+func (mr *MockEnforcerMockRecorder) GetBPFObject() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBPFObject", reflect.TypeOf((*MockEnforcer)(nil).GetBPFObject))
 }
 
 // Run mocks base method
