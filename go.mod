@@ -63,6 +63,7 @@ require (
 
 // Kubernetes ( consistent with https://github.com/aporeto-inc/aporeto-operator/blob/master/go.mod )
 require (
+	github.com/sourcegraph/go-diff v0.5.1 // indirect
 	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000 // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
