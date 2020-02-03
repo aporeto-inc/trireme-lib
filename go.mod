@@ -69,10 +69,10 @@ require (
 
 // Kubernetes ( consistent with https://github.com/aporeto-inc/aporeto-operator/blob/master/go.mod )
 require (
-	k8s.io/api v0.17.2
-	k8s.io/apimachinery v0.17.2
-	k8s.io/client-go v0.0.0-20191016110837-54936ba21026
-	sigs.k8s.io/controller-runtime v0.4.0
+	k8s.io/api => k8s.io/api v0.0.0-20191102065807-b98ecd433b91
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191102025618-50aa20a7b23f
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
+	sigs.k8s.io/controller-runtime v0.3.0
 )
 
 // Kubernetes:
