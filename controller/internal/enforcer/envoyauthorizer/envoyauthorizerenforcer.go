@@ -15,6 +15,7 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer/envoyproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
+	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -314,6 +315,11 @@ func (e *Enforcer) CleanUp() error {
 
 // Run is unimplemented in the envoy authorizer
 func (e *Enforcer) Run(ctx context.Context) error {
+	return nil
+}
+
+// GetBPFObject is unimplemented in the envoy authorizer
+func (e *Enforcer) GetBPFObject() ebpf.BPFModule {
 	return nil
 }
 

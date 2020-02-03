@@ -140,6 +140,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		nil,
 		false,
 		false,
+		false,
 	)
 	return policyEnf
 }
