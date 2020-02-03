@@ -23,6 +23,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/v11/controller/runtime"
 	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/crypto"
 	"go.uber.org/zap"
 )
 
