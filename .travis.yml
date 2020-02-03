@@ -37,13 +37,15 @@ env:
     - GOGC=75
 
 before_install:
-  # this is just to get the golangci-lint. We do it with GO111MODULE=off so as not to touch
-  # the go.mod file for trireme-lib. (otherwise the "git diff" below will fail. We also must
+  # we move the go.mod file away so that the next two go gets don't modify the
+  # go.mod file for trireme-lib. (otherwise the "git diff" below will fail. We also must
   # get go-diff@v0.5.1 or else go1.11.x will pull in a broken v0.5.0
-  #
-  - export GO111MODULE=off
+  - GET_TMP="/tmp/go.get.tmp"
+  - cp go.mod go.sum "$GET_TMP"
+  - OLD_DIR="$PWD" ; cd "$GET_TMP"
   - go get github.com/sourcegraph/go-diff@v0.5.1
   - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
+  - cd "$OLD_DIR"
 
 install:
   - go mod download
