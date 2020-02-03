@@ -1,4 +1,4 @@
-// +build windows,ignore
+// +build windows
 
 package frontman
 
@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/windows/go-frontman/abi"
 )
 
 func TestFrontmanStructLayout(t *testing.T) {
@@ -432,10 +433,11 @@ func TestFrontmanFunctionArguments(t *testing.T) {
 		Convey("The arguments to PacketFilterStart should be as expected", func() {
 			funcArgs, err := pdb.GetFunctionArguments("PacketFilterStart")
 			So(err, ShouldBeNil)
-			So(len(funcArgs), ShouldEqual, 3)
+			So(len(funcArgs), ShouldEqual, 4)
 			So(funcArgs[0].Size, ShouldEqual, pointerSize)
 			So(funcArgs[1].Size, ShouldEqual, pointerSize)
 			So(funcArgs[2].Size, ShouldEqual, pointerSize)
+			So(funcArgs[3].Size, ShouldEqual, pointerSize)
 		})
 
 		Convey("The arguments to PacketFilterClose should be as expected", func() {
