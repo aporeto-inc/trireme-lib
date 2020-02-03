@@ -1,9 +1,4 @@
 #!/bin/bash
 
-printf "copy .c and .h files as dep ensure isn't pulling them\n"
-
-rm -rf /tmp/gobpf
-git clone https://github.com/iovisor/gobpf.git /tmp/gobpf
-
-cp -r /tmp/gobpf/elf/ vendor/github.com/iovisor/gobpf/
-
+printf "fix_bfp not needed for go modules"
+exit 0
