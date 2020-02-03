@@ -20,6 +20,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/runtime"
 	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 
