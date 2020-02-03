@@ -219,11 +219,14 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 		} else {
 			chain = "HostSvcRules-INPUT"
 			// in Windows, our host svc chain is for all host svc PUs, so we need to set destination port
-			// to that of the PU to discriminate
-			if winRuleSpec.Protocol == packet.IPProtocolTCP {
+			// to that of the PU in order to discriminate
+			switch winRuleSpec.Protocol {
+			case packet.IPProtocolTCP:
 				winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.TCPPorts)
-			} else if winRuleSpec.Protocol == packet.IPProtocolUDP {
+			case packet.IPProtocolUDP:
 				winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.UDPPorts)
+			default:
+				return nil, nil
 			}
 		}
 	default:
