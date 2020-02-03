@@ -65,7 +65,6 @@ require (
 
 // Kubernetes ( consistent with https://github.com/aporeto-inc/aporeto-operator/blob/master/go.mod )
 require (
-	go.aporeto.io/trireme-lib v10.259.0+incompatible
 	k8s.io/api v0.0.0-20191102065807-b98ecd433b91
 	k8s.io/apimachinery v0.0.0-20191102025618-50aa20a7b23f
 	k8s.io/client-go v0.0.0-20191016110837-54936ba21026
