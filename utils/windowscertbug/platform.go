@@ -15,10 +15,12 @@ func VerifyCertificate(cert *x509.Certificate, opts x509.VerifyOptions) (chains 
 
 // PrepareClientTLSConfig for platforms without the cert bug does not
 // do anything special.
-func PrepareClientTLSConfig(config *tls.Config) {
+func PrepareClientTLSConfig(config *tls.Config) *tls.Config {
+	return config
 }
 
 // PrepareServerTLSConfig for platforms without the cert bug does not
 // do anything special.
-func PrepareServerTLSConfig(config *tls.Config) {
+func PrepareServerTLSConfig(config *tls.Config) *tls.Config {
+	return config
 }
