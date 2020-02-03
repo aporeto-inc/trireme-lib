@@ -20,9 +20,11 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/cespare/xxhash v1.1.0
+	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/dchest/siphash v1.2.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/envoyproxy/go-control-plane v0.9.2
@@ -35,11 +37,15 @@ require (
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/magiconair/properties v1.8.1
+	github.com/mailgun/timetools v0.0.0-20170619190023-f3a7b8ffff47 // indirect
 	github.com/mattn/go-shellwords v1.0.9
 	github.com/mdlayher/netlink v1.0.1-0.20191210152442-a1644773bc99
 	github.com/miekg/dns v1.1.27
 	github.com/minio/minio v0.0.0-20200203082420-9bbf5cb74f55
 	github.com/mitchellh/hashstructure v1.0.0
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.2.1
@@ -57,6 +63,7 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
 	google.golang.org/grpc v1.27.0
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 )
 
@@ -73,12 +80,12 @@ require (
 // wrong versions of Kubernetes inherited through other modules.
 // The version below here is Kubernetes 1.15.5
 replace (
-	k8s.io/api => k8s.io/api v0.0.0-20191016110246-af539daaa43a
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191016113439-b64f2075a530
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
-	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20191016111841-d20af8c7efc5
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016110837-54936ba21026
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.3.0
+	k8s.io/api => k8s.io/api v0.0.0-20191102065807-b98ecd433b91
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191102025618-50aa20a7b23f
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
+	k8s.io/utils => k8s.io/utils v0.0.0-20190801114015-581e00157fb1
+	sigs.k8s.io/controller-runtime => github.com/aporeto-inc/controller-runtime v0.4.1
 	sigs.k8s.io/yaml => sigs.k8s.io/yaml v1.1.0
 )
 
