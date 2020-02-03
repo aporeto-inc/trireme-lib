@@ -47,6 +47,8 @@ before_install:
   - cd $old
 
 install:
+  - go mod download
+  - git diff --exit-code go.mod go.sum
   - go list -m all || true
 
 script:
