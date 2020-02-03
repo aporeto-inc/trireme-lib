@@ -41,6 +41,7 @@ before_install:
   # go.mod file for trireme-lib. (otherwise the "git diff" below will fail. We also must
   # get go-diff@v0.5.1 or else go1.11.x will pull in a broken v0.5.0
   - GET_TMP="/tmp/go.get.tmp"
+  - mkdir "$GET_TMP"
   - cp go.mod go.sum "$GET_TMP"
   - OLD_DIR="$PWD" ; cd "$GET_TMP"
   - go get github.com/sourcegraph/go-diff@v0.5.1
