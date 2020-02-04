@@ -8,7 +8,6 @@ replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc10
 require (
 	go.aporeto.io/netlink-go v1.41.1
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
-	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000 // indirect
 )
 
 require (
