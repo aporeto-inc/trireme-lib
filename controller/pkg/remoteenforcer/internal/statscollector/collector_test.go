@@ -124,6 +124,7 @@ func TestGetAllDataPathPacketRecords(t *testing.T) {
 func TestAllCounterReports(t *testing.T) {
 	Convey("Given i collect a new collector", t, func() {
 		c := NewCollector()
+		c.(*collectorImpl).Reports = make(chan *Report, 1)
 		Convey("I trace a single packet", func() {
 			c.CollectCounterEvent(&collector.CounterReport{})
 			records := c.GetReports()

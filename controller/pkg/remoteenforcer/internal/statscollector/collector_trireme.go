@@ -57,34 +57,32 @@ func (c *collectorImpl) CollectTraceEvent(records []string) {
 
 // CollectTraceEvent collect trace events
 func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
-	//We will leave this unimplemented
-	// trace event collection in done from the main enforcer
-	c.Lock()
-	defer c.Unlock()
-
-	c.Reports <- &Report{PacketReport, report}
+	c.send(PacketReport, report)
 }
 
 // CollectCounterEvent collect counters from the datapath
 func (c *collectorImpl) CollectCounterEvent(report *collector.CounterReport) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.Reports <- &Report{CounterReport, report}
+	c.send(CounterReport, report)
 }
 
 // CollectCounterEvent collect counters from the datapath
 func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.Reports <- &Report{DNSReport, report}
+	c.send(DNSReport, report)
 }
 
 // CollectPingEvent collect ping events from the datapath
 func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
-	c.Lock()
-	defer c.Unlock()
+	c.send(PingReport, report)
+}
 
-	c.Reports <- &Report{PingReport, report}
+func (c *collectorImpl) send(rtype ReportType, report interface{}) {
+
+	select {
+	case c.Reports <- &Report{rtype, report}:
+	default:
+		zap.L().Warn("Reports queue full, dropped",
+			zap.Reflect("reportType", rtype),
+			zap.Reflect("report", report),
+		)
+	}
 }
