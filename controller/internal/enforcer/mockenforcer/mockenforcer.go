@@ -97,6 +97,7 @@ func (mr *MockEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
 // GetBPFObject mocks base method
 // nolint
 func (m *MockEnforcer) GetBPFObject() ebpf.BPFModule {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBPFObject")
 	ret0, _ := ret[0].(ebpf.BPFModule)
 	return ret0
@@ -105,6 +106,7 @@ func (m *MockEnforcer) GetBPFObject() ebpf.BPFModule {
 // GetBPFObject indicates an expected call of GetBPFObject
 // nolint
 func (mr *MockEnforcerMockRecorder) GetBPFObject() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBPFObject", reflect.TypeOf((*MockEnforcer)(nil).GetBPFObject))
 }
 
