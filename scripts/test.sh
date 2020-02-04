@@ -5,10 +5,6 @@ export GO111MODULE=auto
 # set -e
 echo >| coverage.txt
 
-# temporarily for debugging travis build
-# how did this even work all this time? '-source_package' is not an option for a long time
-./mockgen.sh
-
 echo
 echo  "========= BEGIN TESTS ==========="
 echo
