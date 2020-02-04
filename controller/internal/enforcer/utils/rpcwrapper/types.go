@@ -63,6 +63,7 @@ type InitRequestPayload struct {
 	Secrets                secrets.PublicSecrets  `json:",omitempty"`
 	Configuration          *runtime.Configuration `json:",omitempty"`
 	BinaryTokens           bool                   `json:",omitempty"`
+	IsBPFEnabled           bool                   `json:",omitempty"`
 	IPv6Enabled            bool                   `json:",omitempty"`
 }
 

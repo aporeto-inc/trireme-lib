@@ -273,6 +273,7 @@ func TestInitEnforcer(t *testing.T) {
 			tokenIssuer common.ServiceTokenIssuer,
 			binaryTokens bool,
 			aclmanager ipsetmanager.ACLManager,
+			iseBPFSupported bool,
 			agentVersion semver.Version,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
@@ -377,6 +378,7 @@ func TestInitEnforcer(t *testing.T) {
 					tokenIssuer common.ServiceTokenIssuer,
 					binaryTokens bool,
 					aclmanager ipsetmanager.ACLManager,
+					iseBPFSupported bool,
 					agentVersion semver.Version,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")

@@ -525,6 +525,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		s.tokenIssuer,
 		payload.BinaryTokens,
 		s.aclmanager,
+		payload.IsBPFEnabled,
 		s.agentVersion,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
