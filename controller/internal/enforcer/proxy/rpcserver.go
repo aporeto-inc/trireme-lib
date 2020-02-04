@@ -76,7 +76,7 @@ func (r *ProxyRPCServer) PostReportEvent(req rpcwrapper.Request, resp *rpcwrappe
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		return errors.New("message sender cannot be verified")
 	}
-	fmt.Println(req.Payload)
+
 	switch req.PayloadType {
 	case rpcwrapper.PingReport:
 		pingReport := req.Payload.(*collector.PingReport)
@@ -84,12 +84,10 @@ func (r *ProxyRPCServer) PostReportEvent(req rpcwrapper.Request, resp *rpcwrappe
 
 	case rpcwrapper.DebugReport:
 		debugReport := req.Payload.(*collector.PacketReport)
-		fmt.Println("PACKET REPORT")
 		r.collector.CollectPacketEvent(debugReport)
 
 	case rpcwrapper.CounterReport:
 		counterReport := req.Payload.(*collector.CounterReport)
-		fmt.Println("COUNTER REPORT")
 		r.collector.CollectCounterEvent(counterReport)
 
 	case rpcwrapper.DNSReport:

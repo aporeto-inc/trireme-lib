@@ -41,6 +41,7 @@ func (m *MockProcessManager) EXPECT() *MockProcessManagerMockRecorder {
 // KillRemoteEnforcer mocks base method
 // nolint
 func (m *MockProcessManager) KillRemoteEnforcer(contextID string, force bool) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KillRemoteEnforcer", contextID, force)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -49,12 +50,14 @@ func (m *MockProcessManager) KillRemoteEnforcer(contextID string, force bool) er
 // KillRemoteEnforcer indicates an expected call of KillRemoteEnforcer
 // nolint
 func (mr *MockProcessManagerMockRecorder) KillRemoteEnforcer(contextID, force interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KillRemoteEnforcer", reflect.TypeOf((*MockProcessManager)(nil).KillRemoteEnforcer), contextID, force)
 }
 
 // LaunchRemoteEnforcer mocks base method
 // nolint
 func (m *MockProcessManager) LaunchRemoteEnforcer(contextID string, refPid int, refNsPath, arg, statssecret, procMountPoint string, enforcerType policy.EnforcerType) (bool, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LaunchRemoteEnforcer", contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
@@ -64,5 +67,6 @@ func (m *MockProcessManager) LaunchRemoteEnforcer(contextID string, refPid int, 
 // LaunchRemoteEnforcer indicates an expected call of LaunchRemoteEnforcer
 // nolint
 func (mr *MockProcessManagerMockRecorder) LaunchRemoteEnforcer(contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchRemoteEnforcer", reflect.TypeOf((*MockProcessManager)(nil).LaunchRemoteEnforcer), contextID, refPid, refNsPath, arg, statssecret, procMountPoint, enforcerType)
 }

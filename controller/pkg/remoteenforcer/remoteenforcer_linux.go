@@ -23,11 +23,11 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"github.com/mitchellh/mapstructure"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	reports "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/reportsclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
+	reports "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/reportsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -53,9 +53,9 @@ func newRemoteEnforcer(
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	secret string,
-	statsClient statsclient.StatsClient,
+	statsClient client.Reporter,
 	collector statscollector.Collector,
-	reportsClient reports.ReportsClient,
+	reportsClient client.Reporter,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
@@ -70,7 +70,7 @@ func newRemoteEnforcer(
 
 	if statsClient == nil {
 		statsClient, err = statsclient.NewStatsClient(collector)
-		if err != nil {
+		if err != nil {			
 			return nil, err
 		}
 	}
@@ -123,16 +123,10 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	zap.L().Debug("Configuring remote enforcer")
 
-fmt.Println(req.PayloadType)
-result:=rpcwrapper.InitRequestPayload{}
-mapstructure.Decode(req.Payload, &result)
-fmt.Println(result)
-
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = fmt.Sprintf("init message authentication failed")
 		return fmt.Errorf(resp.Status)
 	}
-
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
@@ -262,7 +256,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	s.statsClient.SendStats()
+	s.statsClient.Send()
 
 	payload, ok := req.Payload.(rpcwrapper.UnEnforcePayload)
 	if !ok {

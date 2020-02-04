@@ -5,18 +5,22 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"net"
+	"net/http"
 	"net/rpc"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
+	"go.aporeto.io/trireme-lib/collector"
 
 	"github.com/mitchellh/hashstructure"
-	"github.com/ugorji/go/codec"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
@@ -30,17 +34,17 @@ type RPCHdl struct {
 
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
-	rpcClientMap  *cache.Cache
-	msgpackHandle *msgpackHandle
+	rpcClientMap *cache.Cache
 	sync.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
 
+	RegisterTypes()
+
 	return &RPCWrapper{
-		rpcClientMap:  cache.NewCache("RPCWrapper"),
-		msgpackHandle: newMsgpackHandle(),
+		rpcClientMap: cache.NewCache("RPCWrapper"),
 	}
 }
 
@@ -62,7 +66,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 	}
 
 	numRetries := 0
-	conn, err := net.Dial("unix", channel)
+	client, err := rpc.DialHTTP("unix", channel)
 	for err != nil {
 		numRetries++
 		if numRetries >= max {
@@ -70,12 +74,8 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		}
 
 		time.Sleep(5 * time.Millisecond)
-		conn, err = net.Dial("unix", channel)
+		client, err = rpc.DialHTTP("unix", channel)
 	}
-
-	// Custom msgpack client codec
-	rpcCodec := codec.MsgpackSpecRpc.ClientCodec(conn, r.msgpackHandle.handler())
-	client := rpc.NewClientWithCodec(rpcCodec)
 
 	r.rpcClientMap.AddOrUpdate(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
@@ -106,10 +106,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	data := map[string]interface{}{}
-	mapstructure.Decode(req.Payload.(*InitRequestPayload), &data)
-	fmt.Println("DATA", data)
-	hash, err := payloadHash(data)
+	hash, err := payloadHash(req.Payload)
 	if err != nil {
 		return err
 	}
@@ -143,9 +140,7 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 //NewRPCServer returns an interface RPCServer
 func NewRPCServer() RPCServer {
 
-	return &RPCWrapper{
-		msgpackHandle: newMsgpackHandle(),
-	}
+	return &RPCWrapper{}
 }
 
 // StartServer Starts a server and waits for new connections this function never returns
@@ -154,6 +149,9 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	if len(path) == 0 {
 		zap.L().Fatal("Sock param not passed in environment")
 	}
+
+	// Register RPC Type
+	RegisterTypes()
 
 	// Register handlers
 	if err := rpc.Register(handler); err != nil {
@@ -177,18 +175,7 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 		return err
 	}
 
-	go func() {
-		for {
-			conn, err := listen.Accept()
-			if err != nil {
-				zap.L().Error("unable to accept connection: %v", zap.Error(err))
-				continue
-			}
-
-			rpcCodec := codec.MsgpackSpecRpc.ServerCodec(conn, r.msgpackHandle.handler())
-			rpc.ServeCodec(rpcCodec)
-		}
-	}()
+	go http.Serve(listen, nil) // nolint
 
 	<-ctx.Done()
 
@@ -266,4 +253,29 @@ func payloadHash(payload interface{}) ([]byte, error) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, hash)
 	return buf, nil
+}
+
+// RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
+func RegisterTypes() {
+
+	gob.Register(&secrets.CompactPKIPublicSecrets{})
+	gob.Register(&pkitokens.PKIJWTVerifier{})
+	gob.Register(&oidc.TokenVerifier{})
+	gob.Register(&collector.CounterReport{})
+	gob.Register(&collector.PingReport{})
+	gob.Register(&collector.DNSRequestReport{})
+	gob.Register(&collector.PacketReport{})
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Report_Payload", *(&ReportPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetLogLevel_Payload", *(&SetLogLevelPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenRequest_Payload", *(&TokenRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenResponse_Payload", *(&TokenResponsePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Ping_Payload", *(&PingPayload{}))
 }

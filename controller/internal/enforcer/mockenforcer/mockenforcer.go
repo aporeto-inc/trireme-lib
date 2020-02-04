@@ -48,6 +48,7 @@ func (m *MockEnforcer) EXPECT() *MockEnforcerMockRecorder {
 // Enforce mocks base method
 // nolint
 func (m *MockEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enforce", contextID, puInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,12 +57,14 @@ func (m *MockEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Enforce indicates an expected call of Enforce
 // nolint
 func (mr *MockEnforcerMockRecorder) Enforce(contextID, puInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enforce", reflect.TypeOf((*MockEnforcer)(nil).Enforce), contextID, puInfo)
 }
 
 // Unenforce mocks base method
 // nolint
 func (m *MockEnforcer) Unenforce(contextID string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unenforce", contextID)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -70,12 +73,14 @@ func (m *MockEnforcer) Unenforce(contextID string) error {
 // Unenforce indicates an expected call of Unenforce
 // nolint
 func (mr *MockEnforcerMockRecorder) Unenforce(contextID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unenforce", reflect.TypeOf((*MockEnforcer)(nil).Unenforce), contextID)
 }
 
 // GetFilterQueue mocks base method
 // nolint
 func (m *MockEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilterQueue")
 	ret0, _ := ret[0].(*fqconfig.FilterQueue)
 	return ret0
@@ -84,12 +89,14 @@ func (m *MockEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
 // GetFilterQueue indicates an expected call of GetFilterQueue
 // nolint
 func (mr *MockEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilterQueue", reflect.TypeOf((*MockEnforcer)(nil).GetFilterQueue))
 }
 
 // Run mocks base method
 // nolint
 func (m *MockEnforcer) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -98,12 +105,14 @@ func (m *MockEnforcer) Run(ctx context.Context) error {
 // Run indicates an expected call of Run
 // nolint
 func (mr *MockEnforcerMockRecorder) Run(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockEnforcer)(nil).Run), ctx)
 }
 
 // UpdateSecrets mocks base method
 // nolint
 func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecrets", secrets)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -112,12 +121,14 @@ func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
 // UpdateSecrets indicates an expected call of UpdateSecrets
 // nolint
 func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockEnforcer)(nil).UpdateSecrets), secrets)
 }
 
 // SetTargetNetworks mocks base method
 // nolint
 func (m *MockEnforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetTargetNetworks", cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -126,12 +137,14 @@ func (m *MockEnforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
 func (mr *MockEnforcerMockRecorder) SetTargetNetworks(cfg interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), cfg)
 }
 
 // SetLogLevel mocks base method
 // nolint
 func (m *MockEnforcer) SetLogLevel(level constants.LogLevel) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetLogLevel", level)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -140,12 +153,14 @@ func (m *MockEnforcer) SetLogLevel(level constants.LogLevel) error {
 // SetLogLevel indicates an expected call of SetLogLevel
 // nolint
 func (mr *MockEnforcerMockRecorder) SetLogLevel(level interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogLevel", reflect.TypeOf((*MockEnforcer)(nil).SetLogLevel), level)
 }
 
 // CleanUp mocks base method
 // nolint
 func (m *MockEnforcer) CleanUp() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CleanUp")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -154,12 +169,14 @@ func (m *MockEnforcer) CleanUp() error {
 // CleanUp indicates an expected call of CleanUp
 // nolint
 func (mr *MockEnforcerMockRecorder) CleanUp() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockEnforcer)(nil).CleanUp))
 }
 
 // EnableDatapathPacketTracing mocks base method
 // nolint
 func (m *MockEnforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -168,12 +185,14 @@ func (m *MockEnforcer) EnableDatapathPacketTracing(ctx context.Context, contextI
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
 func (mr *MockEnforcerMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method
 // nolint
 func (m *MockEnforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -182,12 +201,14 @@ func (m *MockEnforcer) EnableIPTablesPacketTracing(ctx context.Context, contextI
 // EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
 // nolint
 func (mr *MockEnforcerMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockEnforcer)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }
 
 // Ping mocks base method
 // nolint
 func (m *MockEnforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ping", ctx, contextID, pingConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -196,6 +217,7 @@ func (m *MockEnforcer) Ping(ctx context.Context, contextID string, pingConfig *p
 // Ping indicates an expected call of Ping
 // nolint
 func (mr *MockEnforcerMockRecorder) Ping(ctx, contextID, pingConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockEnforcer)(nil).Ping), ctx, contextID, pingConfig)
 }
 
@@ -229,6 +251,7 @@ func (m *MockDebugInfo) EXPECT() *MockDebugInfoMockRecorder {
 // EnableDatapathPacketTracing mocks base method
 // nolint
 func (m *MockDebugInfo) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableDatapathPacketTracing", ctx, contextID, direction, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -237,12 +260,14 @@ func (m *MockDebugInfo) EnableDatapathPacketTracing(ctx context.Context, context
 // EnableDatapathPacketTracing indicates an expected call of EnableDatapathPacketTracing
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableDatapathPacketTracing(ctx, contextID, direction, interval interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDatapathPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableDatapathPacketTracing), ctx, contextID, direction, interval)
 }
 
 // EnableIPTablesPacketTracing mocks base method
 // nolint
 func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableIPTablesPacketTracing", ctx, contextID, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -251,12 +276,14 @@ func (m *MockDebugInfo) EnableIPTablesPacketTracing(ctx context.Context, context
 // EnableIPTablesPacketTracing indicates an expected call of EnableIPTablesPacketTracing
 // nolint
 func (mr *MockDebugInfoMockRecorder) EnableIPTablesPacketTracing(ctx, contextID, interval interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableIPTablesPacketTracing", reflect.TypeOf((*MockDebugInfo)(nil).EnableIPTablesPacketTracing), ctx, contextID, interval)
 }
 
 // Ping mocks base method
 // nolint
 func (m *MockDebugInfo) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ping", ctx, contextID, pingConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -265,5 +292,6 @@ func (m *MockDebugInfo) Ping(ctx context.Context, contextID string, pingConfig *
 // Ping indicates an expected call of Ping
 // nolint
 func (mr *MockDebugInfoMockRecorder) Ping(ctx, contextID, pingConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDebugInfo)(nil).Ping), ctx, contextID, pingConfig)
 }

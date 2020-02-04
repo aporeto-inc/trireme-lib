@@ -7,6 +7,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
@@ -27,7 +28,7 @@ type reportsClient struct {
 }
 
 // NewClient initializes a new ping report client
-func NewClient(cr statscollector.Collector) (ReportsClient, error) {
+func NewClient(cr statscollector.Collector) (client.Reporter, error) {
 
 	p := &reportsClient{
 		collector:     cr,
@@ -73,7 +74,7 @@ func (p *reportsClient) sendRequest(report *statscollector.Report) {
 		&request,
 		&rpcwrapper.Response{},
 	); err != nil {
-		zap.L().Error("RPC failure in sending reports", zap.Error(err))
+		zap.L().Error("unable to execute rpc", zap.Error(err))
 	}
 }
 
@@ -81,12 +82,17 @@ func (p *reportsClient) sendRequest(report *statscollector.Report) {
 // to the controller over a stats channel
 func (p *reportsClient) Run(ctx context.Context) error {
 	if err := p.rpchdl.NewRPCClient(reportContextID, p.reportChannel, p.secret); err != nil {
-		zap.L().Error("Stats RPC client cannot connect", zap.Error(err))
+		zap.L().Error("unable to create new rpc client", zap.Error(err))
 		return err
 	}
 
 	go p.sendStats(ctx)
 
+	return nil
+}
+
+// Send is unimplemented.
+func (p *reportsClient) Send() error {
 	return nil
 }
 

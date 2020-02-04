@@ -43,6 +43,7 @@ func (m *MockTokenClient) EXPECT() *MockTokenClientMockRecorder {
 // Run mocks base method
 // nolint
 func (m *MockTokenClient) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -51,12 +52,14 @@ func (m *MockTokenClient) Run(ctx context.Context) error {
 // Run indicates an expected call of Run
 // nolint
 func (mr *MockTokenClientMockRecorder) Run(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockTokenClient)(nil).Run), ctx)
 }
 
 // Issue mocks base method
 // nolint
 func (m *MockTokenClient) Issue(ctx context.Context, contextID string, stype common.ServiceTokenType, audience string, validity time.Duration) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Issue", ctx, contextID, stype, audience, validity)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -66,5 +69,6 @@ func (m *MockTokenClient) Issue(ctx context.Context, contextID string, stype com
 // Issue indicates an expected call of Issue
 // nolint
 func (mr *MockTokenClientMockRecorder) Issue(ctx, contextID, stype, audience, validity interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Issue", reflect.TypeOf((*MockTokenClient)(nil).Issue), ctx, contextID, stype, audience, validity)
 }

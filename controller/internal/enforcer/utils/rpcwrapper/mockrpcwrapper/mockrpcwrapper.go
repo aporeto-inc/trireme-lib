@@ -42,6 +42,7 @@ func (m *MockRPCClient) EXPECT() *MockRPCClientMockRecorder {
 // NewRPCClient mocks base method
 // nolint
 func (m *MockRPCClient) NewRPCClient(contextID, channel, rpcSecret string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewRPCClient", contextID, channel, rpcSecret)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -50,12 +51,14 @@ func (m *MockRPCClient) NewRPCClient(contextID, channel, rpcSecret string) error
 // NewRPCClient indicates an expected call of NewRPCClient
 // nolint
 func (mr *MockRPCClientMockRecorder) NewRPCClient(contextID, channel, rpcSecret interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRPCClient", reflect.TypeOf((*MockRPCClient)(nil).NewRPCClient), contextID, channel, rpcSecret)
 }
 
 // GetRPCClient mocks base method
 // nolint
 func (m *MockRPCClient) GetRPCClient(contextID string) (*rpcwrapper.RPCHdl, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRPCClient", contextID)
 	ret0, _ := ret[0].(*rpcwrapper.RPCHdl)
 	ret1, _ := ret[1].(error)
@@ -65,12 +68,14 @@ func (m *MockRPCClient) GetRPCClient(contextID string) (*rpcwrapper.RPCHdl, erro
 // GetRPCClient indicates an expected call of GetRPCClient
 // nolint
 func (mr *MockRPCClientMockRecorder) GetRPCClient(contextID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRPCClient", reflect.TypeOf((*MockRPCClient)(nil).GetRPCClient), contextID)
 }
 
 // RemoteCall mocks base method
 // nolint
 func (m *MockRPCClient) RemoteCall(contextID, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoteCall", contextID, methodName, req, resp)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -79,24 +84,28 @@ func (m *MockRPCClient) RemoteCall(contextID, methodName string, req *rpcwrapper
 // RemoteCall indicates an expected call of RemoteCall
 // nolint
 func (mr *MockRPCClientMockRecorder) RemoteCall(contextID, methodName, req, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteCall", reflect.TypeOf((*MockRPCClient)(nil).RemoteCall), contextID, methodName, req, resp)
 }
 
 // DestroyRPCClient mocks base method
 // nolint
 func (m *MockRPCClient) DestroyRPCClient(contextID string) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "DestroyRPCClient", contextID)
 }
 
 // DestroyRPCClient indicates an expected call of DestroyRPCClient
 // nolint
 func (mr *MockRPCClientMockRecorder) DestroyRPCClient(contextID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyRPCClient", reflect.TypeOf((*MockRPCClient)(nil).DestroyRPCClient), contextID)
 }
 
 // ContextList mocks base method
 // nolint
 func (m *MockRPCClient) ContextList() []string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContextList")
 	ret0, _ := ret[0].([]string)
 	return ret0
@@ -105,12 +114,14 @@ func (m *MockRPCClient) ContextList() []string {
 // ContextList indicates an expected call of ContextList
 // nolint
 func (mr *MockRPCClientMockRecorder) ContextList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContextList", reflect.TypeOf((*MockRPCClient)(nil).ContextList))
 }
 
 // CheckValidity mocks base method
 // nolint
 func (m *MockRPCClient) CheckValidity(req *rpcwrapper.Request, secret string) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckValidity", req, secret)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -119,6 +130,7 @@ func (m *MockRPCClient) CheckValidity(req *rpcwrapper.Request, secret string) bo
 // CheckValidity indicates an expected call of CheckValidity
 // nolint
 func (mr *MockRPCClientMockRecorder) CheckValidity(req, secret interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckValidity", reflect.TypeOf((*MockRPCClient)(nil).CheckValidity), req, secret)
 }
 
@@ -152,6 +164,7 @@ func (m *MockRPCServer) EXPECT() *MockRPCServerMockRecorder {
 // StartServer mocks base method
 // nolint
 func (m *MockRPCServer) StartServer(ctx context.Context, protocol, path string, handler interface{}) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartServer", ctx, protocol, path, handler)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -160,12 +173,14 @@ func (m *MockRPCServer) StartServer(ctx context.Context, protocol, path string, 
 // StartServer indicates an expected call of StartServer
 // nolint
 func (mr *MockRPCServerMockRecorder) StartServer(ctx, protocol, path, handler interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartServer", reflect.TypeOf((*MockRPCServer)(nil).StartServer), ctx, protocol, path, handler)
 }
 
 // ProcessMessage mocks base method
 // nolint
 func (m *MockRPCServer) ProcessMessage(req *rpcwrapper.Request, secret string) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessMessage", req, secret)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -174,12 +189,14 @@ func (m *MockRPCServer) ProcessMessage(req *rpcwrapper.Request, secret string) b
 // ProcessMessage indicates an expected call of ProcessMessage
 // nolint
 func (mr *MockRPCServerMockRecorder) ProcessMessage(req, secret interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessMessage", reflect.TypeOf((*MockRPCServer)(nil).ProcessMessage), req, secret)
 }
 
 // CheckValidity mocks base method
 // nolint
 func (m *MockRPCServer) CheckValidity(req *rpcwrapper.Request, secret string) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckValidity", req, secret)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -188,5 +205,6 @@ func (m *MockRPCServer) CheckValidity(req *rpcwrapper.Request, secret string) bo
 // CheckValidity indicates an expected call of CheckValidity
 // nolint
 func (mr *MockRPCServerMockRecorder) CheckValidity(req, secret interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckValidity", reflect.TypeOf((*MockRPCServer)(nil).CheckValidity), req, secret)
 }

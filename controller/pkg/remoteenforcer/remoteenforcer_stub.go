@@ -6,7 +6,7 @@ import (
 	"context"
 
 	"github.com/blang/semver"
-	reports "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/reportsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -14,7 +14,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
@@ -32,9 +31,9 @@ func newRemoteEnforcer(
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	secret string,
-	statsClient statsclient.StatsClient,
+	statsClient client.Reporter,
 	collector statscollector.Collector,
-	reportsClient reports.ReportsClient,
+	reportsClient client.Reporter,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
