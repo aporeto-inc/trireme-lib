@@ -2,7 +2,7 @@ module go.aporeto.io/trireme-lib/v11
 
 go 1.13
 
-replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc3
+replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc4
 
 // Aporeto modules
 require (
