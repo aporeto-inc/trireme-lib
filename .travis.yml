@@ -55,7 +55,7 @@ install:
   - go list -m all || true
 
 script:
-  - GO111MODULE=off ./mockgen.sh
+  - ./mockgen.sh
   - ./scripts/lint.sh
   - ./scripts/test.sh
 
