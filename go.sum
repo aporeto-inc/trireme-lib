@@ -46,8 +46,8 @@ github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo
 github.com/aporeto-inc/controller-runtime v0.1.10 h1:Pg0ajyU5l3BBn1v2G5Qi8ZMm/KzVY0USWpNQbPG56UQ=
 github.com/aporeto-inc/controller-runtime v0.1.10/go.mod h1:vtyRTl0339ol5gQn18Yb2dcnKoDH7F+Q0YQGChB9O4E=
 github.com/aporeto-inc/controller-runtime v0.4.1/go.mod h1:64UAKvtmfnIo4jwzNSHPqf3H5HlFbeaTJJvGuHQp/uY=
-github.com/aporeto-inc/go-ipset v1.7.1 h1:CQvknVhtD5M0g3ZqDVGpN4mC4t3D/kHxVGa6B3m6a0Q=
-github.com/aporeto-inc/go-ipset v1.7.1/go.mod h1:qK6gR4hkFGuBMBAUpLocng5d7ymzJ6+vpZqsTwFrjAg=
+github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a h1:NErengbXwOqi7PpP8rrkWKeDljZhaBy6BUbZmyR1OhI=
+github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a/go.mod h1:qK6gR4hkFGuBMBAUpLocng5d7ymzJ6+vpZqsTwFrjAg=
 github.com/aporeto-inc/gopkt v0.0.0-20200127181821-1af745e7e4c1 h1:jeD4BxKrEn2uW7uuHyciG8eMJNRsS2Wk0zHds6QEQFA=
 github.com/aporeto-inc/gopkt v0.0.0-20200127181821-1af745e7e4c1/go.mod h1:0vXsw3vJ1lRZ709fHGWxGrVn0EuUXa81mfg5q5EE438=
 github.com/aporeto-inc/oxy v1.2.2/go.mod h1:bFs0SV9xNWH05Ibe3ctphGtP5yceNngcVuHuQwZte1Q=
