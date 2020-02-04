@@ -56,8 +56,8 @@ install:
 
 script:
   - ./mockgen.sh
-  - ./scripts/lint.sh
   - ./scripts/test.sh
+  - ./scripts/lint.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
