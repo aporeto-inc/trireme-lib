@@ -61,7 +61,7 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 )
 
-// Kubernetes ( consistent with https://github.com/aporeto-inc/aporeto-operator/blob/master/go.mod )
+// Kubernetes
 require (
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
@@ -72,14 +72,15 @@ require (
 // Kubernetes:
 // NOTE: we must use the replace directive as below, otherwise we might get
 // wrong versions of Kubernetes inherited through other modules.
-// The version below here is Kubernetes 1.15.5
+// The version below here is Kubernetes 1.15.6
 replace (
-	k8s.io/api => k8s.io/api v0.0.0-20191016110246-af539daaa43a
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.17.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.15.10-beta.0
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016110837-54936ba21026
-	k8s.io/utils => k8s.io/utils v0.0.0-20190801114015-581e00157fb1
-	sigs.k8s.io/controller-runtime => github.com/aporeto-inc/controller-runtime v0.4.1
+	k8s.io/api => k8s.io/api v0.0.0-20191114100237-2cd11237263f // 1.15.6
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v1.15.6
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762 // 1.15.6
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20191114101336-8cba805ad12d // 1.15.6
+	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20190912054826-cd179ad6a269 // 1.15.6
+	k8s.io/utils => k8s.io/utils v0.0.0-20200124190032-861946025e34
+	sigs.k8s.io/controller-runtime => github.com/aporeto-inc/controller-runtime v0.1.10
 	sigs.k8s.io/yaml => sigs.k8s.io/yaml v1.1.0
 )
 
