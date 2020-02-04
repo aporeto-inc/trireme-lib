@@ -70,7 +70,7 @@ func newRemoteEnforcer(
 
 	if statsClient == nil {
 		statsClient, err = statsclient.NewStatsClient(collector)
-		if err != nil {			
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -256,7 +256,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	s.statsClient.Send()
+	s.statsClient.Send() // nolint:errcheck
 
 	payload, ok := req.Payload.(rpcwrapper.UnEnforcePayload)
 	if !ok {

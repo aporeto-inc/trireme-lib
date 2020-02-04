@@ -32,18 +32,21 @@ type collectorImpl struct {
 	sync.Mutex
 }
 
-type Report struct {
-	Type    ReportType
-	Payload interface{}
-}
-
+// ReportType it the type of report.
 type ReportType uint8
 
+// ReportTypes.
 const (
 	FlowRecord ReportType = iota
 	UserRecord
-	DatapathPacketReport
+	PacketReport
 	CounterReport
 	DNSReport
 	PingReport
 )
+
+// Report holds the report type and the payload.
+type Report struct {
+	Type    ReportType
+	Payload interface{}
+}

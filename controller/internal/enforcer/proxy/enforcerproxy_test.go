@@ -439,9 +439,9 @@ func TestPostReportEvent(t *testing.T) {
 	defer ctrl.Finish()
 	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 	c := eventCollector()
-	
+
 	request := rpcwrapper.Request{
-		PayloadType:rpcwrapper.DebugReport,
+		PayloadType: rpcwrapper.PacketReport,
 		Payload: &collector.PacketReport{
 			DestinationIP: "12.12.12.12",
 			SourceIP:      "1.1.1.1",
@@ -466,4 +466,3 @@ func TestPostReportEvent(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 }
-

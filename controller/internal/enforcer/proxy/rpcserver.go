@@ -82,7 +82,7 @@ func (r *ProxyRPCServer) PostReportEvent(req rpcwrapper.Request, resp *rpcwrappe
 		pingReport := req.Payload.(*collector.PingReport)
 		r.collector.CollectPingEvent(pingReport)
 
-	case rpcwrapper.DebugReport:
+	case rpcwrapper.PacketReport:
 		debugReport := req.Payload.(*collector.PacketReport)
 		r.collector.CollectPacketEvent(debugReport)
 

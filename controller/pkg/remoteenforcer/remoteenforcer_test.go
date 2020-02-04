@@ -27,7 +27,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"				
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/mockclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient"
@@ -251,9 +251,9 @@ func TestInitEnforcer(t *testing.T) {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockclient.NewMockReporter(ctrl)
-		mockReports := mockclient.NewMockReporter(ctrl)		
+		mockReports := mockclient.NewMockReporter(ctrl)
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
-		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)		
+		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
 		mockTokenClient := mocktokenclient.NewMockTokenClient(ctrl)
 
 		// Mock the global functions.
@@ -485,9 +485,6 @@ func TestInitEnforcer(t *testing.T) {
 				})
 			})
 
-
-
-
 			Convey("When i try to instantiate the enforcer and reports Client fails to run it should cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
@@ -507,7 +504,7 @@ func TestInitEnforcer(t *testing.T) {
 
 				Convey("Then I should get error", func() {
 					So(err, ShouldNotBeNil)
-					So(err, ShouldResemble, errors.New("CounterClientfailed to run counterclient"))
+					So(err, ShouldResemble, errors.New("ReportsClientfailed to run counterclient"))
 				})
 
 			})

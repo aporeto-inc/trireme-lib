@@ -23,11 +23,12 @@ const (
 	IPSets
 )
 
+// PayloadType is the type of payload in the request.
 type PayloadType int
 
+// Payload report types.
 const (
-	// Report payload types
-	DebugReport PayloadType = iota
+	PacketReport PayloadType = iota
 	DNSReport
 	CounterReport
 	PingReport

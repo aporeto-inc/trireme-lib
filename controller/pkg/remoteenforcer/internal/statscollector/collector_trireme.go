@@ -62,7 +62,7 @@ func (c *collectorImpl) CollectPacketEvent(report *collector.PacketReport) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.Reports <- &Report{DatapathPacketReport, report}
+	c.Reports <- &Report{PacketReport, report}
 }
 
 // CollectCounterEvent collect counters from the datapath

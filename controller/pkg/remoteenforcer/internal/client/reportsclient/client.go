@@ -99,8 +99,8 @@ func (p *reportsClient) Send() error {
 func reportTypeToPayloadType(rtype statscollector.ReportType) (ptype rpcwrapper.PayloadType) {
 
 	switch rtype {
-	case statscollector.DatapathPacketReport:
-		ptype = rpcwrapper.DebugReport
+	case statscollector.PacketReport:
+		ptype = rpcwrapper.PacketReport
 	case statscollector.CounterReport:
 		ptype = rpcwrapper.CounterReport
 	case statscollector.DNSReport:
