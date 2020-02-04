@@ -29,6 +29,7 @@ addons:
 
 env:
   global:
+    - GOPRIVATE="go.aporeto.io,github.com/aporeto-inc"
     - TOOLS_CMD=golang.org/x/tools/cmd
     - PATH=$GOROOT/bin:$PATH
     - SUDO_PERMITTED=1
