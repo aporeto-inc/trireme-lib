@@ -40,13 +40,10 @@ before_install:
   # we move the go.mod file away so that the next two go gets don't modify the
   # go.mod file for trireme-lib. (otherwise the "git diff" below will fail. We also must
   # get go-diff@v0.5.1 or else go1.11.x will pull in a broken v0.5.0
-  - go mod verify
-  - sha256sum go.mod go.sum
   - GET_TMP="/tmp/go.get.tmp"
   - mkdir "$GET_TMP"
   - cp go.mod go.sum "$GET_TMP"
   - OLD_DIR="$PWD" ; cd "$GET_TMP"
-  - sha256sum go.mod go.sum
   - go get github.com/sourcegraph/go-diff@v0.5.1
   - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
   - cd "$OLD_DIR"
