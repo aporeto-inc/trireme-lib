@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-export GO111MODULE=on
+export GO111MODULE=auto
 
 # set -e
 echo >| coverage.txt
 
 # temporarily for debugging travis build
 # how did this even work all this time? '-source_package' is not an option for a long time
-#./mockgen.sh
+./mockgen.sh
 
 echo
 echo  "========= BEGIN TESTS ==========="
