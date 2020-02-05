@@ -4695,7 +4695,7 @@ func TestCollectTCPPacket(t *testing.T) {
 				SourceIP:      tcpPacket.SourceAddress().String(),
 			}
 			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
-			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext), nil)
+			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext), tcpPacket)
 			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(1)
 			enforcer.collectTCPPacket(&debugpacketmessage{
 				Mark:    10,
@@ -4715,7 +4715,7 @@ func TestCollectTCPPacket(t *testing.T) {
 				SourceIP:      tcpPacket.SourceAddress().String(),
 			}
 			context, _ := enforcer.puFromContextID.Get(puInfo1.ContextID)
-			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext), nil)
+			tcpConn := connection.NewTCPConnection(context.(*pucontext.PUContext), tcpPacket)
 			mockCollector.EXPECT().CollectPacketEvent(PacketEventMatcher(&packetreport)).Times(0)
 			enforcer.collectTCPPacket(&debugpacketmessage{
 				Mark:    10,

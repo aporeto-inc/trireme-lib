@@ -31,8 +31,8 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 	fq.DNSServerAddress = []string{"0.0.0.0/0", "::/0"}
 
 	aclmanager := ipsetmanager.CreateIPsetManager(ipsv4, ipsv6)
-	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode, aclmanager)
-	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode, aclmanager)
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsv4, fq, mode, aclmanager, nil)
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsv6, fq, mode, aclmanager, nil)
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
@@ -2017,7 +2017,7 @@ func Test_OperationWithContainersV4(t *testing.T) {
 }
 
 func TestImpl(t *testing.T) {
-	instance, err := NewInstance(nil, constants.LocalServer, nil, true)
+	instance, err := NewInstance(nil, constants.LocalServer, nil, true, nil)
 	assert.Equal(t, instance != nil, true, "instance should not be nil")
 	assert.Equal(t, err == nil, true, "err should be nil")
 }

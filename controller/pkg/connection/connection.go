@@ -2,6 +2,8 @@ package connection
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -115,6 +117,14 @@ type AuthInfo struct {
 	RemoteServiceContext []byte
 }
 
+//TCPTuple contains the 4 tuple for tcp connection
+type TCPTuple struct {
+	SourceAddress      net.IP
+	DestinationAddress net.IP
+	SourcePort         uint16
+	DestinationPort    uint16
+}
+
 // PingConfig holds ping configuration per connection.
 type PingConfig struct {
 	StartTime   time.Time
@@ -167,6 +177,9 @@ type TCPConnection struct {
 
 	expiredConnection bool
 
+	// TCPtuple is tcp tuple
+	TCPtuple *TCPTuple
+
 	// PingConfig is the config of the enforcer ping diagnostic feature
 	PingConfig *PingConfig
 }
@@ -177,6 +190,10 @@ func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item int
 	if conn, ok := item.(*TCPConnection); ok {
 		conn.Cleanup(true)
 	}
+}
+
+func (tcpTuple *TCPTuple) String() string {
+	return "sip: " + tcpTuple.SourceAddress.String() + " dip: " + tcpTuple.DestinationAddress.String() + " sport: " + strconv.Itoa(int(tcpTuple.SourcePort)) + " dport: " + strconv.Itoa(int(tcpTuple.DestinationPort))
 }
 
 // String returns a printable version of connection
@@ -252,6 +269,12 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Context:    context,
 		Auth: AuthInfo{
 			LocalContext: nonce,
+		},
+		TCPtuple: &TCPTuple{
+			SourceAddress:      p.SourceAddress(),
+			DestinationAddress: p.DestinationAddress(),
+			SourcePort:         p.SourcePort(),
+			DestinationPort:    p.DestPort(),
 		},
 	}
 }

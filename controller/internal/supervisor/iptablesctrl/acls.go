@@ -1,5 +1,3 @@
-// +build linux windows
-
 package iptablesctrl
 
 import (
@@ -150,6 +148,9 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		},
 		"joinRule": func(rule []string) string {
 			return strings.Join(rule, " ")
+		},
+		"isBPFEnabled": func() bool {
+			return i.bpf != nil
 		},
 		"isHostPU": func() bool {
 			return isHostPU
@@ -541,6 +542,9 @@ func (i *iptables) setGlobalRules() error {
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
+		},
+		"isBPFEnabled": func() bool {
+			return i.bpf != nil
 		},
 		"enableDNSProxy": func() bool {
 			return cfg.DNSServerIP != ""
