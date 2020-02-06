@@ -439,5 +439,9 @@ func restoreHasWait(restoreCmd string) bool {
 		return false
 	}
 
-	return !restoreVersion.LessThan(minimumVersion)
+	if restoreVersion.LessThan(minimumVersion) {
+		zap.L().Info(fmt.Sprintf(" %s: does not support --wait. Must be v1.6.2 or higher", restoreCmd))
+		return false
+	}
+	return true
 }
