@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 
+	"go.aporeto.io/trireme-lib/utils/windowscertbug"
 	"go.uber.org/zap"
 )
 
@@ -134,7 +135,7 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 		Roots: roots,
 	}
 
-	if _, err := cert.Verify(opts); err != nil {
+	if _, err := windowscertbug.VerifyCertificate(cert, opts); err != nil {
 		return nil, err
 	}
 
