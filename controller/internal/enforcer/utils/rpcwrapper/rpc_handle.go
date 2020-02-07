@@ -35,6 +35,7 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
+	server       *rpc.Server
 	sync.Mutex
 }
 
@@ -140,7 +141,9 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 //NewRPCServer returns an interface RPCServer
 func NewRPCServer() RPCServer {
 
-	return &RPCWrapper{}
+	return &RPCWrapper{
+		server: rpc.NewServer(),
+	}
 }
 
 // StartServer Starts a server and waits for new connections this function never returns
@@ -154,10 +157,11 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	RegisterTypes()
 
 	// Register handlers
-	if err := rpc.Register(handler); err != nil {
+	if err := r.server.Register(handler); err != nil {
 		return err
 	}
-	rpc.HandleHTTP()
+
+	r.server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
 
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
