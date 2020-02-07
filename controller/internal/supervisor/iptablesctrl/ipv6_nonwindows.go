@@ -11,10 +11,7 @@ import (
 func GetIPv6Impl(ipv6Enabled bool) (IPImpl, error) {
 	ipt, err := provider.NewGoIPTablesProviderV6([]string{"mangle"})
 	if err == nil {
-		// test if the system supports ip6tables
-		if _, err = ipt.ListChains("mangle"); err == nil {
-			return &ipv6{ipt: ipt, ipv6Enabled: ipv6Enabled}, nil
-		}
+		return &ipv6{ipt: ipt, ipv6Enabled: ipv6Enabled}, nil
 	}
 
 	return &ipv6{ipt: nil, ipv6Enabled: false}, nil
