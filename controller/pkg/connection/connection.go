@@ -175,8 +175,12 @@ type TCPConnection struct {
 
 	RetransmittedSynAck bool
 
+	expiredConnection bool
+
+	// TCPtuple is tcp tuple
 	TCPtuple *TCPTuple
 
+	// PingConfig is the config of the enforcer ping diagnostic feature
 	PingConfig *PingConfig
 }
 
@@ -194,19 +198,16 @@ func (tcpTuple *TCPTuple) String() string {
 
 // String returns a printable version of connection
 func (c *TCPConnection) String() string {
-
 	return fmt.Sprintf("state:%d auth: %+v", c.state, c.Auth)
 }
 
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
-
 	return c.state
 }
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
 	c.state = state
 }
 
@@ -228,11 +229,18 @@ func (c *TCPConnection) SetReported(flowState bool) {
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
+	c.Lock()
 	// Logging information
 	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()))
 	}
+
+	if !c.expiredConnection && c.state != TCPData {
+		c.expiredConnection = true
+		c.Context.IncrementCounters(pucontext.ErrTCPConnectionsExpired)
+	}
+	c.Unlock()
 }
 
 // SetLoopbackConnection sets LoopbackConnection field.
@@ -344,6 +352,7 @@ type UDPConnection struct {
 
 	TestIgnore           bool
 	udpQueueFullDropCntr uint64
+	expiredConnection    bool
 }
 
 // NewUDPConnection returns UDPConnection struct.
@@ -401,6 +410,7 @@ func (c *UDPConnection) AckStop() {
 // SynChannel returns the SynStop channel.
 func (c *UDPConnection) SynChannel() chan bool {
 	return c.synStop
+
 }
 
 // SynAckChannel returns the SynAck stop channel.
@@ -425,7 +435,6 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
-
 	buffer := make([]byte, len(udpPacket.GetBuffer(0)))
 	copy(buffer, udpPacket.GetBuffer(0))
 
@@ -463,7 +472,6 @@ func (c *UDPConnection) ReadPacket() *packet.Packet {
 
 // SetReported is used to track if a flow is reported
 func (c *UDPConnection) SetReported(flowState bool) {
-
 	c.flowReported++
 
 	if c.flowReported > 1 && c.flowLastReporting != flowState {
@@ -475,4 +483,34 @@ func (c *UDPConnection) SetReported(flowState bool) {
 	}
 
 	c.flowLastReporting = flowState
+}
+
+// Cleanup is called on cache expiry of the connection to record incomplete connections
+func (c *UDPConnection) Cleanup(expired bool) {
+	c.Lock()
+	// Logging information
+	if c.flowReported == 0 {
+		zap.L().Error("Connection not reported",
+			zap.String("connection", c.String()))
+	}
+
+	if !c.expiredConnection && c.state != UDPData {
+		c.expiredConnection = true
+		c.Context.IncrementCounters(pucontext.ErrUDPConnectionsExpired)
+	}
+	c.Unlock()
+}
+
+// String returns a printable version of connection
+func (c *UDPConnection) String() string {
+
+	return fmt.Sprintf("udp-conn state:%d auth: %+v", c.state, c.Auth)
+}
+
+// UDPConnectionExpirationNotifier expiration notifier when cache entry expires
+func UDPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
+
+	if conn, ok := item.(*UDPConnection); ok {
+		conn.Cleanup(true)
+	}
 }

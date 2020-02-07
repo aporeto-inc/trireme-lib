@@ -7,18 +7,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// ErrorType custom counter error type
-type ErrorType int
+// CounterType custom counter error type
+type CounterType int
 
 // PuErrors holds the string,integer for each error
 type PuErrors struct {
-	index ErrorType
+	index CounterType
 	err   string
 }
 
 // Error Constants
 const (
-	ErrUnknownError ErrorType = iota
+	ErrUnknownError CounterType = iota
 	ErrInvalidNetState
 	ErrNonPUTraffic
 	ErrNetSynNotSeen
@@ -76,6 +76,15 @@ const (
 	ErrUDPDropQueueFull
 	ErrUDPDropInNfQueue
 	ErrUDPSynDropped
+	ErrTCPConnectionsExpired
+	ErrUDPConnectionsExpired
+	ErrDroppedPackets
+	ErrDroppedTCPPackets
+	ErrDroppedUDPPackets
+	ErrDroppedICMPPackets
+	ErrDroppedDNSPackets
+	ErrDroppedDHCPPackets
+	ErrDroppedNTPPackets
 )
 
 // CounterNames is the name for each error reported to the collector
@@ -138,6 +147,15 @@ var CounterNames = []string{
 	ErrUDPDropQueueFull:             "UDPDROPQUEUEFULL",
 	ErrUDPDropInNfQueue:             "UDPDROPINNFQUEUE",
 	ErrUDPSynDropped:                "UDPSYNDROPPED",
+	ErrTCPConnectionsExpired:        "TCPCONNECTIONSEXPIRED",
+	ErrUDPConnectionsExpired:        "UDPCONNECTIONSEXPIRED",
+	ErrDroppedPackets:               "PACKETSDROPPED",
+	ErrDroppedTCPPackets:            "DROPPEDTCPPACKETS",
+	ErrDroppedUDPPackets:            "DROPPEDUDPPACKETS",
+	ErrDroppedICMPPackets:           "DROPPEDICMPPACKETS",
+	ErrDroppedDNSPackets:            "DROPPEDDNSPACKETS",
+	ErrDroppedDHCPPackets:           "DROPPEDDHCPPACKETS",
+	ErrDroppedNTPPackets:            "DROPPEDNTPPACKETS",
 }
 
 var countedEvents = []PuErrors{
@@ -153,8 +171,7 @@ var countedEvents = []PuErrors{
 	},
 	ErrNonPUTraffic: {
 		index: ErrNonPUTraffic,
-
-		err: "Traffic belongs to a PU we are not monitoring",
+		err:   "Traffic belongs to a PU we are not monitoring",
 	},
 	ErrNetSynNotSeen: {
 		index: ErrNetSynNotSeen,
@@ -377,10 +394,46 @@ var countedEvents = []PuErrors{
 		index: ErrUDPSynDropped,
 		err:   "UDP syn packet dropped missing claims",
 	},
+	ErrTCPConnectionsExpired: {
+		index: ErrTCPConnectionsExpired,
+		err:   "TCP Connection Expired in invalid state",
+	},
+	ErrUDPConnectionsExpired: {
+		index: ErrUDPConnectionsExpired,
+		err:   "UDP Connection Expired in invalid state",
+	},
+	ErrDroppedPackets: {
+		index: ErrDroppedPackets,
+		err:   "Packet Dropped outside flow",
+	},
+	ErrDroppedTCPPackets: {
+		index: ErrDroppedTCPPackets,
+		err:   "Dropped a TCP packet",
+	},
+	ErrDroppedUDPPackets: {
+		index: ErrDroppedUDPPackets,
+		err:   "Dropped a UDP packet",
+	},
+	ErrDroppedICMPPackets: {
+		index: ErrDroppedICMPPackets,
+		err:   "Dropped a ICMP packet",
+	},
+	ErrDroppedDNSPackets: {
+		index: ErrDroppedDNSPackets,
+		err:   "Dropped DNS packet",
+	},
+	ErrDroppedDHCPPackets: {
+		index: ErrDroppedDHCPPackets,
+		err:   "Dropped DHCP packet",
+	},
+	ErrDroppedNTPPackets: {
+		index: ErrDroppedNTPPackets,
+		err:   "Dropped NTP packet",
+	},
 }
 
 // PuContextError increments the error counter and returns an error
-func (p *PUContext) PuContextError(err ErrorType, logMsg string) error { // nolint
+func (p *PUContext) PuContextError(err CounterType, logMsg string) error { // nolint
 	atomic.AddUint32(&p.counters[int(err)], 1)
 	zap.L().Debug(" ", zap.String("log", logMsg),
 		zap.String("contextID", p.ID()))
@@ -388,10 +441,20 @@ func (p *PUContext) PuContextError(err ErrorType, logMsg string) error { // noli
 }
 
 // PuContextError increments a global unknown PU counter and returns an error
-func PuContextError(err ErrorType, logMsg string) error { // nolint
+func PuContextError(err CounterType, logMsg string) error { // nolint
 	atomic.AddUint32(&unknownPU.counters[int(err)], 1)
 
 	return countedEvents[err]
+}
+
+// IncrementCounters increments counters for a given PU
+func (p *PUContext) IncrementCounters(err CounterType) {
+	atomic.AddUint32(&p.counters[int(err)], 1)
+}
+
+// IncrementCounters increments counters for a unknown PU
+func IncrementCounters(err CounterType) {
+	atomic.AddUint32(&unknownPU.counters[int(err)], 1)
 }
 
 // GetErrorCounters returns the error counters and resets the counters to zero
@@ -427,7 +490,7 @@ func GetErrorCounters() []collector.Counters {
 }
 
 // GetError gives the errortype for an error
-func GetError(err error) ErrorType {
+func GetError(err error) CounterType {
 	errType, ok := err.(PuErrors)
 	if !ok {
 		return ErrUnknownError
@@ -436,7 +499,7 @@ func GetError(err error) ErrorType {
 }
 
 // ToError returns converts error from ErrorType
-func ToError(errType ErrorType) error {
+func ToError(errType CounterType) error {
 	return countedEvents[errType]
 }
 

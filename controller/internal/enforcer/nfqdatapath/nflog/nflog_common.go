@@ -22,7 +22,39 @@ type NFLogger interface {
 // GetPUContextFunc provides PU information given the id
 type GetPUContextFunc func(hash string) (*pucontext.PUContext, error)
 
-func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, srcPort, dstPort uint16, pu *pucontext.PUContext) (*collector.PacketReport, error) {
+func recordCounters(protocol uint8, dstport uint16, srcport uint16, pu *pucontext.PUContext, puIsSource bool) {
+	switch protocol {
+	case packet.IPProtocolTCP:
+		pu.IncrementCounters(pucontext.ErrDroppedTCPPackets)
+	case packet.IPProtocolUDP:
+		pu.IncrementCounters(pucontext.ErrDroppedUDPPackets)
+		if puIsSource {
+			switch dstport {
+			case 53:
+				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+			case 123:
+				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+			}
+		} else {
+			switch srcport {
+			case 53:
+				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+			case 123:
+				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+			}
+		}
+
+	case packet.IPProtocolICMP:
+		pu.IncrementCounters(pucontext.ErrDroppedICMPPackets)
+
+	}
+}
+
+func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, srcPort, dstPort uint16, pu *pucontext.PUContext, puIsSource bool) (*collector.PacketReport, error) {
 
 	report := &collector.PacketReport{}
 
@@ -37,7 +69,7 @@ func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, sr
 		zap.L().Debug("payload not valid", zap.Error(err))
 		return nil, err
 	}
-
+	recordCounters(protocol, dstPort, srcPort, pu, puIsSource)
 	if protocol == packet.IPProtocolTCP || protocol == packet.IPProtocolUDP {
 		report.SourcePort = int(srcPort)
 		report.DestinationPort = int(dstPort)
@@ -85,7 +117,7 @@ func recordFromNFLogData(payload []byte, prefix string, protocol uint8, srcIP, d
 	}
 
 	if encodedAction == "10" {
-		packetReport, err = recordDroppedPacket(payload, protocol, srcIP, dstIP, srcPort, dstPort, pu)
+		packetReport, err = recordDroppedPacket(payload, protocol, srcIP, dstIP, srcPort, dstPort, pu, puIsSource)
 		return nil, packetReport, err
 	}
 

@@ -253,9 +253,11 @@ func New(
 
 		puFromContextID: puFromContextID,
 
-		sourcePortConnectionCache:    cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appReplyConnectionTracker:    cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netReplyConnectionTracker:    cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
+		sourcePortConnectionCache:    cache.NewCacheWithExpirationNotifier("sourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		appOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		appReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("appReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		netOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		netReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("netReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
 		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
 		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
@@ -375,7 +377,7 @@ func (d *Datapath) collectCounters() {
 		counters := val.(*pucontext.PUContext).GetErrorCounters()
 		d.collector.CollectCounterEvent(
 			&collector.CounterReport{
-				ContextID: keys.(string),
+				ContextID: val.(*pucontext.PUContext).ManagementID(),
 				Counters:  counters,
 				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 			})
