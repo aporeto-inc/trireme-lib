@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	enforcerproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
 	"go.aporeto.io/trireme-lib/controller/pkg/env"
@@ -229,6 +230,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.binaryTokens,
 			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
+			rpcwrapper.NewRPCServer(),
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy

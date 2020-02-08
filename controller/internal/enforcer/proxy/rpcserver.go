@@ -41,62 +41,6 @@ func (r *ProxyRPCServer) PostStats(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	return nil
 }
 
-// PostPacketEvent is called from the remote to post multiple records from the remoteenforcer
-func (r *ProxyRPCServer) PostPacketEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.DebugPacketPayload)
-	for _, record := range payload.PacketRecords {
-		r.collector.CollectPacketEvent(record)
-	}
-	payload.PacketRecords = nil
-
-	return nil
-}
-
-// PostCounterEvent is called from the remote to post multiple counter records from the remoteenforcer
-func (r *ProxyRPCServer) PostCounterEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.CounterReportPayload)
-	for _, record := range payload.CounterReports {
-		r.collector.CollectCounterEvent(record)
-	}
-
-	payload.CounterReports = nil
-	return nil
-}
-
-// DNSReports is called from the remote to post dns requests
-func (r *ProxyRPCServer) DNSReports(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.DNSReportPayload)
-	r.collector.CollectDNSRequests(payload.Report)
-
-	payload.Report = nil
-	return nil
-}
-
-// PostPingEvent is called from the remote to post ping events
-func (r *ProxyRPCServer) PostPingEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		return errors.New("message sender cannot be verified")
-	}
-
-	payload := req.Payload.(rpcwrapper.PingReportPayload)
-	r.collector.CollectPingEvent(payload.Report)
-
-	payload.Report = nil
-	return nil
-}
-
 // RetrieveToken propagates the master request to the token retriever and returns a token.
 func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
@@ -123,5 +67,37 @@ func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.
 		Token: token,
 	}
 
+	return nil
+}
+
+// PostReportEvent posts report events to the listener.
+func (r *ProxyRPCServer) PostReportEvent(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !r.rpchdl.ProcessMessage(&req, r.secret) {
+		return errors.New("message sender cannot be verified")
+	}
+
+	switch req.PayloadType {
+	case rpcwrapper.PingReport:
+		pingReport := req.Payload.(*collector.PingReport)
+		r.collector.CollectPingEvent(pingReport)
+
+	case rpcwrapper.PacketReport:
+		debugReport := req.Payload.(*collector.PacketReport)
+		r.collector.CollectPacketEvent(debugReport)
+
+	case rpcwrapper.CounterReport:
+		counterReport := req.Payload.(*collector.CounterReport)
+		r.collector.CollectCounterEvent(counterReport)
+
+	case rpcwrapper.DNSReport:
+		dnsReport := req.Payload.(*collector.DNSRequestReport)
+		r.collector.CollectDNSRequests(dnsReport)
+
+	default:
+		return fmt.Errorf("unsupported report type: %v", req.PayloadType)
+	}
+
+	req.Payload = nil
 	return nil
 }

@@ -28,11 +28,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient"
-	mockdnsreportclient "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient/mockdnsreport"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient/mockpingreportclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/mockclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -219,19 +215,16 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 	Convey("When I try to retrieve rpc server handle", t, func() {
 
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		statsClient := mockstatsclient.NewMockStatsClient(ctrl)
-		debugClient := mockdebugclient.NewMockDebugClient(ctrl)
+		statsClient := mockclient.NewMockReporter(ctrl)
+		reportsClient := mockclient.NewMockReporter(ctrl)
 		collector := mockstatscollector.NewMockCollector(ctrl)
-		counterclient := mockcounterclient.NewMockCounterClient(ctrl)
-		dnsreportclient := mockdnsreportclient.NewMockDNSReportClient(ctrl)
-		pingreportclient := mockpingreportclient.NewMockPingReportClient(ctrl)
 		tokenclient := mocktokenclient.NewMockTokenClient(ctrl)
 		Convey("When I try to create new server with no env set", func() {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, debugClient, pingreportclient, counterclient, dnsreportclient, tokenclient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
+			server, err := newRemoteEnforcer(ctx, cancel, nil, rpcHdl, "mysecret", statsClient, collector, reportsClient, tokenclient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
 
 			Convey("Then I should get error for no stats", func() {
 				So(err, ShouldBeNil)
@@ -240,7 +233,7 @@ func Test_NewRemoteEnforcer(t *testing.T) {
 				So(server.rpcHandle, ShouldEqual, rpcHdl)
 				So(server.procMountPoint, ShouldResemble, constants.DefaultProcMountPoint)
 				So(server.statsClient, ShouldEqual, statsClient)
-				So(server.debugClient, ShouldEqual, debugClient)
+				So(server.reportsClient, ShouldEqual, reportsClient)
 				So(server.ctx, ShouldEqual, ctx)
 				So(server.cancel, ShouldEqual, cancel)
 				So(server.exit, ShouldNotBeNil)
@@ -257,13 +250,10 @@ func TestInitEnforcer(t *testing.T) {
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
-		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
-		mockDebugClient := mockdebugclient.NewMockDebugClient(ctrl)
-		mockPingReportClient := mockpingreportclient.NewMockPingReportClient(ctrl)
+		mockStats := mockclient.NewMockReporter(ctrl)
+		mockReports := mockclient.NewMockReporter(ctrl)
 		mockCollector := mockstatscollector.NewMockCollector(ctrl)
 		mockSupevisor := mocksupervisor.NewMockSupervisor(ctrl)
-		mockCounterClient := mockcounterclient.NewMockCounterClient(ctrl)
-		mockDNSReportClient := mockdnsreportclient.NewMockDNSReportClient(ctrl)
 		mockTokenClient := mocktokenclient.NewMockTokenClient(ctrl)
 
 		// Mock the global functions.
@@ -314,7 +304,7 @@ func TestInitEnforcer(t *testing.T) {
 
 			secret := "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU="
 			ctx, cancel := context.WithCancel(context.Background())
-			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockDebugClient, mockPingReportClient, mockCounterClient, mockDNSReportClient, mockTokenClient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
+			server, err := newRemoteEnforcer(ctx, cancel, service, rpcHdl, secret, mockStats, mockCollector, mockReports, mockTokenClient, zap.Config{}, policy.EnforcerMapping, semver.Version{})
 			So(err, ShouldBeNil)
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
@@ -495,7 +485,7 @@ func TestInitEnforcer(t *testing.T) {
 				})
 			})
 
-			Convey("When I try to instantiate the enforcer and the debug client fails to run, it should clean up", func() {
+			Convey("When i try to instantiate the enforcer and reports Client fails to run it should cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
 
 				var rpcwrperreq rpcwrapper.Request
@@ -506,7 +496,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockEnf.EXPECT().Run(server.ctx).Return(nil)
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
-				mockDebugClient.EXPECT().Run(server.ctx).Return(fmt.Errorf("debug error"))
+				mockReports.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
 				mockSupevisor.EXPECT().CleanUp()
 				mockEnf.EXPECT().CleanUp()
 
@@ -514,56 +504,7 @@ func TestInitEnforcer(t *testing.T) {
 
 				Convey("Then I should get error", func() {
 					So(err, ShouldNotBeNil)
-					So(err, ShouldResemble, errors.New("DebugClientdebug error"))
-				})
-			})
-
-			Convey("When I try to instantiate the enforcer and the ping client fails to run, it should clean up", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.Payload = initTestEnfReqPayload()
-
-				mockEnf.EXPECT().Run(server.ctx).Return(nil)
-				mockStats.EXPECT().Run(server.ctx).Return(nil)
-				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
-				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
-				mockPingReportClient.EXPECT().Run(server.ctx).Return(fmt.Errorf("failed"))
-				mockSupevisor.EXPECT().CleanUp()
-				mockEnf.EXPECT().CleanUp()
-
-				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get error", func() {
-					So(err, ShouldNotBeNil)
-					So(err, ShouldResemble, errors.New("pingReportClientfailed"))
-				})
-			})
-
-			Convey("When i try to instantiate the enforcer and counter Client fails to run it should cleanup", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.EnvStatsSecret)).Times(1).Return(true)
-
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.Payload = initTestEnfReqPayload()
-
-				mockEnf.EXPECT().Run(server.ctx).Return(nil)
-				mockStats.EXPECT().Run(server.ctx).Return(nil)
-				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
-				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
-				mockPingReportClient.EXPECT().Run(server.ctx).Return(nil)
-				mockCounterClient.EXPECT().Run(server.ctx).Return(errors.New("failed to run counterclient"))
-				mockSupevisor.EXPECT().CleanUp()
-				mockEnf.EXPECT().CleanUp()
-
-				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get error", func() {
-					So(err, ShouldNotBeNil)
-					So(err, ShouldResemble, errors.New("CounterClientfailed to run counterclient"))
+					So(err, ShouldResemble, errors.New("ReportsClientfailed to run counterclient"))
 				})
 
 			})
@@ -578,9 +519,7 @@ func TestInitEnforcer(t *testing.T) {
 				mockEnf.EXPECT().Run(server.ctx).Return(nil)
 				mockStats.EXPECT().Run(server.ctx).Return(nil)
 				mockSupevisor.EXPECT().Run(server.ctx).Return(nil)
-				mockDebugClient.EXPECT().Run(server.ctx).Return(nil)
-				mockPingReportClient.EXPECT().Run(server.ctx).Return(nil)
-				mockCounterClient.EXPECT().Run(server.ctx).Return(nil)
+				mockReports.EXPECT().Run(server.ctx).Return(nil)
 				mockTokenClient.EXPECT().Run(server.ctx).Return(nil)
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
@@ -735,7 +674,7 @@ func Test_UnEnforce(t *testing.T) {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
-		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
+		mockStats := mockclient.NewMockReporter(ctrl)
 		ctx, cancel := context.WithCancel(context.TODO())
 
 		Convey("With proper initialization", func() {
@@ -767,7 +706,7 @@ func Test_UnEnforce(t *testing.T) {
 
 			Convey("When I try to send unenforce command with wrong payload it should fail", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockStats.EXPECT().SendStats()
+				mockStats.EXPECT().Send()
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -783,7 +722,7 @@ func Test_UnEnforce(t *testing.T) {
 
 			Convey("When I try to send unenforce command and the supervisor fails, it should fail and cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockStats.EXPECT().SendStats()
+				mockStats.EXPECT().Send()
 				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(fmt.Errorf("supervisor error"))
 				mockSup.EXPECT().CleanUp()
 				mockEnf.EXPECT().CleanUp()
@@ -803,7 +742,7 @@ func Test_UnEnforce(t *testing.T) {
 
 			Convey("When I try to send unenforce command and the enforcer fails, it should fail and cleanup", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockStats.EXPECT().SendStats()
+				mockStats.EXPECT().Send()
 				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(nil)
 				mockEnf.EXPECT().Unenforce(gomock.Any()).Return(fmt.Errorf("enforcer error"))
 				mockSup.EXPECT().CleanUp()
@@ -824,7 +763,7 @@ func Test_UnEnforce(t *testing.T) {
 
 			Convey("When the enforce command succeeds, I should get no errors", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), gomock.Any()).Times(1).Return(true)
-				mockStats.EXPECT().SendStats()
+				mockStats.EXPECT().Send()
 				mockSup.EXPECT().Unsupervise(gomock.Any()).Return(nil)
 				mockEnf.EXPECT().Unenforce(gomock.Any()).Return(nil)
 

@@ -43,6 +43,7 @@ func (m *MockMonitor) EXPECT() *MockMonitorMockRecorder {
 // Run mocks base method
 // nolint
 func (m *MockMonitor) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -51,12 +52,14 @@ func (m *MockMonitor) Run(ctx context.Context) error {
 // Run indicates an expected call of Run
 // nolint
 func (mr *MockMonitorMockRecorder) Run(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockMonitor)(nil).Run), ctx)
 }
 
 // UpdateConfiguration mocks base method
 // nolint
 func (m *MockMonitor) UpdateConfiguration(ctx context.Context, config *config.MonitorConfig) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateConfiguration", ctx, config)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -65,12 +68,14 @@ func (m *MockMonitor) UpdateConfiguration(ctx context.Context, config *config.Mo
 // UpdateConfiguration indicates an expected call of UpdateConfiguration
 // nolint
 func (mr *MockMonitorMockRecorder) UpdateConfiguration(ctx, config interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateConfiguration", reflect.TypeOf((*MockMonitor)(nil).UpdateConfiguration), ctx, config)
 }
 
 // Resync mocks base method
 // nolint
 func (m *MockMonitor) Resync(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resync", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -79,6 +84,7 @@ func (m *MockMonitor) Resync(ctx context.Context) error {
 // Resync indicates an expected call of Resync
 // nolint
 func (mr *MockMonitorMockRecorder) Resync(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockMonitor)(nil).Resync), ctx)
 }
 
@@ -112,6 +118,7 @@ func (m *MockImplementation) EXPECT() *MockImplementationMockRecorder {
 // Run mocks base method
 // nolint
 func (m *MockImplementation) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -120,12 +127,14 @@ func (m *MockImplementation) Run(ctx context.Context) error {
 // Run indicates an expected call of Run
 // nolint
 func (mr *MockImplementationMockRecorder) Run(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockImplementation)(nil).Run), ctx)
 }
 
 // SetupConfig mocks base method
 // nolint
 func (m *MockImplementation) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetupConfig", registerer, cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -134,24 +143,28 @@ func (m *MockImplementation) SetupConfig(registerer registerer.Registerer, cfg i
 // SetupConfig indicates an expected call of SetupConfig
 // nolint
 func (mr *MockImplementationMockRecorder) SetupConfig(registerer, cfg interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupConfig", reflect.TypeOf((*MockImplementation)(nil).SetupConfig), registerer, cfg)
 }
 
 // SetupHandlers mocks base method
 // nolint
 func (m *MockImplementation) SetupHandlers(c *config.ProcessorConfig) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetupHandlers", c)
 }
 
 // SetupHandlers indicates an expected call of SetupHandlers
 // nolint
 func (mr *MockImplementationMockRecorder) SetupHandlers(c interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupHandlers", reflect.TypeOf((*MockImplementation)(nil).SetupHandlers), c)
 }
 
 // Resync mocks base method
 // nolint
 func (m *MockImplementation) Resync(ctx context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resync", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -160,5 +173,6 @@ func (m *MockImplementation) Resync(ctx context.Context) error {
 // Resync indicates an expected call of Resync
 // nolint
 func (mr *MockImplementationMockRecorder) Resync(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockImplementation)(nil).Resync), ctx)
 }

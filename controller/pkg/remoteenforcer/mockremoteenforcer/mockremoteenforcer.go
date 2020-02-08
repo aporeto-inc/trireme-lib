@@ -41,6 +41,7 @@ func (m *MockRemoteIntf) EXPECT() *MockRemoteIntfMockRecorder {
 // InitEnforcer mocks base method
 // nolint
 func (m *MockRemoteIntf) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitEnforcer", req, resp)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -49,12 +50,14 @@ func (m *MockRemoteIntf) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 // InitEnforcer indicates an expected call of InitEnforcer
 // nolint
 func (mr *MockRemoteIntfMockRecorder) InitEnforcer(req, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitEnforcer", reflect.TypeOf((*MockRemoteIntf)(nil).InitEnforcer), req, resp)
 }
 
 // Unenforce mocks base method
 // nolint
 func (m *MockRemoteIntf) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unenforce", req, resp)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -63,12 +66,14 @@ func (m *MockRemoteIntf) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 // Unenforce indicates an expected call of Unenforce
 // nolint
 func (mr *MockRemoteIntfMockRecorder) Unenforce(req, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unenforce", reflect.TypeOf((*MockRemoteIntf)(nil).Unenforce), req, resp)
 }
 
 // Enforce mocks base method
 // nolint
 func (m *MockRemoteIntf) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enforce", req, resp)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -77,12 +82,14 @@ func (m *MockRemoteIntf) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // Enforce indicates an expected call of Enforce
 // nolint
 func (mr *MockRemoteIntfMockRecorder) Enforce(req, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enforce", reflect.TypeOf((*MockRemoteIntf)(nil).Enforce), req, resp)
 }
 
 // EnforcerExit mocks base method
 // nolint
 func (m *MockRemoteIntf) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnforcerExit", req, resp)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -91,5 +98,6 @@ func (m *MockRemoteIntf) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 // EnforcerExit indicates an expected call of EnforcerExit
 // nolint
 func (mr *MockRemoteIntfMockRecorder) EnforcerExit(req, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnforcerExit", reflect.TypeOf((*MockRemoteIntf)(nil).EnforcerExit), req, resp)
 }

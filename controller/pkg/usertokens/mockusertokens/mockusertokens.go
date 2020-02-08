@@ -43,6 +43,7 @@ func (m *MockVerifier) EXPECT() *MockVerifierMockRecorder {
 // VerifierType mocks base method
 // nolint
 func (m *MockVerifier) VerifierType() common.JWTType {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifierType")
 	ret0, _ := ret[0].(common.JWTType)
 	return ret0
@@ -51,12 +52,14 @@ func (m *MockVerifier) VerifierType() common.JWTType {
 // VerifierType indicates an expected call of VerifierType
 // nolint
 func (mr *MockVerifierMockRecorder) VerifierType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifierType", reflect.TypeOf((*MockVerifier)(nil).VerifierType))
 }
 
 // Validate mocks base method
 // nolint
 func (m *MockVerifier) Validate(ctx context.Context, token string) ([]string, bool, string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", ctx, token)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(bool)
@@ -68,12 +71,14 @@ func (m *MockVerifier) Validate(ctx context.Context, token string) ([]string, bo
 // Validate indicates an expected call of Validate
 // nolint
 func (mr *MockVerifierMockRecorder) Validate(ctx, token interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockVerifier)(nil).Validate), ctx, token)
 }
 
 // Callback mocks base method
 // nolint
 func (m *MockVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Callback", ctx, u)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
@@ -85,12 +90,14 @@ func (m *MockVerifier) Callback(ctx context.Context, u *url.URL) (string, string
 // Callback indicates an expected call of Callback
 // nolint
 func (mr *MockVerifierMockRecorder) Callback(ctx, u interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Callback", reflect.TypeOf((*MockVerifier)(nil).Callback), ctx, u)
 }
 
 // IssueRedirect mocks base method
 // nolint
 func (m *MockVerifier) IssueRedirect(arg0 string) string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IssueRedirect", arg0)
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -99,5 +106,6 @@ func (m *MockVerifier) IssueRedirect(arg0 string) string {
 // IssueRedirect indicates an expected call of IssueRedirect
 // nolint
 func (mr *MockVerifierMockRecorder) IssueRedirect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueRedirect", reflect.TypeOf((*MockVerifier)(nil).IssueRedirect), arg0)
 }
