@@ -6,8 +6,7 @@ import (
 	"context"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/dnsreportclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/pingreportclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -15,9 +14,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/counterclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/debugclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
@@ -35,12 +31,9 @@ func newRemoteEnforcer(
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	secret string,
-	statsClient statsclient.StatsClient,
+	statsClient client.Reporter,
 	collector statscollector.Collector,
-	debugClient debugclient.DebugClient,
-	pingReportClient pingreportclient.PingReportClient,
-	counterClient counterclient.CounterClient,
-	dnsReportClient dnsreportclient.DNSReportClient,
+	reportsClient client.Reporter,
 	tokenIssuer tokenissuer.TokenClient,
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
