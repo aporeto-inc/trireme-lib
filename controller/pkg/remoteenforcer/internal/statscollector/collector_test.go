@@ -14,7 +14,7 @@ func TestNewCollector(t *testing.T) {
 		c := NewCollector()
 		Convey("The collector should not be nil ", func() {
 			So(c, ShouldNotBeNil)
-			So(c.GetAllRecords(), ShouldBeNil)
+			So(c.GetFlowRecords(), ShouldBeNil)
 		})
 	})
 }
@@ -113,7 +113,7 @@ func TestGetAllDataPathPacketRecords(t *testing.T) {
 			c.CollectPacketEvent(&collector.PacketReport{
 				DestinationIP: "1.2.3.4",
 			})
-			records := c.GetAllDataPathPacketRecords()
+			records := c.GetReports()
 			So(len(records), ShouldEqual, 1)
 		})
 
@@ -124,12 +124,13 @@ func TestGetAllDataPathPacketRecords(t *testing.T) {
 func TestAllCounterReports(t *testing.T) {
 	Convey("Given i collect a new collector", t, func() {
 		c := NewCollector()
+		c.(*collectorImpl).Reports = make(chan *Report, 1)
 		Convey("I trace a single packet", func() {
 			c.CollectCounterEvent(&collector.CounterReport{})
-			records := c.GetAllCounterReports()
+			records := c.GetReports()
 			So(len(records), ShouldEqual, 1)
 			c.CollectCounterEvent(&collector.CounterReport{})
-			records = c.GetAllCounterReports()
+			records = c.GetReports()
 			So(len(records), ShouldEqual, 1)
 		})
 	})

@@ -47,6 +47,7 @@ type ProxyInfo struct {
 	binaryTokens           bool
 	isBPFEnabled           bool
 	ipv6Enabled            bool
+	rpcServer              rpcwrapper.RPCServer
 	sync.RWMutex
 }
 
@@ -273,16 +274,15 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 // Run starts the the remote enforcer proxy.
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
-	server := rpcwrapper.NewRPCWrapper()
 	handler := &ProxyRPCServer{
-		rpchdl:      server,
+		rpchdl:      s.rpcServer,
 		collector:   s.collector,
 		secret:      s.statsServerSecret,
 		tokenIssuer: s.tokenIssuer,
 	}
 
 	// Start the server for statistics collection.
-	go server.StartServer(ctx, "unix", constants.StatsChannel, handler) // nolint
+	go s.rpcServer.StartServer(ctx, "unix", constants.StatsChannel, handler) // nolint
 
 	return nil
 }
@@ -349,6 +349,7 @@ func NewProxyEnforcer(
 	binaryTokens bool,
 	isBPFEnabled bool,
 	ipv6Enabled bool,
+	rpcServer rpcwrapper.RPCServer,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -380,5 +381,6 @@ func NewProxyEnforcer(
 		binaryTokens:           binaryTokens,
 		isBPFEnabled:           isBPFEnabled,
 		ipv6Enabled:            ipv6Enabled,
+		rpcServer:              rpcServer,
 	}
 }

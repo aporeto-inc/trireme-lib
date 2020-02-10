@@ -34,90 +34,102 @@ func NewMockProcessor(ctrl *gomock.Controller) *MockProcessor {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
-func (_m *MockProcessor) EXPECT() *MockProcessorMockRecorder {
-	return _m.recorder
+func (m *MockProcessor) EXPECT() *MockProcessorMockRecorder {
+	return m.recorder
 }
 
 // Start mocks base method
 // nolint
-func (_m *MockProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Start", ctx, eventInfo)
+func (m *MockProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", ctx, eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start
 // nolint
-func (_mr *MockProcessorMockRecorder) Start(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Start", reflect.TypeOf((*MockProcessor)(nil).Start), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Start(ctx, eventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockProcessor)(nil).Start), ctx, eventInfo)
 }
 
 // Stop mocks base method
 // nolint
-func (_m *MockProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Stop", ctx, eventInfo)
+func (m *MockProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop", ctx, eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Stop indicates an expected call of Stop
 // nolint
-func (_mr *MockProcessorMockRecorder) Stop(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Stop", reflect.TypeOf((*MockProcessor)(nil).Stop), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Stop(ctx, eventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockProcessor)(nil).Stop), ctx, eventInfo)
 }
 
 // Create mocks base method
 // nolint
-func (_m *MockProcessor) Create(ctx context.Context, eventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Create", ctx, eventInfo)
+func (m *MockProcessor) Create(ctx context.Context, eventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", ctx, eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Create indicates an expected call of Create
 // nolint
-func (_mr *MockProcessorMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Create", reflect.TypeOf((*MockProcessor)(nil).Create), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Create(ctx, eventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProcessor)(nil).Create), ctx, eventInfo)
 }
 
 // Destroy mocks base method
 // nolint
-func (_m *MockProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Destroy", ctx, eventInfo)
+func (m *MockProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Destroy", ctx, eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy
 // nolint
-func (_mr *MockProcessorMockRecorder) Destroy(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Destroy", reflect.TypeOf((*MockProcessor)(nil).Destroy), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Destroy(ctx, eventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockProcessor)(nil).Destroy), ctx, eventInfo)
 }
 
 // Pause mocks base method
 // nolint
-func (_m *MockProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Pause", ctx, eventInfo)
+func (m *MockProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pause", ctx, eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Pause indicates an expected call of Pause
 // nolint
-func (_mr *MockProcessorMockRecorder) Pause(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Pause", reflect.TypeOf((*MockProcessor)(nil).Pause), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Pause(ctx, eventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockProcessor)(nil).Pause), ctx, eventInfo)
 }
 
 // Resync mocks base method
 // nolint
-func (_m *MockProcessor) Resync(ctx context.Context, EventInfo *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "Resync", ctx, EventInfo)
+func (m *MockProcessor) Resync(ctx context.Context, EventInfo *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Resync", ctx, EventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Resync indicates an expected call of Resync
 // nolint
-func (_mr *MockProcessorMockRecorder) Resync(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Resync", reflect.TypeOf((*MockProcessor)(nil).Resync), arg0, arg1)
+func (mr *MockProcessorMockRecorder) Resync(ctx, EventInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockProcessor)(nil).Resync), ctx, EventInfo)
 }

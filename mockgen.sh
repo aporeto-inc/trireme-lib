@@ -1,13 +1,13 @@
 #! /bin/bash -e
 
-go get github.com/aporeto-inc/mock/mockgen
-go get -u github.com/golang/mock/gomock
+GO111MODULE=on go get github.com/golang/mock/mockgen@latest
 go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
-  goimports $1 > $1.bk
-  cat $1.bk | sed  $'s/^func /\/\/ nolint\\\nfunc /g' | sed  $'s/^type /\/\/ nolint\\\ntype /g' > $1
-  rm -f $1.bk
+  tmp=$(mktemp)
+  goimports "$1" > "$tmp"
+  sed  $'s/^func /\/\/ nolint\\\nfunc /g' < "$tmp" | sed  $'s/^type /\/\/ nolint\\\ntype /g' > "$1"
+  rm -f "$tmp"
 }
 
 echo "Cgnetcls Mocks"
@@ -35,36 +35,24 @@ mkdir -p controller/pkg/remoteenforcer/mockremoteenforcer
 mockgen -source controller/pkg/remoteenforcer/interfaces.go -destination controller/pkg/remoteenforcer/mockremoteenforcer/mockremoteenforcer.go -package mockremoteenforcer
 goimport_sanitize controller/pkg/remoteenforcer/mockremoteenforcer/mockremoteenforcer.go
 
-echo "controller/pkg/remoteenforcer/StatsClient Mocks"
-mkdir -p controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient
-mockgen -source controller/pkg/remoteenforcer/internal/statsclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient/mockstatsclient.go -package mockstatsclient
-goimport_sanitize controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient/mockstatsclient.go
-
-
-echo "controller/pkg/remoteenforcer/CounterClient Mocks"
-mkdir -p controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient
-mockgen -source controller/pkg/remoteenforcer/internal/counterclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go -package mockcounterclient
-goimport_sanitize controller/pkg/remoteenforcer/internal/counterclient/mockcounterclient/mockcounterclient.go
+echo "controller/pkg/remoteenforcer/client Mocks"
+mkdir -p controller/pkg/remoteenforcer/internal/client/mockclient
+mockgen -source controller/pkg/remoteenforcer/internal/client/interfaces.go -destination controller/pkg/remoteenforcer/internal/client/mockclient/mockclient.go -package mockclient
+goimport_sanitize controller/pkg/remoteenforcer/internal/client/mockclient/mockclient.go
 
 echo "controller/pkg/remoteenforcer/TokenIssuer Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient
 mockgen -source controller/pkg/remoteenforcer/internal/tokenissuer/tokenissuer.go -destination controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go -package mocktokenclient
 goimport_sanitize controller/pkg/remoteenforcer/internal/tokenissuer/mocktokenclient/mocktokenclient.go
 
-echo "controller/pkg/remoteenforcer/DebugClient Mocks"
-mkdir -p controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient
-mockgen -source controller/pkg/remoteenforcer/internal/debugclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go -package mockdebugclient
-goimport_sanitize controller/pkg/remoteenforcer/internal/debugclient/mockdebugclient/mockdebugclient.go
-
-echo "controller/pkg/remoteenforcer/PingReportClient Mocks"
-mkdir -p controller/pkg/remoteenforcer/internal/pingreportclient/mockpingreportclient
-mockgen -source controller/pkg/remoteenforcer/internal/pingreportclient/interfaces.go -destination controller/pkg/remoteenforcer/internal/pingreportclient/mockpingreportclient/mockpingreportclient.go -package mockpingreportclient
-goimport_sanitize controller/pkg/remoteenforcer/internal/pingreportclient/mockpingreportclient/mockpingreportclient.go
-
-
 echo "controller/pkg/remoteenforcer/StatsCollector Mocks"
 mkdir -p controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector
-mockgen -source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go -package mockstatscollector
+mockgen \
+-source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go \
+-destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go \
+-package mockstatscollector \
+-aux_files collector=collector/interfaces.go \
+-imports statscollector=go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
 
 echo "controller/pkg/usertokens Mocks"

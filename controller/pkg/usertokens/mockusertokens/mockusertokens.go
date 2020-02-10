@@ -35,28 +35,31 @@ func NewMockVerifier(ctrl *gomock.Controller) *MockVerifier {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
-func (_m *MockVerifier) EXPECT() *MockVerifierMockRecorder {
-	return _m.recorder
+func (m *MockVerifier) EXPECT() *MockVerifierMockRecorder {
+	return m.recorder
 }
 
 // VerifierType mocks base method
 // nolint
-func (_m *MockVerifier) VerifierType() common.JWTType {
-	ret := _m.ctrl.Call(_m, "VerifierType")
+func (m *MockVerifier) VerifierType() common.JWTType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifierType")
 	ret0, _ := ret[0].(common.JWTType)
 	return ret0
 }
 
 // VerifierType indicates an expected call of VerifierType
 // nolint
-func (_mr *MockVerifierMockRecorder) VerifierType() *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "VerifierType", reflect.TypeOf((*MockVerifier)(nil).VerifierType))
+func (mr *MockVerifierMockRecorder) VerifierType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifierType", reflect.TypeOf((*MockVerifier)(nil).VerifierType))
 }
 
 // Validate mocks base method
 // nolint
-func (_m *MockVerifier) Validate(ctx context.Context, token string) ([]string, bool, string, error) {
-	ret := _m.ctrl.Call(_m, "Validate", ctx, token)
+func (m *MockVerifier) Validate(ctx context.Context, token string) ([]string, bool, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Validate", ctx, token)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(string)
@@ -66,14 +69,16 @@ func (_m *MockVerifier) Validate(ctx context.Context, token string) ([]string, b
 
 // Validate indicates an expected call of Validate
 // nolint
-func (_mr *MockVerifierMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Validate", reflect.TypeOf((*MockVerifier)(nil).Validate), arg0, arg1)
+func (mr *MockVerifierMockRecorder) Validate(ctx, token interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockVerifier)(nil).Validate), ctx, token)
 }
 
 // Callback mocks base method
 // nolint
-func (_m *MockVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
-	ret := _m.ctrl.Call(_m, "Callback", ctx, u)
+func (m *MockVerifier) Callback(ctx context.Context, u *url.URL) (string, string, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Callback", ctx, u)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(int)
@@ -83,20 +88,23 @@ func (_m *MockVerifier) Callback(ctx context.Context, u *url.URL) (string, strin
 
 // Callback indicates an expected call of Callback
 // nolint
-func (_mr *MockVerifierMockRecorder) Callback(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Callback", reflect.TypeOf((*MockVerifier)(nil).Callback), arg0, arg1)
+func (mr *MockVerifierMockRecorder) Callback(ctx, u interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Callback", reflect.TypeOf((*MockVerifier)(nil).Callback), ctx, u)
 }
 
 // IssueRedirect mocks base method
 // nolint
-func (_m *MockVerifier) IssueRedirect(_param0 string) string {
-	ret := _m.ctrl.Call(_m, "IssueRedirect", _param0)
+func (m *MockVerifier) IssueRedirect(arg0 string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IssueRedirect", arg0)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // IssueRedirect indicates an expected call of IssueRedirect
 // nolint
-func (_mr *MockVerifierMockRecorder) IssueRedirect(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "IssueRedirect", reflect.TypeOf((*MockVerifier)(nil).IssueRedirect), arg0)
+func (mr *MockVerifierMockRecorder) IssueRedirect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueRedirect", reflect.TypeOf((*MockVerifier)(nil).IssueRedirect), arg0)
 }

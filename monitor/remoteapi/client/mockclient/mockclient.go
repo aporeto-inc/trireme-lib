@@ -33,20 +33,22 @@ func NewMockAPIClient(ctrl *gomock.Controller) *MockAPIClient {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
-func (_m *MockAPIClient) EXPECT() *MockAPIClientMockRecorder {
-	return _m.recorder
+func (m *MockAPIClient) EXPECT() *MockAPIClientMockRecorder {
+	return m.recorder
 }
 
 // SendRequest mocks base method
 // nolint
-func (_m *MockAPIClient) SendRequest(event *common.EventInfo) error {
-	ret := _m.ctrl.Call(_m, "SendRequest", event)
+func (m *MockAPIClient) SendRequest(event *common.EventInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendRequest", event)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendRequest indicates an expected call of SendRequest
 // nolint
-func (_mr *MockAPIClientMockRecorder) SendRequest(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "SendRequest", reflect.TypeOf((*MockAPIClient)(nil).SendRequest), arg0)
+func (mr *MockAPIClientMockRecorder) SendRequest(event interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRequest", reflect.TypeOf((*MockAPIClient)(nil).SendRequest), event)
 }

@@ -9,6 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/client"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
@@ -33,7 +34,7 @@ type statsClient struct {
 }
 
 // NewStatsClient initializes a new stats client
-func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
+func NewStatsClient(cr statscollector.Collector) (client.Reporter, error) {
 
 	sc := &statsClient{
 		collector:     cr,
@@ -66,7 +67,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 		select {
 		case <-ticker.C:
 
-			flows := s.collector.GetAllRecords()
+			flows := s.collector.GetFlowRecords()
 			users := s.collector.GetUserRecords()
 			if flows == nil && users == nil {
 				continue
@@ -101,17 +102,18 @@ func (s *statsClient) sendRequest(flows map[string]*collector.FlowRecord, users 
 	}
 }
 
-// SendStats sends all the stats from the cache
-func (s *statsClient) SendStats() {
+// Send sends all the stats from the cache
+func (s *statsClient) Send() error {
 
-	flows := s.collector.GetAllRecords()
+	flows := s.collector.GetFlowRecords()
 	users := s.collector.GetUserRecords()
 	if flows == nil && users == nil {
 		zap.L().Debug("Flows and UserRecords are nil while sending stats to collector")
-		return
+		return nil
 	}
 
 	s.sendRequest(flows, users)
+	return nil
 }
 
 // Start This is an private function called by the remoteenforcer to connect back

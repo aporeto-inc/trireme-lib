@@ -54,6 +54,9 @@ func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
 // CollectCounterEvent collect counters from the datapath
 func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 
+// CollectPingEvent collects ping events from the datapath
+func (d *DNSCollector) CollectPingEvent(report *collector.PingReport) {}
+
 var r collector.DNSRequestReport
 var l sync.Mutex
 

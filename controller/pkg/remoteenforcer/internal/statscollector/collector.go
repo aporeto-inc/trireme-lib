@@ -9,13 +9,10 @@ import (
 // NewCollector provides a new collector interface
 func NewCollector() Collector {
 	return &collectorImpl{
-		Flows:                 map[string]*collector.FlowRecord{},
-		Users:                 map[string]*collector.UserRecord{},
-		ProcessedUsers:        map[string]bool{},
-		DatapathPacketReports: []*collector.PacketReport{},
-		CounterReports:        []*collector.CounterReport{},
-		DNSReport:             make(chan *collector.DNSRequestReport),
-		PingReports:           make(chan *collector.PingReport),
+		Flows:          map[string]*collector.FlowRecord{},
+		Users:          map[string]*collector.UserRecord{},
+		ProcessedUsers: map[string]bool{},
+		Reports:        make(chan *Report, 1000),
 	}
 }
 
@@ -27,12 +24,29 @@ func NewCollector() Collector {
 // It has a flow entries cache which contains unique flows that are reported
 // back to the controller/launcher process
 type collectorImpl struct {
-	Flows                 map[string]*collector.FlowRecord
-	ProcessedUsers        map[string]bool
-	Users                 map[string]*collector.UserRecord
-	DatapathPacketReports []*collector.PacketReport
-	CounterReports        []*collector.CounterReport
-	DNSReport             chan *collector.DNSRequestReport
-	PingReports           chan *collector.PingReport
+	Flows          map[string]*collector.FlowRecord
+	ProcessedUsers map[string]bool
+	Users          map[string]*collector.UserRecord
+	Reports        chan *Report
+
 	sync.Mutex
+}
+
+// ReportType it the type of report.
+type ReportType uint8
+
+// ReportTypes.
+const (
+	FlowRecord ReportType = iota
+	UserRecord
+	PacketReport
+	CounterReport
+	DNSReport
+	PingReport
+)
+
+// Report holds the report type and the payload.
+type Report struct {
+	Type    ReportType
+	Payload interface{}
 }

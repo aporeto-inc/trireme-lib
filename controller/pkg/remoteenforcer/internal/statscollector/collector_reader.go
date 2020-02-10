@@ -4,7 +4,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/collector"
 )
 
-// Count returns the current number of flows.
+// Count returns the current number of records collected.
 func (c *collectorImpl) Count() int {
 	c.Lock()
 	defer c.Unlock()
@@ -12,8 +12,8 @@ func (c *collectorImpl) Count() int {
 	return len(c.Flows)
 }
 
-// GetAllRecords should return all flow records stashed so far.
-func (c *collectorImpl) GetAllRecords() map[string]*collector.FlowRecord {
+// GetFlowRecords should return all flow records stashed so far.
+func (c *collectorImpl) GetFlowRecords() map[string]*collector.FlowRecord {
 	c.Lock()
 	defer c.Unlock()
 
@@ -48,29 +48,10 @@ func (c *collectorImpl) FlushUserCache() {
 	c.ProcessedUsers = map[string]bool{}
 }
 
-// GetAllDataPathPacketRecords returns all datapath packet tracing records
-func (c *collectorImpl) GetAllDataPathPacketRecords() []*collector.PacketReport {
+// GetReports returns reports channel.
+func (c *collectorImpl) GetReports() chan *Report {
 	c.Lock()
 	defer c.Unlock()
 
-	record := c.DatapathPacketReports
-	c.DatapathPacketReports = []*collector.PacketReport{}
-	return record
-}
-
-func (c *collectorImpl) GetAllCounterReports() []*collector.CounterReport {
-	c.Lock()
-	defer c.Unlock()
-
-	records := c.CounterReports
-	c.CounterReports = []*collector.CounterReport{}
-	return records
-}
-
-func (c *collectorImpl) GetDNSReports() chan *collector.DNSRequestReport {
-	return c.DNSReport
-}
-
-func (c *collectorImpl) GetPingReports() chan *collector.PingReport {
-	return c.PingReports
+	return c.Reports
 }

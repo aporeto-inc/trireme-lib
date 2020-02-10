@@ -35,28 +35,31 @@ func NewMockTokenClient(ctrl *gomock.Controller) *MockTokenClient {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
-func (_m *MockTokenClient) EXPECT() *MockTokenClientMockRecorder {
-	return _m.recorder
+func (m *MockTokenClient) EXPECT() *MockTokenClientMockRecorder {
+	return m.recorder
 }
 
 // Run mocks base method
 // nolint
-func (_m *MockTokenClient) Run(ctx context.Context) error {
-	ret := _m.ctrl.Call(_m, "Run", ctx)
+func (m *MockTokenClient) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Run indicates an expected call of Run
 // nolint
-func (_mr *MockTokenClientMockRecorder) Run(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Run", reflect.TypeOf((*MockTokenClient)(nil).Run), arg0)
+func (mr *MockTokenClientMockRecorder) Run(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockTokenClient)(nil).Run), ctx)
 }
 
 // Issue mocks base method
 // nolint
-func (_m *MockTokenClient) Issue(ctx context.Context, contextID string, stype common.ServiceTokenType, audience string, validity time.Duration) (string, error) {
-	ret := _m.ctrl.Call(_m, "Issue", ctx, contextID, stype, audience, validity)
+func (m *MockTokenClient) Issue(ctx context.Context, contextID string, stype common.ServiceTokenType, audience string, validity time.Duration) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Issue", ctx, contextID, stype, audience, validity)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -64,6 +67,7 @@ func (_m *MockTokenClient) Issue(ctx context.Context, contextID string, stype co
 
 // Issue indicates an expected call of Issue
 // nolint
-func (_mr *MockTokenClientMockRecorder) Issue(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Issue", reflect.TypeOf((*MockTokenClient)(nil).Issue), arg0, arg1, arg2, arg3, arg4)
+func (mr *MockTokenClientMockRecorder) Issue(ctx, contextID, stype, audience, validity interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Issue", reflect.TypeOf((*MockTokenClient)(nil).Issue), ctx, contextID, stype, audience, validity)
 }

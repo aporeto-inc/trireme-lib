@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.aporeto.io/trireme-lib/v11/common"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"
@@ -229,6 +230,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.binaryTokens,
 			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
+			rpcwrapper.NewRPCServer(),
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy

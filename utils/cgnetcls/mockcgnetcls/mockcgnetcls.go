@@ -32,112 +32,127 @@ func NewMockCgroupnetcls(ctrl *gomock.Controller) *MockCgroupnetcls {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
-func (_m *MockCgroupnetcls) EXPECT() *MockCgroupnetclsMockRecorder {
-	return _m.recorder
+func (m *MockCgroupnetcls) EXPECT() *MockCgroupnetclsMockRecorder {
+	return m.recorder
 }
 
 // Creategroup mocks base method
 // nolint
-func (_m *MockCgroupnetcls) Creategroup(cgroupname string) error {
-	ret := _m.ctrl.Call(_m, "Creategroup", cgroupname)
+func (m *MockCgroupnetcls) Creategroup(cgroupname string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Creategroup", cgroupname)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Creategroup indicates an expected call of Creategroup
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) Creategroup(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Creategroup", reflect.TypeOf((*MockCgroupnetcls)(nil).Creategroup), arg0)
+func (mr *MockCgroupnetclsMockRecorder) Creategroup(cgroupname interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Creategroup", reflect.TypeOf((*MockCgroupnetcls)(nil).Creategroup), cgroupname)
 }
 
 // AssignMark mocks base method
 // nolint
-func (_m *MockCgroupnetcls) AssignMark(cgroupname string, mark uint64) error {
-	ret := _m.ctrl.Call(_m, "AssignMark", cgroupname, mark)
+func (m *MockCgroupnetcls) AssignMark(cgroupname string, mark uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssignMark", cgroupname, mark)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignMark indicates an expected call of AssignMark
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) AssignMark(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "AssignMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignMark), arg0, arg1)
+func (mr *MockCgroupnetclsMockRecorder) AssignMark(cgroupname, mark interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignMark), cgroupname, mark)
 }
 
 // AssignRootMark mocks base method
 // nolint
-func (_m *MockCgroupnetcls) AssignRootMark(mark uint64) error {
-	ret := _m.ctrl.Call(_m, "AssignRootMark", mark)
+func (m *MockCgroupnetcls) AssignRootMark(mark uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssignRootMark", mark)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignRootMark indicates an expected call of AssignRootMark
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) AssignRootMark(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "AssignRootMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignRootMark), arg0)
+func (mr *MockCgroupnetclsMockRecorder) AssignRootMark(mark interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignRootMark", reflect.TypeOf((*MockCgroupnetcls)(nil).AssignRootMark), mark)
 }
 
 // AddProcess mocks base method
 // nolint
-func (_m *MockCgroupnetcls) AddProcess(cgroupname string, pid int) error {
-	ret := _m.ctrl.Call(_m, "AddProcess", cgroupname, pid)
+func (m *MockCgroupnetcls) AddProcess(cgroupname string, pid int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddProcess", cgroupname, pid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddProcess indicates an expected call of AddProcess
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) AddProcess(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "AddProcess", reflect.TypeOf((*MockCgroupnetcls)(nil).AddProcess), arg0, arg1)
+func (mr *MockCgroupnetclsMockRecorder) AddProcess(cgroupname, pid interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProcess", reflect.TypeOf((*MockCgroupnetcls)(nil).AddProcess), cgroupname, pid)
 }
 
 // RemoveProcess mocks base method
 // nolint
-func (_m *MockCgroupnetcls) RemoveProcess(cgroupname string, pid int) error {
-	ret := _m.ctrl.Call(_m, "RemoveProcess", cgroupname, pid)
+func (m *MockCgroupnetcls) RemoveProcess(cgroupname string, pid int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveProcess", cgroupname, pid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveProcess indicates an expected call of RemoveProcess
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) RemoveProcess(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "RemoveProcess", reflect.TypeOf((*MockCgroupnetcls)(nil).RemoveProcess), arg0, arg1)
+func (mr *MockCgroupnetclsMockRecorder) RemoveProcess(cgroupname, pid interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveProcess", reflect.TypeOf((*MockCgroupnetcls)(nil).RemoveProcess), cgroupname, pid)
 }
 
 // DeleteCgroup mocks base method
 // nolint
-func (_m *MockCgroupnetcls) DeleteCgroup(cgroupname string) error {
-	ret := _m.ctrl.Call(_m, "DeleteCgroup", cgroupname)
+func (m *MockCgroupnetcls) DeleteCgroup(cgroupname string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCgroup", cgroupname)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteCgroup indicates an expected call of DeleteCgroup
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) DeleteCgroup(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "DeleteCgroup", reflect.TypeOf((*MockCgroupnetcls)(nil).DeleteCgroup), arg0)
+func (mr *MockCgroupnetclsMockRecorder) DeleteCgroup(cgroupname interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCgroup", reflect.TypeOf((*MockCgroupnetcls)(nil).DeleteCgroup), cgroupname)
 }
 
 // Deletebasepath mocks base method
 // nolint
-func (_m *MockCgroupnetcls) Deletebasepath(contextID string) bool {
-	ret := _m.ctrl.Call(_m, "Deletebasepath", contextID)
+func (m *MockCgroupnetcls) Deletebasepath(contextID string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Deletebasepath", contextID)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Deletebasepath indicates an expected call of Deletebasepath
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) Deletebasepath(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Deletebasepath", reflect.TypeOf((*MockCgroupnetcls)(nil).Deletebasepath), arg0)
+func (mr *MockCgroupnetclsMockRecorder) Deletebasepath(contextID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deletebasepath", reflect.TypeOf((*MockCgroupnetcls)(nil).Deletebasepath), contextID)
 }
 
 // ListCgroupProcesses mocks base method
 // nolint
-func (_m *MockCgroupnetcls) ListCgroupProcesses(cgroupname string) ([]string, error) {
-	ret := _m.ctrl.Call(_m, "ListCgroupProcesses", cgroupname)
+func (m *MockCgroupnetcls) ListCgroupProcesses(cgroupname string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCgroupProcesses", cgroupname)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -145,20 +160,23 @@ func (_m *MockCgroupnetcls) ListCgroupProcesses(cgroupname string) ([]string, er
 
 // ListCgroupProcesses indicates an expected call of ListCgroupProcesses
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) ListCgroupProcesses(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "ListCgroupProcesses", reflect.TypeOf((*MockCgroupnetcls)(nil).ListCgroupProcesses), arg0)
+func (mr *MockCgroupnetclsMockRecorder) ListCgroupProcesses(cgroupname interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCgroupProcesses", reflect.TypeOf((*MockCgroupnetcls)(nil).ListCgroupProcesses), cgroupname)
 }
 
 // ListAllCgroups mocks base method
 // nolint
-func (_m *MockCgroupnetcls) ListAllCgroups(path string) []string {
-	ret := _m.ctrl.Call(_m, "ListAllCgroups", path)
+func (m *MockCgroupnetcls) ListAllCgroups(path string) []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAllCgroups", path)
 	ret0, _ := ret[0].([]string)
 	return ret0
 }
 
 // ListAllCgroups indicates an expected call of ListAllCgroups
 // nolint
-func (_mr *MockCgroupnetclsMockRecorder) ListAllCgroups(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "ListAllCgroups", reflect.TypeOf((*MockCgroupnetcls)(nil).ListAllCgroups), arg0)
+func (mr *MockCgroupnetclsMockRecorder) ListAllCgroups(path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllCgroups", reflect.TypeOf((*MockCgroupnetcls)(nil).ListAllCgroups), path)
 }

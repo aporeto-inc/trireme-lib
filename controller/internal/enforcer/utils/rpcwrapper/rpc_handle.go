@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"go.aporeto.io/trireme-lib/collector"
+
 	"github.com/mitchellh/hashstructure"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/oidc"
@@ -33,6 +35,7 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
+	server       *rpc.Server
 	sync.Mutex
 }
 
@@ -138,7 +141,9 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 //NewRPCServer returns an interface RPCServer
 func NewRPCServer() RPCServer {
 
-	return &RPCWrapper{}
+	return &RPCWrapper{
+		server: rpc.NewServer(),
+	}
 }
 
 // StartServer Starts a server and waits for new connections this function never returns
@@ -152,10 +157,11 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	RegisterTypes()
 
 	// Register handlers
-	if err := rpc.Register(handler); err != nil {
+	if err := r.server.Register(handler); err != nil {
 		return err
 	}
-	rpc.HandleHTTP()
+
+	r.server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
 
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
@@ -259,6 +265,10 @@ func RegisterTypes() {
 	gob.Register(&secrets.CompactPKIPublicSecrets{})
 	gob.Register(&pkitokens.PKIJWTVerifier{})
 	gob.Register(&oidc.TokenVerifier{})
+	gob.Register(&collector.CounterReport{})
+	gob.Register(&collector.PingReport{})
+	gob.Register(&collector.DNSRequestReport{})
+	gob.Register(&collector.PacketReport{})
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
@@ -267,11 +277,8 @@ func RegisterTypes() {
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.DebugPacket_Payload", *(&DebugPacketPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.PingReport_Payload", *(&PingReportPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.CounterReport_Payload", *(&CounterReportPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Report_Payload", *(&ReportPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.SetLogLevel_Payload", *(&SetLogLevelPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.DNSReport_Payload", *(&DNSReportPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.TokenRequest_Payload", *(&TokenRequestPayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.TokenResponse_Payload", *(&TokenResponsePayload{}))
 	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Ping_Payload", *(&PingPayload{}))

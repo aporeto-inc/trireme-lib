@@ -141,6 +141,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		false,
 		false,
 		false,
+		rpcwrapper.NewRPCServer(),
 	)
 	return policyEnf
 }
@@ -434,18 +435,17 @@ func TestSetTargetNetworks(t *testing.T) {
 	})
 }
 
-func TestPostPacketEvent(t *testing.T) {
+func TestPostReportEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 	c := eventCollector()
-	packetreport := &collector.PacketReport{
-		DestinationIP: "12.12.12.12",
-		SourceIP:      "1.1.1.1",
-	}
+
 	request := rpcwrapper.Request{
-		Payload: rpcwrapper.DebugPacketPayload{
-			PacketRecords: []*collector.PacketReport{packetreport},
+		PayloadType: rpcwrapper.PacketReport,
+		Payload: &collector.PacketReport{
+			DestinationIP: "12.12.12.12",
+			SourceIP:      "1.1.1.1",
 		},
 	}
 	statsserver := &ProxyRPCServer{
@@ -457,54 +457,13 @@ func TestPostPacketEvent(t *testing.T) {
 
 	Convey("Given i receive a invalid message from the remote enforcer ", t, func() {
 		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(false)
-		err := statsserver.PostPacketEvent(request, response)
+		err := statsserver.PostReportEvent(request, response)
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("Given i receive a valid message from the remote enforcer ", t, func() {
 		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(true)
-		err := statsserver.PostPacketEvent(request, response)
+		err := statsserver.PostReportEvent(request, response)
 		So(err, ShouldBeNil)
 	})
-}
-
-func TestPostCounterEvent(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	rpchdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-	c := eventCollector()
-	counterReport := &collector.CounterReport{
-		Namespace: "/ns1",
-		ContextID: "contextid1",
-		Counters: []collector.Counters{
-			{
-				Name:  "SYNNOTSEEN",
-				Value: 1,
-			},
-		},
-	}
-	request := rpcwrapper.Request{
-		Payload: rpcwrapper.CounterReportPayload{
-			CounterReports: []*collector.CounterReport{counterReport},
-		},
-	}
-	statsserver := &ProxyRPCServer{
-		rpchdl:    rpchdl,
-		collector: c,
-		secret:    "test",
-	}
-	response := &rpcwrapper.Response{}
-
-	Convey("Given i receive a invalid message from the remote enforcer ", t, func() {
-		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(false)
-		err := statsserver.PostCounterEvent(request, response)
-		So(err, ShouldNotBeNil)
-	})
-	Convey("Given i receive a valid message from the remote enforcer ", t, func() {
-
-		rpchdl.EXPECT().ProcessMessage(gomock.Any(), gomock.Any()).Times(1).Return(true)
-		err := statsserver.PostCounterEvent(request, response)
-		So(err, ShouldBeNil)
-	})
-
 }
