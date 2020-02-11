@@ -3,9 +3,11 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -18,16 +20,18 @@ import (
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
 type tokenAccessor struct {
 	sync.RWMutex
-	tokens   tokens.TokenEngine
-	serverID string
-	validity time.Duration
-	binary   bool
+	tokens     tokens.TokenEngine
+	serverID   string
+	validity   time.Duration
+	expiration time.Time
+	binary     bool
 }
 
 // New creates a new instance of TokenAccessor interface
 func New(serverID string, validity time.Duration, secret secrets.Secrets, binary bool) (TokenAccessor, error) {
 
 	var tokenEngine tokens.TokenEngine
+
 	var err error
 
 	if binary {
@@ -41,20 +45,34 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets, binary
 		return nil, err
 	}
 
+	_, _, expiration, err := secret.KeyAndClaims(secret.TransmittedKey())
+	if err != nil {
+		return nil, fmt.Errorf("unable to get expiration: %v", err)
+	}
+
 	return &tokenAccessor{
-		tokens:   tokenEngine,
-		serverID: serverID,
-		validity: validity,
-		binary:   binary,
+		tokens:     tokenEngine,
+		serverID:   serverID,
+		validity:   validity,
+		binary:     binary,
+		expiration: expiration,
 	}, nil
 }
 
 func (t *tokenAccessor) getToken() tokens.TokenEngine {
 
-	t.Lock()
-	defer t.Unlock()
+	t.RLock()
+	defer t.RUnlock()
 
 	return t.tokens
+}
+
+func (t *tokenAccessor) getExpiration() time.Time {
+
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.expiration
 }
 
 // SetToken updates the stored token in the struct
@@ -76,7 +94,13 @@ func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret
 		panic("unable to update token engine")
 	}
 
+	_, _, expiration, err := secret.KeyAndClaims(secret.TransmittedKey())
+	if err != nil {
+		return fmt.Errorf("unable to get expiration: %v", err)
+	}
+
 	t.tokens = tokenEngine
+	t.expiration = expiration
 
 	return nil
 }
@@ -109,13 +133,14 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 }
 
 // createSynPacketToken creates the authentication token
-func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) ([]byte, error) {
 
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
+	gt := t.getToken()
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
 		// FIX:we do nothing on error !!!
-		err = t.getToken().Randomize(token, auth.LocalContext)
+		err = gt.Randomize(token, auth.LocalContext)
 		if err == nil {
 			return token, nil
 		}
@@ -130,18 +155,24 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		ID:  context.ManagementID(),
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
-		return []byte{}, nil
+	token, err = gt.CreateAndSign(false, claims, auth.LocalContext, claimsHeader)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to create syn token: %v", err)
 	}
 
-	context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
+	// We cache the token only If we are atleast 20 seconds (SynTokenCacheValiditity + 10s)
+	// away from expiration. This fixes the corner case when the cert is expired and
+	// we still use the token we cached earlier.
+	if t.getExpiration().Sub(time.Now()) > constants.SynTokenCacheValiditity+(10*time.Second) {
+		context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
+	}
 
 	return token, nil
 }
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
 // We need to sign the received token. No caching possible here
-func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
 		T:        context.Identity(),
@@ -153,8 +184,9 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 		RemoteID: auth.RemoteContextID,
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
-		return []byte{}, nil
+	token, err := t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to create syn token: %v", err)
 	}
 
 	return token, nil
