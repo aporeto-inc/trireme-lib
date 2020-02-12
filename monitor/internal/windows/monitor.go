@@ -58,7 +58,9 @@ func (w *WindowsMonitor) SetupConfig(registerer registerer.Registerer, cfg inter
 		if err := registerer.RegisterProcessor(common.HostNetworkPU, w.proc); err != nil {
 			return err
 		}
-
+		if err := registerer.RegisterProcessor(common.LinuxProcessPU, w.proc); err != nil {
+			return err
+		}
 	}
 	windowsConfig = SetupDefaultConfig(windowsConfig)
 	w.proc.host = windowsConfig.Host

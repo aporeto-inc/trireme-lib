@@ -352,12 +352,12 @@ func executableTags(c *CLIRequest) []string {
 	tags := []string{}
 
 	if fileMd5, err := extractors.ComputeFileMd5(c.Executable); err == nil {
-		tags = append(tags, fmt.Sprintf("@app:linux:filechecksum=%s", hex.EncodeToString(fileMd5)))
+		tags = append(tags, fmt.Sprintf("@app:%s:filechecksum=%s", extractors.OSHostString, hex.EncodeToString(fileMd5)))
 	}
 
 	depends := extractors.Libs(c.ServiceName)
 	for _, lib := range depends {
-		tags = append(tags, fmt.Sprintf("@app:linux:lib:%s=true", lib))
+		tags = append(tags, fmt.Sprintf("@app:%s:lib:%s=true", extractors.OSHostString, lib))
 	}
 
 	return tags

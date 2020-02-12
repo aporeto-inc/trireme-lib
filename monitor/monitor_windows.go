@@ -107,8 +107,13 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
 			m.monitors[config.LinuxHost] = mon
-			/* default:
-			return nil, nil //fmt.Errorf("Unsupported type %d", k) */
+		case config.LinuxProcess:
+			mon := windowsmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Process: %s", err.Error())
+			}
+			m.monitors[config.LinuxProcess] = mon
 		}
 	}
 	zap.L().Debug("Monitor configuration", zap.String("conf", m.config.String()))

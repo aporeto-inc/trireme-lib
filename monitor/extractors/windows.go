@@ -31,7 +31,14 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
-		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+		key, value := parts[0], parts[1]
+
+		if strings.HasPrefix(key, "@app:windows:") {
+			runtimeTags.AppendKeyValue(key, value)
+			continue
+		}
+
+		runtimeTags.AppendKeyValue("@usr:"+key, value)
 	}
 
 	userdata := WinProcessInfo(event.PID)

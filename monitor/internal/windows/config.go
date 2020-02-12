@@ -14,7 +14,7 @@ type Config struct {
 func DefaultConfig(host bool) *Config {
 	return &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
-		Host: host,
+		Host:                   host,
 	}
 }
 
@@ -25,5 +25,5 @@ func SetupDefaultConfig(windowsConfig *Config) *Config {
 	if windowsConfig.EventMetadataExtractor == nil {
 		windowsConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
 	}
-	return defaultConfig
+	return windowsConfig
 }
