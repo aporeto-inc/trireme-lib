@@ -332,7 +332,8 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 				return errTCPAuthOption
 			}
 			if int(buffer[i+1]) == 0 {
-				return errors.New("Invalid Option")
+				i++
+				continue
 			}
 			i = i + int(buffer[i+1])
 		} else if buffer[i] == TCPAuthenticationOption {
