@@ -640,7 +640,6 @@ func (d *Datapath) UpdateSecrets(s secrets.Secrets) error {
 	return nil
 }
 
-// UpdateSecrets updates the secrets used for signing communication between trireme instances
 func (d *Datapath) secrets() secrets.Secrets {
 
 	d.secretsLock.RLock()
