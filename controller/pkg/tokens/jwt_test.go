@@ -155,8 +155,8 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 
 		nonce := []byte("1234567890123456")
 		Convey("Given a signature request for a normal packet", func() {
-			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims, recoveredNonce, publicKey, err2 := jwtConfig.Decode(false, token, nil)
+			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
+			recoveredClaims, recoveredNonce, publicKey, err2 := jwtConfig.Decode(false, token, nil, scrts)
 
 			So(err2, ShouldBeNil)
 			So(err1, ShouldBeNil)
@@ -173,11 +173,11 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 		})
 
 		Convey("Given a signature request that hits the cache ", func() {
-			token1, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims1, recoveredNonce1, key1, err2 := jwtConfig.Decode(false, token1, nil)
+			token1, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
+			recoveredClaims1, recoveredNonce1, key1, err2 := jwtConfig.Decode(false, token1, nil, scrts)
 			nonce2 := []byte("9876543210123456")
 			err3 := jwtConfig.Randomize(token1, nonce2)
-			recoveredClaims2, recoveredNonce2, key2, err4 := jwtConfig.Decode(false, token1, nil)
+			recoveredClaims2, recoveredNonce2, key2, err4 := jwtConfig.Decode(false, token1, nil, scrts)
 
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
@@ -206,8 +206,8 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 		})
 
 		Convey("Given a signature request for an ACK packet", func() {
-			token, err1 := jwtConfig.CreateAndSign(true, &ackClaims, nonce, claimsheader.NewClaimsHeader())
-			recoveredClaims, _, _, err2 := jwtConfig.Decode(true, token, cert.PublicKey.(*ecdsa.PublicKey))
+			token, err1 := jwtConfig.CreateAndSign(true, &ackClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
+			recoveredClaims, _, _, err2 := jwtConfig.Decode(true, token, cert.PublicKey.(*ecdsa.PublicKey), scrts)
 
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
@@ -228,27 +228,27 @@ func TestNegativeConditions(t *testing.T) {
 		nonce := []byte("012456789123456")
 
 		Convey("Test a token with a bad length ", func() {
-			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
-			_, _, _, err2 := jwtConfig.Decode(false, token[:len(token)-len(certPEM)-1], nil)
+			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
+			_, _, _, err2 := jwtConfig.Decode(false, token[:len(token)-len(certPEM)-1], nil, scrts)
 			So(err2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 		})
 
 		Convey("Test a token with a bad public key", func() {
-			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
+			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err1, ShouldBeNil)
 			token[len(token)-1] = 0
 			token[len(token)-2] = 0
 			token[len(token)-3] = 0
 			token[len(token)-4] = 0
-			_, _, _, err2 := jwtConfig.Decode(false, token, nil)
+			_, _, _, err2 := jwtConfig.Decode(false, token, nil, scrts)
 			So(err2, ShouldNotBeNil)
 		})
 
 		Convey("Test an ack token with a bad key", func() {
-			token, err1 := jwtConfig.CreateAndSign(false, &ackClaims, nonce, claimsheader.NewClaimsHeader())
+			token, err1 := jwtConfig.CreateAndSign(false, &ackClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
 
-			_, _, _, err2 := jwtConfig.Decode(true, token, certPEM[:10])
+			_, _, _, err2 := jwtConfig.Decode(true, token, certPEM[:10], scrts)
 			So(err2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 		})
@@ -264,7 +264,7 @@ func TestRamdomize(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
-		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader())
+		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
 		So(err, ShouldBeNil)
 
 		newNonce := []byte("9876543219123456")

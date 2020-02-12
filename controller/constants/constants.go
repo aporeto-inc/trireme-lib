@@ -142,5 +142,5 @@ const (
 	SynTokenCacheValiditity = 10 * time.Second
 
 	// DatapathTokenValidity determines how long the tokens are valid.
-	DatapathTokenValidity = 1 * time.Minute
+	DatapathTokenValidity = 2 * time.Minute
 )

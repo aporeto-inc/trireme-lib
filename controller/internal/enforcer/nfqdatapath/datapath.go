@@ -64,7 +64,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	tokenAccessor  tokenaccessor.TokenAccessor
 	service        packetprocessor.PacketProcessor
-	secrets        secrets.Secrets
+	scrts          secrets.Secrets
 	nflogger       nflog.NFLogger
 	procMountPoint string
 
@@ -135,6 +135,7 @@ type Datapath struct {
 
 	agentVersion semver.Version
 
+	secretsLock  sync.RWMutex
 	logLevelLock sync.RWMutex
 }
 
@@ -271,7 +272,7 @@ func New(
 		service:                      service,
 		collector:                    collector,
 		tokenAccessor:                tokenaccessor,
-		secrets:                      secrets,
+		scrts:                        secrets,
 		ackSize:                      secrets.AckSize(),
 		mode:                         mode,
 		procMountPoint:               procMountPoint,
@@ -630,10 +631,22 @@ func (d *Datapath) Run(ctx context.Context) error {
 }
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances
-func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+func (d *Datapath) UpdateSecrets(s secrets.Secrets) error {
 
-	d.secrets = token
-	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
+	d.secretsLock.Lock()
+	defer d.secretsLock.Unlock()
+
+	d.scrts = s
+	return nil
+}
+
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (d *Datapath) secrets() secrets.Secrets {
+
+	d.secretsLock.RLock()
+	defer d.secretsLock.RUnlock()
+
+	return d.scrts
 }
 
 // PacketLogsEnabled returns true if the packet logs are enabled.
