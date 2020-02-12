@@ -634,9 +634,9 @@ func (d *Datapath) Run(ctx context.Context) error {
 func (d *Datapath) UpdateSecrets(s secrets.Secrets) error {
 
 	d.secretsLock.Lock()
-	defer d.secretsLock.Unlock()
-
 	d.scrts = s
+	d.secretsLock.Unlock()
+
 	return nil
 }
 
