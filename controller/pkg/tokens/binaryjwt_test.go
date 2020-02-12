@@ -119,7 +119,7 @@ func Test_EncodeDecode(t *testing.T) {
 			token = append(token, []byte("abcdefghijklmnopqrstuvwxyz")...)
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, token, nil, nil)
+				_, _, _, err := b.Decode(false, token, nil, scrts)
 				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: no signature in the token"))
 			})
 		})
@@ -127,7 +127,7 @@ func Test_EncodeDecode(t *testing.T) {
 		Convey("When I encode and decode a nil Syn Packet", func() {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, nil, nil, nil)
+				_, _, _, err := b.Decode(false, nil, nil, scrts)
 				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: not enough data"))
 			})
 		})
