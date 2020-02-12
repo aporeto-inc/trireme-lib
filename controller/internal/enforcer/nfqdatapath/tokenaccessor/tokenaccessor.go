@@ -123,7 +123,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 	token, err := t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to create syn token: %v", err)
+		return []byte{}, fmt.Errorf("unable to create synack token: %v", err)
 	}
 
 	return token, nil
