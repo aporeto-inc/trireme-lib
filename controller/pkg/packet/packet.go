@@ -322,8 +322,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 		return errors.New("Invalid Packet")
 	}
 	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen+20:]
-	fmt.Println(hex.Dump(buffer))
-	for i := 0; i < len(buffer); {
+	for i := 0; i < len(buffer) && i < maxTCPOptionLength; {
 		if buffer[i] == 0 || buffer[i] == 1 {
 			i++
 			continue
