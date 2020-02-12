@@ -164,10 +164,10 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 
 			Convey("When I send the SynAck token after that, it should also be decoded with a shared key", func() {
 
-				saToken, err := b.CreateAndSign(false, &pu2Claims, pu2nonce, header, nil)
+				saToken, err := b.CreateAndSign(false, &pu2Claims, pu2nonce, header, scrts)
 				So(err, ShouldBeNil)
 
-				saClaims, _, _, err := b.Decode(false, saToken, nil, nil)
+				saClaims, _, _, err := b.Decode(false, saToken, nil, scrts)
 				So(err, ShouldBeNil)
 				So(saClaims, ShouldNotBeNil)
 				So(saClaims.LCL, ShouldResemble, pu2Claims.LCL)
@@ -176,11 +176,11 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 
 				Convey("When I send the final Ack packet it should also be decoded with the shared key", func() {
 
-					ackToken, err := b.CreateAndSign(true, &pu1AckClaims, nil, header, nil)
+					ackToken, err := b.CreateAndSign(true, &pu1AckClaims, nil, header, scrts)
 					So(err, ShouldBeNil)
 					So(ackToken, ShouldNotBeNil)
 
-					sackClaims, _, _, err := b.Decode(true, ackToken, nil, nil)
+					sackClaims, _, _, err := b.Decode(true, ackToken, nil, scrts)
 					So(err, ShouldBeNil)
 					So(sackClaims, ShouldNotBeNil)
 				})
