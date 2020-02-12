@@ -542,7 +542,7 @@ func hash(buf []byte, key []byte) ([]byte, error) {
 	return hasher.Sum(key), nil
 }
 
-// symmetricKey returns a symetric key for encryption
+// symmetricKey returns a symmetric key for encryption
 func symmetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
 
 	c := elliptic.P256()
