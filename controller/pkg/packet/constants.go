@@ -7,9 +7,6 @@ const (
 	// maxTCPHeaderLen is the maximum length of the tcp header
 	maxTCPHeaderLen = 60
 
-	// maxTCPOptionLength the maximum length of tcp options
-	maxTCPOptionLength = maxTCPHeaderLen - minTCPIPPacketLen
-
 	// minIPPacketLen is the min ip packet size for UDP packet
 	minUDPIPPacketLen = 8
 	// minIPHdrSize
