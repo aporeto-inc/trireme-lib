@@ -29,8 +29,6 @@ type JWTConfig struct {
 	Issuer string
 	// signMethod is the method used to sign the JWT
 	signMethod jwt.SigningMethod
-	// secrets is the secrets used for signing and verifying the JWT
-	secrets secrets.Secrets
 	// cache test
 	tokenCache cache.DataStore
 	// compressionType determines of compression should be used when creating tokens
@@ -77,7 +75,6 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		ValidityPeriod:       validity,
 		Issuer:               issuer,
 		signMethod:           signMethod,
-		secrets:              s,
 		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 		compressionType:      compressionType,
 		compressionTagLength: claimsheader.CompressionTypeToTagLength(compressionType),
@@ -87,7 +84,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) (token []byte, err error) {
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
@@ -113,7 +110,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	claims.H = claimsHeader.ToBytes()
 
 	// Create the token and sign with our key
-	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
+	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(secrets.EncodingKey())
 	if err != nil {
 		return []byte{}, err
 	}
@@ -122,7 +119,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 	// again for Ack packets to reduce overhead
 	if !isAck {
 
-		txKey := c.secrets.TransmittedKey()
+		txKey := secrets.TransmittedKey()
 
 		totalLength := len(strtoken) + len(txKey) + noncePosition + NonceLength + 1
 
@@ -153,7 +150,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 // Decode  takes as argument the JWT token and the certificate of the issuer.
 // First it verifies the certificate with the local CA pool, and the decodes
 // the JWT if the certificate is trusted
-func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
 	var ackCert interface{}
 	var certClaims []string
@@ -186,7 +183,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		certBytes := data[tokenPosition+tokenLength+1:]
 
-		ackCert, certClaims, _, err = c.secrets.KeyAndClaims(certBytes)
+		ackCert, certClaims, _, err = secrets.KeyAndClaims(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
