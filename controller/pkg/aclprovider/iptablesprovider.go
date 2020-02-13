@@ -344,10 +344,17 @@ func (b *BatchProvider) Commit() error {
 
 	buf, err := b.createDataBuffer()
 	if err != nil {
+		zap.L().Error("Failed to create buffer ", zap.Error(err))
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	return b.commitFunc(buf)
+	err = b.commitFunc(buf)
+
+	if err != nil {
+		zap.Error("commit returned error ", zap.Error(err))
+	}
+
+	return err
 }
 
 // RetrieveTable allows a caller to retrieve the final table. Mostly
