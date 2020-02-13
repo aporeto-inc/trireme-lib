@@ -337,6 +337,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 				return errTCPAuthOption
 			}
 			if int(buffer[i+1]) == 0 {
+				zap.L().Error("Bad Packet Option", zap.String("Buffer", string(hex.Dump(buffer))))
 				return errors.New("Invalid TCP Option Packet")
 			}
 			i = i + int(buffer[i+1])
