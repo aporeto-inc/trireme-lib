@@ -319,27 +319,34 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 		return errTCPAuthOption
 	}
 	if len(p.ipHdr.Buffer) < int(p.ipHdr.ipHeaderLen)+20 {
-		return errors.New("Invalid Packet")
+		return errors.New("Invalid IP Packet")
 	}
-	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen+20:]
-	for i := 0; i < len(buffer) && i < maxTCPOptionLength; {
+	if int(p.ipHdr.ipHeaderLen)+int(p.tcpHdr.tcpDataOffset*4) > len(p.ipHdr.Buffer) {
+		return errors.New("Invalid TCP Packet")
+	}
+	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen+20 : int(p.ipHdr.ipHeaderLen)+int(p.tcpHdr.tcpDataOffset*4)]
+
+	for i := 0; i < len(buffer); {
 		if buffer[i] == 0 || buffer[i] == 1 {
 			i++
 			continue
-		} else if buffer[i] != TCPAuthenticationOption {
+		}
+
+		if buffer[i] != TCPAuthenticationOption {
 			if len(buffer) <= i+1 {
 				return errTCPAuthOption
 			}
 			if int(buffer[i+1]) == 0 {
-				i++
-				continue
+				return errors.New("Invalid TCP Option Packet")
 			}
 			i = i + int(buffer[i+1])
-		} else if buffer[i] == TCPAuthenticationOption {
-			return nil
-		} else {
-			return errTCPAuthOption
+			continue
 		}
+
+		if buffer[i] == TCPAuthenticationOption {
+			return nil
+		}
+		return errTCPAuthOption
 
 	}
 	return errTCPAuthOption
