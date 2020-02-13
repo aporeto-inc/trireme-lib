@@ -343,7 +343,7 @@ func (b *BatchProvider) Commit() error {
 	}
 
 	buf, err := b.createDataBuffer()
-	zap.L().Info("Commit operation :buffer = ", zap.String(buf.String()))
+	zap.L().Info("Commit operation :buffer = ", zap.String("buffer", buf.String()))
 
 	if err != nil {
 		zap.L().Error("Failed to create buffer ", zap.Error(err))
