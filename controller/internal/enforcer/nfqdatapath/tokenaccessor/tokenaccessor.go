@@ -97,7 +97,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		ID:  context.ManagementID(),
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader(), claimsHeader); err != nil {
+	if token, err = t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader(), secrets); err != nil {
 		return []byte{}, nil
 	}
 
