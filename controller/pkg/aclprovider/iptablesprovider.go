@@ -351,7 +351,7 @@ func (b *BatchProvider) Commit() error {
 	err = b.commitFunc(buf)
 
 	if err != nil {
-		zap.Error("commit returned error ", zap.Error(err))
+		zap.L().Error("commit returned error ", zap.Error(err))
 	}
 
 	return err
