@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/aporeto-inc/gopkt/layers"
+	"github.com/aporeto-inc/gopkt/packet/ipv4"
+	"github.com/aporeto-inc/gopkt/packet/raw"
+	"github.com/aporeto-inc/gopkt/packet/tcp"
+	"github.com/ghedo/go.pkt/packet/eth"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
@@ -4846,6 +4852,84 @@ func TestCheckCounterCollection(t *testing.T) {
 		})
 
 	})
+}
+
+func Test_FlowReportingClaims(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	collectCounterInterval = 1 * time.Second
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+			//collectCounterInterval = 1 * time.Second
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			packet, err := packet.New(packet.PacketTypeNetwork, synAckPacket(), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, packet)
+			_, _, err = enforcer.processNetworkSynAckPacket(puContext, conn, packet)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func synAckPacket() []byte {
+
+	// ethernet.
+	ethPacket := eth.Make()
+	ethPacket.SrcAddr = net.HardwareAddr("02:42:bc:f4:2a:a0")
+	ethPacket.DstAddr = net.HardwareAddr("02:42:bc:f4:2a:a4")
+
+	// ip.
+	ipPacket := ipv4.Make()
+	ipPacket.SrcAddr = net.ParseIP("1.1.1.1")
+	ipPacket.DstAddr = net.ParseIP("2.2.2.2")
+	ipPacket.Protocol = ipv4.TCP
+	fmt.Println("SRCADDRESS", ipPacket.SrcAddr)
+	// tcp.
+	tcpPacket := tcp.Make()
+	tcpPacket.SrcPort = srcPort
+	tcpPacket.DstPort = dstPort
+	tcpPacket.Flags = tcp.Syn | tcp.Ack
+	tcpPacket.Seq = rand.Uint32()
+	tcpPacket.WindowSize = 0xAAAA
+	tcpPacket.Options = []tcp.Option{
+		{
+			Type: tcp.MSS,
+			Len:  4,
+			Data: []byte{0x05, 0x8C},
+		}, {
+			Type: 34, // tfo
+			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
+			Data: make([]byte, 2),
+		},
+	}
+	tcpPacket.DataOff = uint8(7) // 5 (header size) + 2 * (4 byte options)
+
+	// payload.
+	payload := raw.Make()
+	payload.Data = []byte("dummy payload")
+
+	tcpPacket.SetPayload(payload)  // nolint:errcheck
+	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
+
+	// pack the layers together.
+	buf, err := layers.Pack(ethPacket, ipPacket, tcpPacket, payload)
+	if err != nil {
+		panic(fmt.Errorf("unable to encode packet to wire format: %v", err))
+	}
+
+	return buf
 }
 
 func TestCheckConnectionDeletion(t *testing.T) {
