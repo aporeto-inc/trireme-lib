@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
@@ -178,6 +179,8 @@ type TCPConnection struct {
 	TCPtuple *TCPTuple
 
 	PingConfig *PingConfig
+
+	Secrets secrets.Secrets
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -280,6 +283,7 @@ type ProxyConnection struct {
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
+	Secrets          secrets.Secrets
 }
 
 // NewProxyConnection returns a new Proxy Connection
@@ -344,6 +348,8 @@ type UDPConnection struct {
 
 	TestIgnore           bool
 	udpQueueFullDropCntr uint64
+
+	Secrets secrets.Secrets
 }
 
 // NewUDPConnection returns UDPConnection struct.

@@ -3,7 +3,7 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
-	"sync"
+	"fmt"
 	"time"
 
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -17,7 +17,6 @@ import (
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
 type tokenAccessor struct {
-	sync.RWMutex
 	tokens   tokens.TokenEngine
 	serverID string
 	validity time.Duration
@@ -32,7 +31,7 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets, binary
 
 	if binary {
 		zap.L().Info("Enabling Trireme Datapath v2.0")
-		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
+		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID)
 	} else {
 		zap.L().Info("Enabling Trireme Datapath v1.0")
 		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
@@ -49,38 +48,6 @@ func New(serverID string, validity time.Duration, secret secrets.Secrets, binary
 	}, nil
 }
 
-func (t *tokenAccessor) getToken() tokens.TokenEngine {
-
-	t.Lock()
-	defer t.Unlock()
-
-	return t.tokens
-}
-
-// SetToken updates the stored token in the struct
-func (t *tokenAccessor) SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error {
-
-	t.Lock()
-	defer t.Unlock()
-
-	var tokenEngine tokens.TokenEngine
-	var err error
-
-	if t.binary {
-		tokenEngine, err = tokens.NewBinaryJWT(validity, serverID, secret)
-	} else {
-		tokenEngine, err = tokens.NewJWT(validity, serverID, secret)
-	}
-
-	if err != nil {
-		panic("unable to update token engine")
-	}
-
-	t.tokens = tokenEngine
-
-	return nil
-}
-
 // GetTokenValidity returns the duration the token is valid for
 func (t *tokenAccessor) GetTokenValidity() time.Duration {
 	return t.validity
@@ -92,7 +59,7 @@ func (t *tokenAccessor) GetTokenServerID() string {
 }
 
 // CreateAckPacketToken creates the authentication token
-func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error) {
+func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, secrets secrets.Secrets) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
 		ID:       context.ManagementID(),
@@ -100,7 +67,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 		RemoteID: auth.RemoteContextID,
 	}
 
-	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader())
+	token, err := t.tokens.CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader(), secrets)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -109,13 +76,13 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 }
 
 // createSynPacketToken creates the authentication token
-func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
 
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
 		// FIX:we do nothing on error !!!
-		err = t.getToken().Randomize(token, auth.LocalContext)
+		err = t.tokens.Randomize(token, auth.LocalContext)
 		if err == nil {
 			return token, nil
 		}
@@ -130,8 +97,9 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		ID:  context.ManagementID(),
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
-		return []byte{}, nil
+	token, err = t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to create syn token: %v", err)
 	}
 
 	context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
@@ -141,7 +109,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
 // We need to sign the received token. No caching possible here
-func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
 		T:        context.Identity(),
@@ -153,8 +121,9 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 		RemoteID: auth.RemoteContextID,
 	}
 
-	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext, claimsHeader); err != nil {
-		return []byte{}, nil
+	token, err := t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to create synack token: %v", err)
 	}
 
 	return token, nil
@@ -162,10 +131,10 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 // parsePacketToken parses the packet token and populates the right state.
 // Returns an error if the token cannot be parsed or the signature fails
-func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, nonce, cert, err := t.getToken().Decode(false, data, auth.RemotePublicKey)
+	claims, nonce, cert, err := t.tokens.Decode(false, data, auth.RemotePublicKey, secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -189,17 +158,16 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 
 // parseAckToken parses the tokens in Ack packets. They don't carry all the state context
 // and it needs to be recovered
-func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
 
-	gt := t.getToken()
-	if gt == nil {
-		return nil, errors.New("token is nil")
+	if secrets == nil {
+		return nil, errors.New("secrets is nil")
 	}
 	if auth == nil {
 		return nil, errors.New("auth is nil")
 	}
 	// Validate the certificate and parse the token
-	claims, _, _, err := t.getToken().Decode(true, data, auth.RemotePublicKey)
+	claims, _, _, err := t.tokens.Decode(true, data, auth.RemotePublicKey, secrets)
 	if err != nil {
 		return nil, err
 	}
