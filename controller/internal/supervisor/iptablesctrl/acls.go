@@ -68,6 +68,9 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 		"isHostPU": func() bool {
 			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
 		},
+		"isProcessPU": func() bool {
+			return cfg.PUType == common.LinuxProcessPU
+		},
 	}).Parse(cgroupCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)

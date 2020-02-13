@@ -456,6 +456,29 @@ func TestParseRuleSpecMatchString(t *testing.T) {
 
 }
 
+func TestParseRuleSpecMatchPid(t *testing.T) {
+
+	Convey("When I parse a rule with a process ID match", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p tcp -m set --match-set TRI-ipset-tcp-1 dstIP -j NFQUEUE -j MARK 103 -m owner --pid-owner 2438", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should forward to nfq for all packets from or two the given process", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionNfq)
+			So(ruleSpec.Mark, ShouldEqual, 103)
+			So(ruleSpec.Protocol, ShouldEqual, packet.IPProtocolTCP)
+			So(ruleSpec.ProcessId, ShouldEqual, 2438)
+			So(ruleSpec.MatchSet, ShouldNotBeNil)
+			So(ruleSpec.MatchSet, ShouldHaveLength, 1)
+			So(ruleSpec.MatchSet[0].MatchSetName, ShouldEqual, "TRI-ipset-tcp-1")
+			So(ruleSpec.MatchSet[0].MatchSetNegate, ShouldBeFalse)
+			So(ruleSpec.MatchSet[0].MatchSetDstIp, ShouldBeTrue)
+			So(ruleSpec.MatchSet[0].MatchSetDstPort, ShouldBeFalse)
+			So(ruleSpec.MatchSet[0].MatchSetSrcIp, ShouldBeFalse)
+			So(ruleSpec.MatchSet[0].MatchSetSrcPort, ShouldBeFalse)
+		})
+	})
+
+}
+
 // test generated acl rule
 func TestParseRuleSpecACLRule(t *testing.T) {
 

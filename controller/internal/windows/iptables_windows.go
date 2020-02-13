@@ -40,6 +40,7 @@ type WindowsRuleSpec struct {
 	Log              bool
 	LogPrefix        string
 	GroupId          int
+	ProcessId        int
 	MatchSrcPort     []*WindowsRulePortRange
 	MatchDstPort     []*WindowsRulePortRange
 	MatchBytes       []byte
@@ -123,6 +124,9 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	if winRuleSpec.Log {
 		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupId, winRuleSpec.LogPrefix)
 	}
+	if winRuleSpec.ProcessId > 0 {
+		rulespec += fmt.Sprintf("-m owner --pid-owner %d ", winRuleSpec.ProcessId)
+	}
 	rulespec = strings.TrimSpace(rulespec)
 	if validate {
 		if _, err := ParseRuleSpec(rulespec); err != nil {
@@ -176,6 +180,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	matchSetOpt := opt.StringSlice("match-set", 2, 10)
 	matchStringOpt := opt.String("string", "")
 	matchStringOffsetOpt := opt.Int("offset", 0)
+	matchOwnerPidOpt := opt.Int("pid-owner", 0)
 	redirectPortOpt := opt.Int("to-ports", 0)
 	opt.String("state", "") // "--state NEW" et al ignored
 	opt.String("match", "") // "--match multiport" ignored
@@ -296,6 +301,12 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 			result.MatchBytes = []byte(*matchStringOpt)
 			result.MatchBytesOffset = *matchStringOffsetOpt
 
+		case "owner":
+			if *matchOwnerPidOpt <= 0 {
+				return nil, errors.New("rulespec not valid: valid pid-owner needed")
+			}
+			result.ProcessId = *matchOwnerPidOpt
+
 		case "state":
 			// for "-m state --state NEW"
 			// skip it for now
@@ -384,6 +395,7 @@ func (w *WindowsRuleSpec) Equal(other *WindowsRuleSpec) bool {
 		w.Log == other.Log &&
 		w.LogPrefix == other.LogPrefix &&
 		w.GroupId == other.GroupId &&
+		w.ProcessId == other.ProcessId &&
 		w.MatchBytesOffset == other.MatchBytesOffset &&
 		bytes.Equal(w.MatchBytes, other.MatchBytes) &&
 		len(w.MatchSrcPort) == len(other.MatchSrcPort) &&

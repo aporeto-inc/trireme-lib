@@ -146,6 +146,7 @@ type RuleSpec struct {
 	DstPorts          *PortRange
 	LogPrefix         uintptr // const wchar_t*
 	Application       uintptr // const wchar_t*
+	ProcessId         uint64
 }
 
 func GetDriverHandle() (uintptr, error) {

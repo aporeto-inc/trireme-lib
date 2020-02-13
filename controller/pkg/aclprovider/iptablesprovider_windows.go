@@ -99,6 +99,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		GroupId:   uint32(winRuleSpec.GroupId),
 		ProxyPort: uint16(winRuleSpec.ProxyPort),
 		Mark:      uint32(winRuleSpec.Mark),
+		ProcessId: uint64(winRuleSpec.ProcessId),
 	}
 	if winRuleSpec.Protocol > 0 && winRuleSpec.Protocol < math.MaxUint8 {
 		argRuleSpec.ProtocolSpecified = 1

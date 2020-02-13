@@ -4,6 +4,7 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -228,6 +229,17 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 			default:
 				return nil, nil
 			}
+		}
+	case common.LinuxProcessPU:
+		pid, err := strconv.Atoi(cfg.ContextID)
+		if err != nil {
+			return nil, fmt.Errorf("ContextID invalid for Windows Process PU")
+		}
+		winRuleSpec.ProcessId = pid
+		if isAppAcls {
+			chain = "HostSvcRules-OUTPUT"
+		} else {
+			chain = "HostSvcRules-INPUT"
 		}
 	default:
 		return nil, fmt.Errorf("unexpected Windows PU: %v", cfg.PUType)

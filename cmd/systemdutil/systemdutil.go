@@ -9,7 +9,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"syscall"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -249,7 +248,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	env := os.Environ()
 	env = append(env, "APORETO_WRAP=1")
-	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), env)
+	return execve(c, env)
 }
 
 // DeleteService will issue a delete command
