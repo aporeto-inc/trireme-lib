@@ -267,7 +267,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype common
 		c := httpproxy.NewHTTPProxy(p.collector, puID, caPool, appproxy, proxyMarkInt, p.secrets, p.registry, p.tokenIssuer)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, puID, p.registry, p.cert, caPool)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, puID, p.registry, p.cert, caPool, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }

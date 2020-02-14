@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/aporeto-inc/gopkt/layers"
+	"github.com/aporeto-inc/gopkt/packet/ipv4"
+	"github.com/aporeto-inc/gopkt/packet/raw"
+	"github.com/aporeto-inc/gopkt/packet/tcp"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
@@ -25,6 +30,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
@@ -1718,6 +1724,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -1740,6 +1747,7 @@ func TestFlowReportingGoodFlowWithReject(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2956,6 +2964,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2979,6 +2988,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3233,6 +3243,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", false)
 							So(puInfo1, ShouldNotBeNil)
@@ -3254,6 +3265,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, "server", false)
 							So(puInfo1, ShouldNotBeNil)
@@ -3408,6 +3420,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3431,6 +3444,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3584,6 +3598,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3607,6 +3622,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -4063,6 +4079,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -4085,6 +4102,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
+							flowRecord.DropReason = collector.PolicyDrop
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -4846,6 +4864,224 @@ func TestCheckCounterCollection(t *testing.T) {
 		})
 
 	})
+}
+
+func Test_Secrets(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			flowRecord := &collector.FlowRecord{
+				ContextID: "SomeProcessingUnitId1",
+				Namespace: "/ns1",
+				Source: &collector.EndPoint{
+					ID:   "SomeProcessingUnitId1",
+					IP:   "1.1.1.1",
+					Type: collector.EnpointTypePU,
+					Port: 2000,
+				},
+				Destination: &collector.EndPoint{
+					ID:   "default",
+					IP:   "2.2.2.2",
+					Port: 80,
+				},
+				Count:      1,
+				Tags:       &policy.TagStore{},
+				Action:     policy.Reject,
+				DropReason: collector.InvalidToken,
+			}
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			s := &fakeSecrets{}
+			s.setID("ABC")
+			enforcer.scrts = s
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "ABC")
+
+			// Updating secrets here
+			s = &fakeSecrets{}
+			s.setID("BCD")
+			err = enforcer.UpdateSecrets(s)
+			So(err, ShouldBeNil)
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
+
+			p, err = packet.New(packet.PacketTypeNetwork, newPacket(tcp.Syn|tcp.Ack, true, true), "0", false)
+			So(err, ShouldBeNil)
+			conn, err = enforcer.netSynAckRetrieveState(p)
+			So(err, ShouldBeNil)
+			_, _, err = enforcer.processNetworkSynAckPacket(puContext, conn, p)
+			So(err, ShouldNotBeNil)
+			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "ABC")
+			So(enforcer.secrets().(*fakeSecrets).getID(), ShouldEqual, "BCD")
+
+			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn = connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "BCD")
+
+			// Updating secrets here
+			s = &fakeSecrets{}
+			s.setID("CDE")
+			err = enforcer.UpdateSecrets(s)
+			So(err, ShouldBeNil)
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
+
+			p, err = packet.New(packet.PacketTypeNetwork, newPacket(tcp.Syn|tcp.Ack, true, true), "0", false)
+			So(err, ShouldBeNil)
+			conn, err = enforcer.netSynAckRetrieveState(p)
+			So(err, ShouldBeNil)
+			_, _, err = enforcer.processNetworkSynAckPacket(puContext, conn, p)
+			So(err, ShouldNotBeNil)
+			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "BCD")
+			So(enforcer.secrets().(*fakeSecrets).getID(), ShouldEqual, "CDE")
+		})
+	})
+}
+
+func Test_NOClaims(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			flowRecord := &collector.FlowRecord{
+				ContextID: "SomeProcessingUnitId1",
+				Namespace: "/ns1",
+				Source: &collector.EndPoint{
+					ID:   "SomeProcessingUnitId1",
+					IP:   "1.1.1.1",
+					Type: collector.EnpointTypePU,
+					Port: 2000,
+				},
+				Destination: &collector.EndPoint{
+					ID:   "default",
+					IP:   "2.2.2.2",
+					Port: 80,
+				},
+				Count:      1,
+				Tags:       &policy.TagStore{},
+				Action:     policy.Reject,
+				DropReason: collector.MissingToken,
+			}
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			s := &fakeSecrets{}
+			s.setID("ABC")
+			enforcer.scrts = s
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
+
+			p, err := packet.New(packet.PacketTypeNetwork, newPacket(tcp.Syn|tcp.Ack, true, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			_, _, err = enforcer.processNetworkSynAckPacket(puContext, conn, p)
+			So(err, ShouldNotBeNil)
+		})
+	})
+}
+
+func newPacket(flags tcp.Flags, addOptions bool, addPayload bool) []byte {
+
+	// ip.
+	ipPacket := ipv4.Make()
+	ipPacket.SrcAddr = net.ParseIP("1.1.1.1")
+	ipPacket.DstAddr = net.ParseIP("2.2.2.2")
+	if flags == tcp.Syn|tcp.Ack {
+		ipPacket.SrcAddr = net.ParseIP("2.2.2.2")
+		ipPacket.DstAddr = net.ParseIP("1.1.1.1")
+	}
+	ipPacket.Protocol = ipv4.TCP
+
+	// tcp.
+	tcpPacket := tcp.Make()
+	tcpPacket.SrcPort = srcPort
+	tcpPacket.DstPort = dstPort
+	if flags == tcp.Syn|tcp.Ack {
+		tcpPacket.SrcPort = dstPort
+		tcpPacket.DstPort = srcPort
+	}
+	tcpPacket.Flags = flags
+	tcpPacket.Seq = rand.Uint32()
+	tcpPacket.WindowSize = 0xAAAA
+	off := 5
+	if addOptions {
+		tcpPacket.Options = []tcp.Option{
+			{
+				Type: tcp.MSS,
+				Len:  4,
+				Data: []byte{0x05, 0x8C},
+			}, {
+				Type: 34, // tfo
+				Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
+				Data: make([]byte, 2),
+			},
+		}
+		off += 2
+	}
+	tcpPacket.DataOff = uint8(off) // 5 (header size) + 2 * (4 byte options)
+
+	// payload.
+	payload := raw.Make()
+	if addPayload {
+		payload.Data = []byte("dummy payload")
+		tcpPacket.SetPayload(payload) // nolint:errcheck
+	}
+
+	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
+
+	// pack the layers together.
+	buf, err := layers.Pack(ipPacket, tcpPacket, payload)
+	if err != nil {
+		panic(fmt.Errorf("unable to encode packet to wire format: %v", err))
+	}
+
+	return buf
 }
 
 func TestCheckConnectionDeletion(t *testing.T) {

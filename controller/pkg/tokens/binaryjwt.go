@@ -66,8 +66,6 @@ type BinaryJWTConfig struct {
 	ValidityPeriod time.Duration
 	// Issuer is the server that issues the JWT
 	Issuer string
-	// secrets is the secrets used for signing and verifying the JWT
-	secrets secrets.Secrets
 	// cache test
 	tokenCache cache.DataStore
 	// sharedKeys is a cache of pre-shared keys.
@@ -75,12 +73,11 @@ type BinaryJWTConfig struct {
 }
 
 // NewBinaryJWT creates a new JWT token processor
-func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*BinaryJWTConfig, error) {
+func NewBinaryJWT(validity time.Duration, issuer string) (*BinaryJWTConfig, error) {
 
 	return &BinaryJWTConfig{
 		ValidityPeriod: validity,
 		Issuer:         issuer,
-		secrets:        s,
 		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", validity),
 		sharedKeys:     cache.NewCacheWithExpiration("SharedKeysCache", time.Minute*5),
 	}, nil
@@ -89,18 +86,18 @@ func NewBinaryJWT(validity time.Duration, issuer string, s secrets.Secrets) (*Bi
 // Decode  takes as argument the JWT token and the certificate of the issuer.
 // First it verifies the certificate with the local CA pool, and the decodes
 // the JWT if the certificate is trusted
-func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
 	if isAck {
 		return c.decodeAck(data)
 	}
 
-	return c.decodeSyn(data)
+	return c.decodeSyn(data, secrets)
 }
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader, secrets secrets.Secrets) (token []byte, err error) {
 
 	// Set the appropriate claims header
 	header.SetCompressionType(claimsheader.CompressionTypeV1)
@@ -110,7 +107,7 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 		return c.createAckToken(claims, header)
 	}
 
-	return c.createSynToken(claims, nonce, header)
+	return c.createSynToken(claims, nonce, header, secrets)
 }
 
 // Randomize adds a nonce to an existing token. Returns the nonce
@@ -125,12 +122,12 @@ func (c *BinaryJWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 	return nil
 }
 
-func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader) (token []byte, err error) {
+func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte, header *claimsheader.ClaimsHeader, secrets secrets.Secrets) (token []byte, err error) {
 	// Combine the application claims with the standard claims.
 	// In all cases for Syn/SynAck packets we also transmit our
 	// public key.
 	allclaims := ConvertToBinaryClaims(claims, c.ValidityPeriod)
-	allclaims.SignerKey = c.secrets.TransmittedKey()
+	allclaims.SignerKey = secrets.TransmittedKey()
 
 	// This is the hack of backward compatibility that has to be
 	// removed.
@@ -144,7 +141,7 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 
 	var sig []byte
 	if len(claims.RemoteID) == 0 {
-		sig, err = c.sign(buf, c.secrets.EncodingKey().(*ecdsa.PrivateKey))
+		sig, err = c.sign(buf, secrets.EncodingKey().(*ecdsa.PrivateKey))
 	} else {
 		sig, err = c.signWithSharedKey(buf, claims.RemoteID)
 	}
@@ -177,7 +174,7 @@ func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, header *claim
 	return packToken(header.ToBytes(), nil, buf, sig), nil
 }
 
-func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
 
 	// Unpack the token first.
 	header, nonce, token, sig, err := unpackToken(false, data)
@@ -199,7 +196,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 	// Derive the transmitter public key and associated claims. This will also
 	// validate that the transmitter key is valid or provide it from a cache.
 	// Once it succeeds we know that the public key that was provide is correct.
-	publicKey, publicKeyClaims, expTime, err := c.secrets.KeyAndClaims(binaryClaims.SignerKey)
+	publicKey, publicKeyClaims, expTime, err := secrets.KeyAndClaims(binaryClaims.SignerKey)
 	if err != nil || publicKey == nil {
 		return nil, nil, nil, fmt.Errorf("unable to identify signer key: %s", err)
 	}
@@ -223,7 +220,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 
 		binaryClaims.RMT = nil
 
-		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
 		}
@@ -233,7 +230,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 			// has changed. In this case, we will re-calculate the shared key and try
 			// again. We don't have the option of doing that for Ack packets, but at least
 			// we can do it here.
-			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
 			}
@@ -251,7 +248,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte) (claims *ConnectionClaims, nonc
 		}
 
 		// We create a new symetric key if we don't already have one.
-		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime)
+		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unable to generate shared key: %s", err)
 		}
@@ -331,7 +328,7 @@ func (c *BinaryJWTConfig) sign(buf []byte, key *ecdsa.PrivateKey) ([]byte, error
 
 	// Sign the hash with the private key using the ECDSA algorithm
 	// and properly format the resulting signature.
-	r, s, err := ecdsa.Sign(rand.Reader, c.secrets.EncodingKey().(*ecdsa.PrivateKey), h)
+	r, s, err := ecdsa.Sign(rand.Reader, key, h)
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign token data: %s", err)
 	}
@@ -408,21 +405,21 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 	return nil
 }
 
-func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
+func (c *BinaryJWTConfig) deriveSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time, privateKey interface{}) ([]byte, error) {
 
 	// We try to find the remote in the cache
 	k, err := c.sharedKeys.Get(id)
 	if err != nil {
 		// We don't have it in the cache. Let's create a new shared key.
-		return c.newSharedKey(id, publicKey, publicKeyClaims, expTime)
+		return c.newSharedKey(id, publicKey, publicKeyClaims, expTime, privateKey)
 	}
 	// Key is already found in the cache.
 	return k.(*sharedSecret).key, nil
 }
 
-func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time) ([]byte, error) {
+func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicKeyClaims []string, expTime time.Time, privateKey interface{}) ([]byte, error) {
 
-	key, err := symetricKey(c.secrets.EncodingKey(), publicKey)
+	key, err := symmetricKey(privateKey, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +513,7 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error
 	sigPosition := int(binary.BigEndian.Uint16(data[lengthPosition : lengthPosition+2]))
 
 	// The token must be long enough to have at least 1 byte of signature.
-	if len(data) < sigPosition+1 {
+	if len(data) < sigPosition+1 || sigPosition == 0 {
 		return nil, nil, nil, nil, fmt.Errorf("no signature in the token")
 	}
 
@@ -545,8 +542,8 @@ func hash(buf []byte, key []byte) ([]byte, error) {
 	return hasher.Sum(key), nil
 }
 
-// symetricKey returns a symetric key for encryption
-func symetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
+// symmetricKey returns a symmetric key for encryption
+func symmetricKey(privateKey interface{}, remotePublic interface{}) ([]byte, error) {
 
 	c := elliptic.P256()
 

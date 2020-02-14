@@ -364,9 +364,10 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
+	conn.Secrets = d.secrets()
 	udpOptions := packet.CreateUDPAuthMarker(packet.UDPSynMask)
 
-	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, conn.Secrets)
 	if err != nil {
 		return err
 	}
@@ -443,7 +444,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	// Create UDP Option
 	udpOptions := packet.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
-	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
+	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader(), conn.Secrets)
 	if err != nil {
 		return err
 	}
@@ -474,7 +475,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
 	udpOptions := packet.CreateUDPAuthMarker(packet.UDPAckMask)
 
-	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
+	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, conn.Secrets)
 
 	if err != nil {
 		return err
@@ -521,7 +522,9 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 // processNetworkUDPSynPacket processes a syn packet arriving from the network
 func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn *connection.UDPConnection, udpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
+	conn.Secrets = d.secrets()
+
+	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, tokens.CodeFromErr(err), nil, nil, false)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynDroppedInvalidToken, fmt.Sprintf("UDP Syn packet dropped because of invalid token: %s", err))
@@ -567,7 +570,7 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
+	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, "SynAck packet dropped because of bad claims")
@@ -599,7 +602,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	conn.SynAckStop()
 
-	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken())
+	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
 		return conn.Context.PuContextError(pucontext.ErrUDPInvalidSignature, fmt.Sprintf("ack packet dropped because signature validation failed: %s", err))
