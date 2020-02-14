@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -414,6 +415,11 @@ func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
 }
 
 func restoreHasWait(restoreCmd string) bool {
+	minVersionString := "1.6.2"
+	if _, err := os.Stat("/etc/redhat-release"); err == nil {
+		minVersionString = "1.6.0"
+	}
+
 	cmd := exec.Command(restoreCmd, "--version")
 	cmd.Stdin = bytes.NewReader([]byte{})
 	bytes, err := cmd.CombinedOutput()
@@ -429,19 +435,23 @@ func restoreHasWait(restoreCmd string) bool {
 		return false
 	}
 
+	restoreCmdVersion := match[1]
+
 	restoreVersion, err := version.NewVersion(match[1])
 	if err != nil {
 		return false
 	}
 
-	minimumVersion, err := version.NewVersion("1.6.2")
+	minimumVersion, err := version.NewVersion(minVersionString)
 	if err != nil {
 		return false
 	}
 
 	if restoreVersion.LessThan(minimumVersion) {
-		zap.L().Info(fmt.Sprintf(" %s: does not support --wait. Must be v1.6.2 or higher", restoreCmd))
+		zap.L().Info(fmt.Sprintf(" %s (%s): does not support --wait. Must be v%s or higher", restoreCmd, restoreCmdVersion, minVersionString))
 		return false
+	} else {
+		zap.L().Info(fmt.Sprintf(" %s (%s): supports --wait. Will use %s --wait", restoreCmd, restoreCmdVersion, restoreCmd))
+		return true
 	}
-	return true
 }

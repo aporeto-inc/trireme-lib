@@ -209,6 +209,10 @@ func (i *iptables) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
 
+	if err := i.impl.Commit(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
