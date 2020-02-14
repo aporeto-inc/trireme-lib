@@ -259,12 +259,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 	}
 
 	// Default tuple in case the packet is nil.
-	tuple := &TCPTuple{
-		SourceAddress:      net.ParseIP("1.1.1.1"),
-		DestinationAddress: net.ParseIP("1.1.1.1"),
-		SourcePort:         0,
-		DestinationPort:    0,
-	}
+	tuple := &TCPTuple{}
 	if p != nil {
 		tuple.SourceAddress = p.SourceAddress()
 		tuple.DestinationAddress = p.DestinationAddress()
