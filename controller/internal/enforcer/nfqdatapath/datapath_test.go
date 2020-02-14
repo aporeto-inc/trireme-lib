@@ -4869,7 +4869,7 @@ func TestCheckCounterCollection(t *testing.T) {
 func Test_Secrets(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	collectCounterInterval = 1 * time.Second
+
 	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
 		Convey("So When enforcer exits", func() {
 			mockCollector := mockcollector.NewMockEventCollector(ctrl)
@@ -4878,7 +4878,7 @@ func Test_Secrets(t *testing.T) {
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 			So(enforcer, ShouldNotBeNil)
-			//collectCounterInterval = 1 * time.Second
+
 			contextID := puInfo1.ContextID
 			puCtx, err := enforcer.puFromContextID.Get(contextID)
 			So(err, ShouldBeNil)
