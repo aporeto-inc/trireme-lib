@@ -1,10 +1,16 @@
 package systemdutil
 
-import "os/exec"
+import (
+	"os"
+	"os/exec"
+)
 
+// execve does not exist in Windows, so we do the best we can.
 func execve(c *CLIRequest, env []string) error {
-	// TODO(windows): emulate execve as much as possible
 	cmd := exec.Command(c.Executable, c.Parameters...)
 	cmd.Env = env
-	return cmd.Start()
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
