@@ -4906,9 +4906,10 @@ func Test_Secrets(t *testing.T) {
 				DropReason: collector.InvalidToken,
 			}
 
-			enforcer.SetTargetNetworks(&runtime.Configuration{
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
 				TCPTargetNetworks: []string{"0.0.0.0/0"},
 			})
+			So(err, ShouldBeNil)
 
 			s := &fakeSecrets{}
 			s.setID("ABC")
@@ -4924,7 +4925,8 @@ func Test_Secrets(t *testing.T) {
 			// Updating secrets here
 			s = &fakeSecrets{}
 			s.setID("BCD")
-			enforcer.UpdateSecrets(s)
+			err = enforcer.UpdateSecrets(s)
+			So(err, ShouldBeNil)
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
 
@@ -4947,7 +4949,8 @@ func Test_Secrets(t *testing.T) {
 			// Updating secrets here
 			s = &fakeSecrets{}
 			s.setID("CDE")
-			enforcer.UpdateSecrets(s)
+			err = enforcer.UpdateSecrets(s)
+			So(err, ShouldBeNil)
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
 
@@ -5003,9 +5006,10 @@ func Test_NOClaims(t *testing.T) {
 				DropReason: collector.MissingToken,
 			}
 
-			enforcer.SetTargetNetworks(&runtime.Configuration{
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
 				TCPTargetNetworks: []string{"0.0.0.0/0"},
 			})
+			So(err, ShouldBeNil)
 
 			s := &fakeSecrets{}
 			s.setID("ABC")
