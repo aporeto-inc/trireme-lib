@@ -69,7 +69,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 
 	token, err := t.tokens.CreateAndSign(true, claims, auth.LocalContext, claimsheader.NewClaimsHeader(), secrets)
 	if err != nil {
-		return []byte{}, err
+		return nil, fmt.Errorf("unable to create ack token: %v", err)
 	}
 
 	return token, nil
@@ -99,7 +99,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 	token, err = t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to create syn token: %v", err)
+		return nil, fmt.Errorf("unable to create syn token: %v", err)
 	}
 
 	context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
@@ -123,7 +123,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 	token, err := t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to create synack token: %v", err)
+		return nil, fmt.Errorf("unable to create synack token: %v", err)
 	}
 
 	return token, nil
