@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
-
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/aporeto-inc/gopkt/layers"
 	"github.com/aporeto-inc/gopkt/packet/ipv4"
@@ -33,6 +31,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
