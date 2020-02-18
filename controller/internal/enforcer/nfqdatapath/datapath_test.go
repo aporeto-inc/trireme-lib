@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/aporeto-inc/gopkt/layers"
 	"github.com/aporeto-inc/gopkt/packet/ipv4"
@@ -23,6 +25,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -4911,9 +4914,14 @@ func Test_Secrets(t *testing.T) {
 			})
 			So(err, ShouldBeNil)
 
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
 			s := &fakeSecrets{}
 			s.setID("ABC")
 			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
 
 			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
 			So(err, ShouldBeNil)
@@ -4928,6 +4936,7 @@ func Test_Secrets(t *testing.T) {
 			err = enforcer.UpdateSecrets(s)
 			So(err, ShouldBeNil)
 
+			mockTokenAccessor.EXPECT().ParsePacketToken(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(&tokens.ConnectionClaims{}, fmt.Errorf("decode failed"))
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
 
 			p, err = packet.New(packet.PacketTypeNetwork, newPacket(tcp.Syn|tcp.Ack, true, true), "0", false)
