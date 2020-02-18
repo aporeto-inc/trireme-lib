@@ -47,7 +47,7 @@ func Test_CreateSynPacketToken(t *testing.T) {
 
 			mt.EXPECT().CreateAndSign(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return([]byte("hi"), nil)
 
-			data, err := tok.CreateSynPacketToken(&pucontext.PUContext{}, &connection.AuthInfo{}, &secrets.NullPKI{})
+			data, err := tok.CreateSynPacketToken(&pucontext.PUContext{}, &connection.AuthInfo{}, claimsheader.NewClaimsHeader(), &secrets.NullPKI{})
 			So(err, ShouldBeNil)
 			So(data, ShouldResemble, []byte("hi"))
 		})
@@ -56,7 +56,7 @@ func Test_CreateSynPacketToken(t *testing.T) {
 
 			mt.EXPECT().CreateAndSign(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("failed"))
 
-			data, err := tok.CreateSynPacketToken(&pucontext.PUContext{}, &connection.AuthInfo{}, &secrets.NullPKI{})
+			data, err := tok.CreateSynPacketToken(&pucontext.PUContext{}, &connection.AuthInfo{}, claimsheader.NewClaimsHeader(), &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("unable to create syn token: failed"))
 			So(data, ShouldBeNil)
 		})
@@ -69,7 +69,7 @@ func Test_CreateSynPacketToken(t *testing.T) {
 			puctx := &pucontext.PUContext{}
 			puctx.UpdateCachedTokenAndServiceContext([]byte("token"), svcCtx)
 
-			data, err := tok.CreateSynPacketToken(puctx, &connection.AuthInfo{LocalServiceContext: svcCtx}, &secrets.NullPKI{})
+			data, err := tok.CreateSynPacketToken(puctx, &connection.AuthInfo{LocalServiceContext: svcCtx}, claimsheader.NewClaimsHeader(), &secrets.NullPKI{})
 			So(err, ShouldBeNil)
 			So(data, ShouldResemble, []byte("token"))
 		})
@@ -85,7 +85,7 @@ func Test_CreateSynPacketToken(t *testing.T) {
 			puctx := &pucontext.PUContext{}
 			puctx.UpdateCachedTokenAndServiceContext([]byte("token"), svcCtx)
 
-			data, err := tok.CreateSynPacketToken(puctx, &connection.AuthInfo{LocalServiceContext: svcCtx}, &secrets.NullPKI{})
+			data, err := tok.CreateSynPacketToken(puctx, &connection.AuthInfo{LocalServiceContext: svcCtx}, claimsheader.NewClaimsHeader(), &secrets.NullPKI{})
 			So(err, ShouldBeNil)
 			So(data, ShouldResemble, []byte("token"))
 		})

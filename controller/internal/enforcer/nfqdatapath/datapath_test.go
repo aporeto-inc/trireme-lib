@@ -4921,7 +4921,7 @@ func Test_Secrets(t *testing.T) {
 			s.setID("ABC")
 			enforcer.scrts = s
 
-			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
 
 			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
 			So(err, ShouldBeNil)

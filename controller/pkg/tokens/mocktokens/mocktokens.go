@@ -43,6 +43,7 @@ func (m *MockTokenEngine) EXPECT() *MockTokenEngineMockRecorder {
 // CreateAndSign mocks base method
 // nolint
 func (m *MockTokenEngine) CreateAndSign(isAck bool, claims *tokens.ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateAndSign", isAck, claims, nonce, claimsHeader, secrets)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -52,12 +53,14 @@ func (m *MockTokenEngine) CreateAndSign(isAck bool, claims *tokens.ConnectionCla
 // CreateAndSign indicates an expected call of CreateAndSign
 // nolint
 func (mr *MockTokenEngineMockRecorder) CreateAndSign(isAck, claims, nonce, claimsHeader, secrets interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAndSign", reflect.TypeOf((*MockTokenEngine)(nil).CreateAndSign), isAck, claims, nonce, claimsHeader, secrets)
 }
 
 // Decode mocks base method
 // nolint
 func (m *MockTokenEngine) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (*tokens.ConnectionClaims, []byte, interface{}, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Decode", isAck, data, previousCert, secrets)
 	ret0, _ := ret[0].(*tokens.ConnectionClaims)
 	ret1, _ := ret[1].([]byte)
@@ -69,12 +72,14 @@ func (m *MockTokenEngine) Decode(isAck bool, data []byte, previousCert interface
 // Decode indicates an expected call of Decode
 // nolint
 func (mr *MockTokenEngineMockRecorder) Decode(isAck, data, previousCert, secrets interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockTokenEngine)(nil).Decode), isAck, data, previousCert, secrets)
 }
 
 // Randomize mocks base method
 // nolint
 func (m *MockTokenEngine) Randomize(arg0, arg1 []byte) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Randomize", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,5 +88,6 @@ func (m *MockTokenEngine) Randomize(arg0, arg1 []byte) error {
 // Randomize indicates an expected call of Randomize
 // nolint
 func (mr *MockTokenEngineMockRecorder) Randomize(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Randomize", reflect.TypeOf((*MockTokenEngine)(nil).Randomize), arg0, arg1)
 }
