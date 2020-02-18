@@ -2,9 +2,9 @@ package kubernetesmonitor
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -21,7 +21,7 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		podNamespace      string
@@ -271,7 +271,7 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		podNamespace string
@@ -349,7 +349,7 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		puid string
@@ -423,7 +423,7 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		puid string
@@ -497,7 +497,7 @@ func Test_cache_deletePodEntry(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		podNamespace string
@@ -588,7 +588,7 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		puid string
@@ -677,7 +677,7 @@ func Test_cache_deletePUIDCache(t *testing.T) {
 	type fields struct {
 		puidCache map[string]*puidCacheEntry
 		podCache  map[string]*podCacheEntry
-		RWMutex   sync.RWMutex
+		RWMutex   deadlock.RWMutex
 	}
 	type args struct {
 		puID string

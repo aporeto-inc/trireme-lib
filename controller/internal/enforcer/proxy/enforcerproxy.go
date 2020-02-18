@@ -6,9 +6,9 @@ package enforcerproxy
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -48,7 +48,7 @@ type ProxyInfo struct {
 	isBPFEnabled           bool
 	ipv6Enabled            bool
 	rpcServer              rpcwrapper.RPCServer
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // Enforce method makes a RPC call for the remote enforcer enforce method

@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/magiconair/properties/assert"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
@@ -58,7 +58,7 @@ func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 func (d *DNSCollector) CollectPingEvent(report *collector.PingReport) {}
 
 var r collector.DNSRequestReport
-var l sync.Mutex
+var l deadlock.Mutex
 
 // CollectDNSRequests collect counters from the datapath
 func (d *DNSCollector) CollectDNSRequests(report *collector.DNSRequestReport) {

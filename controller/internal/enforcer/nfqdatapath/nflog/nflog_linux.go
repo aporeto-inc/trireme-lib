@@ -4,8 +4,8 @@ package nflog
 
 import (
 	"context"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -19,7 +19,7 @@ type nfLog struct {
 	collector       collector.EventCollector
 	srcNflogHandle  nflog.NFLog
 	dstNflogHandle  nflog.NFLog
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewNFLogger provides an NFLog instance

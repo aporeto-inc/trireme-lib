@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
@@ -36,7 +36,7 @@ type Processor struct {
 	userTokenMappings     map[string]string
 	userAuthorizationType policy.UserAuthorizationTypeValues
 	aporetoJWT            *servicetokens.Verifier
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewProcessor creates an auth processor with PKI user tokens. The caller

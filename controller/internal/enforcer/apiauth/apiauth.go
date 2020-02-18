@@ -6,9 +6,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -32,7 +32,7 @@ type Processor struct {
 
 	issuer  string // the issuer ID .. need to get rid of that part with the new tokens
 	secrets secrets.Secrets
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // New will create a new authorization processor.

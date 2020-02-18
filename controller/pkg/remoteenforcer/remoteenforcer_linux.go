@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/blang/semver"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
@@ -44,7 +44,7 @@ var (
 	createSupervisor = supervisor.NewSupervisor
 )
 
-var cmdLock sync.Mutex
+var cmdLock deadlock.Mutex
 
 // newRemoteEnforcer starts a new server
 func newRemoteEnforcer(

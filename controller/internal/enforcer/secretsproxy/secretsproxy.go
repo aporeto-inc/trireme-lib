@@ -11,9 +11,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/aporeto-inc/oxy/forward"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -36,7 +36,7 @@ type SecretsProxy struct {
 	policyCache     cache.DataStore
 
 	server *http.Server
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewSecretsProxy creates a new secrets proxy.

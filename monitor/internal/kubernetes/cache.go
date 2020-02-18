@@ -1,8 +1,7 @@
 package kubernetesmonitor
 
 import (
-	"sync"
-
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -36,7 +35,7 @@ type cache struct {
 	podCache map[string]*podCacheEntry
 
 	// Lock for the whole cache
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewCache initialize a cache

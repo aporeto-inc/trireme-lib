@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	"context"
@@ -22,6 +21,7 @@ import (
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/sasha-s/go-deadlock"
 
 	"github.com/golang/protobuf/ptypes"
 	//"github.com/gogo/protobuf/types"
@@ -69,7 +69,7 @@ type SdsServer struct {
 	keyPEM  string
 	certPEM string
 	secrets secrets.Secrets
-	sync.RWMutex
+	deadlock.RWMutex
 	// conncache is a cache of the sdsConnection, here the key is the connectionID and val is the secret.
 	conncache cache.DataStore
 	// updCertsChannel is used whenever there is a cert-update/Enfore

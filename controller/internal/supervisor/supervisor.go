@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -51,7 +51,7 @@ type Config struct {
 	cfg *runtime.Configuration
 	// ipsetmanager is used to register external net
 	aclmanager ipsetmanager.ACLManager
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewSupervisor will create a new connection supervisor that uses IPTables

@@ -5,10 +5,10 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/minio/minio/pkg/wildcard"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
@@ -59,7 +59,7 @@ type PUContext struct {
 	Extension           interface{}
 	counters            []uint32
 
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // Bad PU to hold counters for packets we know nothing about. We cant figure out context

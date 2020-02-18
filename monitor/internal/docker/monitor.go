@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/dchest/siphash"
@@ -16,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	dockerClient "github.com/docker/docker/client"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	tevents "go.aporeto.io/trireme-lib/common"
@@ -31,7 +31,7 @@ import (
 
 type lockedDockerClient struct {
 	client           dockerClient.CommonAPIClient
-	dockerClientLock sync.Mutex
+	dockerClientLock deadlock.Mutex
 }
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.

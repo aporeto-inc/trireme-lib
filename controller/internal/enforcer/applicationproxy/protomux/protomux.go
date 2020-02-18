@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
@@ -51,7 +52,7 @@ type MultiplexedListener struct {
 	localIPs        map[string]struct{}
 	mark            int
 	registry        *serviceregistry.Registry
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewMultiplexedListener returns a new multiplexed listener. Caller

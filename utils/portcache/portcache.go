@@ -2,8 +2,8 @@ package portcache
 
 import (
 	"fmt"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
@@ -14,7 +14,7 @@ import (
 type PortCache struct {
 	ports  cache.DataStore
 	ranges []*portspec.PortSpec
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewPortCache creates a new port cache

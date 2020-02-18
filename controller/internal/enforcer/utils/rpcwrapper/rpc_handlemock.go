@@ -3,8 +3,9 @@ package rpcwrapper
 import (
 	"context"
 	"net/rpc"
-	"sync"
 	"testing"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 // MockRPCHdl is mock of rpchdl
@@ -45,14 +46,14 @@ type TestRPCServer interface {
 
 type testRPC struct {
 	mocks       map[*testing.T]*mockedMethods
-	lock        *sync.Mutex
+	lock        *deadlock.Mutex
 	currentTest *testing.T
 }
 
 // NewTestRPCServer is a Test RPC Server
 func NewTestRPCServer() TestRPCServer {
 	return &testRPC{
-		lock:  &sync.Mutex{},
+		lock:  &deadlock.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
 	}
 }
@@ -60,7 +61,7 @@ func NewTestRPCServer() TestRPCServer {
 // NewTestRPCClient is a Test RPC Client
 func NewTestRPCClient() TestRPCClient {
 	return &testRPC{
-		lock:  &sync.Mutex{},
+		lock:  &deadlock.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
 	}
 }

@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aporeto-inc/oxy/forward"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
@@ -73,7 +73,7 @@ type Config struct {
 	metadata         *metadata.Client
 	tokenIssuer      common.ServiceTokenIssuer
 	hooks            map[string]hookFunc
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewHTTPProxy creates a new instance of proxy reate a new instance of Proxy

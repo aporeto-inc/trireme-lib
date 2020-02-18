@@ -1,8 +1,7 @@
 package statscollector
 
 import (
-	"sync"
-
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 )
 
@@ -29,7 +28,7 @@ type collectorImpl struct {
 	Users          map[string]*collector.UserRecord
 	Reports        chan *Report
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // ReportType it the type of report.

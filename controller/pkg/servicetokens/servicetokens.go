@@ -4,11 +4,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/bluele/gcache"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -31,7 +31,7 @@ type Verifier struct {
 	secrets    secrets.Secrets
 	globalCert *x509.Certificate
 	tokenCache gcache.Cache
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewVerifier creates a new Aporeto JWT Verifier. The globalCertificate is optional

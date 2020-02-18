@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -41,7 +42,7 @@ type Enforcer struct {
 	systemCAPool *x509.CertPool
 
 	metadata *metadata.Client
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // envoyAuthzServers, envoy servers used my enforcer

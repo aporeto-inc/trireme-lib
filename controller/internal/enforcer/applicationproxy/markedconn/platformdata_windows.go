@@ -5,7 +5,8 @@ package markedconn
 import (
 	"fmt"
 	"net"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 // PlatformDataControl is for Windows.
@@ -13,14 +14,14 @@ import (
 // when we make the real connection.
 type PlatformDataControl struct {
 	platformData map[string]*PlatformData
-	mu           *sync.Mutex
+	mu           *deadlock.Mutex
 }
 
 // NewPlatformDataControl returns initialized PlatformDataControl
 func NewPlatformDataControl() *PlatformDataControl {
 	return &PlatformDataControl{
 		platformData: make(map[string]*PlatformData),
-		mu:           &sync.Mutex{},
+		mu:           &deadlock.Mutex{},
 	}
 }
 

@@ -3,9 +3,9 @@ package nfqdatapath
 import (
 	"os/user"
 	"path/filepath"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -23,7 +23,7 @@ type defaultRead struct{}
 
 var readFiles readSystemFiles
 var d *defaultRead
-var lock sync.RWMutex
+var lock deadlock.RWMutex
 
 const (
 	procNetTCPFile     = "/proc/net/tcp"

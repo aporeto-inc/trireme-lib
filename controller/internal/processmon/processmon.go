@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
@@ -71,14 +71,14 @@ type RemoteMonitor struct {
 	// DisableLogWrite flag tells if we are running in kubernetes.
 	DisableLogWrite bool
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // processInfo stores per process information
 type processInfo struct {
 	contextID string
 	process   *os.Process
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // exitStatus captures the exit status of a process

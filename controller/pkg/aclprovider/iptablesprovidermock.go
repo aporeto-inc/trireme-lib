@@ -1,8 +1,9 @@
 package provider
 
 import (
-	"sync"
 	"testing"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type iptablesProviderMockedMethods struct {
@@ -33,13 +34,13 @@ type TestIptablesProvider interface {
 // A testIptablesProvider is an empty TransactionalManipulator that can be easily mocked.
 type testIptablesProvider struct {
 	mocks       map[*testing.T]*iptablesProviderMockedMethods
-	lock        *sync.Mutex
+	lock        *deadlock.Mutex
 	currentTest *testing.T
 }
 
 // NewTestIptablesProvider returns a new TestManipulator.
 func NewTestIptablesProvider() TestIptablesProvider {
-	return &testIptablesProvider{lock: &sync.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
+	return &testIptablesProvider{lock: &deadlock.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
 }
 
 func (m *testIptablesProvider) MockAppend(t *testing.T, impl func(table, chain string, rulespec ...string) error) {

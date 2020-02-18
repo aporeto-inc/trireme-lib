@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os/exec"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -135,8 +135,8 @@ type Datapath struct {
 
 	agentVersion semver.Version
 
-	secretsLock  sync.RWMutex
-	logLevelLock sync.RWMutex
+	secretsLock  deadlock.RWMutex
+	logLevelLock deadlock.RWMutex
 }
 
 type tracingCacheEntry struct {

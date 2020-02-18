@@ -12,12 +12,12 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"go.aporeto.io/trireme-lib/collector"
 
 	"github.com/mitchellh/hashstructure"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
@@ -36,7 +36,7 @@ type RPCHdl struct {
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
 	server       *rpc.Server
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper

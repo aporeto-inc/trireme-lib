@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -38,7 +38,7 @@ type uidProcessor struct {
 	regStop           *regexp.Regexp
 	putoPidMap        *cache.Cache
 	pidToPU           *cache.Cache
-	sync.Mutex
+	deadlock.Mutex
 }
 
 const (

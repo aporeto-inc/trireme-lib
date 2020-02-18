@@ -1,10 +1,10 @@
 package provider
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type ipsetProviderMockedMethods struct {
@@ -25,14 +25,14 @@ type TestIpsetProvider interface {
 
 type testIpsetProvider struct {
 	mocks       map[*testing.T]*ipsetProviderMockedMethods
-	lock        *sync.Mutex
+	lock        *deadlock.Mutex
 	currentTest *testing.T
 }
 
 // NewTestIpsetProvider returns a new TestManipulator.
 func NewTestIpsetProvider() TestIpsetProvider {
 	return &testIpsetProvider{
-		lock:  &sync.Mutex{},
+		lock:  &deadlock.Mutex{},
 		mocks: map[*testing.T]*ipsetProviderMockedMethods{},
 	}
 }
@@ -129,14 +129,14 @@ type TestIpset interface {
 
 type testIpset struct {
 	mocks       map[*testing.T]*ipsetMockedMethods
-	lock        *sync.Mutex
+	lock        *deadlock.Mutex
 	currentTest *testing.T
 }
 
 // NewTestIpset returns a new TestManipulator.
 func NewTestIpset() TestIpset {
 	return &testIpset{
-		lock:  &sync.Mutex{},
+		lock:  &deadlock.Mutex{},
 		mocks: map[*testing.T]*ipsetMockedMethods{},
 	}
 }

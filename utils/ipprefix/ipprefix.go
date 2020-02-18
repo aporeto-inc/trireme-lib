@@ -3,7 +3,8 @@ package ipprefix
 import (
 	"encoding/binary"
 	"net"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 // FuncOnLpmIP is the type of func which will operate on the value associated with the lpm ip.
@@ -37,12 +38,12 @@ const (
 
 type ipcacheV4 struct {
 	ipv4 []map[uint32]interface{}
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 type ipcacheV6 struct {
 	ipv6 []map[[16]byte]interface{}
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 type ipcache struct {

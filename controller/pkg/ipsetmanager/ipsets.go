@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"io"
 	"net"
-	"sync"
 
 	ipsetpackage "github.com/aporeto-inc/go-ipset/ipset"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/spaolacci/murmur3"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 
@@ -57,7 +57,7 @@ type handler struct {
 type managerType struct {
 	ipv4Handler *handler
 	ipv6Handler *handler
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 const (

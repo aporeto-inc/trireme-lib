@@ -6,8 +6,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/collector"
 	tcommon "go.aporeto.io/trireme-lib/common"
@@ -56,7 +56,7 @@ type AppProxy struct {
 
 	clients     cache.DataStore
 	tokenIssuer tcommon.ServiceTokenIssuer
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewAppProxy creates a new instance of the application proxy.

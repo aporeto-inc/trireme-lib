@@ -3,8 +3,8 @@ package servicecache
 import (
 	"fmt"
 	"net"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/utils/ipprefix"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -36,7 +36,7 @@ type ServiceCache struct {
 	// portCaches is list of all ports where we can retrieve a service based on the port.
 	remotePorts entryList
 	localPorts  entryList
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewTable creates a new table

@@ -4,8 +4,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
@@ -63,7 +63,7 @@ type PortContext struct {
 type Registry struct {
 	indexByName map[string]*ServiceContext
 	indexByPort *servicecache.ServiceCache
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewServiceRegistry creates and initializes the registry.

@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,7 +106,7 @@ waitLoop:
 // ResyncInfoChan is used to report back from the controller on which pods it has processed.
 // It allows the Resync of the monitor to block and wait until a list has been processed.
 type ResyncInfoChan struct {
-	m  sync.RWMutex
+	m  deadlock.RWMutex
 	b  bool
 	ch chan string
 }

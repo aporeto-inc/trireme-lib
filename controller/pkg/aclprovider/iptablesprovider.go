@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.uber.org/zap"
 )
 
@@ -51,7 +51,7 @@ type BatchProvider struct {
 
 	// Allowing for custom commit functions for testing
 	commitFunc func(buf *bytes.Buffer) error
-	sync.Mutex
+	deadlock.Mutex
 	cmd        string
 	restoreCmd string
 	quote      bool

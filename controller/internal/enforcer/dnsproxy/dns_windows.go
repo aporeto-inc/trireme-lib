@@ -2,9 +2,9 @@ package dnsproxy
 
 import (
 	"net"
-	"sync"
 
 	"github.com/miekg/dns"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
@@ -21,7 +21,7 @@ type Proxy struct {
 	contextIDs   map[string]struct{}
 	chreports    chan dnsReport
 	updateIPsets ipsetmanager.ACLManager
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // New creates an instance of the dns proxy

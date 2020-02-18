@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -48,7 +49,7 @@ type Proxy struct {
 	// List of local IP's
 	localIPs map[string]struct{}
 
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // proxyFlowProperties is a struct used to pass flow information up

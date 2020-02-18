@@ -6,11 +6,11 @@ import (
 	"context"
 	"net"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
@@ -28,7 +28,7 @@ type Proxy struct {
 	contextIDToServer map[string]*dns.Server
 	chreports         chan dnsReport
 	updateIPsets      ipsetmanager.ACLManager
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 type serveDNS struct {

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -107,50 +108,50 @@ func (t *trireme) CleanUp() error {
 
 // Enforce asks the controller to enforce policy to a processing unit
 func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
-	defer lock.(*sync.Mutex).Unlock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
+	defer lock.(*deadlock.Mutex).Unlock()
 	return t.doHandleCreate(puID, policy, runtime)
 }
 
 // Enforce asks the controller to enforce policy to a processing unit
 func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
 	defer func() {
 		t.locks.Delete(puID)
-		lock.(*sync.Mutex).Unlock()
+		lock.(*deadlock.Mutex).Unlock()
 	}()
 	return t.doHandleDelete(puID, policy, runtime)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
-	defer lock.(*sync.Mutex).Unlock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
+	defer lock.(*deadlock.Mutex).Unlock()
 	return t.doUpdatePolicy(puID, plc, runtime)
 }
 
 func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
-	defer lock.(*sync.Mutex).Unlock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
+	defer lock.(*deadlock.Mutex).Unlock()
 	return t.doHandleEnableDatapathPacketTracing(ctx, puID, policy, runtime, direction, interval)
 }
 
 func (t *trireme) EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
-	defer lock.(*sync.Mutex).Unlock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
+	defer lock.(*deadlock.Mutex).Unlock()
 	return t.doHandleEnableIPTablesPacketTracing(ctx, puID, policy, runtime, interval)
 }
 
 // Ping runs ping based on the given config.
 func (t *trireme) Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error {
-	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
-	lock.(*sync.Mutex).Lock()
-	defer lock.(*sync.Mutex).Unlock()
+	lock, _ := t.locks.LoadOrStore(puID, &deadlock.Mutex{})
+	lock.(*deadlock.Mutex).Lock()
+	defer lock.(*deadlock.Mutex).Unlock()
 	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].Ping(ctx, puID, pingConfig)
 }
 

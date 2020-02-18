@@ -3,8 +3,8 @@ package iptablesctrl
 import (
 	"context"
 	"fmt"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
@@ -22,7 +22,7 @@ type Instance struct {
 }
 
 var instance *Instance
-var lock sync.RWMutex
+var lock deadlock.RWMutex
 
 // GetInstance returns the instance of the iptables object.
 func GetInstance() *Instance {

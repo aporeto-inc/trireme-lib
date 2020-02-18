@@ -2,9 +2,9 @@ package policy
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/docker/go-connections/nat"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/common"
 )
 
@@ -25,7 +25,7 @@ type PURuntime struct {
 	// options
 	options *OptionsType
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // PURuntimeJSON is a Json representation of PURuntime

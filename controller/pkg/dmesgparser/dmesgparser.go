@@ -5,14 +5,15 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 // Dmesg struct handle for the dmesg parser
 type Dmesg struct {
 	chanSize          int
 	lastProcessedTime float64
-	sync.Mutex
+	deadlock.Mutex
 }
 
 func getEntryTime(line string) float64 {

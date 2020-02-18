@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"golang.org/x/oauth2"
 )
@@ -36,7 +36,7 @@ type clientData struct {
 	attributes  []string
 	tokenSource oauth2.TokenSource
 	expiry      time.Time
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // TokenVerifier is an OIDC validator.

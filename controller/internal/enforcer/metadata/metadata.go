@@ -3,9 +3,9 @@ package metadata
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
 
 	"go.aporeto.io/trireme-lib/common"
@@ -21,7 +21,7 @@ type Client struct {
 	certPEM     []byte
 	keyPEM      []byte
 
-	sync.RWMutex
+	deadlock.RWMutex
 }
 
 // NewClient returns a new metadata client

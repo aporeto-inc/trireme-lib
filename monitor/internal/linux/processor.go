@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -38,7 +38,7 @@ type linuxProcessor struct {
 	netcls            cgnetcls.Cgroupnetcls
 	regStart          *regexp.Regexp
 	regStop           *regexp.Regexp
-	sync.Mutex
+	deadlock.Mutex
 }
 
 func baseName(name, separator string) string {

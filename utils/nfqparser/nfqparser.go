@@ -5,7 +5,8 @@ import (
 	"bytes"
 	"io/ioutil"
 	"strings"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 // NFQParser holds nfqparser fields
@@ -15,7 +16,7 @@ type NFQParser struct {
 	filePath string
 	contents map[string]NFQLayout
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // NewNFQParser returns nfqparser handler

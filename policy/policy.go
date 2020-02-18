@@ -3,8 +3,8 @@ package policy
 import (
 	"fmt"
 	"strconv"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
@@ -104,7 +104,7 @@ type PUPolicy struct {
 	// enforcerType is the enforcer type that is supposed to get used for this PU
 	enforcerType EnforcerType
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // PUAction defines the action types that applies for a specific PU as a whole.

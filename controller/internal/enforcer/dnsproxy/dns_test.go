@@ -5,11 +5,11 @@ package dnsproxy
 import (
 	"context"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/magiconair/properties/assert"
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
@@ -93,7 +93,7 @@ func (d *DNSCollector) CollectPacketEvent(report *collector.PacketReport) {}
 func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 
 var r collector.DNSRequestReport
-var l sync.Mutex
+var l deadlock.Mutex
 
 // CollectDNSRequests collect counters from the datapath
 func (d *DNSCollector) CollectDNSRequests(report *collector.DNSRequestReport) {

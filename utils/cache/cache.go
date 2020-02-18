@@ -3,9 +3,9 @@ package cache
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +33,7 @@ type Cache struct {
 	name     string
 	data     map[interface{}]entry
 	lifetime time.Duration
-	sync.RWMutex
+	deadlock.RWMutex
 	expirer ExpirationNotifier
 	max     int
 }
@@ -50,7 +50,7 @@ type entry struct {
 // cacheRegistry keeps handles of all caches initialized through this library
 // for book keeping
 type cacheRegistry struct {
-	sync.RWMutex
+	deadlock.RWMutex
 	items map[string]*Cache
 }
 

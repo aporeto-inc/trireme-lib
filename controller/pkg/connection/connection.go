@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -137,7 +137,7 @@ type PingConfig struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
-	sync.RWMutex
+	deadlock.RWMutex
 
 	state TCPFlowState
 	Auth  AuthInfo
@@ -276,7 +276,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 
 // ProxyConnection is a record to keep state of proxy auth
 type ProxyConnection struct {
-	sync.Mutex
+	deadlock.Mutex
 
 	state            ProxyConnState
 	Auth             AuthInfo
@@ -320,7 +320,7 @@ func (c *ProxyConnection) SetReported(reported bool) {
 
 // UDPConnection is information regarding UDP connection.
 type UDPConnection struct {
-	sync.RWMutex
+	deadlock.RWMutex
 
 	state   UDPFlowState
 	Context *pucontext.PUContext
