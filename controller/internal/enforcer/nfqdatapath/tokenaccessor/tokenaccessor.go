@@ -97,7 +97,11 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		ID:  context.ManagementID(),
 	}
 
+<<<<<<< HEAD
 	token, err = t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsHeader, secrets)
+=======
+	token, err = t.tokens.CreateAndSign(false, claims, auth.LocalContext, claimsheader.NewClaimsHeader(), secrets)
+>>>>>>> 4bf3e389... fix: unit tests (#971)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create syn token: %v", err)
 	}
