@@ -250,11 +250,21 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	defer b.Unlock()
 
 	chains, err := b.ipt.ListChains(table)
+
+	// XXX DEBUG
+	zap.L().Info("****** ListChains from provider : size of ", zap.Int("chains", len(chains)))
+	for _, chain := range chains {
+		zap.L().Info(fmt.Sprintf("****** ListChains from provider : %s", chain))
+	}
+	// XXX DEBUG
+
 	if err != nil {
+		zap.L().Info("****** ListChains() : returning empty list") /// XXX DEBUG
 		return []string{}, err
 	}
 
 	if _, ok := b.batchTables[table]; !ok || b.rules[table] == nil {
+		zap.L().Info(fmt.Sprintf("****** ListChains() : no batching for table %s", table)) /// XXX DEBUG
 		return chains, nil
 	}
 
@@ -268,6 +278,7 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	i := 0
 	for chain := range b.rules[table] {
 		allChains[i] = chain
+		zap.L().Info(fmt.Sprintf("****** ListChains (rules[%s]) rule %d: %s", table, i, chain)) // XXX DEBUG
 		i++
 	}
 
@@ -346,7 +357,7 @@ func (b *BatchProvider) Commit() error {
 
 	if err != nil {
 		zap.L().Error("Failed to create buffer ", zap.Error(err))
-		return fmt.Errorf("Failed to crete buffer %s", err)
+		return fmt.Errorf("Failed to create buffer %s", err)
 	}
 
 	err = b.commitFunc(buf)
