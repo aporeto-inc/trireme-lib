@@ -262,11 +262,12 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 		return []string{}, err
 	}
 
-	if _, ok := b.batchTables[table]; !ok || b.rules[table] != nil {
+	if _, ok := b.batchTables[table]; !ok {
 		zap.L().Info(fmt.Sprintf("****** ListChains() : no batching for table %s", table)) /// XXX DEBUG
 		return chains, nil
 	}
 
+	b.rules[table] = map[string][]string{}
 	for _, chain := range chains {
 		if _, ok := b.rules[table][chain]; !ok {
 			b.rules[table][chain] = []string{}
