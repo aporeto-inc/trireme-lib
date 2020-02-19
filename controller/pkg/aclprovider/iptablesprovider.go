@@ -251,34 +251,19 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 
 	chains, err := b.ipt.ListChains(table)
 
-	// XXX DEBUG
-	zap.L().Info("****** ListChains from provider : size of ", zap.Int("chains", len(chains)), zap.Error(err))
-	for _, chain := range chains {
-		zap.L().Info(fmt.Sprintf("****** ListChains from provider : %s", chain))
-	}
-	// XXX DEBUG
-
 	if err != nil {
 		return []string{}, err
 	}
 
-	if _, ok := b.batchTables[table]; !ok || b.rules[table] == nil {
+	if _, ok := b.batchTables[table]; !ok {
 		zap.L().Info(fmt.Sprintf("****** ListChains() : no batching for table %s", table)) /// XXX DEBUG
 		return chains, nil
 	}
 
-	for _, chain := range chains {
-		if _, ok := b.rules[table][chain]; !ok {
-			b.rules[table][chain] = []string{}
-		}
-	}
+	allChains := make([]string, len(chains))
 
-	allChains := make([]string, len(b.rules[table]))
-	i := 0
-	for chain := range b.rules[table] {
+	for i, chain := range chains {
 		allChains[i] = chain
-		zap.L().Info(fmt.Sprintf("****** ListChains (rules[%s]) rule %d: %s", table, i, chain)) // XXX DEBUG
-		i++
 	}
 
 	return allChains, nil
