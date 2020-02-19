@@ -66,7 +66,6 @@ const (
 func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 	ipt, err := iptables.New()
 	if err != nil {
-		zap.L().Error("Failed to create new go-iptables provider ", zap.Error(err))
 		return nil, err
 	}
 
@@ -346,17 +345,10 @@ func (b *BatchProvider) Commit() error {
 	buf, err := b.createDataBuffer()
 
 	if err != nil {
-		zap.L().Error("Failed to create buffer ", zap.Error(err))
 		return fmt.Errorf("Failed to create buffer %s", err)
 	}
 
-	err = b.commitFunc(buf)
-
-	if err != nil {
-		zap.L().Error("b.commitFunc() returned error ", zap.Error(err))
-	}
-
-	return err
+	return b.commitFunc(buf)
 }
 
 // RetrieveTable allows a caller to retrieve the final table. Mostly
