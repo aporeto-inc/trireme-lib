@@ -258,6 +258,15 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		return nil
 	}
 
+	// Default tuple in case the packet is nil.
+	tuple := &TCPTuple{}
+	if p != nil {
+		tuple.SourceAddress = p.SourceAddress()
+		tuple.DestinationAddress = p.DestinationAddress()
+		tuple.SourcePort = p.SourcePort()
+		tuple.DestinationPort = p.DestPort()
+	}
+
 	return &TCPConnection{
 		PingConfig: &PingConfig{},
 		state:      TCPSynSend,
@@ -265,12 +274,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
-		TCPtuple: &TCPTuple{
-			SourceAddress:      p.SourceAddress(),
-			DestinationAddress: p.DestinationAddress(),
-			SourcePort:         p.SourcePort(),
-			DestinationPort:    p.DestPort(),
-		},
+		TCPtuple: tuple,
 	}
 }
 
