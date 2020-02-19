@@ -252,14 +252,13 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	chains, err := b.ipt.ListChains(table)
 
 	// XXX DEBUG
-	zap.L().Info("****** ListChains from provider : size of ", zap.Int("chains", len(chains)))
+	zap.L().Info("****** ListChains from provider : size of ", zap.Int("chains", len(chains)), zap.Error(err))
 	for _, chain := range chains {
 		zap.L().Info(fmt.Sprintf("****** ListChains from provider : %s", chain))
 	}
 	// XXX DEBUG
 
 	if err != nil {
-		zap.L().Info("****** ListChains() : returning empty list") /// XXX DEBUG
 		return []string{}, err
 	}
 
