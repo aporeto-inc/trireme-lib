@@ -444,10 +444,15 @@ func restoreHasWait(restoreCmd string) bool {
 	}
 
 	if restoreVersion.LessThan(minimumVersion) {
-		zap.L().Info(fmt.Sprintf(" %s: (%s) does not support --wait. Must be v1.6.2 or higher", restoreCmdVersion, restoreCmd))
+		zap.L().Info("iptables does not support --wait",
+			zap.String("command", restoreCmd),
+			zap.String("version", restoreCmdVersion),
+			zap.String("wantVersion", minimumVersion.String()))
 		return false
 	}
 
-	zap.L().Info(fmt.Sprintf(" %s (%s): supports --wait. Will use %s --wait", restoreCmd, restoreCmdVersion, restoreCmd))
+	zap.L().Info("iptables will use --wait",
+		zap.String("command", restoreCmd),
+		zap.String("version", restoreCmdVersion))
 	return true
 }
