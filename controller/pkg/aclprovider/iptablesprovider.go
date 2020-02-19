@@ -66,6 +66,7 @@ const (
 func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 	ipt, err := iptables.New()
 	if err != nil {
+		zap.L().Error("Failed to create new go-iptables provider ", zap.Error(err))
 		return nil, err
 	}
 
@@ -74,9 +75,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
 	// This will allow us to support older kernel versions.
 	if restoreHasWait(restoreCmdV4) {
-		zap.L().Info(fmt.Sprintf("NewGoIPTablesProvider 1: restore has wait for %s", restoreCmdV4)) // XXX DEBUG
 		for _, t := range batchTables {
-			zap.L().Info(fmt.Sprintf("NewGoIPTablesProvider 2: setting batchTablesMap[\"%s\"] = true", t)) // XXX DEBUG
 			batchTablesMap[t] = true
 		}
 	}
@@ -90,12 +89,6 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 	}
 
 	b.commitFunc = b.restore
-
-	// XXX DEBUG
-	for k, v := range b.batchTables {
-		zap.L().Info(fmt.Sprintf("NewGoIPTablesProvider 3: b.batchTables[\"%s\"] = %v", k, v)) // XXX DEBUG
-	}
-	// XXX DEBUG
 
 	return b, nil
 }
@@ -263,7 +256,6 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	}
 
 	if _, ok := b.batchTables[table]; !ok {
-		zap.L().Info(fmt.Sprintf("****** ListChains() : no batching for table %s", table)) /// XXX DEBUG
 		return chains, nil
 	}
 
@@ -348,12 +340,10 @@ func (b *BatchProvider) Commit() error {
 	// We don't commit if we don't have any tables. This is old
 	// kernel compatibility mode.
 	if len(b.batchTables) == 0 {
-		zap.L().Info("Commit():  len(b.batchTables) == 0") // XXX DEBUG
 		return nil
 	}
 
 	buf, err := b.createDataBuffer()
-	zap.L().Info("Commit(): buffer = ", zap.String("buffer", buf.String())) // XXX DEBUG
 
 	if err != nil {
 		zap.L().Error("Failed to create buffer ", zap.Error(err))
@@ -363,7 +353,7 @@ func (b *BatchProvider) Commit() error {
 	err = b.commitFunc(buf)
 
 	if err != nil {
-		zap.L().Error("Commit(): b.commitFunc() returned error ", zap.Error(err))
+		zap.L().Error("b.commitFunc() returned error ", zap.Error(err))
 	}
 
 	return err

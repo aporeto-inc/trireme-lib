@@ -346,3 +346,28 @@ func TestProvider(t *testing.T) {
 	assert.Equal(t, b != nil, true, "go iptables should not be nil")
 	assert.Equal(t, err == nil, true, "error should be nil")
 }
+
+func TestQuoteRuleSpec(t *testing.T) {
+	Convey("Given a valid, non-quoting batch provider", t, func() {
+		p := NewTestProvider([]string{mangle}, false)
+		Convey("If I append a rule, it should not be quoted", func() {
+			p.quoteRulesSpec([]string{mangle})
+			err := p.Append(mangle, inputChain, "val1")
+			So(err, ShouldBeNil)
+			So(len(p.rules[mangle]), ShouldEqual, 1)
+			So(len(p.rules[mangle][inputChain]), ShouldEqual, 1)
+			So(p.rules[mangle][inputChain][0], ShouldEqual, "val1")
+		})
+	})
+	Convey("Given a valid, quoting batch provider", t, func() {
+		p := NewTestProvider([]string{mangle}, true)
+		Convey("If I append a rule, it should be quoted", func() {
+			p.quoteRulesSpec([]string{mangle})
+			err := p.Append(mangle, inputChain, "val1")
+			So(err, ShouldBeNil)
+			So(len(p.rules[mangle]), ShouldEqual, 1)
+			So(len(p.rules[mangle][inputChain]), ShouldEqual, 1)
+			So(p.rules[mangle][inputChain][0], ShouldEqual, "\"val1\"")
+		})
+	})
+}
