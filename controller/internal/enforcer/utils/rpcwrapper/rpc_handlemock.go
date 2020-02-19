@@ -5,7 +5,7 @@ import (
 	"net/rpc"
 	"testing"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 )
 
 // MockRPCHdl is mock of rpchdl

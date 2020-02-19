@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"net"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 )
 
 // FuncOnLpmIP is the type of func which will operate on the value associated with the lpm ip.

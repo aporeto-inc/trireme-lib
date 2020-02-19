@@ -16,7 +16,7 @@ import (
 	"syscall"
 
 	"github.com/blang/semver"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 )
 
 // PlatformDataControl is for Windows.

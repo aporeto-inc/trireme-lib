@@ -6,7 +6,7 @@ import (
 	"net"
 
 	ipsetpackage "github.com/aporeto-inc/go-ipset/ipset"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"github.com/spaolacci/murmur3"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 

@@ -13,8 +13,8 @@ import (
 
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
+	"github.com/ericrpowers/go-deadlock"
 	"github.com/rs/xid"
-	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"golang.org/x/oauth2"
 )

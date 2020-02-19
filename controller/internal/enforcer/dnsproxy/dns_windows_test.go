@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ericrpowers/go-deadlock"
 	"github.com/magiconair/properties/assert"
-	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"

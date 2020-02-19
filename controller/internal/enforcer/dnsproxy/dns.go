@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ericrpowers/go-deadlock"
 	"github.com/miekg/dns"
-	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"

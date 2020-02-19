@@ -21,7 +21,7 @@ import (
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 
 	"github.com/golang/protobuf/ptypes"
 	//"github.com/gogo/protobuf/types"

@@ -3,7 +3,7 @@ package portcache
 import (
 	"fmt"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )

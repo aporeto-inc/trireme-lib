@@ -5,7 +5,7 @@ package nflog
 import (
 	"context"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/docker/go-connections/nat"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/common"
 )
 

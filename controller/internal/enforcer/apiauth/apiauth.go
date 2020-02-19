@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"

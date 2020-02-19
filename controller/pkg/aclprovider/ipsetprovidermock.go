@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 )
 
 type ipsetProviderMockedMethods struct {

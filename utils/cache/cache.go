@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.uber.org/zap"
 )
 

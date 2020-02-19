@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"

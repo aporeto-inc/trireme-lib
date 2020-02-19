@@ -1,7 +1,7 @@
 package statscollector
 
 import (
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 )
 

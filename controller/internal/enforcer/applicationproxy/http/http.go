@@ -16,7 +16,7 @@ import (
 
 	"github.com/aporeto-inc/oxy/forward"
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"

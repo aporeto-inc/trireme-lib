@@ -12,7 +12,7 @@ import (
 	envoy_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ext_auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"

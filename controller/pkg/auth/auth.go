@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"

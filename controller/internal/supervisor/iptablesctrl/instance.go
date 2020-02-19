@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"

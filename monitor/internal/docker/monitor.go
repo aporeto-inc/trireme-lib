@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	dockerClient "github.com/docker/docker/client"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	tevents "go.aporeto.io/trireme-lib/common"

@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"

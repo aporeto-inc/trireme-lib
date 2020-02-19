@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ericrpowers/go-deadlock"
 	"github.com/minio/minio/pkg/wildcard"
-	"github.com/sasha-s/go-deadlock"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"

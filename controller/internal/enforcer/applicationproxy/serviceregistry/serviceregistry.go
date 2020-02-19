@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/ericrpowers/go-deadlock"
 	"go.aporeto.io/tg/tglib"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
