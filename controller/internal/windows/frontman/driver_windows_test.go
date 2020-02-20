@@ -1,4 +1,4 @@
-// +build windows
+// +build windows,ignore
 
 package frontman
 
@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/windows/go-frontman/abi"
 )
 
 func TestFrontmanStructLayout(t *testing.T) {
