@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -249,15 +250,21 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	b.Lock()
 	defer b.Unlock()
 
+	if b.ipt == nil {
+		zap.L().Error("iptables implementation is null")
+		return []string{}, errors.New("iptables implementation is null")
+	}
+
 	chains, err := b.ipt.ListChains(table)
 	if err != nil {
 		return []string{}, err
 	}
 
-	if _, ok := b.batchTables[table]; !ok || b.rules[table] == nil {
+	if _, ok := b.batchTables[table]; !ok {
 		return chains, nil
 	}
 
+	b.rules[table] = map[string][]string{}
 	for _, chain := range chains {
 		if _, ok := b.rules[table][chain]; !ok {
 			b.rules[table][chain] = []string{}
@@ -342,8 +349,9 @@ func (b *BatchProvider) Commit() error {
 	}
 
 	buf, err := b.createDataBuffer()
+
 	if err != nil {
-		return fmt.Errorf("Failed to crete buffer %s", err)
+		return fmt.Errorf("Failed to create buffer %s", err)
 	}
 
 	return b.commitFunc(buf)
@@ -429,6 +437,8 @@ func restoreHasWait(restoreCmd string) bool {
 		return false
 	}
 
+	restoreCmdVersion := match[1]
+
 	restoreVersion, err := version.NewVersion(match[1])
 	if err != nil {
 		return false
@@ -440,8 +450,15 @@ func restoreHasWait(restoreCmd string) bool {
 	}
 
 	if restoreVersion.LessThan(minimumVersion) {
-		zap.L().Info(fmt.Sprintf(" %s: does not support --wait. Must be v1.6.2 or higher", restoreCmd))
+		zap.L().Info("iptables does not support --wait",
+			zap.String("command", restoreCmd),
+			zap.String("version", restoreCmdVersion),
+			zap.String("wantVersion", minimumVersion.String()))
 		return false
 	}
+
+	zap.L().Info("iptables will use --wait",
+		zap.String("command", restoreCmd),
+		zap.String("version", restoreCmdVersion))
 	return true
 }
