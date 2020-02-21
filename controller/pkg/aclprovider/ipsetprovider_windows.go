@@ -36,7 +36,7 @@ type Ipset interface {
 
 type ipsetProvider struct{}
 
-type winIpSet struct {
+type winIPSet struct {
 	handle uintptr
 	name   string // for debugging
 }
@@ -49,12 +49,12 @@ func (i *ipsetProvider) NewIpset(name string, ipsetType string, p *ipset.Params)
 		return nil, fmt.Errorf("failed to get driver handle: %v", err)
 	}
 	var ipsetHandle uintptr
-	dllRet, _, err := frontman.NewIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(ipsetType))), uintptr(unsafe.Pointer(&ipsetHandle)))
+	dllRet, _, err := frontman.NewIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))), //nolint:staticcheck
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(ipsetType))), uintptr(unsafe.Pointer(&ipsetHandle))) //nolint:staticcheck
 	if dllRet == 0 {
 		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.NewIpsetProc.Name, dllRet, err)
 	}
-	return &winIpSet{ipsetHandle, name}, nil
+	return &winIPSet{ipsetHandle, name}, nil
 }
 
 // GetIpset gets the ipset object from the name.
@@ -64,16 +64,16 @@ func (i *ipsetProvider) GetIpset(name string) Ipset {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		zap.L().Error("failed to get driver handle", zap.Error(err))
-		return &winIpSet{0, name}
+		return &winIPSet{0, name}
 	}
 	var ipsetHandle uintptr
-	dllRet, _, err := frontman.GetIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
+	dllRet, _, err := frontman.GetIpsetProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))), //nolint:staticcheck
 		uintptr(unsafe.Pointer(&ipsetHandle)))
 	if dllRet == 0 {
 		zap.L().Error(fmt.Sprintf("%s failed (ret=%d err=%v)", frontman.GetIpsetProc.Name, dllRet, err), zap.Error(err))
-		return &winIpSet{0, name}
+		return &winIPSet{0, name}
 	}
-	return &winIpSet{ipsetHandle, name}
+	return &winIPSet{ipsetHandle, name}
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references
@@ -82,7 +82,7 @@ func (i *ipsetProvider) DestroyAll(prefix string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
-	dllRet, _, err := frontman.DestroyAllIpsetsProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(prefix))))
+	dllRet, _, err := frontman.DestroyAllIpsetsProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(prefix)))) //nolint:staticcheck
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", frontman.DestroyAllIpsetsProc.Name, dllRet, err)
 	}
@@ -122,14 +122,14 @@ func NewGoIPsetProvider() IpsetProvider {
 	return &ipsetProvider{}
 }
 
-func (w *winIpSet) Add(entry string, timeout int) error {
+func (w *winIPSet) Add(entry string, timeout int) error {
 	zap.L().Debug(fmt.Sprintf("add ipset entry %s to %s", entry, w.name))
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
 	dllRet, _, err := frontman.IpsetAddProc.Call(driverHandle, w.handle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))), uintptr(timeout))
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))), uintptr(timeout)) //nolint:staticcheck
 	if dllRet == 0 {
 		// no error if already exists
 		if err == windows.ERROR_ALREADY_EXISTS {
@@ -140,34 +140,34 @@ func (w *winIpSet) Add(entry string, timeout int) error {
 	return nil
 }
 
-func (w *winIpSet) AddOption(entry string, option string, timeout int) error {
+func (w *winIPSet) AddOption(entry string, option string, timeout int) error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
 	dllRet, _, err := frontman.IpsetAddOptionProc.Call(driverHandle, w.handle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(option))), uintptr(timeout))
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))),                    //nolint:staticcheck
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(option))), uintptr(timeout)) //nolint:staticcheck
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", frontman.IpsetAddOptionProc.Name, dllRet, err)
 	}
 	return nil
 }
 
-func (w *winIpSet) Del(entry string) error {
+func (w *winIPSet) Del(entry string) error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
 	dllRet, _, err := frontman.IpsetDeleteProc.Call(driverHandle, w.handle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry)))) //nolint:staticcheck
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", frontman.IpsetDeleteProc.Name, dllRet, err)
 	}
 	return nil
 }
 
-func (w *winIpSet) Destroy() error {
+func (w *winIPSet) Destroy() error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -179,7 +179,7 @@ func (w *winIpSet) Destroy() error {
 	return nil
 }
 
-func (w *winIpSet) Flush() error {
+func (w *winIPSet) Flush() error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
@@ -191,12 +191,12 @@ func (w *winIpSet) Flush() error {
 	return nil
 }
 
-func (w *winIpSet) Test(entry string) (bool, error) {
+func (w *winIPSet) Test(entry string) (bool, error) {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return false, fmt.Errorf("failed to get driver handle: %v", err)
 	}
-	dllRet, _, err := frontman.IpsetTestProc.Call(driverHandle, w.handle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry))))
+	dllRet, _, err := frontman.IpsetTestProc.Call(driverHandle, w.handle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry)))) //nolint:staticcheck
 	if dllRet == 0 {
 		return false, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.IpsetTestProc.Name, dllRet, err)
 	}

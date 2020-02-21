@@ -71,9 +71,9 @@ func (p *Proxy) HandleDNSResponsePacket(dnsPacketData []byte, serverIP net.IP, p
 	}
 
 	// let each pu handle it
-	var pus []*pucontext.PUContext
+	pus := make([]*pucontext.PUContext, 0, len(p.contextIDs))
 	p.Lock()
-	for id, _ := range p.contextIDs {
+	for id := range p.contextIDs {
 		puCtx, err := puFromContextID(id)
 		if err != nil {
 			zap.L().Error("DNS Proxy failed to get PUContext", zap.Error(err))

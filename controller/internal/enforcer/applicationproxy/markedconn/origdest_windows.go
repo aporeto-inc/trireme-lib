@@ -39,7 +39,7 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Platfo
 			destHandle = destInfo.DestHandle
 			port = int(destInfo.Port)
 			// convert allocated wchar_t* to golang string
-			ipAddrStr := windows.WideCharPointerToString(destInfo.IpAddr)
+			ipAddrStr := windows.WideCharPointerToString(destInfo.IPAddr)
 			netIP = net.ParseIP(ipAddrStr)
 			if netIP == nil {
 				err = fmt.Errorf("%s failed to get valid IP (%s)", frontman.GetDestInfoProc.Name, ipAddrStr)

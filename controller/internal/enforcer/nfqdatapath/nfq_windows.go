@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
+func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.NFLogger) error {
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
@@ -28,8 +28,8 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
-		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
-		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize]
+		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))                                   //nolint:govet
+		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize] //nolint:govet
 
 		var packetType int
 		if packetInfo.Outbound != 0 {
@@ -155,7 +155,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
 
-		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
+		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr)) //nolint:govet
 		packetHeaderBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:logPacketInfo.PacketSize:logPacketInfo.PacketSize]
 
 		err := nflogWin.NfLogHandler(&logPacketInfo, packetHeaderBytes)
@@ -166,7 +166,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		return 0
 	}
 
-	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))),
+	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))), //nolint:staticcheck
 		syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed: %v", frontman.PacketFilterStartProc.Name, err)
