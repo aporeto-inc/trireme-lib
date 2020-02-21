@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -248,6 +249,11 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 func (b *BatchProvider) ListChains(table string) ([]string, error) {
 	b.Lock()
 	defer b.Unlock()
+
+	if b.ipt == nil {
+		zap.L().Error("iptables implementation is null")
+		return []string{}, errors.New("iptables implementation is null")
+	}
 
 	chains, err := b.ipt.ListChains(table)
 	if err != nil {
