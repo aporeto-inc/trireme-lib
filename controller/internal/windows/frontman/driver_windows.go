@@ -7,6 +7,7 @@ import (
 	"syscall"
 )
 
+// Frontman.dll procs to be called from Go
 var (
 	driverDll        = syscall.NewLazyDLL("Frontman.dll")
 	frontManOpenProc = driverDll.NewProc("FrontmanOpenShared")
@@ -45,8 +46,9 @@ var (
 	DeleteFilterCriteriaProc = driverDll.NewProc("DeleteFilterCriteria")
 )
 
+// See frontmanIO.h for #defines
 const (
-	FilterActionContinue = iota // see frontmanIO.h
+	FilterActionContinue = iota
 	FilterActionAllow
 	FilterActionBlock
 	FilterActionProxy
@@ -54,20 +56,23 @@ const (
 	FilterActionForceNfq
 )
 
+// See frontmanIO.h for #defines
 const (
-	BytesMatchStartIpHeader = iota + 1 // see frontmanIO.h
+	BytesMatchStartIPHeader = iota + 1
 	BytesMatchStartProtocolHeader
 	BytesMatchStartPayload
 )
 
+// DestInfo mirrors frontman's DEST_INFO struct
 type DestInfo struct {
-	IpAddr     *uint16 // WCHAR* IPAddress		Destination address allocated and will be free by FrontmanFreeDestHandle
+	IPAddr     *uint16 // WCHAR* IPAddress		Destination address allocated and will be free by FrontmanFreeDestHandle
 	Port       uint16  // USHORT Port			Destination port
 	Outbound   int32   // INT32 Outbound		Whether or not this is an outbound or inbound connection
-	ProcessId  uint64  // UINT64 ProcessId		Process id.  Only available for outbound connections
+	ProcessID  uint64  // UINT64 ProcessId		Process id.  Only available for outbound connections
 	DestHandle uintptr // LPVOID DestHandle		Handle to memory that must be freed by called ProxyDestConnected when connection is established.
 }
 
+// PacketInfo mirrors frontman's FRONTMAN_PACKET_INFO struct
 type PacketInfo struct {
 	Ipv4                         uint8
 	Protocol                     uint8
@@ -89,6 +94,7 @@ type PacketInfo struct {
 	StartTimeSentToUserLand      uint64
 }
 
+// LogPacketInfo mirrors frontman's FRONTMAN_LOG_PACKET_INFO struct
 type LogPacketInfo struct {
 	Ipv4       uint8
 	Protocol   uint8
@@ -99,15 +105,16 @@ type LogPacketInfo struct {
 	LocalAddr  [4]uint32
 	RemoteAddr [4]uint32
 	PacketSize uint32
-	GroupId    uint32
+	GroupID    uint32
 	LogPrefix  [64]uint16
 }
 
+// IpsetRuleSpec mirrors frontman's IPSET_RULE_SPEC struct
 type IpsetRuleSpec struct {
 	NotIpset     uint8
-	IpsetDstIp   uint8
+	IpsetDstIP   uint8
 	IpsetDstPort uint8
-	IpsetSrcIp   uint8
+	IpsetSrcIP   uint8
 	IpsetSrcPort uint8
 	Reserved1    uint8
 	Reserved2    uint8
@@ -115,11 +122,13 @@ type IpsetRuleSpec struct {
 	IpsetName    uintptr // const wchar_t*
 }
 
+// PortRange mirrors frontman's PORT_RANGE struct
 type PortRange struct {
 	PortStart uint16
 	PortEnd   uint16
 }
 
+// RuleSpec mirrors frontman's RULE_SPEC struct
 type RuleSpec struct {
 	Action            uint8
 	Log               uint8
@@ -139,7 +148,7 @@ type RuleSpec struct {
 	BytesMatchSize    int32
 	BytesMatch        *byte
 	Mark              uint32
-	GroupId           uint32
+	GroupID           uint32
 	SrcPortCount      int32
 	DstPortCount      int32
 	SrcPorts          *PortRange
@@ -148,6 +157,8 @@ type RuleSpec struct {
 	Application       uintptr // const wchar_t*
 }
 
+// GetDriverHandle gets the driver handle.
+// The first call starts the driver, after that it's cached.
 func GetDriverHandle() (uintptr, error) {
 	driverHandle, _, err := frontManOpenProc.Call()
 	if syscall.Handle(driverHandle) == syscall.InvalidHandle {

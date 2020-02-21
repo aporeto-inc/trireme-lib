@@ -101,8 +101,6 @@ var packetCaptureTemplate = `
 
 var proxyChainTemplate = ``
 
-var deleteChains = ``
-
 var globalHooks = ``
 
 var legacyProxyRules = ``

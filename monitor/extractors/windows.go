@@ -76,7 +76,7 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
 }
 
-// ProcessInfo returns all metadata captured by a Windows process
+// WinProcessInfo returns all metadata captured by a Windows process
 func WinProcessInfo(pid int32) []string {
 	userdata := []string{}
 

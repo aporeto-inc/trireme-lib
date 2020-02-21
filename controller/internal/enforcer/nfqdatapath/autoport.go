@@ -1,7 +1,6 @@
 package nfqdatapath
 
 import (
-	"os/user"
 	"path/filepath"
 	"sync"
 	"time"
@@ -25,33 +24,10 @@ var readFiles readSystemFiles
 var d *defaultRead
 var lock sync.RWMutex
 
-const (
-	procNetTCPFile     = "/proc/net/tcp"
-	uidFieldOffset     = 7
-	inodeFieldOffset   = 9
-	procHeaderLineNum  = 0
-	portOffset         = 1
-	ipPortOffset       = 1
-	sockStateOffset    = 3
-	sockListeningState = "0A"
-	hexFormat          = 16
-	integerSize        = 64
-	minimumFields      = 2
-)
-
 func init() {
 	lock.Lock()
 	readFiles = d
 	lock.Unlock()
-}
-
-func getUserName(uid string) (string, error) {
-
-	u, err := user.LookupId(uid)
-	if err != nil {
-		return "", err
-	}
-	return u.Username, nil
 }
 
 func (d *Datapath) autoPortDiscovery() {
