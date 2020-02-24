@@ -1,19 +1,12 @@
-// +build !windows
-
 package nfqdatapath
 
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
-	"syscall"
 	"time"
 
-	"github.com/aporeto-inc/gopkt/layers"
-	"github.com/aporeto-inc/gopkt/packet/ipv4"
-	"github.com/aporeto-inc/gopkt/packet/raw"
 	"github.com/aporeto-inc/gopkt/packet/tcp"
 	"github.com/aporeto-inc/gopkt/routing"
 	"github.com/phayes/freeport"
@@ -43,7 +36,7 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 		return fmt.Errorf("unable to get source ip: %v", err)
 	}
 
-	conn, err := dialWithMark(srcIP, pingConfig.IP)
+	conn, err := createConnection(srcIP, pingConfig.IP)
 	if err != nil {
 		return fmt.Errorf("unable to dial on app syn: %v", err)
 	}
@@ -73,7 +66,7 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 }
 
 // sendSynPacket sends tcp syn packet to the socket. It also dispatches a report.
-func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, dstPort uint16, request int) error {
+func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn *diagnosticsConnection, srcIP net.IP, dstPort uint16, request int) error {
 
 	tcpConn := connection.NewTCPConnection(context, nil)
 	tcpConn.Secrets = d.secrets()
@@ -92,7 +85,7 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 		return fmt.Errorf("unable to get free source port: %v", err)
 	}
 
-	p, err := constructTCPPacket(srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
+	p, err := conn.constructPacket(srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
 	if err != nil {
 		return fmt.Errorf("unable to construct syn packet: %v", err)
 	}
@@ -102,7 +95,7 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 		return err
 	}
 
-	if err := write(conn, p); err != nil {
+	if err := conn.Write(p); err != nil {
 		return fmt.Errorf("unable to send syn packet: %v", err)
 	}
 
@@ -162,7 +155,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		return nil
 	}
 
-	conn, err := dialWithMark(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress())
+	conn, err := createConnection(tcpPacket.DestinationAddress(), tcpPacket.SourceAddress())
 	if err != nil {
 		return fmt.Errorf("unable to dial on net syn: %v", err)
 	}
@@ -195,7 +188,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		}
 	}
 
-	p, err := constructTCPPacket(
+	p, err := conn.constructPacket(
 		tcpPacket.DestinationAddress(),
 		tcpPacket.SourceAddress(),
 		tcpPacket.DestPort(),
@@ -207,7 +200,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		return fmt.Errorf("unable to construct synack packet: %v", err)
 	}
 
-	if err := write(conn, p); err != nil {
+	if err := conn.Write(p); err != nil {
 		return fmt.Errorf("unable to send synack packet: %v", err)
 	}
 
@@ -276,52 +269,6 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 	return nil
 }
 
-// constructTCPPacket constructs a valid tcp packet that can be sent on wire.
-func constructTCPPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
-
-	// pseudo header.
-	// NOTE: Used only for computing checksum.
-	ipPacket := ipv4.Make()
-	ipPacket.SrcAddr = srcIP
-	ipPacket.DstAddr = dstIP
-	ipPacket.Protocol = ipv4.TCP
-
-	// tcp.
-	tcpPacket := tcp.Make()
-	tcpPacket.SrcPort = srcPort
-	tcpPacket.DstPort = dstPort
-	tcpPacket.Flags = flag
-	tcpPacket.Seq = rand.Uint32()
-	tcpPacket.WindowSize = 0xAAAA
-	tcpPacket.Options = []tcp.Option{
-		{
-			Type: tcp.MSS,
-			Len:  4,
-			Data: []byte{0x05, 0x8C},
-		}, {
-			Type: 34, // tfo
-			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
-			Data: make([]byte, 2),
-		},
-	}
-	tcpPacket.DataOff = uint8(7) // 5 (header size) + 2 * (4 byte options)
-
-	// payload.
-	payload := raw.Make()
-	payload.Data = tcpData
-
-	tcpPacket.SetPayload(payload)  // nolint:errcheck
-	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
-
-	// pack the layers together.
-	buf, err := layers.Pack(tcpPacket, payload)
-	if err != nil {
-		return nil, fmt.Errorf("unable to encode packet to wire format: %v", err)
-	}
-
-	return buf, nil
-}
-
 // getSrcIP returns the interface ip that can reach the destination.
 func getSrcIP(dstIP net.IP) (net.IP, error) {
 
@@ -356,40 +303,6 @@ func packetTuple(stage uint64, srcIP, dstIP string, srcPort, dstPort uint16) str
 	}
 
 	return srcIP + ":" + strconv.Itoa(int(srcPort))
-}
-
-// dialWithMark opens raw ipv4:tcp socket and connects to the remote network.
-func dialWithMark(srcIP, dstIP net.IP) (net.Conn, error) {
-
-	d := net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: -1, // keepalive disabled.
-		LocalAddr: &net.IPAddr{IP: srcIP},
-		Control: func(_, _ string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, 0x24, 0x40); err != nil {
-					zap.L().Error("unable to assign mark", zap.Error(err))
-				}
-			})
-		},
-	}
-
-	return d.Dial("ip4:tcp", dstIP.String())
-}
-
-// write writes the given data to the conn.
-func write(conn net.Conn, data []byte) error {
-
-	n, err := conn.Write(data)
-	if err != nil {
-		return err
-	}
-
-	if n != len(data) {
-		return fmt.Errorf("partial data written, total: %v, written: %v", len(data), n)
-	}
-
-	return nil
 }
 
 // sendOriginPingReport sends a report on syn sent state.
