@@ -4,16 +4,21 @@ package nfqdatapath
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"syscall"
 	"time"
 
-	"github.com/aporeto-inc/gopkt/routing"
+	"github.com/aporeto-inc/gopkt/layers"
+	"github.com/aporeto-inc/gopkt/packet/ipv4"
+	"github.com/aporeto-inc/gopkt/packet/raw"
+	"github.com/aporeto-inc/gopkt/packet/tcp"
+	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.uber.org/zap"
 )
 
 type diagnosticsConnection struct {
-	conn	   net.Conn
+	conn net.Conn
 }
 
 // dialWithMark opens raw ipv4:tcp socket and connects to the remote network.
@@ -31,23 +36,23 @@ func createConnection(srcIP, dstIP net.IP) (*diagnosticsConnection, error) {
 			})
 		},
 	}
-	 
-	conn, err :=d.Dial("ip4:tcp", dstIP.String())
-	if (err != nil) {
+
+	conn, err := d.Dial("ip4:tcp", dstIP.String())
+	if err != nil {
 		return nil, err
 	}
-	return &diagnosticsConnection {conn = conn}, nil
+	return &diagnosticsConnection{conn: conn}, nil
 }
 
-func (diagConn* diagnosticsConnection) Close() {
-	
+func (diagConn *diagnosticsConnection) Close() {
+
 	if diagConn.conn != nil {
 		diagConn.conn.Close()
 	}
 }
 
 // write writes the given data to the conn.
-func (diagConn* diagnosticsConnection) Write(data []byte) error {
+func (diagConn *diagnosticsConnection) Write(data []byte) error {
 
 	n, err := diagConn.conn.Write(data)
 	if err != nil {
@@ -62,7 +67,7 @@ func (diagConn* diagnosticsConnection) Write(data []byte) error {
 }
 
 // constructTCPPacket constructs a valid tcp packet that can be sent on wire.
-func (diagConn* diagnosticsConnection)constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
+func (diagConn *diagnosticsConnection) constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
 
 	// pseudo header.
 	// NOTE: Used only for computing checksum.
