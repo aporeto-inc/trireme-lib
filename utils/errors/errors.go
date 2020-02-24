@@ -5,58 +5,47 @@ import (
 )
 
 type Error struct {
-	title     string
-	code      int
-	counterID int
-	content   string
-
-	Err error
+	Title     string
+	Subject   string
+	Code      int
+	CounterID int
+	Content   string
+	Data      interface{}
 }
 
 var _ error = &Error{}
 
-func NewError(title string, code int, content string) *Error {
+func NewError(title string, subject string, code int, content string) *Error {
 
-	return NewErrorWithCounter(title, code, content, -1)
+	return NewErrorWithCounter(title, subject, code, content, -1)
 }
 
-func NewErrorWithCounter(title string, code int, content string, counterID int) *Error {
+func NewErrorWithCounter(title string, subject string, code int, content string, counterID int) *Error {
 
 	return &Error{
-		title:     title,
-		code:      code,
-		counterID: counterID,
-		content:   content,
+		Title:     title,
+		Subject:   subject,
+		Code:      code,
+		CounterID: counterID,
+		Content:   content,
 	}
 }
 
 func (te *Error) Error() string {
-	return fmt.Sprintf("this is error")
-}
 
-func (te *Error) Title() string {
-	return te.title
-}
-
-func (te *Error) Code() int {
-	return te.code
-}
-
-func (te *Error) Content() string {
-	return te.content
-}
-
-func (te *Error) CounterID() int {
-	return te.counterID
-}
-
-func (te *Error) Wrap(err error) error {
-	return fmt.Errorf("%w %w", te.Err, err)
-}
-
-func Wrap(err error) error {
-
-	return &Error{
-		Err: err,
+	if te.CounterID != -1 {
+		return fmt.Sprintf("error %d (%s): %s: %s: %d", te.Code, te.Title, te.Subject, te.Content, te.CounterID)
 	}
+
+	return fmt.Sprintf("error %d (%s): %s: %s", te.Code, te.Title, te.Subject, te.Content)
+}
+
+func Code(err error) int {
+
+	te, ok := err.(*Error)
+	if !ok {
+		return 500
+	}
+
+	return te.Code
 }

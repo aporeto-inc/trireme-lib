@@ -9,46 +9,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 )
 
-// Flow event description
-const (
-	// FlowReject indicates that a flow was rejected
-	FlowReject = "reject"
-	// FlowAccept logs that a flow is accepted
-	FlowAccept = "accept"
-	// MissingToken indicates that the token was missing
-	MissingToken = "missingtoken"
-	// InvalidToken indicates that the token was invalid
-	InvalidToken = "token"
-	// InvalidFormat indicates that the packet metadata were not correct
-	InvalidFormat = "format"
-	// InvalidHeader indicates that the TCP header was not there.
-	InvalidHeader = "header"
-	// InvalidPayload indicates that the TCP payload was not there or bad.
-	InvalidPayload = "payload"
-	// InvalidContext indicates that there was no context in the metadata
-	InvalidContext = "context"
-	// InvalidConnection indicates that there was no connection found
-	InvalidConnection = "connection"
-	// InvalidState indicates that a packet was received without proper state information
-	InvalidState = "state"
-	// InvalidNonse indicates that the nonse check failed
-	InvalidNonse = "nonse"
-	// PolicyDrop indicates that the flow is rejected because of the policy decision
-	PolicyDrop = "policy"
-	// APIPolicyDrop indicates that the request was dropped because of failed API validation.
-	APIPolicyDrop = "api"
-	// UnableToDial indicates that the proxy cannot dial out the connection
-	UnableToDial = "dial"
-	// CompressedTagMismatch indicates that the compressed tag version is dissimilar
-	CompressedTagMismatch = "compressedtagmismatch"
-	// EncryptionMismatch indicates that the policy encryption varies between client and server enforcer
-	EncryptionMismatch = "encryptionmismatch"
-	// DatapathVersionMismatch indicates that the datapath version is dissimilar
-	DatapathVersionMismatch = "datapathversionmismatch"
-	// PacketDrop indicate a single packet drop
-	PacketDrop = "packetdrop"
-)
-
 // Container event description
 const (
 	// ContainerStart indicates a container start event
@@ -150,7 +110,7 @@ type FlowRecord struct {
 	Source           *EndPoint
 	Destination      *EndPoint
 	Tags             *policy.TagStore
-	DropReason       string
+	DropReason       int
 	PolicyID         string
 	ObservedPolicyID string
 	ServiceType      policy.ServiceType

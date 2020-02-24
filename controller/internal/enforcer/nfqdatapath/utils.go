@@ -23,10 +23,10 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, "", report, packet)
+	d.reportFlow(p, src, dst, context, collector.None, report, packet)
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode int, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
 	if conn != nil && mode == collector.PolicyDrop {
 		conn.SetReported(connection.RejectReported)
 	}
@@ -53,10 +53,10 @@ func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPC
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, "", report, packet)
+	d.reportFlow(p, src, dst, context, collector.None, report, packet)
 }
 
-func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
+func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode int, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
 	if conn != nil && mode == collector.PolicyDrop {
 		conn.SetReported(connection.RejectReported)
 	}
@@ -91,7 +91,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		dst.Type = collector.EnpointTypePU
 	}
 
-	dropReason := ""
+	dropReason := collector.None
 	if report.Action.Rejected() || actual.Action.Rejected() {
 		dropReason = collector.PolicyDrop
 	}

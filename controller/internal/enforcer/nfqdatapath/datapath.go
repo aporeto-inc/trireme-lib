@@ -691,7 +691,7 @@ func (d *Datapath) puContextDelegate(hash string) (*pucontext.PUContext, error) 
 	return pu.(*pucontext.PUContext), nil
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode int, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID:   context.ID(),

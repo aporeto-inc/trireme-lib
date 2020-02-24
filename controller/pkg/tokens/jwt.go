@@ -3,17 +3,20 @@ package tokens
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"go.aporeto.io/trireme-lib/collector"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/errors"
 )
+
+const errJWTTitle = "jwt"
 
 var (
 	noncePosition = 2
@@ -60,7 +63,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	compressionType := claimsheader.CompressionTypeNone
 
 	if s == nil {
-		return nil, errors.New("secrets can not be nil")
+		return nil, fmt.Errorf("secrets can not be nil")
 	}
 
 	switch s.Type() {
@@ -170,13 +173,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 	if !isAck {
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, errors.New("not enough data")
+			return nil, nil, nil, fmt.Errorf("not enough data")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
 		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
-			return nil, nil, nil, errors.New("invalid token length")
+			return nil, nil, nil, fmt.Errorf("invalid token length")
 		}
 
 		copy(nonce, data[noncePosition:tokenPosition])
@@ -212,7 +215,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 		return nil, nil, nil, fmt.Errorf("unable to parse token: %s", err)
 	}
 	if !jwttoken.Valid {
-		return nil, nil, nil, errors.New("invalid token")
+		return nil, nil, nil, fmt.Errorf("invalid token")
 	}
 
 	if !isAck {
@@ -243,7 +246,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 func (c *JWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 
 	if len(token) < tokenPosition {
-		return errors.New("token is too small")
+		return fmt.Errorf("token is too small")
 	}
 
 	copy(token[noncePosition:], nonce)
@@ -255,9 +258,9 @@ func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) 
 
 	switch {
 	case claimsHeader.CompressionType() != c.compressionType:
-		return newErrToken(errCompressedTagMismatch)
+		return errors.NewErrorWithCounter(errJWTTitle, "compression", collector.CompressedTagMismatch, "compressed tag mismatch", 0)
 	case claimsHeader.DatapathVersion() != c.datapathVersion:
-		return newErrToken(errDatapathVersionMismatch)
+		return errors.NewErrorWithCounter(errJWTTitle, "datapathversion", collector.DatapathVersionMismatch, "datapath version mismatch", 0)
 	}
 
 	return nil

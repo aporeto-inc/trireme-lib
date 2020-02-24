@@ -49,7 +49,7 @@ func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, sr
 	report.DestinationIP = dstIP.String()
 	report.SourceIP = srcIP.String()
 	report.TriremePacket = false
-	report.DropReason = collector.PacketDrop
+	report.DropReason = "packetdrop"
 
 	if payload == nil {
 		report.Payload = []byte{}
@@ -94,7 +94,7 @@ func recordFromNFLogData(payload []byte, prefix string, protocol uint8, srcIP, d
 		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
-	dropReason := ""
+	dropReason := 0
 	if action.Rejected() {
 		dropReason = collector.PolicyDrop
 	}
