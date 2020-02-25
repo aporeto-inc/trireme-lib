@@ -33,7 +33,8 @@ func createConnection(srcIP, dstIP net.IP) (*diagnosticsConnection, error) {
 func (diagConn *diagnosticsConnection) Close() {
 }
 
-func IPtoUint32Array(ip net.IP) [4]uint32 {
+// converts IP address to the driver's format.
+func convertToDriverFormat(ip net.IP) [4]uint32 {
 	var addr [4]uint32
 	byteAddr := (*[16]byte)(unsafe.Pointer(&addr))
 	copy(byteAddr[:], ip)
@@ -54,8 +55,8 @@ func (diagConn *diagnosticsConnection) Write(data []byte) error {
 		IgnoreFlow: diagConn.IgnoreFlow,
 		LocalPort:  diagConn.SourcePort,
 		RemotePort: diagConn.DestPort,
-		LocalAddr:  IPtoUint32Array(diagConn.SourceIp),
-		RemoteAddr: IPtoUint32Array(diagConn.DestIp),
+		LocalAddr:  convertToDriverFormat(diagConn.SourceIp),
+		RemoteAddr: convertToDriverFormat(diagConn.DestIp),
 		PacketSize: uint32(len(data)),
 	}
 
