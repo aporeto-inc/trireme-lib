@@ -41,6 +41,7 @@ const (
 	PacketDrop = 18
 )
 
+// CodeToString returns string representaion of the code.
 func CodeToString(code int) string {
 
 	switch code {

@@ -132,7 +132,7 @@ func (f *FlowRecord) String() string {
 		f.Destination.IP,
 		f.Destination.Port,
 		f.Action.String(),
-		f.DropReason,
+		CodeToString(f.DropReason),
 	)
 }
 
