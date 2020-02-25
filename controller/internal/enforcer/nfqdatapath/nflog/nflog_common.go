@@ -94,7 +94,7 @@ func recordFromNFLogData(payload []byte, prefix string, protocol uint8, srcIP, d
 		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
-	dropReason := 0
+	dropReason := collector.None
 	if action.Rejected() {
 		dropReason = collector.PolicyDrop
 	}
