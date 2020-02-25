@@ -14,6 +14,7 @@ import (
 
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/utils/errors"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/policy"
@@ -120,7 +121,7 @@ func Test_EncodeDecode(t *testing.T) {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
 				_, _, _, err := b.Decode(false, token, nil, scrts)
-				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: no signature in the token"))
+				So(err, ShouldResemble, errors.NewErrorWithCounter(errBinaryJWTTitle, "signature", 500, fmt.Sprintf("no signature in the token"), 0))
 			})
 		})
 
@@ -128,7 +129,7 @@ func Test_EncodeDecode(t *testing.T) {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
 				_, _, _, err := b.Decode(false, nil, nil, scrts)
-				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: not enough data"))
+				So(err, ShouldResemble, errors.NewErrorWithCounter(errBinaryJWTTitle, "unpack", 500, fmt.Sprintf("not enough data"), 0))
 			})
 		})
 	})
