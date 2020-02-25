@@ -11,7 +11,7 @@ import (
 	"github.com/aporeto-inc/gopkt/layers"
 	"github.com/aporeto-inc/gopkt/packet/ipv4"
 	"github.com/aporeto-inc/gopkt/packet/raw"
-	"github.com/aporeto-inc/gopkt/packet/tcp"	
+	"github.com/aporeto-inc/gopkt/packet/tcp"
 	"go.uber.org/zap"
 )
 
@@ -65,7 +65,7 @@ func (diagConn *diagnosticsConnection) Write(data []byte) error {
 }
 
 // constructWirePacket constructs a valid tcp packet that can be sent on wire.
-func (diagConn *diagnosticsConnection) constructWirePacket(srcIP, dstIP net.IP, *tcpPacket tcp.Packet, *payload raw.Packet) ([]byte, error) {
+func (diagConn *diagnosticsConnection) constructWirePacket(srcIP, dstIP net.IP, tcpPacket *tcp.Packet, payload *raw.Packet) ([]byte, error) {
 
 	// pseudo header.
 	// NOTE: Used only for computing checksum.
