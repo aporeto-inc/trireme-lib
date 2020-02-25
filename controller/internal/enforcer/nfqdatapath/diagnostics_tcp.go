@@ -3,10 +3,12 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/aporeto-inc/gopkt/packet/raw"
 	"github.com/aporeto-inc/gopkt/packet/tcp"
 	"github.com/aporeto-inc/gopkt/routing"
 	"github.com/phayes/freeport"
@@ -85,7 +87,7 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 		return fmt.Errorf("unable to get free source port: %v", err)
 	}
 
-	p, err := conn.constructPacket(srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
+	p, err := constructPacket(conn, srcIP, pingConfig.IP, uint16(srcPort), dstPort, tcp.Syn, tcpData)
 	if err != nil {
 		return fmt.Errorf("unable to construct syn packet: %v", err)
 	}
@@ -188,7 +190,8 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		}
 	}
 
-	p, err := conn.constructPacket(
+	p, err := constructPacket(
+		conn,
 		tcpPacket.DestinationAddress(),
 		tcpPacket.SourceAddress(),
 		tcpPacket.DestPort(),
@@ -206,6 +209,44 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 
 	tcpConn.SetState(connection.TCPSynAckSend)
 	return nil
+}
+
+// constructPacket constructs a valid packet that can be sent on wire.
+func constructPacket(conn *diagnosticsConnection, srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
+
+	// tcp.
+	tcpPacket := tcp.Make()
+	tcpPacket.SrcPort = srcPort
+	tcpPacket.DstPort = dstPort
+	tcpPacket.Flags = flag
+	tcpPacket.Seq = rand.Uint32()
+	tcpPacket.WindowSize = 0xAAAA
+	tcpPacket.Options = []tcp.Option{
+		{
+			Type: tcp.MSS,
+			Len:  4,
+			Data: []byte{0x05, 0x8C},
+		}, {
+			Type: 34, // tfo
+			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
+			Data: make([]byte, 2),
+		},
+	}
+	tcpPacket.DataOff = uint8(7) // 5 (header size) + 2 * (4 byte options)
+
+	// payload.
+	payload := raw.Make()
+	payload.Data = tcpData
+
+	tcpPacket.SetPayload(payload) // nolint:errcheck
+
+	// construct the wire packet
+	buf, err := conn.constructWirePacket(srcIP, dstIP, tcpPacket, payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to encode packet to wire format: %v", err)
+	}
+
+	return buf, nil
 }
 
 // processDiagnosticNetSynAckPacket should only be called when the packet is recognized as a diagnostic synack packet.

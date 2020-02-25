@@ -4,7 +4,6 @@ package nfqdatapath
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"syscall"
 	"unsafe"
@@ -13,7 +12,7 @@ import (
 	"github.com/aporeto-inc/gopkt/packet/ipv4"
 	"github.com/aporeto-inc/gopkt/packet/raw"
 	"github.com/aporeto-inc/gopkt/packet/tcp"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	//"github.com/aporeto-inc/gopkt/routing"
 )
@@ -67,10 +66,18 @@ func (diagConn *diagnosticsConnection) Write(data []byte) error {
 	return nil
 }
 
-func (diagConn *diagnosticsConnection) constructPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16, flag tcp.Flags, tcpData []byte) ([]byte, error) {
+// constructWirePacket constructs a valid ip packet that the driver can be sent on wire.
+func (diagConn *diagnosticsConnection) constructWirePacket(srcIP, dstIP net.IP, tcpPacket *tcp.Packet, payload *raw.Packet) ([]byte, error) {
+
+	// ip packet created here to make it easier to support Ipv6 pings later.
+	ipPacket := ipv4.Make()
+	ipPacket.SrcAddr = srcIP
+	ipPacket.DstAddr = dstIP
+	ipPacket.Protocol = ipv4.TCP
+	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
 
 	ignoreFlow := uint8(1)
-	if flag == tcp.Syn {
+	if tcpPacket.Flags == tcp.Syn {
 		// When sending the Syn packet, we want the other packets to come back up to NFQ
 		ignoreFlow = 0
 	}
@@ -78,42 +85,8 @@ func (diagConn *diagnosticsConnection) constructPacket(srcIP, dstIP net.IP, srcP
 	diagConn.IgnoreFlow = ignoreFlow
 	diagConn.SourceIp = srcIP
 	diagConn.DestIp = dstIP
-	diagConn.SourcePort = srcPort
-	diagConn.DestPort = dstPort
-
-	// pseudo header.
-	// NOTE: Used only for computing checksum.
-	ipPacket := ipv4.Make()
-	ipPacket.SrcAddr = srcIP
-	ipPacket.DstAddr = dstIP
-	ipPacket.Protocol = ipv4.TCP
-
-	// tcp.
-	tcpPacket := tcp.Make()
-	tcpPacket.SrcPort = srcPort
-	tcpPacket.DstPort = dstPort
-	tcpPacket.Flags = flag
-	tcpPacket.Seq = rand.Uint32()
-	tcpPacket.WindowSize = 0xAAAA
-	tcpPacket.Options = []tcp.Option{
-		{
-			Type: tcp.MSS,
-			Len:  4,
-			Data: []byte{0x05, 0x8C},
-		}, {
-			Type: 34, // tfo
-			Len:  enforcerconstants.TCPAuthenticationOptionBaseLen,
-			Data: make([]byte, 2),
-		},
-	}
-	tcpPacket.DataOff = uint8(7) // 5 (header size) + 2 * (4 byte options)
-
-	// payload.
-	payload := raw.Make()
-	payload.Data = tcpData
-
-	tcpPacket.SetPayload(payload)  // nolint:errcheck
-	ipPacket.SetPayload(tcpPacket) // nolint:errcheck
+	diagConn.SourcePort = tcpPacket.SrcPort
+	diagConn.DestPort = tcpPacket.DstPort
 
 	// pack the layers together.
 	buf, err := layers.Pack(ipPacket, tcpPacket, payload)
