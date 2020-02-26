@@ -2,7 +2,7 @@ module go.aporeto.io/trireme-lib/v11
 
 go 1.13
 
-replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc11
+replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc12
 
 // Aporeto modules
 require (
@@ -66,7 +66,7 @@ require (
 	github.com/ghedo/go.pkt v0.0.0-20200209120728-c97f47ad982f // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000
+	go.aporeto.io/trireme-lib v11.0.0-rc12
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
 	k8s.io/apimachinery v0.17.2

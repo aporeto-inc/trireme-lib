@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	claimsheader "go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	tokens "go.aporeto.io/trireme-lib/v11/controller/pkg/tokens"
 )
 
 // MockTokenEngine is a mock of TokenEngine interface

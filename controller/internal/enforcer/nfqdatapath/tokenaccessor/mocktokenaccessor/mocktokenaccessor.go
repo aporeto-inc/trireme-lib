@@ -9,11 +9,11 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	connection "go.aporeto.io/trireme-lib/controller/pkg/connection"
-	pucontext "go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	claimsheader "go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	connection "go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	pucontext "go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	tokens "go.aporeto.io/trireme-lib/v11/controller/pkg/tokens"
 )
 
 // MockTokenAccessor is a mock of TokenAccessor interface
