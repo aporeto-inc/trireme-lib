@@ -51,6 +51,7 @@ github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a h1:NErengbX
 github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a/go.mod h1:qK6gR4hkFGuBMBAUpLocng5d7ymzJ6+vpZqsTwFrjAg=
 github.com/aporeto-inc/gopkt v0.0.0-20200127181821-1af745e7e4c1 h1:jeD4BxKrEn2uW7uuHyciG8eMJNRsS2Wk0zHds6QEQFA=
 github.com/aporeto-inc/gopkt v0.0.0-20200127181821-1af745e7e4c1/go.mod h1:0vXsw3vJ1lRZ709fHGWxGrVn0EuUXa81mfg5q5EE438=
+github.com/aporeto-inc/gopkt v0.0.0-20200224231434-5490d8ecedcc/go.mod h1:0vXsw3vJ1lRZ709fHGWxGrVn0EuUXa81mfg5q5EE438=
 github.com/aporeto-inc/oxy v1.2.2/go.mod h1:bFs0SV9xNWH05Ibe3ctphGtP5yceNngcVuHuQwZte1Q=
 github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97 h1:gIIxuy3y8eiEHJWNBOMrdO+meCoMm6vK+kBBCl4648c=
 github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97/go.mod h1:eFOrfW2GmZY9YPBd0+M0pUOuAJ8hZOEWucCHmFk5Ink=

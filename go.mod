@@ -13,7 +13,7 @@ require (
 require (
 	github.com/DavidGamba/go-getoptions v0.17.0
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200127181821-1af745e7e4c1
+	github.com/aporeto-inc/gopkt v0.0.0-20200224231434-5490d8ecedcc
 	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
