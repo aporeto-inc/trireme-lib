@@ -53,7 +53,6 @@ require (
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
-	gomodules.xyz/jsonpatch/v2 v2.0.1
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
 	google.golang.org/grpc v1.27.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -61,19 +60,13 @@ require (
 
 // Kubernetes
 require (
-	github.com/containerd/containerd v1.3.3 // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/ghedo/go.pkt v0.0.0-20200209120728-c97f47ad982f // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	go.aporeto.io/trireme-lib v11.0.0-rc12
+	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000
 	k8s.io/api v0.17.2
-	k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
 	k8s.io/apimachinery v0.17.2
-	k8s.io/apiserver v0.0.0-20190918160949-bfa5e2e684ad
 	k8s.io/client-go v0.17.2
 	sigs.k8s.io/controller-runtime v0.17.2
-	sigs.k8s.io/yaml v1.1.0
 )
 
 // NOTE: we must use the replace directive as below, otherwise we might get
