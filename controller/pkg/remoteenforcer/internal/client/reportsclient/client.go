@@ -5,10 +5,10 @@ import (
 	"errors"
 	"os"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/client"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
 
