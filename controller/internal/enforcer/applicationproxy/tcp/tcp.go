@@ -43,6 +43,7 @@ type Proxy struct {
 	registry    *serviceregistry.Registry
 	certificate *tls.Certificate
 	ca          *x509.CertPool
+	scrts       secrets.Secrets
 
 	// List of local IP's
 	localIPs map[string]struct{}
@@ -70,6 +71,7 @@ func NewTCPProxy(
 	registry *serviceregistry.Registry,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
+	s secrets.Secrets,
 ) *Proxy {
 
 	localIPs := markedconn.GetInterfaces()
@@ -82,6 +84,7 @@ func NewTCPProxy(
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
+		scrts:         s,
 	}
 }
 
@@ -101,6 +104,14 @@ func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s se
 
 	p.certificate = cert
 	p.ca = caPool
+	p.scrts = s
+}
+
+func (p *Proxy) secrets() secrets.Secrets {
+	p.RLock()
+	defer p.RUnlock()
+
+	return p.scrts
 }
 
 func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
@@ -319,10 +330,12 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	for {
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
+			// Update the outgoing connection with the secrets.
+			conn.Secrets = p.secrets()
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsheader.NewClaimsHeader())
+			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth, claimsheader.NewClaimsHeader(), conn.Secrets)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
 			}
@@ -339,7 +352,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
 			}
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
@@ -371,7 +384,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
-			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
+			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth, conn.Secrets)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
 			}
@@ -421,6 +434,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 
 		switch conn.GetState() {
 		case connection.ServerReceivePeerToken:
+			// Update the incoming connection with the secrets.
+			conn.Secrets = p.secrets()
 			if err := upConn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				return false, err
 			}
@@ -428,7 +443,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err != nil {
 				return false, fmt.Errorf("unable to receive syn token: %s", err)
 			}
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, tokens.CodeFromErr(err), nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
@@ -456,7 +471,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			claimsHeader := claimsheader.NewClaimsHeader(
 				claimsheader.OptionEncrypt(conn.PacketFlowPolicy.Action.Encrypted()),
 			)
-			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeader)
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth, claimsHeader, conn.Secrets)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}
@@ -474,7 +489,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err != nil {
 				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
-			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
+			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg, conn.Secrets); err != nil {
 				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}

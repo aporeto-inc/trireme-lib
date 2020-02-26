@@ -92,7 +92,8 @@ func LoadBPF() BPFModule {
 	m := bpflib.NewModuleFromReader(reader)
 
 	if err := m.Load(nil); err != nil {
-		zap.L().Info("Failed to load BPF in kernel", zap.Error(err))
+		zap.L().Info("Failed to load BPF in kernel")
+		zap.L().Debug("BPF Load error:", zap.Error(err))
 		return nil
 	}
 

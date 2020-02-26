@@ -272,6 +272,9 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
+	// Update secrets on the outgoing connection.
+	conn.Secrets = d.secrets()
+
 	// If the packet is not in target networks then look into the external services application cache to
 	// make a decision whether the packet should be forwarded. For target networks with external services
 	// network syn/ack accepts the packet if it belongs to external services.
@@ -302,7 +305,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// Create a token
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader())
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth, claimsheader.NewClaimsHeader(), conn.Secrets)
 
 	if err != nil {
 		return nil, err
@@ -383,7 +386,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	}
 
 	// never returns error
-	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader)
+	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader, conn.Secrets)
 	if err != nil {
 		return err
 	}
@@ -413,7 +416,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
-		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
+		token, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth, conn.Secrets)
 		if err != nil {
 			return err
 		}
@@ -567,6 +570,9 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *pu
 // processNetworkSynPacket processes a syn packet arriving from the network
 func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
+	// Update secrets on the incoming connection.
+	conn.Secrets = d.secrets()
+
 	// Incoming packets that don't have our options are candidates to be processed
 	// as external services.
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
@@ -587,7 +593,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
 	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
 	// The source will retry but we have no state to maintain here.
 	if err != nil {
@@ -761,19 +767,19 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Now we can process the SynAck packet with its options
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingToken, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
 	if err != nil {
-		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, true)
 		//return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckBadClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
 	if claims == nil {
-		d.reportRejectedFlow(tcpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, true)
 		return nil, nil, conn.Context.PuContextError(pucontext.ErrSynAckMissingClaims, fmt.Sprintf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
@@ -920,7 +926,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrAckTCPNoTCPAuthOption, fmt.Sprintf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
 		}
 
-		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
+		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 			zap.L().Error("Ack Packet dropped because signature validation failed", zap.Error(err))
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrAckSigValidationFailed, fmt.Sprintf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))

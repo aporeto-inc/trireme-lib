@@ -1,7 +1,6 @@
 package nfqdatapath
 
 import (
-	"fmt"
 	"net"
 	"testing"
 
@@ -30,7 +29,7 @@ var (
 func setupDatapath(collector collector.EventCollector) *Datapath {
 
 	_, secret, err := secrets.CreateCompactPKITestSecrets()
-	fmt.Println("ERROR IS ", err)
+	So(err, ShouldBeNil)
 
 	// mock the call
 	prevRawSocket := GetUDPRawSocket
@@ -202,6 +201,7 @@ func TestReportRejectedFlow(t *testing.T) {
 				Source:      src,
 				Destination: dst,
 				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
@@ -220,6 +220,7 @@ func TestReportRejectedFlow(t *testing.T) {
 				Source:      src,
 				Destination: dst,
 				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
@@ -254,6 +255,7 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 				Source:      src,
 				Destination: dst,
 				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
@@ -272,6 +274,7 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 				Source:      src,
 				Destination: dst,
 				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)

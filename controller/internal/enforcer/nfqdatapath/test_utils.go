@@ -1,11 +1,13 @@
 package nfqdatapath
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 )
 
 type myMatcher struct {
@@ -16,21 +18,39 @@ func (m *myMatcher) Matches(x interface{}) bool {
 	f1 := m.x.(*collector.FlowRecord)
 	f2 := x.(*collector.FlowRecord)
 
-	if f1.Destination.IP == f2.Destination.IP && f1.Source.IP == f2.Source.IP && f1.Destination.Port == f2.Destination.Port && f1.Action == f2.Action && f1.Count == f2.Count {
-
-		return true
-	}
-
-	return false
+	return f1.Destination.IP == f2.Destination.IP &&
+		f1.Source.IP == f2.Source.IP &&
+		f1.Destination.Port == f2.Destination.Port &&
+		f1.Action == f2.Action &&
+		f1.Count == f2.Count &&
+		f1.DropReason == f2.DropReason
 }
 
 func (m *myMatcher) String() string {
-	return fmt.Sprintf("is equal to %v", m.x)
+
+	out, err := json.Marshal(m.x)
+	if err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf("is equal to %v", string(out))
+}
+
+type myGotFormatter struct{}
+
+func (g *myGotFormatter) Got(got interface{}) string {
+
+	out, err := json.Marshal(got)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 // MyMatcher returns gomock matcher
 func MyMatcher(x interface{}) gomock.Matcher {
-	return &myMatcher{x: x}
+	return gomock.GotFormatterAdapter(&myGotFormatter{}, &myMatcher{x: x})
 }
 
 type packetEventMatcher struct {
@@ -74,4 +94,17 @@ func (m *myCounterMatcher) String() string {
 // MyCounterMatcher custom matcher for counter record
 func MyCounterMatcher(x interface{}) gomock.Matcher {
 	return &myCounterMatcher{x: x}
+}
+
+type fakeSecrets struct {
+	id string
+	*secrets.NullPKI
+}
+
+func (f *fakeSecrets) setID(id string) {
+	f.id = id
+}
+
+func (f *fakeSecrets) getID() string {
+	return f.id
 }

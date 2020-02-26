@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
@@ -27,9 +28,9 @@ type ConnectionClaims struct {
 // TokenEngine is the interface to the different implementations of tokens
 type TokenEngine interface {
 	// CreteAndSign creates a token, signs it and produces the final byte string
-	CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader) (token []byte, err error)
+	CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) (token []byte, err error)
 	// Decode decodes an incoming buffer and returns the claims and the sender certificate
-	Decode(isAck bool, data []byte, previousCert interface{}) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error)
+	Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error)
 	// Randomize inserts a source nonce in an existing token - New nonce will be
 	// create every time the token is transmitted as a challenge to the other side
 	// even when the token is cached. There should be space in the token already.

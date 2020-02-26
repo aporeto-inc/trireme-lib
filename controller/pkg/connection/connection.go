@@ -11,6 +11,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.aporeto.io/trireme-lib/v11/utils/crypto"
@@ -178,6 +179,8 @@ type TCPConnection struct {
 	TCPtuple *TCPTuple
 
 	PingConfig *PingConfig
+
+	Secrets secrets.Secrets
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -255,6 +258,15 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		return nil
 	}
 
+	// Default tuple in case the packet is nil.
+	tuple := &TCPTuple{}
+	if p != nil {
+		tuple.SourceAddress = p.SourceAddress()
+		tuple.DestinationAddress = p.DestinationAddress()
+		tuple.SourcePort = p.SourcePort()
+		tuple.DestinationPort = p.DestPort()
+	}
+
 	return &TCPConnection{
 		PingConfig: &PingConfig{},
 		state:      TCPSynSend,
@@ -262,12 +274,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
-		TCPtuple: &TCPTuple{
-			SourceAddress:      p.SourceAddress(),
-			DestinationAddress: p.DestinationAddress(),
-			SourcePort:         p.SourcePort(),
-			DestinationPort:    p.DestPort(),
-		},
+		TCPtuple: tuple,
 	}
 }
 
@@ -280,6 +287,7 @@ type ProxyConnection struct {
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
+	Secrets          secrets.Secrets
 }
 
 // NewProxyConnection returns a new Proxy Connection
@@ -344,6 +352,8 @@ type UDPConnection struct {
 
 	TestIgnore           bool
 	udpQueueFullDropCntr uint64
+
+	Secrets secrets.Secrets
 }
 
 // NewUDPConnection returns UDPConnection struct.

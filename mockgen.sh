@@ -80,6 +80,16 @@ mkdir -p monitor/processor/mockprocessor
 mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mockprocessor/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor
 goimport_sanitize monitor/processor/mockprocessor/mockprocessor.go
 
+echo "controller/internal/enforcer/nfqdatapath/tokenaccessor Mocks"
+mkdir -p controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor
+mockgen -source controller/internal/enforcer/nfqdatapath/tokenaccessor/interfaces.go -destination controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor/mocktokenaccessor.go -package mocktokenaccessor
+goimport_sanitize controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor/mocktokenaccessor.go
+
+echo "controller/pkg/tokens Mocks"
+mkdir -p controller/pkg/tokens/mocktokens
+mockgen -source controller/pkg/tokens/tokens.go -destination controller/pkg/tokens/mocktokens/mocktokens.go -package mocktokens
+goimport_sanitize controller/pkg/tokens/mocktokens/mocktokens.go
+
 echo "RPC Wrapper Mocks"
 mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper
 mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper
