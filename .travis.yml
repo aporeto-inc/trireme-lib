@@ -51,7 +51,12 @@ before_install:
 
 install:
   - go mod download
-  - git diff --exit-code go.mod go.sum
+  - |
+    if ! git diff --exit-code go.mod go.sum
+    then
+      echo -e "\n\ngo.mod or go.sum modified after download. Please run 'go mod tidy' and check in your code again\n\n"
+      false
+    fi
   - go list -m all || true
 
 script:
