@@ -2,18 +2,18 @@ module go.aporeto.io/trireme-lib/v11
 
 go 1.13
 
-replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc13
+// replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc9.0.20200227063045-150f930f7468
 
 // Aporeto modules
 require (
-	go.aporeto.io/netlink-go v1.41.1
+	go.aporeto.io/netlink-go v1.42.1-0.20200227103808-a0850b1b2c3d
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
 require (
 	github.com/DavidGamba/go-getoptions v0.17.0
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200224231434-5490d8ecedcc
+	github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661
 	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
@@ -60,13 +60,15 @@ require (
 
 // Kubernetes
 require (
-	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
-	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000
+	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
+	go.aporeto.io/trireme-lib v10.266.0+incompatible
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.2
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.4.0
 )
 
 // NOTE: we must use the replace directive as below, otherwise we might get

@@ -8,9 +8,12 @@ matrix:
   include:
   - go: "1.13.x"
     env: LINT_VERSION="@v1.21.0"
+  - go: "1.14.x"
+    env: LINT_VERSION="@v1.21.0"
   - go: master
     env: LINT_VERSION="@v1.21.0"
   allow_failures:
+  - go: "1.14.x"
   - go: master
   fast_finish: true
 

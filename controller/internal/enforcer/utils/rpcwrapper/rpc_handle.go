@@ -15,9 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-
 	"github.com/mitchellh/hashstructure"
+	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/oidc"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/pkitokens"

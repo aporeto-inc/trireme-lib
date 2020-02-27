@@ -52,7 +52,7 @@ mockgen \
 -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go \
 -package mockstatscollector \
 -aux_files collector=collector/interfaces.go \
--imports statscollector=go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector
+-imports statscollector=go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
 
 echo "controller/pkg/usertokens Mocks"
