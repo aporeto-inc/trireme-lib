@@ -2,11 +2,9 @@ module go.aporeto.io/trireme-lib/v11
 
 go 1.13
 
-// replace go.aporeto.io/trireme-lib => go.aporeto.io/trireme-lib/v11 v11.0.0-rc9.0.20200227063045-150f930f7468
-
 // Aporeto modules
 require (
-	go.aporeto.io/netlink-go v1.42.1-0.20200227184237-96ad70aa83b3
+	go.aporeto.io/netlink-go v1.42.1-0.20200227185020-753e5756b1b7
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
@@ -60,6 +58,12 @@ require (
 
 // Kubernetes
 require (
+	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.2
