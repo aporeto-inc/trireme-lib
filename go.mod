@@ -13,7 +13,7 @@ require (
 require (
 	github.com/DavidGamba/go-getoptions v0.17.0
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200224231434-5490d8ecedcc
+	github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661
 	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
@@ -60,8 +60,10 @@ require (
 
 // Kubernetes
 require (
-	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	go.aporeto.io/trireme-lib v0.0.0-00010101000000-000000000000
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
