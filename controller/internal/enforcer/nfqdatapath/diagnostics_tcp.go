@@ -283,6 +283,7 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 		tcpPacket.DropTCPDetachedBytes()
 
 		tcpConn.PingConfig.Passthrough = true
+		return nil
 	}
 
 	return nil
