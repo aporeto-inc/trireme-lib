@@ -16,7 +16,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -73,14 +72,11 @@ func createCompressedTagArray() *policy.TagStore {
 
 func Test_NewBinaryJWT(t *testing.T) {
 	Convey("When I try to instantiate a new binary JWT, it should succeed", t, func() {
-		scrts, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
-		So(err, ShouldBeNil)
-		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789")
 		So(err, ShouldBeNil)
 		So(b, ShouldNotBeNil)
 		So(b.ValidityPeriod, ShouldEqual, bvalidity)
 		So(b.Issuer, ShouldEqual, "0123456789012345678901234567890123456789")
-		So(b.secrets, ShouldEqual, scrts)
 		So(b.tokenCache, ShouldNotBeNil)
 		So(b.sharedKeys, ShouldNotBeNil)
 	})
@@ -91,11 +87,11 @@ func Test_EncodeDecode(t *testing.T) {
 		cert, scrts, err := createCompactPKISecrets()
 		So(err, ShouldBeNil)
 
-		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789")
 		So(err, ShouldBeNil)
 
 		Convey("When I encode and decode a Syn Packet", func() {
-			token, err := b.CreateAndSign(false, &pu1Claims, pu1nonce, header)
+			token, err := b.CreateAndSign(false, &pu1Claims, pu1nonce, header, scrts)
 
 			Convey("I should succeed", func() {
 				So(err, ShouldBeNil)
@@ -103,7 +99,7 @@ func Test_EncodeDecode(t *testing.T) {
 			})
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				outClaims, outNonce, outKey, err := b.Decode(false, token, nil)
+				outClaims, outNonce, outKey, err := b.Decode(false, token, nil, scrts)
 				So(err, ShouldBeNil)
 				So(outKey, ShouldResemble, cert.PublicKey)
 				So(outNonce, ShouldResemble, pu1nonce)
@@ -123,7 +119,7 @@ func Test_EncodeDecode(t *testing.T) {
 			token = append(token, []byte("abcdefghijklmnopqrstuvwxyz")...)
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, token, nil)
+				_, _, _, err := b.Decode(false, token, nil, scrts)
 				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: no signature in the token"))
 			})
 		})
@@ -131,7 +127,7 @@ func Test_EncodeDecode(t *testing.T) {
 		Convey("When I encode and decode a nil Syn Packet", func() {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, nil, nil)
+				_, _, _, err := b.Decode(false, nil, nil, scrts)
 				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: not enough data"))
 			})
 		})
@@ -143,17 +139,17 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 		cert, scrts, err := createCompactPKISecrets()
 		So(err, ShouldBeNil)
 
-		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		b, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789")
 		So(err, ShouldBeNil)
 
 		Convey("When I encode and send a Syn Token", func() {
-			token, err := b.CreateAndSign(false, &pu1Claims, pu1nonce, header)
+			token, err := b.CreateAndSign(false, &pu1Claims, pu1nonce, header, scrts)
 			Convey("I should succeed", func() {
 				So(err, ShouldBeNil)
 				So(len(token), ShouldBeGreaterThan, 0)
 			})
 
-			outClaims, outNonce, outKey, err := b.Decode(false, token, nil)
+			outClaims, outNonce, outKey, err := b.Decode(false, token, nil, scrts)
 			Convey("Decoding of the Syn should be done", func() {
 				So(err, ShouldBeNil)
 				So(outKey, ShouldResemble, cert.PublicKey)
@@ -168,10 +164,10 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 
 			Convey("When I send the SynAck token after that, it should also be decoded with a shared key", func() {
 
-				saToken, err := b.CreateAndSign(false, &pu2Claims, pu2nonce, header)
+				saToken, err := b.CreateAndSign(false, &pu2Claims, pu2nonce, header, scrts)
 				So(err, ShouldBeNil)
 
-				saClaims, _, _, err := b.Decode(false, saToken, nil)
+				saClaims, _, _, err := b.Decode(false, saToken, nil, scrts)
 				So(err, ShouldBeNil)
 				So(saClaims, ShouldNotBeNil)
 				So(saClaims.LCL, ShouldResemble, pu2Claims.LCL)
@@ -180,11 +176,11 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 
 				Convey("When I send the final Ack packet it should also be decoded with the shared key", func() {
 
-					ackToken, err := b.CreateAndSign(true, &pu1AckClaims, nil, header)
+					ackToken, err := b.CreateAndSign(true, &pu1AckClaims, nil, header, scrts)
 					So(err, ShouldBeNil)
 					So(ackToken, ShouldNotBeNil)
 
-					sackClaims, _, _, err := b.Decode(true, ackToken, nil)
+					sackClaims, _, _, err := b.Decode(true, ackToken, nil, scrts)
 					So(err, ShouldBeNil)
 					So(sackClaims, ShouldNotBeNil)
 				})
@@ -204,7 +200,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 		_, scrts, err := createCompactPKISecrets()
 		So(err, ShouldBeNil)
 
-		t, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		t, err := NewBinaryJWT(bvalidity, "01234567890123456789012345678901234567")
 		So(err, ShouldBeNil)
 
 		Convey("When I try with 64 12-byte tags, the max length must not be exceeded", func() {
@@ -241,7 +237,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 				CT:  policy.NewTagStoreFromSlice(compressedTags),
 			}
 
-			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader())
+			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err, ShouldBeNil)
 			So(len(token), ShouldBeLessThan, 1420)
 		})
@@ -252,7 +248,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 		_, scrts, err := createCompactPKISecrets()
 		So(err, ShouldBeNil)
 
-		t, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789", scrts)
+		t, err := NewBinaryJWT(bvalidity, "0123456789012345678901234567890123456789")
 		So(err, ShouldBeNil)
 
 		Convey("When I try with 64 12-byte tags, the max length must not be exceeded", func() {
@@ -289,7 +285,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 				CT:  policy.NewTagStoreFromSlice(compressedTags),
 			}
 
-			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader())
+			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err, ShouldBeNil)
 			So(len(token), ShouldBeLessThan, 1420)
 		})

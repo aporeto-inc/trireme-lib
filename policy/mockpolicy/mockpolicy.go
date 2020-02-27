@@ -44,6 +44,7 @@ func (m *MockRuntimeReader) EXPECT() *MockRuntimeReaderMockRecorder {
 // Pid mocks base method
 // nolint
 func (m *MockRuntimeReader) Pid() int {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Pid")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -52,12 +53,14 @@ func (m *MockRuntimeReader) Pid() int {
 // Pid indicates an expected call of Pid
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Pid() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pid", reflect.TypeOf((*MockRuntimeReader)(nil).Pid))
 }
 
 // Name mocks base method
 // nolint
 func (m *MockRuntimeReader) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -66,12 +69,14 @@ func (m *MockRuntimeReader) Name() string {
 // Name indicates an expected call of Name
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRuntimeReader)(nil).Name))
 }
 
 // NSPath mocks base method
 // nolint
 func (m *MockRuntimeReader) NSPath() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NSPath")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -80,12 +85,14 @@ func (m *MockRuntimeReader) NSPath() string {
 // NSPath indicates an expected call of NSPath
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) NSPath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NSPath", reflect.TypeOf((*MockRuntimeReader)(nil).NSPath))
 }
 
 // Tag mocks base method
 // nolint
 func (m *MockRuntimeReader) Tag(arg0 string) (string, bool) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(bool)
@@ -95,12 +102,14 @@ func (m *MockRuntimeReader) Tag(arg0 string) (string, bool) {
 // Tag indicates an expected call of Tag
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Tag(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockRuntimeReader)(nil).Tag), arg0)
 }
 
 // Tags mocks base method
 // nolint
 func (m *MockRuntimeReader) Tags() *policy.TagStore {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tags")
 	ret0, _ := ret[0].(*policy.TagStore)
 	return ret0
@@ -109,12 +118,14 @@ func (m *MockRuntimeReader) Tags() *policy.TagStore {
 // Tags indicates an expected call of Tags
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Tags() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tags", reflect.TypeOf((*MockRuntimeReader)(nil).Tags))
 }
 
 // Options mocks base method
 // nolint
 func (m *MockRuntimeReader) Options() policy.OptionsType {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Options")
 	ret0, _ := ret[0].(policy.OptionsType)
 	return ret0
@@ -123,12 +134,14 @@ func (m *MockRuntimeReader) Options() policy.OptionsType {
 // Options indicates an expected call of Options
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Options() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Options", reflect.TypeOf((*MockRuntimeReader)(nil).Options))
 }
 
 // IPAddresses mocks base method
 // nolint
 func (m *MockRuntimeReader) IPAddresses() policy.ExtendedMap {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IPAddresses")
 	ret0, _ := ret[0].(policy.ExtendedMap)
 	return ret0
@@ -137,12 +150,14 @@ func (m *MockRuntimeReader) IPAddresses() policy.ExtendedMap {
 // IPAddresses indicates an expected call of IPAddresses
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) IPAddresses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAddresses", reflect.TypeOf((*MockRuntimeReader)(nil).IPAddresses))
 }
 
 // PUType mocks base method
 // nolint
 func (m *MockRuntimeReader) PUType() common.PUType {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PUType")
 	ret0, _ := ret[0].(common.PUType)
 	return ret0
@@ -151,24 +166,28 @@ func (m *MockRuntimeReader) PUType() common.PUType {
 // PUType indicates an expected call of PUType
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) PUType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PUType", reflect.TypeOf((*MockRuntimeReader)(nil).PUType))
 }
 
 // SetServices mocks base method
 // nolint
 func (m *MockRuntimeReader) SetServices(services []common.Service) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetServices", services)
 }
 
 // SetServices indicates an expected call of SetServices
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) SetServices(services interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetServices", reflect.TypeOf((*MockRuntimeReader)(nil).SetServices), services)
 }
 
 // PortMap mocks base method
 // nolint
 func (m *MockRuntimeReader) PortMap() map[nat.Port][]string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PortMap")
 	ret0, _ := ret[0].(map[nat.Port][]string)
 	return ret0
@@ -177,6 +196,7 @@ func (m *MockRuntimeReader) PortMap() map[nat.Port][]string {
 // PortMap indicates an expected call of PortMap
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) PortMap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortMap", reflect.TypeOf((*MockRuntimeReader)(nil).PortMap))
 }
 
@@ -210,6 +230,7 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 // HandlePUEvent mocks base method
 // nolint
 func (m *MockResolver) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandlePUEvent", ctx, puID, event, runtime)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -218,5 +239,6 @@ func (m *MockResolver) HandlePUEvent(ctx context.Context, puID string, event com
 // HandlePUEvent indicates an expected call of HandlePUEvent
 // nolint
 func (mr *MockResolverMockRecorder) HandlePUEvent(ctx, puID, event, runtime interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockResolver)(nil).HandlePUEvent), ctx, puID, event, runtime)
 }

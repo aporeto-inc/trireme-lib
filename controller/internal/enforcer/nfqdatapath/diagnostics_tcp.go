@@ -76,12 +76,13 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, dstPort uint16, request int) error {
 
 	tcpConn := connection.NewTCPConnection(context, nil)
+	tcpConn.Secrets = d.secrets()
 
 	claimsHeader := claimsheader.NewClaimsHeader(
 		claimsheader.OptionPingType(pingConfig.Type),
 	)
 
-	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader)
+	tcpData, err := d.tokenAccessor.CreateSynPacketToken(context, &tcpConn.Auth, claimsHeader, d.secrets())
 	if err != nil {
 		return fmt.Errorf("unable to create syn token: %v", err)
 	}
@@ -188,7 +189,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 			return err
 		}
 	} else {
-		tcpData, err = d.tokenAccessor.CreateSynAckPacketToken(context, &tcpConn.Auth, ch)
+		tcpData, err = d.tokenAccessor.CreateSynAckPacketToken(context, &tcpConn.Auth, ch, d.secrets())
 		if err != nil {
 			return fmt.Errorf("unable to create default synack token: %v", err)
 		}
