@@ -6,7 +6,7 @@ go 1.13
 
 // Aporeto modules
 require (
-	go.aporeto.io/netlink-go v1.42.1-0.20200227173416-85c7fc36863e
+	go.aporeto.io/netlink-go v1.42.1-0.20200227184237-96ad70aa83b3
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
