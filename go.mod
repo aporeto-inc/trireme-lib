@@ -6,7 +6,7 @@ go 1.13
 
 // Aporeto modules
 require (
-	go.aporeto.io/netlink-go v1.42.1-0.20200227103808-a0850b1b2c3d
+	go.aporeto.io/netlink-go v1.42.1-0.20200227150106-45e2cbbba376
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
@@ -60,11 +60,6 @@ require (
 
 // Kubernetes
 require (
-	github.com/containerd/containerd v1.3.3 // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	go.aporeto.io/trireme-lib v10.266.0+incompatible
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.2
