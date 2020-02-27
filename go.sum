@@ -582,12 +582,15 @@ go.aporeto.io/netlink-go v1.42.1-0.20200227103808-a0850b1b2c3d h1:V9RuGIiedxKgcm
 go.aporeto.io/netlink-go v1.42.1-0.20200227103808-a0850b1b2c3d/go.mod h1:GV2pWavQ/Dnx1EWeR0shFt3j5NV4XurRI/Ef+27Pdy4=
 go.aporeto.io/netlink-go v1.42.1-0.20200227150106-45e2cbbba376 h1:5KgDUraz7igDwlXRiMVmu5BuBFt3cHVLlDfFqfshEfM=
 go.aporeto.io/netlink-go v1.42.1-0.20200227150106-45e2cbbba376/go.mod h1:HNzyARQSVCq8596lJ+ctr0K3x6VegNb1j1C1NvbEJ6E=
+go.aporeto.io/netlink-go v1.42.1-0.20200227173019-654e2b3af5dc h1:ZdIC4cw1IIJPyEitR4bFU2x2T40kYgEK2Qd4xd2O3+I=
+go.aporeto.io/netlink-go v1.42.1-0.20200227173019-654e2b3af5dc/go.mod h1:pAx0g6Fbr595ycHWFrpdRr0Cug1vhFpLOS+FPQOuvH4=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 h1:ngw1NIPglTWLQnjgz2IKiHftrNmZwOikuRpJVNK4/O8=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8/go.mod h1:ylsR0KTuv3cSfWPRDfv8ff1rKvuCUWdKDE3+kaVtmjc=
 go.aporeto.io/trireme-lib v10.266.0+incompatible h1:/JYF5DVOPfRZToRZrzYD3/udz5bKTbcAV7wC1cSiCq4=
 go.aporeto.io/trireme-lib v10.266.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc9.0.20200227092129-de6427e6180d/go.mod h1:wUg36Q/t50M5cRP3rhx4flTMCAGGlcDJNZHXXZzkK34=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc9.0.20200227143232-f32ccf98ca1f/go.mod h1:yezIeMoC2Fv2cfxZ3e6OOJWYQnuz+c47wt1VGDWQahU=
+go.aporeto.io/trireme-lib/v11 v11.0.0-rc9.0.20200227150559-6ca8ff485c58/go.mod h1:A700CFu03karCgFk/H4/9WP20FK38F57ejos73fCM+0=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
