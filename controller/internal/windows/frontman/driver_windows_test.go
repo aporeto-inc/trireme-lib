@@ -2,6 +2,8 @@
 
 package frontman
 
+// TODO(windows): these tests need to be moved to integration tests when possible
+
 import (
 	"testing"
 	"unsafe"
