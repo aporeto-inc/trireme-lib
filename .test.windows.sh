@@ -5,7 +5,7 @@ OS=`uname -s`
 if [[ $OS == *"NT-"* ]]; then
 	WINE_EXEC=
 else
-	WINE_EXEC=-exec wine
+	WINE_EXEC="-exec wine"
 fi
 
 set -e
