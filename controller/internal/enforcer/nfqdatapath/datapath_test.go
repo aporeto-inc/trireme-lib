@@ -2896,6 +2896,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								if isChecked {
 									time.Sleep(time.Second * 61)
 									netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+
 									So(netconn, ShouldBeNil)
 									So(err, ShouldNotBeNil)
 								}
