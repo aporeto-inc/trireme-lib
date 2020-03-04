@@ -165,6 +165,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	// - we pass in a fake signal handler channel
 	// - we start another go routine which waits for the context to be cancelled
 	//   and closes that channel if that is the case
+	startTimestamp := time.Now()
 	z := make(chan struct{})
 	errCh := make(chan error, 2)
 	go func() {
@@ -188,6 +189,7 @@ waitLoop:
 			zap.L().Warn("pod: controller did not start within 5s")
 		case <-controllerStarted:
 			m.kubeClient = mgr.GetClient()
+			zap.L().Debug("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
 			break waitLoop
 		}
 	}
