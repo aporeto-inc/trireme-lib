@@ -18,3 +18,5 @@ for d in $(CGO_ENABLED=0 go list ./... | grep -v remoteenforcer | grep -v remote
         rm profile.windows.out
     fi
 done
+
+cp windows.txt coverage.txt
