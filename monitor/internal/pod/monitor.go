@@ -183,9 +183,8 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	case err := <-errCh:
 		return fmt.Errorf("pod: %s", err.Error())
 	case <-time.After(5 * time.Second):
-		// we give the controller 5 seconds to report back
+		// we give the controller 5 seconds to report back before we issue a warning
 		zap.L().Warn("pod: controller did not start within 5s")
-		//return errors.New("pod: controller did not start within 5s")
 	case <-controllerStarted:
 		m.kubeClient = mgr.GetClient()
 
