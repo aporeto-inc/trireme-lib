@@ -165,7 +165,6 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	// - we pass in a fake signal handler channel
 	// - we start another go routine which waits for the context to be cancelled
 	//   and closes that channel if that is the case
-	// -
 	z := make(chan struct{})
 	errCh := make(chan error, 2)
 	go func() {
@@ -179,24 +178,28 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		}
 	}()
 
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("pod: %s", err.Error())
-	case <-time.After(5 * time.Second):
-		// we give the controller 5 seconds to report back before we issue a warning
-		zap.L().Warn("pod: controller did not start within 5s")
-	case <-controllerStarted:
-		m.kubeClient = mgr.GetClient()
-
-		// call ResyncWithAllPods before we return from here
-		// this will block until every pod at this point in time has been seeing at least one `Reconcile` call
-		// we do this so that we build up our internal PU cache in the policy engine,
-		// so that when we remove stale pods on startup, we don't remove them and create them again
-		if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode); err != nil {
-			zap.L().Warn("Pod resync failed", zap.Error(err))
+waitLoop:
+	for {
+		select {
+		case err := <-errCh:
+			return fmt.Errorf("pod: %s", err.Error())
+		case <-time.After(5 * time.Second):
+			// we give the controller 5 seconds to report back before we issue a warning
+			zap.L().Warn("pod: controller did not start within 5s")
+		case <-controllerStarted:
+			m.kubeClient = mgr.GetClient()
+			break waitLoop
 		}
-		return nil
 	}
+
+	// call ResyncWithAllPods before we return from here
+	// this will block until every pod at this point in time has been seeing at least one `Reconcile` call
+	// we do this so that we build up our internal PU cache in the policy engine,
+	// so that when we remove stale pods on startup, we don't remove them and create them again
+	if err := ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode); err != nil {
+		zap.L().Warn("Pod resync failed", zap.Error(err))
+	}
+	return nil
 }
 
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
