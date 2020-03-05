@@ -9,11 +9,42 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"go.aporeto.io/trireme-lib/policy"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+func createNewPodMonitor() *PodMonitor {
+	m := New()
+	mockError := fmt.Errorf("mockerror: overwrite function with your own mock before using")
+	monitorConfig := DefaultConfig()
+	monitorConfig.Kubeconfig = "testdata/kubeconfig"
+	monitorConfig.MetadataExtractor = func(context.Context, client.Client, *runtime.Scheme, *corev1.Pod, bool) (*policy.PURuntime, error) {
+		return nil, mockError
+	}
+	monitorConfig.NetclsProgrammer = func(context.Context, *corev1.Pod, policy.RuntimeReader) error {
+		return mockError
+	}
+	monitorConfig.PidsSetMaxProcsProgrammer = func(ctx context.Context, pod *corev1.Pod, maxProcs int) error {
+		return mockError
+	}
+	monitorConfig.ResetNetcls = func(context.Context) error {
+		return mockError
+	}
+	monitorConfig.SandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
+		return "", mockError
+	}
+
+	if err := m.SetupConfig(nil, monitorConfig); err != nil {
+		panic(err)
+	}
+	return m
+}
 
 func TestPodMonitor_startManager(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -35,7 +66,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 		mgr manager.Manager
 	}
 
-	m := New()
+	m := createNewPodMonitor()
 	tests := []struct {
 		name           string
 		m              *PodMonitor
