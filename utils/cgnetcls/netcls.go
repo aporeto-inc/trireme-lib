@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.uber.org/zap"
 )
 
 // receiver definition.
@@ -65,16 +64,4 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	return procs, nil
-}
-
-// GetAssignedMarkVal -- returns the mark val assigned to the group
-// TODO: looks like dead code
-func GetAssignedMarkVal(cgroupName string) string {
-	mark, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, markFile))
-
-	if err != nil || len(mark) < 1 {
-		zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
-		return ""
-	}
-	return string(mark[:len(mark)-1])
 }

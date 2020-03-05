@@ -39,6 +39,7 @@ type DockerMonitor struct {
 	clientHdl                  lockedDockerClient
 	socketType                 string
 	socketAddress              string
+	releasePath                string
 	metadataExtractor          extractors.DockerMetadataExtractor
 	handlers                   map[Event]func(ctx context.Context, event *events.Message) error
 	eventnotifications         []chan *events.Message
@@ -82,11 +83,12 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
 	d.handlers = make(map[Event]func(ctx context.Context, event *events.Message) error)
 	d.stoplistener = make(chan bool)
-	d.netcls = cgnetcls.NewDockerCgroupNetController()
+	d.netcls = cgnetcls.NewCgroupNetController(common.TriremeDockerHostNetwork, "")
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
 	d.terminateStoppedContainers = dockerConfig.DestroyStoppedContainers
+	d.releasePath = dockerConfig.ReleasePath
 
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)

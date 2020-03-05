@@ -10,6 +10,7 @@ type Config struct {
 	EventMetadataExtractor     extractors.DockerMetadataExtractor
 	SocketType                 string
 	SocketAddress              string
+	ReleasePath                string
 	SyncAtStart                bool
 	KillContainerOnPolicyError bool
 	DestroyStoppedContainers   bool
@@ -23,6 +24,7 @@ func DefaultConfig() *Config {
 		SocketAddress:              constants.DefaultDockerSocket,
 		SyncAtStart:                true,
 		KillContainerOnPolicyError: false,
+		ReleasePath:                "",
 	}
 }
 
@@ -39,6 +41,9 @@ func SetupDefaultConfig(dockerConfig *Config) *Config {
 	}
 	if dockerConfig.SocketAddress == "" {
 		dockerConfig.SocketAddress = defaultConfig.SocketAddress
+	}
+	if dockerConfig.ReleasePath == "" {
+		dockerConfig.ReleasePath = defaultConfig.ReleasePath
 	}
 	return dockerConfig
 }
