@@ -155,43 +155,9 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: %s", err.Error())
 	}
 
-	controllerStarted := make(chan struct{})
-	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
+	// starts the manager in the background and will return once it is running
+	if err := m.startManager(ctx, mgr); err != nil {
 		return fmt.Errorf("pod: %s", err.Error())
-	}
-
-	// starting the manager is a bit awkward:
-	// - it does not use contexts
-	// - we pass in a fake signal handler channel
-	// - we start another go routine which waits for the context to be cancelled
-	//   and closes that channel if that is the case
-	startTimestamp := time.Now()
-	z := make(chan struct{})
-	errCh := make(chan error, 2)
-	go func() {
-		<-ctx.Done()
-		close(z)
-		errCh <- ctx.Err()
-	}()
-	go func() {
-		if err := mgr.Start(z); err != nil {
-			errCh <- err
-		}
-	}()
-
-waitLoop:
-	for {
-		select {
-		case err := <-errCh:
-			return fmt.Errorf("pod: %s", err.Error())
-		case <-time.After(5 * time.Second):
-			// we give the controller 5 seconds to report back before we issue a warning
-			zap.L().Warn("pod: controller did not start within 5s")
-		case <-controllerStarted:
-			m.kubeClient = mgr.GetClient()
-			zap.L().Debug("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
-			break waitLoop
-		}
 	}
 
 	// call ResyncWithAllPods before we return from here
@@ -224,6 +190,51 @@ func (m *PodMonitor) Resync(ctx context.Context) error {
 	}
 
 	return ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode)
+}
+
+func (m *PodMonitor) startManager(ctx context.Context, mgr manager.Manager) error {
+	controllerStarted := make(chan struct{})
+	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
+		return fmt.Errorf("pod: %s", err.Error())
+	}
+
+	// starting the manager is a bit awkward:
+	// - it does not use contexts
+	// - we pass in a fake signal handler channel
+	// - we start another go routine which waits for the context to be cancelled
+	//   and closes that channel if that is the case
+	startTimestamp := time.Now()
+	z := make(chan struct{})
+	errCh := make(chan error, 2)
+	go func() {
+		<-ctx.Done()
+		close(z)
+		errCh <- ctx.Err()
+	}()
+	go func() {
+		if err := mgr.Start(z); err != nil {
+			errCh <- err
+		}
+	}()
+
+waitLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-errCh:
+			return err
+		case <-time.After(5 * time.Second):
+			// we give the controller 5 seconds to report back before we issue a warning
+			zap.L().Warn("pod: controller did not start within 5s")
+		case <-controllerStarted:
+			m.kubeClient = mgr.GetClient()
+			zap.L().Debug("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
+			break waitLoop
+		}
+	}
+
+	return nil
 }
 
 type runnable struct {
