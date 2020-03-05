@@ -91,7 +91,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					return nil
 				}).Times(1)
 				mgr.EXPECT().Start(gomock.Any()).DoAndReturn(func(z <-chan struct{}) error {
-					go r.Start(z)
+					go r.Start(z) //nolint
 					return nil
 				}).Times(1)
 				mgr.EXPECT().GetClient().Times(1).Return(c)
@@ -112,7 +112,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					return ce.AddCore(ent, zc)
 				})
 				zc.EXPECT().Write(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(ent zapcore.Entry, fields []zapcore.Field) error {
-					expectedLogMessage := "pod: controller did not start within 5s"
+					expectedLogMessage := startupWarningMessage
 					if ent.Message != expectedLogMessage {
 						t.Errorf("expectedLogMessage = '%s', ent.Message = '%s'", expectedLogMessage, ent.Message)
 					}
@@ -126,7 +126,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				mgr.EXPECT().Start(gomock.Any()).DoAndReturn(func(z <-chan struct{}) error {
 					go func() {
 						time.Sleep(6 * time.Second)
-						r.Start(z)
+						r.Start(z) //nolint
 					}()
 					return nil
 				}).Times(1)

@@ -22,6 +22,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	startupWarningMessage = "pod: the Kubernetes controller did not start within the last 5s. Waiting..."
+)
+
 // PodMonitor implements a monitor that sends pod events upstream
 // It is implemented as a filter on the standard DockerMonitor.
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
@@ -224,7 +228,7 @@ waitLoop:
 			return err
 		case <-time.After(5 * time.Second):
 			// we give the controller 5 seconds to report back before we issue a warning
-			zap.L().Warn("pod: controller did not start within 5s")
+			zap.L().Warn(startupWarningMessage)
 		case <-controllerStarted:
 			m.kubeClient = mgr.GetClient()
 			zap.L().Debug("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
