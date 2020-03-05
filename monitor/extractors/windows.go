@@ -3,7 +3,6 @@
 package extractors
 
 import (
-	"debug/pe"
 	"encoding/hex"
 	"fmt"
 	"os/user"
@@ -134,11 +133,7 @@ func WinProcessInfo(pid int32) []string {
 }
 
 // getDllImports returns the list of dynamic library dependencies of an executable
+// TODO(windows): debug/pe File.ImportedLibraries is not implemented currently
 func getDllImports(binpath string) []string {
-	f, err := pe.Open(binpath)
-	if err != nil {
-		return []string{}
-	}
-	libraries, _ := f.ImportedLibraries()
-	return libraries
+	return []string{}
 }
