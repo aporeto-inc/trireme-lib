@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 
@@ -20,7 +21,8 @@ import (
 )
 
 var (
-	mounted = false
+	mounted       = false
+	newCgroupLock sync.Mutex
 )
 
 // Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
@@ -279,6 +281,8 @@ func CgroupMemberCount(cgroupName string) int {
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls {
+	newCgroupLock.Lock()
+	defer newCgroupLock.Unlock()
 	if !mounted {
 		mounted = true
 		if err := mountCgroupController(); err != nil {
