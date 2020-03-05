@@ -105,13 +105,12 @@ mockgen -source controller/interfaces.go -destination controller/mockcontroller/
 goimport_sanitize controller/mockcontroller/mocktrireme.go
 
 echo "Pod Monitor Mocks (manager, client and zap core"
-# NOTE: this has go modules turned off to ensure the versions in the vendor folder are used.
 # NOTE: this uses interface mode because these are all 3rd party dependencies
-GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockzapcore_test.go go.uber.org/zap/zapcore Core
+mockgen -package podmonitor -destination monitor/internal/pod/mockzapcore_test.go go.uber.org/zap/zapcore Core
 goimport_sanitize monitor/internal/pod/mockzapcore_test.go
-GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go sigs.k8s.io/controller-runtime/pkg/client Client
+mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go sigs.k8s.io/controller-runtime/pkg/client Client
 goimport_sanitize monitor/internal/pod/mockclient_test.go
-GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
+mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
 goimport_sanitize monitor/internal/pod/mockmanager_test.go
 
 echo >&2 "OK"
