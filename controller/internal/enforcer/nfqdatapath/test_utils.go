@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 )
 
 type myMatcher struct {
@@ -63,7 +63,7 @@ func (m *myCounterMatcher) Matches(x interface{}) bool {
 		return true
 	}
 
-	return f1.ContextID == f2.ContextID && f1.Counters[pucontext.ErrNonPUTraffic].Value == 0
+	return f1.ContextID == f2.ContextID && f1.Counters[counters.ErrNonPUTraffic] == 0
 
 }
 

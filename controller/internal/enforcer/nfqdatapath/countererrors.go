@@ -18,6 +18,8 @@ func appSynCounterFromError(err error) counters.CounterTypes {
 		return counters.ErrSynSharedSecretMissing
 	case tokens.ErrInvalidSecret:
 		return counters.ErrSynInvalidSecret
+	case tokens.ErrInvalidSignature:
+		return counters.ErrSynInvalidSignature
 	default:
 		return counters.ErrSynTokenFailed
 	}
@@ -36,6 +38,8 @@ func appSynAckCounterFromError(err error) counters.CounterTypes {
 		return counters.ErrSynAckSharedSecretMissing
 	case tokens.ErrInvalidSecret:
 		return counters.ErrSynAckInvalidSecret
+	case tokens.ErrInvalidSignature:
+		return counters.ErrSynAckInvalidSignature
 	default:
 		return counters.ErrSynAckTokenFailed
 	}
@@ -143,6 +147,8 @@ func appUDPSynCounterFromError(err error) counters.CounterTypes {
 		return counters.ErrUDPSynSharedSecretMissing
 	case tokens.ErrInvalidSecret:
 		return counters.ErrUDPSynInvalidSecret
+	case tokens.ErrInvalidSignature:
+		return counters.ErrUDPSynInvalidSignature
 	default:
 		return counters.ErrUDPSynTokenFailed
 	}
@@ -161,6 +167,8 @@ func appUDPSynAckCounterFromError(err error) counters.CounterTypes {
 		return counters.ErrUDPSynAckSharedSecretMissing
 	case tokens.ErrInvalidSecret:
 		return counters.ErrUDPSynAckInvalidSecret
+	case tokens.ErrInvalidSignature:
+		return counters.ErrUDPSynAckInvalidSignature
 	default:
 		return counters.ErrUDPSynAckTokenFailed
 	}

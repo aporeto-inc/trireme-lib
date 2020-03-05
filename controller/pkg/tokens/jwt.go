@@ -7,13 +7,11 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/collector"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/errors"
 )
 
 const errJWTTitle = "jwt"
@@ -258,9 +256,9 @@ func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) 
 
 	switch {
 	case claimsHeader.CompressionType() != c.compressionType:
-		return errors.NewErrorWithCounter(errJWTTitle, "compression", collector.CompressedTagMismatch, "compressed tag mismatch", 0)
+		return ErrCompressedTagMismatch
 	case claimsHeader.DatapathVersion() != c.datapathVersion:
-		return errors.NewErrorWithCounter(errJWTTitle, "datapathversion", collector.DatapathVersionMismatch, "datapath version mismatch", 0)
+		return ErrDatapathVersionMismatch
 	}
 
 	return nil

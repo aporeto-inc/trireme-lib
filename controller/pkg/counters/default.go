@@ -31,9 +31,7 @@ func GetErrorCounters() []collector.Counters {
 	report := make([]collector.Counters, totalCounters)
 
 	for index := range defaultCounters.counters {
-		report[index] = collector.Counters{
-			Value: atomic.SwapUint32(&defaultCounters.counters[index], 0),
-		}
+		report[index] = collector.Counters(atomic.SwapUint32(&defaultCounters.counters[index], 0))
 	}
 
 	return report

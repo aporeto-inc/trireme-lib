@@ -9,6 +9,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -241,7 +242,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 
 	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
-		c.Context.IncrementCounters(pucontext.ErrTCPConnectionsExpired)
+		c.Context.Counters().IncrementCounter(counters.ErrTCPConnectionsExpired)
 	}
 	c.Unlock()
 }
@@ -502,7 +503,7 @@ func (c *UDPConnection) Cleanup(expired bool) {
 
 	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
-		c.Context.IncrementCounters(pucontext.ErrUDPConnectionsExpired)
+		c.Context.Counters().IncrementCounter(counters.ErrUDPConnectionsExpired)
 	}
 	c.Unlock()
 }

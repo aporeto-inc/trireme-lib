@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
@@ -25,31 +26,31 @@ type GetPUContextFunc func(hash string) (*pucontext.PUContext, error)
 func recordCounters(protocol uint8, dstport uint16, srcport uint16, pu *pucontext.PUContext, puIsSource bool) {
 	switch protocol {
 	case packet.IPProtocolTCP:
-		pu.IncrementCounters(pucontext.ErrDroppedTCPPackets)
+		pu.Counters().IncrementCounter(counters.ErrDroppedTCPPackets)
 	case packet.IPProtocolUDP:
-		pu.IncrementCounters(pucontext.ErrDroppedUDPPackets)
+		pu.Counters().IncrementCounter(counters.ErrDroppedUDPPackets)
 		if puIsSource {
 			switch dstport {
 			case 53:
-				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedDNSPackets)
 			case 67, 68:
-				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedDHCPPackets)
 			case 123:
-				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedNTPPackets)
 			}
 		} else {
 			switch srcport {
 			case 53:
-				pu.IncrementCounters(pucontext.ErrDroppedDNSPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedDNSPackets)
 			case 67, 68:
-				pu.IncrementCounters(pucontext.ErrDroppedDHCPPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedDHCPPackets)
 			case 123:
-				pu.IncrementCounters(pucontext.ErrDroppedNTPPackets)
+				pu.Counters().IncrementCounter(counters.ErrDroppedNTPPackets)
 			}
 		}
 
 	case packet.IPProtocolICMP:
-		pu.IncrementCounters(pucontext.ErrDroppedICMPPackets)
+		pu.Counters().IncrementCounter(counters.ErrDroppedICMPPackets)
 
 	}
 }
@@ -81,7 +82,7 @@ func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, sr
 	report.DestinationIP = dstIP.String()
 	report.SourceIP = srcIP.String()
 	report.TriremePacket = false
-	report.DropReason = "packetdrop"
+	report.DropReason = collector.PacketDrop
 
 	if payload == nil {
 		report.Payload = []byte{}
@@ -126,7 +127,7 @@ func recordFromNFLogData(payload []byte, prefix string, protocol uint8, srcIP, d
 		return nil, packetReport, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", pu.ID(), encodedAction)
 	}
 
-	dropReason := collector.None
+	dropReason := ""
 	if action.Rejected() {
 		dropReason = collector.PolicyDrop
 	}

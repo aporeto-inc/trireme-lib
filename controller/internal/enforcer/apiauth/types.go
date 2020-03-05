@@ -51,7 +51,7 @@ type NetworkAuthResponse struct {
 
 	// Action associated with the response and DropReason if dropped.
 	Action     policy.ActionType
-	DropReason int
+	DropReason string
 
 	// Redirect information that should be used by the responder.
 	Redirect    bool

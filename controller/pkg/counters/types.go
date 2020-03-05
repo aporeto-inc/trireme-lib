@@ -9,7 +9,7 @@ type Counters struct {
 }
 
 const (
-	totalCounters = 100
+	totalCounters = 150
 )
 
 // CounterTypes custom counter error type
@@ -82,7 +82,7 @@ const (
 	ErrInvalidNetAckState
 
 	// UDP Processors
-	ErrUDPAppPreProcessingFailed
+	ErrUDPAppPreProcessingFailed // 50
 	ErrUDPAppPostProcessingFailed
 	ErrUDPNetPreProcessingFailed
 	ErrUDPNetPostProcessingFailed
@@ -110,7 +110,6 @@ const (
 
 	//3
 
-	ErrSynTokenTooSmall
 	ErrSynTokenEncodeFailed
 	ErrSynTokenHashFailed
 	ErrSynTokenSignFailed
@@ -123,11 +122,9 @@ const (
 	ErrSynDatapathVersionMismatch
 	ErrSynTokenDecodeFailed
 	ErrSynTokenExpired
-	ErrSynSignatureMismatch
 	ErrSynSharedKeyHashFailed
 	ErrSynPublicKeyFailed
 
-	ErrSynAckTokenTooSmall
 	ErrSynAckTokenEncodeFailed
 	ErrSynAckTokenHashFailed
 	ErrSynAckTokenSignFailed
@@ -140,30 +137,24 @@ const (
 	ErrSynAckDatapathVersionMismatch
 	ErrSynAckTokenDecodeFailed
 	ErrSynAckTokenExpired
-	ErrSynAckSignatureMismatch
 	ErrSynAckSharedKeyHashFailed
 	ErrSynAckPublicKeyFailed
 
-	ErrAckTokenTooSmall
 	ErrAckTokenEncodeFailed
 	ErrAckTokenHashFailed
 	ErrAckTokenSignFailed
 	ErrAckSharedSecretMissing
 	ErrAckInvalidSecret
-	ErrAckInvalidTokenLength
+	ErrAckInvalidTokenLength //50
 	ErrAckMissingSignature
-	ErrAckInvalidSignature
 	ErrAckCompressedTagMismatch
 	ErrAckDatapathVersionMismatch
 	ErrAckTokenDecodeFailed
 	ErrAckTokenExpired
 	ErrAckSignatureMismatch
-	ErrAckSharedKeyHashFailed
-	ErrAckPublicKeyFailed
 
 	// udp 3
 	ErrUDPSynTokenFailed
-	ErrUDPSynTokenTooSmall
 	ErrUDPSynTokenEncodeFailed
 	ErrUDPSynTokenHashFailed
 	ErrUDPSynTokenSignFailed
@@ -176,12 +167,10 @@ const (
 	ErrUDPSynDatapathVersionMismatch
 	ErrUDPSynTokenDecodeFailed
 	ErrUDPSynTokenExpired
-	ErrUDPSynSignatureMismatch
 	ErrUDPSynSharedKeyHashFailed
 	ErrUDPSynPublicKeyFailed
 
 	ErrUDPSynAckTokenFailed
-	ErrUDPSynAckTokenTooSmall
 	ErrUDPSynAckTokenEncodeFailed
 	ErrUDPSynAckTokenHashFailed
 	ErrUDPSynAckTokenSignFailed
@@ -194,25 +183,19 @@ const (
 	ErrUDPSynAckDatapathVersionMismatch
 	ErrUDPSynAckTokenDecodeFailed
 	ErrUDPSynAckTokenExpired
-	ErrUDPSynAckSignatureMismatch
 	ErrUDPSynAckSharedKeyHashFailed
 	ErrUDPSynAckPublicKeyFailed
 
 	ErrUDPAckTokenFailed
-	ErrUDPAckTokenTooSmall
 	ErrUDPAckTokenEncodeFailed
 	ErrUDPAckTokenHashFailed
-	ErrUDPAckTokenSignFailed
 	ErrUDPAckSharedSecretMissing
 	ErrUDPAckInvalidSecret
 	ErrUDPAckInvalidTokenLength
 	ErrUDPAckMissingSignature
-	ErrUDPAckInvalidSignature
 	ErrUDPAckCompressedTagMismatch
 	ErrUDPAckDatapathVersionMismatch
 	ErrUDPAckTokenDecodeFailed
 	ErrUDPAckTokenExpired
-	ErrUDPAckSignatureMismatch
-	ErrUDPAckSharedKeyHashFailed
-	ErrUDPAckPublicKeyFailed
+	ErrUDPAckSignatureMismatch //48
 )

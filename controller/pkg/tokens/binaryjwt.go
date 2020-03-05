@@ -13,16 +13,12 @@ import (
 	"time"
 
 	"github.com/ugorji/go/codec"
-	"go.aporeto.io/trireme-lib/collector"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/errors"
 	"go.uber.org/zap"
 )
-
-const errBinaryJWTTitle = "binaryjwt"
 
 // Format of Binary Tokens
 //    0             1              2               3               4
@@ -118,7 +114,7 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 func (c *BinaryJWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 
 	if len(token) < 6+NonceLength {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "randomize", 500, "token is small", 0)
+		return ErrTokenTooSmall
 	}
 
 	copy(token[6:], nonce)
@@ -140,7 +136,7 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 	// Encode the claims in a buffer.
 	buf, err := encode(allclaims)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "encode", 500, err.Error(), 0)
+		return nil, ErrTokenEncodeFailed
 	}
 
 	var sig []byte
@@ -165,7 +161,7 @@ func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, header *claim
 	// Encode the claims in a buffer.
 	buf, err := encode(allclaims)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "encode-ack", 500, err.Error(), 0)
+		return nil, ErrTokenEncodeFailed
 	}
 
 	// Sign the buffer with the pre-shared key.
@@ -202,7 +198,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 	// Once it succeeds we know that the public key that was provide is correct.
 	publicKey, publicKeyClaims, expTime, err := secrets.KeyAndClaims(binaryClaims.SignerKey)
 	if err != nil || publicKey == nil {
-		return nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "signer-key", 500, err.Error(), 0)
+		return nil, nil, nil, ErrPublicKeyFailed
 	}
 
 	// Since we know that the signature is valid, we check if the token is already in
@@ -226,7 +222,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 
 		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
-			return nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "derive-shared-key", 500, err.Error(), 0)
+			return nil, nil, nil, err
 		}
 
 		if err := c.verifyWithSharedKey(token, key, sig); err != nil {
@@ -236,7 +232,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 			// we can do it here.
 			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 			if err != nil {
-				return nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "generate-shared-key", 500, err.Error(), 0)
+				return nil, nil, nil, err
 			}
 
 			if err = c.verifyWithSharedKey(token, key, sig); err != nil {
@@ -254,7 +250,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 		// We create a new symetric key if we don't already have one.
 		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
-			return nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "generate-shared-key", 500, err.Error(), 0)
+			return nil, nil, nil, err
 		}
 	}
 
@@ -295,7 +291,7 @@ func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonc
 	// since we have seen the syn and syn ack packets.
 	k, err := c.sharedKeys.Get(binaryClaims.ID)
 	if err != nil {
-		return nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "shared-key-cache", 500, fmt.Sprintf("unable to find shared secret for ID %s: %v", binaryClaims.ID, err), 0)
+		return nil, nil, nil, ErrSharedSecretMissing
 	}
 	key := k.(*sharedSecret).key
 
@@ -311,12 +307,12 @@ func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonc
 func (c *BinaryJWTConfig) verifyClaimsHeader(h *claimsheader.ClaimsHeader) error {
 
 	if h.CompressionType() != claimsheader.CompressionTypeV1 {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "compression", collector.CompressedTagMismatch, "compressed tag mismatch", 0)
+		return ErrCompressedTagMismatch
 
 	}
 
 	if h.DatapathVersion() != claimsheader.DatapathVersion1 {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "datapathversion", collector.DatapathVersionMismatch, "datapath version mismatch", 0)
+		return ErrDatapathVersionMismatch
 	}
 
 	return nil
@@ -328,14 +324,14 @@ func (c *BinaryJWTConfig) sign(buf []byte, key *ecdsa.PrivateKey) ([]byte, error
 	// of the token.
 	h, err := hash(buf, nil)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "sign-hash", 500, fmt.Sprintf("unable to sign header on ack packet: %v", err), 0)
+		return nil, ErrTokenHashFailed
 	}
 
 	// Sign the hash with the private key using the ECDSA algorithm
 	// and properly format the resulting signature.
 	r, s, err := ecdsa.Sign(rand.Reader, key, h)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "sign", 500, fmt.Sprintf("unable to sign token data: %v", err), 0)
+		return nil, ErrTokenSignFailed
 	}
 
 	curveBits := key.Curve.Params().BitSize
@@ -361,7 +357,7 @@ func (c *BinaryJWTConfig) sign(buf []byte, key *ecdsa.PrivateKey) ([]byte, error
 func (c *BinaryJWTConfig) verify(buf []byte, sig []byte, key *ecdsa.PublicKey) error {
 
 	if len(sig) != 64 {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "signature", 500, fmt.Sprintf("invalid signature length: %d", len(sig)), 0)
+		return ErrInvalidSignature
 	}
 
 	r := big.NewInt(0).SetBytes(sig[:32])
@@ -371,31 +367,31 @@ func (c *BinaryJWTConfig) verify(buf []byte, sig []byte, key *ecdsa.PublicKey) e
 	// of the token.
 	h, err := hash(buf, nil)
 	if err != nil {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "hash", 500, fmt.Sprintf("unable to hash header on ack packet: %s", err), 0)
+		return ErrTokenHashFailed
 	}
 
 	if verifyStatus := ecdsa.Verify(key, h, r, s); verifyStatus {
 		return nil
 	}
 
-	return errors.NewErrorWithCounter(errBinaryJWTTitle, "signature", 500, "invalid signature", 0)
+	return ErrInvalidSignature
 }
 
 func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, error) {
 
 	s, err := c.sharedKeys.Get(id)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "sign-shared-get", 500, fmt.Sprintf("shared secret not found"), 0)
+		return nil, ErrSharedSecretMissing
 	}
 
 	sk, ok := s.(*sharedSecret)
 	if !ok {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "sign-shared-get-secret", 500, fmt.Sprintf("invalid secret"), 0)
+		return nil, ErrInvalidSecret
 	}
 
 	b, err := hash(buf, sk.key)
 	if err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "sign-shared-hash", 500, fmt.Sprintf("unabke to hash shared key: %v", err), 0)
+		return nil, ErrTokenHashFailed
 	}
 
 	return b, nil
@@ -405,11 +401,11 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 
 	ps, err := hash(buf, key)
 	if err != nil {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "verify-shared-key", 500, fmt.Sprintf("unable to hash toke in synack: %s", err), 0)
+		return ErrTokenHashFailed
 	}
 
 	if !bytes.Equal(ps, sig) {
-		return errors.NewErrorWithCounter(errBinaryJWTTitle, "mismatch", 500, fmt.Sprintf("unable to verify token with shared secret: they don't match %d %d ", len(ps), len(sig)), 0)
+		return ErrSignatureMismatch
 	}
 
 	return nil
@@ -431,7 +427,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 
 	key, err := symmetricKey(privateKey, publicKey)
 	if err != nil {
-		return nil, err
+		return nil, ErrSharedKeyHashFailed
 	}
 
 	// Add it in the cache
@@ -471,11 +467,11 @@ func decode(buf []byte) (*BinaryJWTClaims, error) {
 
 	dec := codec.NewDecoderBytes(buf, h)
 	if err := dec.Decode(binaryClaims); err != nil {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "decode", 500, err.Error(), 0)
+		return nil, ErrTokenDecodeFailed
 	}
 
 	if binaryClaims.ExpiresAt < time.Now().Unix() {
-		return nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "expiry", 500, fmt.Sprintf("token is expired since: %s", time.Unix(binaryClaims.ExpiresAt, 0)), 0)
+		return nil, ErrTokenExpired
 	}
 
 	return binaryClaims, nil
@@ -515,7 +511,7 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error
 
 	// We must have enough data to read the length.
 	if len(data) < binaryNoncePosition {
-		return nil, nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "unpack", 500, fmt.Sprintf("not enough data"), 0)
+		return nil, nil, nil, nil, ErrInvalidTokenLength
 	}
 
 	header := data[:lengthPosition]
@@ -524,7 +520,7 @@ func unpackToken(isAck bool, data []byte) ([]byte, []byte, []byte, []byte, error
 
 	// The token must be long enough to have at least 1 byte of signature.
 	if len(data) < sigPosition+1 || sigPosition == 0 {
-		return nil, nil, nil, nil, errors.NewErrorWithCounter(errBinaryJWTTitle, "signature", 500, fmt.Sprintf("no signature in the token"), 0)
+		return nil, nil, nil, nil, ErrMissingSignature
 	}
 
 	var nonce []byte

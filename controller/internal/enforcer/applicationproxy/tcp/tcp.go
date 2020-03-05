@@ -26,7 +26,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-	terrors "go.aporeto.io/trireme-lib/utils/errors"
 	"go.uber.org/zap"
 )
 
@@ -445,7 +444,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, terrors.Code(err), nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
@@ -534,7 +533,7 @@ func (p *Proxy) CheckExternalNetwork(puContext *pucontext.PUContext, IP net.IP, 
 	return false, nil
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode int, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
@@ -570,10 +569,10 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 
 func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
-	p.reportFlow(flowproperties, sourceID, destID, context, collector.None, report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	if report == nil {
 		report = &policy.FlowPolicy{

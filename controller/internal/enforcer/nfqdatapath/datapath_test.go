@@ -21,6 +21,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -4764,10 +4765,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			counterRecord := &collector.CounterReport{
 				ContextID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
+					1,
 				},
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
@@ -4776,7 +4774,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError((counters.ErrNetSynNotSeen), fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
@@ -4796,10 +4794,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			counterRecord := &collector.CounterReport{
 				ContextID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
+					1,
 				},
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
@@ -4808,7 +4803,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNetSynNotSeen, fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
@@ -4827,10 +4822,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			counterRecord := &collector.CounterReport{
 				ContextID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
+					1,
 				},
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
@@ -4839,7 +4831,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNetSynNotSeen, fmt.Errorf("error"))
 			So(puErr, ShouldNotBeNil)
 			<-time.After(5 * collectCounterInterval)
 			cancel()
