@@ -54,7 +54,7 @@ func New() *PodMonitor {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (m *PodMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
+func (m *PodMonitor) SetupConfig(_ registerer.Registerer, cfg interface{}) error {
 
 	defaultConfig := DefaultConfig()
 
@@ -220,8 +220,6 @@ func (m *PodMonitor) startManager(ctx context.Context, mgr manager.Manager) erro
 waitLoop:
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case err := <-errCh:
 			return err
 		case <-time.After(5 * time.Second):
