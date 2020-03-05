@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func createNewPodMonitor() *PodMonitor {
@@ -67,6 +68,12 @@ func TestPodMonitor_startManager(t *testing.T) {
 	}
 
 	m := createNewPodMonitor()
+	handler := mockpolicy.NewMockResolver(ctrl)
+	pc := &config.ProcessorConfig{
+		Policy: handler,
+	}
+	m.SetupHandlers(pc)
+
 	tests := []struct {
 		name           string
 		m              *PodMonitor
@@ -187,6 +194,85 @@ func TestPodMonitor_startManager(t *testing.T) {
 			}
 			if !tt.wantKubeClient && tt.m.kubeClient != nil {
 				t.Errorf("PodMonitor.startManager() kubeClient = %v, wantKubeClient %v", tt.m.kubeClient, tt.wantKubeClient)
+			}
+		})
+	}
+}
+
+func TestPodMonitor_Resync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	c := NewMockClient(ctrl)
+	m := createNewPodMonitor()
+	handler := mockpolicy.NewMockResolver(ctrl)
+	pc := &config.ProcessorConfig{
+		Policy: handler,
+	}
+	m.SetupHandlers(pc)
+
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		m       *PodMonitor
+		expect  func(t *testing.T, m *PodMonitor)
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "resync fails with a failing reset netcls",
+			m:    m,
+			args: args{
+				ctx: ctx,
+			},
+			expect: func(t *testing.T, m *PodMonitor) {
+				m.kubeClient = c
+				m.resetNetcls = func(context.Context) error {
+					return fmt.Errorf("resync error")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "resync fails with a missing kubeclient",
+			m:    m,
+			args: args{
+				ctx: ctx,
+			},
+			expect: func(t *testing.T, m *PodMonitor) {
+				m.kubeClient = nil
+				m.resetNetcls = func(context.Context) error {
+					return nil
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "successful call to ResyncWathAllPods",
+			m:    m,
+			args: args{
+				ctx: ctx,
+			},
+			expect: func(t *testing.T, m *PodMonitor) {
+				m.kubeClient = c
+				m.resetNetcls = func(context.Context) error {
+					return nil
+				}
+				c.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			},
+			wantErr: false,
+		},
+		// not more to test, the heavy lifting is done in ResyncWithAllPods
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.expect(t, tt.m)
+			if err := tt.m.Resync(tt.args.ctx); (err != nil) != tt.wantErr {
+				t.Errorf("PodMonitor.Resync() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
