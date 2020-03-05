@@ -11,7 +11,7 @@ goimport_sanitize () {
 
 echo "Cgnetcls Mocks"
 mkdir -p utils/cgnetcls/mockcgnetcls
-mockgen -source utils/cgnetcls/interfaces.go -destination utils/cgnetcls/mockcgnetcls/mockcgnetcls.go -package mockcgnetcls 
+mockgen -source utils/cgnetcls/interfaces.go -destination utils/cgnetcls/mockcgnetcls/mockcgnetcls.go -package mockcgnetcls
 goimport_sanitize utils/cgnetcls/mockcgnetcls/mockcgnetcls.go
 
 echo "Controller/internal/supervisor/Provider Mocks"
@@ -61,22 +61,22 @@ goimport_sanitize controller/pkg/usertokens/mockusertokens/mockusertokens.go
 
 echo "Collector Mocks"
 mkdir -p collector/mockcollector
-mockgen -source collector/interfaces.go -destination collector/mockcollector/mockcollector.go -package mockcollector 
+mockgen -source collector/interfaces.go -destination collector/mockcollector/mockcollector.go -package mockcollector
 goimport_sanitize collector/mockcollector/mockcollector.go
 
 echo "Monitor Mocks"
 mkdir -p monitor/mockmonitor
-mockgen -source monitor/interfaces.go -destination monitor/mockmonitor/mockmonitor.go -package mockmonitor 
+mockgen -source monitor/interfaces.go -destination monitor/mockmonitor/mockmonitor.go -package mockmonitor
 goimport_sanitize monitor/mockmonitor/mockmonitor.go
 
 echo "Monitor remoteapi client mocks"
 mkdir -p monitor/remoteapi/client/mockclient
-mockgen -source monitor/remoteapi/client/interfaces.go -destination monitor/remoteapi/client/mockclient/mockclient.go -package mockclient 
+mockgen -source monitor/remoteapi/client/interfaces.go -destination monitor/remoteapi/client/mockclient/mockclient.go -package mockclient
 goimport_sanitize monitor/remoteapi/client/mockclient/mockclient.go
 
 echo "Monitor/processor Mocks"
 mkdir -p monitor/processor/mockprocessor
-mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mockprocessor/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor 
+mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mockprocessor/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor
 goimport_sanitize monitor/processor/mockprocessor/mockprocessor.go
 
 echo "controller/internal/enforcer/nfqdatapath/tokenaccessor Mocks"
@@ -91,17 +91,27 @@ goimport_sanitize controller/pkg/tokens/mocktokens/mocktokens.go
 
 echo "RPC Wrapper Mocks"
 mkdir -p controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper 
+mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go -package mockrpcwrapper
 goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"
 mkdir -p policy/mockpolicy
-mockgen -source policy/interfaces.go -destination policy/mockpolicy/mockpolicy.go -package mockpolicy 
+mockgen -source policy/interfaces.go -destination policy/mockpolicy/mockpolicy.go -package mockpolicy
 goimport_sanitize policy/mockpolicy/mockpolicy.go
 
 echo "Trireme Controller Mock"
 mkdir -p controller/mockcontroller
-mockgen -source controller/interfaces.go -destination controller/mockcontroller/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go 
+mockgen -source controller/interfaces.go -destination controller/mockcontroller/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go
 goimport_sanitize controller/mockcontroller/mocktrireme.go
+
+echo "Pod Monitor Mocks (manager, client and zap core"
+# NOTE: this has go modules turned off to ensure the versions in the vendor folder are used.
+# NOTE: this uses interface mode because these are all 3rd party dependencies
+GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockzapcore_test.go go.uber.org/zap/zapcore Core
+goimport_sanitize monitor/internal/pod/mockzapcore_test.go
+GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go sigs.k8s.io/controller-runtime/pkg/client Client
+goimport_sanitize monitor/internal/pod/mockclient_test.go
+GO111MODULE=off mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
+goimport_sanitize monitor/internal/pod/mockmanager_test.go
 
 echo >&2 "OK"
