@@ -140,7 +140,6 @@ func TestPause(t *testing.T) {
 				PUID: "/trireme/1234",
 			}
 
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Pause(context.Background(), event)
 				So(err, ShouldNotBeNil) // Pause does nothing on Windows
@@ -239,7 +238,6 @@ func TestResync(t *testing.T) {
 			}
 
 			Convey("I should not get an error ", func() {
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				err := p.Resync(context.Background(), event)
 				So(err, ShouldBeNil)
 			})
