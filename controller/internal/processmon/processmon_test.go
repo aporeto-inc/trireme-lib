@@ -62,6 +62,21 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// cleanup and close the errChannel properly to prevent data race
+func cleanupErrChannel(errChannel chan *policy.RuntimeError) {
+forLoop:
+	for {
+		select {
+		case <-errChannel:
+			break forLoop
+		case <-time.After(2 * time.Second):
+			break forLoop
+		}
+	}
+	close(errChannel)
+	return
+}
+
 func TestCmdHelper(t *testing.T) {
 
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
@@ -103,6 +118,7 @@ func TestLaunchProcess(t *testing.T) {
 		defer cancel()
 
 		errChannel := make(chan *policy.RuntimeError)
+		defer cleanupErrChannel(errChannel)
 
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "pu1"
@@ -169,8 +185,6 @@ func TestLaunchProcess(t *testing.T) {
 
 		})
 
-		close(errChannel)
-
 	})
 }
 
@@ -180,7 +194,7 @@ func Test_KillRemoteEnforcer(t *testing.T) {
 		defer cancel()
 
 		errChannel := make(chan *policy.RuntimeError)
-		defer close(errChannel)
+		defer cleanupErrChannel(errChannel)
 
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "abcd"
@@ -286,7 +300,7 @@ func Test_CollectExitStatus(t *testing.T) {
 		defer cancel()
 
 		errChannel := make(chan *policy.RuntimeError)
-		defer close(errChannel)
+		defer cleanupErrChannel(errChannel)
 
 		rpchdl := rpcwrapper.NewTestRPCClient()
 		contextID := "12345"
