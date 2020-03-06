@@ -229,7 +229,7 @@ type Counters uint32
 // CounterReport is called from the PU which reports Counters from the datapath
 type CounterReport struct {
 	Namespace string
-	ContextID string
+	PUID      string
 	Counters  []Counters
 }
 

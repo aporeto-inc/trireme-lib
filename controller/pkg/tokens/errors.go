@@ -2,6 +2,8 @@ package tokens
 
 import (
 	"errors"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -22,3 +24,11 @@ var (
 	ErrSharedKeyHashFailed     = errors.New("unable to hash shared key")
 	ErrPublicKeyFailed         = errors.New("unable to verify public key")
 )
+
+// logError is a convinience function which logs the err:msg and returns the error.
+func logError(err error, msg string) error {
+
+	zap.L().Debug(err.Error(), zap.String("error", msg))
+
+	return err
+}

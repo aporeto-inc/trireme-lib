@@ -4763,7 +4763,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			So(puContext, ShouldNotBeNil)
 			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
+				PUID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
 					1,
 				},
@@ -4792,7 +4792,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			So(puContext, ShouldNotBeNil)
 			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
+				PUID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
 					1,
 				},
@@ -4820,7 +4820,7 @@ func TestCheckCounterCollection(t *testing.T) {
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
+				PUID: puContext.(*pucontext.PUContext).ID(),
 				Counters: []collector.Counters{
 					1,
 				},

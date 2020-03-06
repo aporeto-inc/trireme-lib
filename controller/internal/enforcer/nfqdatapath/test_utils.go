@@ -63,7 +63,7 @@ func (m *myCounterMatcher) Matches(x interface{}) bool {
 		return true
 	}
 
-	return f1.ContextID == f2.ContextID && f1.Counters[counters.ErrNonPUTraffic] == 0
+	return f1.PUID == f2.PUID && f1.Counters[counters.ErrNonPUTraffic] == 0
 
 }
 

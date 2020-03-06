@@ -9,7 +9,7 @@ type Counters struct {
 }
 
 const (
-	totalCounters = 150
+	totalCounters = 160
 )
 
 // CounterTypes custom counter error type
@@ -22,44 +22,36 @@ const (
 	ErrNonPUTraffic
 	ErrNoConnFound
 	ErrRejectPacket
-
 	ErrMarkNotFound
 	ErrPortNotFound
 	ErrContextIDNotFound
 	ErrInvalidProtocol
-
 	ErrConnectionsProcessed
 	ErrEncrConnectionsProcessed
-
 	ErrUDPDropFin
 	ErrUDPSynDroppedInvalidToken
 	ErrUDPSynAckInvalidToken
 	ErrUDPAckInvalidToken
-
 	ErrUDPConnectionsProcessed
 	ErrUDPContextIDNotFound
 	ErrUDPDropQueueFull
 	ErrUDPDropInNfQueue
-
-	// 2
-	// Processors
 	ErrAppServicePreProcessorFailed
 	ErrAppServicePostProcessorFailed
 	ErrNetServicePreProcessorFailed
 	ErrNetServicePostProcessorFailed
-
-	// Syn
 	ErrSynTokenFailed
 	ErrSynDroppedInvalidToken
 	ErrSynDroppedTCPOption
 	ErrSynDroppedInvalidFormat
 	ErrSynRejectPacket
-	ErrSynDroppedExternalService
 	ErrSynUnexpectedPacket
 	ErrInvalidNetSynState
 	ErrNetSynNotSeen
-
-	// Synack
+	ErrSynToExtNetAccept
+	ErrSynFromExtNetAccept
+	ErrSynToExtNetReject
+	ErrSynFromExtNetReject
 	ErrSynAckTokenFailed
 	ErrOutOfOrderSynAck
 	ErrInvalidSynAck
@@ -67,49 +59,38 @@ const (
 	ErrSynAckMissingToken
 	ErrSynAckNoTCPAuthOption
 	ErrSynAckInvalidFormat
-	ErrSynAckClaimsMisMatch
+	ErrSynAckEncryptionMismatch
 	ErrSynAckRejected
-	ErrSynAckDroppedExternalService
 	ErrInvalidNetSynAckState
-
-	// Ack
+	ErrSynAckToExtNetAccept
+	ErrSynAckFromExtNetAccept
+	ErrSynAckFromExtNetReject
 	ErrAckTokenFailed
 	ErrAckRejected
-	ErrAckTCPNoTCPAuthOption
+	ErrAckTCPNoTCPAuthOption //50
 	ErrAckInvalidFormat
 	ErrAckInvalidToken
 	ErrAckInUnknownState
 	ErrInvalidNetAckState
-
-	// UDP Processors
-	ErrUDPAppPreProcessingFailed // 50
+	ErrAckFromExtNetAccept
+	ErrAckFromExtNetReject
+	ErrUDPAppPreProcessingFailed
 	ErrUDPAppPostProcessingFailed
 	ErrUDPNetPreProcessingFailed
 	ErrUDPNetPostProcessingFailed
-
-	// UDP Syn
 	ErrUDPSynInvalidToken
 	ErrUDPSynMissingClaims
 	ErrUDPSynDroppedPolicy
-
-	// UDP SynAck
 	ErrUDPSynAckNoConnection
 	ErrUDPSynAckPolicy
-
-	// Dropped packets
 	ErrDroppedTCPPackets
 	ErrDroppedUDPPackets
 	ErrDroppedICMPPackets
 	ErrDroppedDNSPackets
 	ErrDroppedDHCPPackets
 	ErrDroppedNTPPackets
-
-	// Connections expired
 	ErrTCPConnectionsExpired
 	ErrUDPConnectionsExpired
-
-	//3
-
 	ErrSynTokenEncodeFailed
 	ErrSynTokenHashFailed
 	ErrSynTokenSignFailed
@@ -124,7 +105,6 @@ const (
 	ErrSynTokenExpired
 	ErrSynSharedKeyHashFailed
 	ErrSynPublicKeyFailed
-
 	ErrSynAckTokenEncodeFailed
 	ErrSynAckTokenHashFailed
 	ErrSynAckTokenSignFailed
@@ -139,21 +119,18 @@ const (
 	ErrSynAckTokenExpired
 	ErrSynAckSharedKeyHashFailed
 	ErrSynAckPublicKeyFailed
-
 	ErrAckTokenEncodeFailed
 	ErrAckTokenHashFailed
 	ErrAckTokenSignFailed
 	ErrAckSharedSecretMissing
 	ErrAckInvalidSecret
-	ErrAckInvalidTokenLength //50
+	ErrAckInvalidTokenLength
 	ErrAckMissingSignature
 	ErrAckCompressedTagMismatch
 	ErrAckDatapathVersionMismatch
 	ErrAckTokenDecodeFailed
 	ErrAckTokenExpired
 	ErrAckSignatureMismatch
-
-	// udp 3
 	ErrUDPSynTokenFailed
 	ErrUDPSynTokenEncodeFailed
 	ErrUDPSynTokenHashFailed
@@ -169,7 +146,6 @@ const (
 	ErrUDPSynTokenExpired
 	ErrUDPSynSharedKeyHashFailed
 	ErrUDPSynPublicKeyFailed
-
 	ErrUDPSynAckTokenFailed
 	ErrUDPSynAckTokenEncodeFailed
 	ErrUDPSynAckTokenHashFailed
@@ -185,7 +161,6 @@ const (
 	ErrUDPSynAckTokenExpired
 	ErrUDPSynAckSharedKeyHashFailed
 	ErrUDPSynAckPublicKeyFailed
-
 	ErrUDPAckTokenFailed
 	ErrUDPAckTokenEncodeFailed
 	ErrUDPAckTokenHashFailed
@@ -197,5 +172,6 @@ const (
 	ErrUDPAckDatapathVersionMismatch
 	ErrUDPAckTokenDecodeFailed
 	ErrUDPAckTokenExpired
-	ErrUDPAckSignatureMismatch //48
+	ErrUDPAckSignatureMismatch
+	ErrAppTCPAuthOptionSet
 )

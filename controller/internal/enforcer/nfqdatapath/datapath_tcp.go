@@ -177,6 +177,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (conn *connect
 				// for any of these cases. Drop for everything else.
 				_, policy, perr := ctx.NetworkACLPolicyFromAddr(p.DestinationAddress(), p.SourcePort())
 				if perr == nil && policy.Action.Accepted() {
+					ctx.Counters().IncrementCounter(counters.ErrSynAckToExtNetAccept)
 					return conn, nil
 				}
 
@@ -290,18 +291,23 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		report, policy, perr := context.ApplicationACLPolicyFromAddr(dstAddr, dstPort)
 
 		if perr == nil && policy.Action.Accepted() {
+			conn.Context.Counters().IncrementCounter(counters.ErrSynToExtNetAccept)
 			return nil, nil
 		}
 
 		d.reportExternalServiceFlow(context, report, pkt, true, tcpPacket)
 		//return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet")
-		return nil, conn.Context.Counters().CounterError(counters.ErrSynDroppedExternalService, fmt.Errorf("Dropping external service application syn packet %s:%d", tcpPacket.DestinationAddress().String(), int(tcpPacket.DestPort())))
+		return nil, conn.Context.Counters().CounterError(counters.ErrSynToExtNetReject, fmt.Errorf("Dropping external service application syn packet %s:%d", tcpPacket.DestinationAddress().String(), int(tcpPacket.DestPort())))
 	}
 
 	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.DestinationAddress().String() + ":" + strconv.Itoa(int(tcpPacket.DestPort()))); err == nil {
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 		return policy, nil
+	}
+
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err == nil {
+		conn.Context.Counters().IncrementCounter(counters.ErrAppTCPAuthOptionSet)
 	}
 
 	// We are now processing as a Trireme packet that needs authorization headers
@@ -584,9 +590,10 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		report, pkt, perr := context.NetworkACLPolicy(tcpPacket)
 		d.reportExternalServiceFlow(context, report, pkt, false, tcpPacket)
 		if perr != nil || pkt.Action.Rejected() {
-			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+			return nil, nil, context.Counters().CounterError(counters.ErrSynFromExtNetReject, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr))
 		}
 
+		context.Counters().IncrementCounter(counters.ErrSynFromExtNetAccept)
 		conn.SetState(connection.TCPData)
 		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
@@ -698,6 +705,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
 			d.releaseFlow(context, plc.report, plc.packet, tcpPacket, conn)
+			conn.Context.Counters().IncrementCounter(counters.ErrSynAckFromExtNetAccept)
 			return plc.packet, nil, nil
 		}
 
@@ -705,7 +713,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.SourceAddress(), tcpPacket.SourcePort())
 		if perr != nil || pkt.Action.Rejected() {
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
-			return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckDroppedExternalService, fmt.Errorf("drop external service synack Source %s:%d:%s", tcpPacket.SourceAddress().String(), int(tcpPacket.SourcePort()), pkt.Action.ActionString()))
+			return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckFromExtNetReject, fmt.Errorf("drop external service synack Source %s:%d:%s", tcpPacket.SourceAddress().String(), int(tcpPacket.SourcePort()), pkt.Action.ActionString()))
 		}
 
 		// Added to the cache if we can accept it
@@ -720,6 +728,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
 		d.releaseFlow(context, report, pkt, tcpPacket, conn)
+		conn.Context.Counters().IncrementCounter(counters.ErrSynAckFromExtNetAccept)
 
 		return pkt, nil, nil
 	}
@@ -829,7 +838,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	if claims.H != nil {
 		if claims.H.ToClaimsHeader().Encrypt() != pkt.Action.Encrypted() {
 			d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.EncryptionMismatch, nil, nil, true)
-			return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckClaimsMisMatch, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
+			return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckEncryptionMismatch, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 
 		}
 	}
@@ -878,7 +887,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		}
 
 		if plcy.Action.Rejected() {
-			return nil, nil, conn.Context.Counters().CounterError(counters.ErrAckRejected, fmt.Errorf("contextID %s", conn.Context.ID()))
+			return nil, nil, conn.Context.Counters().CounterError(counters.ErrAckFromExtNetReject, fmt.Errorf("contextID %s", conn.Context.ID()))
 
 		}
 
@@ -904,6 +913,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 				)
 			}
 		}
+
+		conn.Context.Counters().IncrementCounter(counters.ErrAckFromExtNetAccept)
 		return nil, nil, nil
 	}
 

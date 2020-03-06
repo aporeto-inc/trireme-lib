@@ -380,7 +380,7 @@ func (d *Datapath) collectCounters() {
 		counters := val.(*pucontext.PUContext).Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(
 			&collector.CounterReport{
-				ContextID: val.(*pucontext.PUContext).ManagementID(),
+				PUID:      val.(*pucontext.PUContext).ManagementID(),
 				Counters:  counters,
 				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 			})
@@ -389,7 +389,7 @@ func (d *Datapath) collectCounters() {
 	counters := counters.GetErrorCounters()
 	d.collector.CollectCounterEvent(
 		&collector.CounterReport{
-			ContextID: "",
+			PUID:      "",
 			Counters:  counters,
 			Namespace: "",
 		})
@@ -403,7 +403,7 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 		case pu := <-d.puCountersChannel:
 			counters := pu.Counters().GetErrorCounters()
 			d.collector.CollectCounterEvent(&collector.CounterReport{
-				ContextID: pu.ManagementID(),
+				PUID:      pu.ManagementID(),
 				Counters:  counters,
 				Namespace: pu.ManagementNamespace(),
 			})
@@ -434,7 +434,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		zap.L().Debug("Failed to enqueue pu to counters channel")
 		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			ContextID: pu.ID(),
+			PUID:      pu.ID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})
@@ -523,7 +523,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		zap.L().Debug("Failed to enqueue pu to counters channel")
 		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			ContextID: pu.ID(),
+			PUID:      pu.ID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})

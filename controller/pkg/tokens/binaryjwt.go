@@ -114,7 +114,7 @@ func (c *BinaryJWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, no
 func (c *BinaryJWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 
 	if len(token) < 6+NonceLength {
-		return ErrTokenTooSmall
+		return logError(ErrTokenTooSmall, err.Error())
 	}
 
 	copy(token[6:], nonce)
@@ -367,14 +367,14 @@ func (c *BinaryJWTConfig) verify(buf []byte, sig []byte, key *ecdsa.PublicKey) e
 	// of the token.
 	h, err := hash(buf, nil)
 	if err != nil {
-		return ErrTokenHashFailed
+		return logError(ErrTokenHashFailed, err.Error())
 	}
 
 	if verifyStatus := ecdsa.Verify(key, h, r, s); verifyStatus {
 		return nil
 	}
 
-	return ErrInvalidSignature
+	return logError(ErrInvalidSignature, err.Error())
 }
 
 func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, error) {
@@ -401,11 +401,11 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 
 	ps, err := hash(buf, key)
 	if err != nil {
-		return ErrTokenHashFailed
+		return logError(ErrTokenHashFailed, err.Error())
 	}
 
 	if !bytes.Equal(ps, sig) {
-		return ErrSignatureMismatch
+		return logError(ErrSignatureMismatch, err.Error())
 	}
 
 	return nil
