@@ -74,7 +74,6 @@ forLoop:
 		}
 	}
 	close(errChannel)
-	return
 }
 
 func TestCmdHelper(t *testing.T) {
