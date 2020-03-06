@@ -9,21 +9,18 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-
 	"github.com/blang/semver"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
