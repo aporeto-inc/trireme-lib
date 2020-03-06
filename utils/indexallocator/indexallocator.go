@@ -1,6 +1,8 @@
 package indexallocator
 
-import "sync"
+import (
+	"sync"
+)
 
 type allocator struct {
 	size         int
@@ -16,6 +18,7 @@ var once sync.Once
 
 // New create a new indexallocator
 func New(size int, startIndex int) (IndexAllocator, int, int) {
+
 	if indexes.size != 0 {
 		return indexes, indexes.size, indexes.startIndex
 	}
@@ -32,10 +35,12 @@ func New(size int, startIndex int) (IndexAllocator, int, int) {
 	return indexes, size, startIndex
 }
 
+// Get gets an index from the allocator
 func (i *allocator) Get() int {
 	return <-i.indexChannel
 }
 
+// Put returns back an index to the allocator
 func (i *allocator) Put(index int) {
 	i.indexChannel <- index
 }
