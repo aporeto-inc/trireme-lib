@@ -13,5 +13,7 @@ const (
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	//Initialmarkval is the start of mark values we assign to cgroup
-	Initialmarkval = 100
+	Initialmarkval = 1
+	// ReservedMarkValues is the number of marks we can use for PU. This limits the number of active linux PUs we can support concurrently
+	ReservedMarkValues = 2047
 )

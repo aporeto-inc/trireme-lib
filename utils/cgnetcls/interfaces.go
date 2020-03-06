@@ -11,4 +11,5 @@ type Cgroupnetcls interface {
 	Deletebasepath(contextID string) bool
 	ListCgroupProcesses(cgroupname string) ([]string, error)
 	ListAllCgroups(path string) []string
+	GetMark() uint64
 }

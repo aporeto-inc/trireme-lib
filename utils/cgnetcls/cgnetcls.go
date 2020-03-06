@@ -17,6 +17,8 @@ import (
 	"syscall"
 
 	"github.com/kardianos/osext"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/internal/indexallocator"
+
 	"go.uber.org/zap"
 )
 
@@ -163,6 +165,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 		zap.L().Debug("Group already deleted", zap.Error(err))
 		return nil
 	}
+	markVal := getAssignedMarkVal(cgroupName)
 
 	err = os.Remove(filepath.Join(basePath, s.TriremePath, cgroupname))
 	if err != nil {
@@ -224,6 +227,11 @@ func (s *netCls) ListAllCgroups(path string) []string {
 	}
 
 	return names
+}
+
+// GetMark get a mark from the indexallocator
+func (s *netCls) GetMark() uint64 {
+	return uint64(s.indexes.Get())
 }
 
 func mountCgroupController() error {
@@ -291,10 +299,12 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 		}
 	}
 	binpath, _ := osext.Executable()
+	indexes, _, _ := indexallocator.New(ReservedMarkValues, Initialmarkval)
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: binpath,
 		TriremePath:      "",
+		markAllocator:    indexes,
 	}
 
 	if releasePath != "" {

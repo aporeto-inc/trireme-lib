@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/utils/indexallocator"
+	"go.uber.org/zap"
 )
 
 // receiver definition.
@@ -15,6 +17,7 @@ type netCls struct {
 	markchan         chan uint64
 	ReleaseAgentPath string
 	TriremePath      string
+	markAllocator    indexallocator.IndexAllocator
 }
 
 var (
@@ -64,4 +67,15 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	return procs, nil
+}
+
+// getAssignedMarkVal -- returns the mark val assigned to the group
+func getAssignedMarkVal(cgroupName string) string {
+	mark, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, markFile))
+
+	if err != nil || len(mark) < 1 {
+		zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
+		return ""
+	}
+	return string(mark[:len(mark)-1])
 }
