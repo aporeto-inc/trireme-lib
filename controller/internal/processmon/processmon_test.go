@@ -111,6 +111,26 @@ func TestLaunchProcess(t *testing.T) {
 		p, ok := pm.(*RemoteMonitor)
 		So(ok, ShouldBeTrue)
 
+		// cleanup the errChannel
+		defer func() {
+			// t.Log("Closing the errChannel\n")
+			timeout := make(chan bool, 1)
+			go func() {
+				time.Sleep(1 * time.Second)
+				timeout <- true
+			}()
+			for {
+				select {
+				case <-errChannel:
+					break
+				case <-timeout:
+					close(errChannel)
+					// t.Log("Error channel closed\n")
+					return
+				}
+			}
+		}()
+
 		Convey("if the process is already activated, then it should return with initialize false and no error", func() {
 			p.activeProcesses.AddOrUpdate(contextID, &processInfo{})
 
@@ -168,8 +188,6 @@ func TestLaunchProcess(t *testing.T) {
 			So(err, ShouldBeNil)
 
 		})
-
-		close(errChannel)
 
 	})
 }
