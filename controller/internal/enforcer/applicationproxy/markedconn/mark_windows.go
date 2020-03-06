@@ -17,9 +17,9 @@ func makeDialer(mark int, platformData *PlatformData) net.Dialer {
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
 				// call FrontmanApplyDestHandle to update WFP redirect data before the connect() call on the new socket
-				dllRet, _, err := frontman.ApplyDestHandleProc.Call(fd, platformData.handle)
+				dllRet, err := frontman.Driver.ApplyDestHandle(fd, platformData.handle)
 				if dllRet == 0 {
-					zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.ApplyDestHandleProc.Name, err))
+					zap.L().Error(fmt.Sprintf("ApplyDestHandle failed: %v", err))
 				}
 			})
 		},
