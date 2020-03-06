@@ -38,7 +38,7 @@ type driver struct {
 }
 
 // Driver is actually the concrete calls into the Frontman dll, which call into the driver
-var Driver = driver{}
+var Driver = ABI(&driver{})
 
 func (d *driver) FrontmanOpenShared() (uintptr, error) {
 	ret, _, err := frontManOpenProc.Call()
