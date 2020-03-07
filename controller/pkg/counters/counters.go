@@ -15,7 +15,7 @@ func NewCounters() *Counters {
 }
 
 // CounterError is a convinence function which returns error as well as increments the counter.
-func (c *Counters) CounterError(t CounterTypes, err error) error {
+func (c *Counters) CounterError(t CounterType, err error) error {
 
 	atomic.AddUint32(&c.counters[int(t)], 1)
 
@@ -23,8 +23,8 @@ func (c *Counters) CounterError(t CounterTypes, err error) error {
 }
 
 // IncrementCounter increments counters for a given PU
-func (c *Counters) IncrementCounter(err CounterTypes) {
-	atomic.AddUint32(&c.counters[int(err)], 1)
+func (c *Counters) IncrementCounter(t CounterType) {
+	atomic.AddUint32(&c.counters[int(t)], 1)
 }
 
 // GetErrorCounters returns the error counters and resets the counters to zero

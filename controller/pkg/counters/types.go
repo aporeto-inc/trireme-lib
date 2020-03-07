@@ -12,13 +12,13 @@ const (
 	totalCounters = 160
 )
 
-// CounterTypes custom counter error type
-type CounterTypes int
+// CounterType custom counter error type.
+type CounterType int
 
 // WARNING: Append any new counters at the end of the list.
 // DO NOT CHANGE EXISTING ORDER.
 const (
-	ErrUnknownError = iota
+	ErrUnknownError CounterType = iota
 	ErrNonPUTraffic
 	ErrNoConnFound
 	ErrRejectPacket
@@ -174,4 +174,6 @@ const (
 	ErrUDPAckTokenExpired
 	ErrUDPAckSignatureMismatch
 	ErrAppTCPAuthOptionSet
+	ErrAckToFinAck
+	ErrIgnoreFin
 )

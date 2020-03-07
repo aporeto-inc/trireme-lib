@@ -189,11 +189,14 @@ type TCPConnection struct {
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
-func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
+func TCPConnectionExpirationNotifier(_ cache.DataStore, _ interface{}, item interface{}) {
 
-	if conn, ok := item.(*TCPConnection); ok {
-		conn.Cleanup(true)
+	conn, ok := item.(*TCPConnection)
+	if !ok {
+		return
 	}
+
+	conn.Cleanup()
 }
 
 func (tcpTuple *TCPTuple) String() string {
@@ -232,7 +235,7 @@ func (c *TCPConnection) SetReported(flowState bool) {
 }
 
 // Cleanup will provide information when a connection is removed by a timer.
-func (c *TCPConnection) Cleanup(expiration bool) {
+func (c *TCPConnection) Cleanup() {
 	c.Lock()
 	// Logging information
 	if c.flowReported == 0 {

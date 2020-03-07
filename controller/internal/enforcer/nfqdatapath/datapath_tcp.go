@@ -879,16 +879,16 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		// Ignore FIN packets. Let them go through.
 		if tcpPacket.GetTCPFlags()&packet.TCPFinMask != 0 {
+			conn.Context.Counters().IncrementCounter(counters.ErrIgnoreFin)
 			return nil, nil, nil
 		}
 		if perr != nil {
 			err := tcpPacket.ConvertAcktoFinAck()
-			return nil, nil, err
+			return nil, nil, conn.Context.Counters().CounterError(counters.ErrAckToFinAck, err)
 		}
 
 		if plcy.Action.Rejected() {
 			return nil, nil, conn.Context.Counters().CounterError(counters.ErrAckFromExtNetReject, fmt.Errorf("contextID %s", conn.Context.ID()))
-
 		}
 
 		if err := d.ignoreFlow(tcpPacket); err != nil {
@@ -974,6 +974,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			}()
 		}
 
+		conn.Context.Counters().IncrementCounter(counters.ErrConnectionsProcessed)
 		// Accept the packet
 		return nil, nil, nil
 	}

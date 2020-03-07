@@ -1,67 +1,57 @@
 package counters
 
-//	. "github.com/smartystreets/goconvey/convey"
+import (
+	"errors"
+	"testing"
 
-// func createPUContext() *PUContext {
-// 	return &PUContext{
-// 		id:           "contextID1",
-// 		managementID: "12345678",
-// 		counters:     make([]uint32, len(countedEvents)),
-// 	}
-// }
-// func TestContextError(t *testing.T) {
-// 	context := createPUContext()
-// 	Convey("when an error is reported the corresponding counter is incremented", t, func() {
-// 		Convey("I return each error on a valid pucontext and the counter is incremented and reset to zero once we read the error", func() {
-// 			for _, err := range countedEvents {
+	. "github.com/smartystreets/goconvey/convey"
+)
 
-// 				returnederr := context.PuContextError(err.index, "")
-// 				val, ok := returnederr.(PuErrors)
-// 				So(ok, ShouldBeTrue)
-// 				So(val.index, ShouldEqual, err.index)
-// 				errCounters := context.GetErrorCounters()
-// 				So(errCounters[err.index].Value, ShouldEqual, 1)
-// 				So(context.counters[err.index], ShouldEqual, 0)
-// 				getError := GetError(returnederr)
-// 				So(getError, ShouldEqual, err.index)
-// 			}
-// 		})
-// 		Convey("I return each error on with a n unknow pu  and the counter is incremented and reset to zero once we read the error", func() {
-// 			for _, err := range countedEvents {
+func Test_NewCounters(t *testing.T) {
 
-// 				returnederr := PuContextError(err.index, "")
-// 				val, ok := returnederr.(PuErrors)
-// 				So(ok, ShouldBeTrue)
-// 				So(val.index, ShouldEqual, err.index)
-// 				errCounters := unknownPU.GetErrorCounters()
-// 				So(errCounters[err.index].Value, ShouldEqual, 1)
-// 				So(unknownPU.counters[err.index], ShouldEqual, 0)
-// 				getError := GetError(returnederr)
-// 				So(getError, ShouldEqual, err.index)
-// 			}
-// 		})
-// 	})
-// }
+	Convey("When I create new error counters", t, func() {
+		ec := NewCounters()
+		So(ec, ShouldNotBeNil)
+		So(len(ec.counters), ShouldEqual, totalCounters)
+	})
+}
 
-// func TestGetErrorCounters(t *testing.T) {
-// 	Convey("When i report an error on unknown PU and call getErrorCounter", t, func() {
-// 		err := PuContextError(ErrNetSynNotSeen, "net Syn not seen")
-// 		So(err, ShouldNotBeNil)
-// 		Convey("I call get Error counters", func() {
-// 			report := GetErrorCounters()
-// 			So(report[ErrNetSynNotSeen].Value, ShouldEqual, 1)
-// 			report = GetErrorCounters()
-// 			So(report[ErrNetSynNotSeen].Value, ShouldEqual, 0)
-// 		})
-// 	})
-// }
+func Test_CounterError(t *testing.T) {
 
-// func TestGetError(t *testing.T) {
-// 	Convey("When i pass an error of we return the right errtype", t, func() {
-// 		for index, event := range countedEvents {
-// 			errType := GetError(event)
-// 			fmt.Println(event.err)
-// 			So(int(errType), ShouldEqual, index)
-// 		}
-// 	})
-// }
+	Convey("When I create new error counters", t, func() {
+		ec := NewCounters()
+		So(ec, ShouldNotBeNil)
+		So(len(ec.counters), ShouldEqual, totalCounters)
+
+		Convey("When I increment counter", func() {
+			err := ec.CounterError(ErrInvalidProtocol, errors.New("unknown protocol"))
+			ec.IncrementCounter(ErrInvalidProtocol)
+			So(err, ShouldResemble, errors.New("unknown protocol"))
+			So(ec.counters[ErrInvalidProtocol], ShouldEqual, 2)
+		})
+	})
+}
+
+func Test_GetErrorCounter(t *testing.T) {
+
+	Convey("When I create new error counters", t, func() {
+		ec := NewCounters()
+		So(ec, ShouldNotBeNil)
+		So(len(ec.counters), ShouldEqual, totalCounters)
+
+		Convey("When I increment counter and get error", func() {
+			err := ec.CounterError(ErrInvalidProtocol, errors.New("unknown protocol"))
+			ec.IncrementCounter(ErrInvalidProtocol)
+			ec.IncrementCounter(ErrInvalidProtocol)
+
+			So(err, ShouldResemble, errors.New("unknown protocol"))
+			So(ec.counters[ErrInvalidProtocol], ShouldEqual, 3)
+
+			c := ec.GetErrorCounters()
+
+			So(len(c), ShouldEqual, totalCounters)
+			So(c[ErrInvalidProtocol], ShouldEqual, 3)
+			So(ec.counters[ErrInvalidProtocol], ShouldEqual, 0)
+		})
+	})
+}

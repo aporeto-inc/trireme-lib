@@ -431,7 +431,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		zap.L().Debug("Failed to enqueue pu to counters channel")
 		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			PUID:      pu.ID(),
+			PUID:      pu.ManagementID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})
@@ -520,7 +520,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		zap.L().Debug("Failed to enqueue pu to counters channel")
 		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			PUID:      pu.ID(),
+			PUID:      pu.ManagementID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})

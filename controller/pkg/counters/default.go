@@ -10,7 +10,7 @@ import (
 var defaultCounters = NewCounters()
 
 // CounterError is a convinence function which returns error as well as increments the counter.
-func CounterError(t CounterTypes, err error) error { // nolint
+func CounterError(t CounterType, err error) error { // nolint
 
 	atomic.AddUint32(&defaultCounters.counters[int(t)], 1)
 
@@ -18,7 +18,7 @@ func CounterError(t CounterTypes, err error) error { // nolint
 }
 
 // IncrementCounter increments counters for a given PU
-func IncrementCounter(err CounterTypes) {
+func IncrementCounter(err CounterType) {
 	atomic.AddUint32(&defaultCounters.counters[int(err)], 1)
 }
 
