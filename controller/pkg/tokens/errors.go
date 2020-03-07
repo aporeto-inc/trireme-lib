@@ -28,6 +28,10 @@ var (
 // logError is a convinience function which logs the err:msg and returns the error.
 func logError(err error, msg string) error {
 
+	if err == nil {
+		return nil
+	}
+
 	zap.L().Debug(err.Error(), zap.String("error", msg))
 
 	return err

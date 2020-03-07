@@ -471,7 +471,7 @@ func decode(buf []byte) (*BinaryJWTClaims, error) {
 	}
 
 	if binaryClaims.ExpiresAt < time.Now().Unix() {
-		return nil, ErrTokenExpired
+		return nil, logError(ErrTokenExpired, fmt.Sprintf("token is expired since: %s", time.Unix(binaryClaims.ExpiresAt, 0)))
 	}
 
 	return binaryClaims, nil
