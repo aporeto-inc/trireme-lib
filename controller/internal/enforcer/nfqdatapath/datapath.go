@@ -3,6 +3,7 @@ package nfqdatapath
 // Go libraries
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -736,7 +737,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 				zap.Int("protocol", int(protocol)),
 				zap.Int("port", int(port)),
 			)
-			return nil, counters.CounterError(counters.ErrMarkNotFound, fmt.Errorf("Mark Not Found"))
+			return nil, counters.CounterError(counters.ErrMarkNotFound, errors.New("Mark Not Found"))
 		}
 		return pu.(*pucontext.PUContext), nil
 	}

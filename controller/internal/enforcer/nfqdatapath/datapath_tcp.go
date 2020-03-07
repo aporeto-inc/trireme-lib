@@ -1163,7 +1163,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		return conn.(*connection.TCPConnection), nil
 	}
 
-	var counter counters.CounterTypes
+	var counter counters.CounterType
 	counter = counters.ErrInvalidNetSynAckState
 	// We reach in this state for a client PU only when the service connection(encrypt) sends data sparsely.
 	// Packets are dropped when this happens, and that is a BUG!!!

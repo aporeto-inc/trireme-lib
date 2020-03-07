@@ -5,7 +5,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
 
-func appSynCounterFromError(err error) counters.CounterTypes {
+func appSynCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -25,7 +25,7 @@ func appSynCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func appSynAckCounterFromError(err error) counters.CounterTypes {
+func appSynAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -45,7 +45,7 @@ func appSynAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func appAckCounterFromError(err error) counters.CounterTypes {
+func appAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -61,7 +61,7 @@ func appAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netSynCounterFromError(err error) counters.CounterTypes {
+func netSynCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrInvalidTokenLength:
@@ -85,7 +85,7 @@ func netSynCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netSynAckCounterFromError(err error) counters.CounterTypes {
+func netSynAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrInvalidTokenLength:
@@ -109,7 +109,7 @@ func netSynAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netAckCounterFromError(err error) counters.CounterTypes {
+func netAckCounterFromError(err error) counters.CounterType {
 	switch err {
 	case tokens.ErrInvalidTokenLength:
 		return counters.ErrAckInvalidTokenLength
@@ -134,7 +134,7 @@ func netAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func appUDPSynCounterFromError(err error) counters.CounterTypes {
+func appUDPSynCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -154,7 +154,7 @@ func appUDPSynCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func appUDPSynAckCounterFromError(err error) counters.CounterTypes {
+func appUDPSynAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -174,7 +174,7 @@ func appUDPSynAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func appUDPAckCounterFromError(err error) counters.CounterTypes {
+func appUDPAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrTokenEncodeFailed:
@@ -190,7 +190,7 @@ func appUDPAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netUDPSynCounterFromError(err error) counters.CounterTypes {
+func netUDPSynCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrInvalidTokenLength:
@@ -214,7 +214,7 @@ func netUDPSynCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netUDPSynAckCounterFromError(err error) counters.CounterTypes {
+func netUDPSynAckCounterFromError(err error) counters.CounterType {
 
 	switch err {
 	case tokens.ErrInvalidTokenLength:
@@ -238,7 +238,7 @@ func netUDPSynAckCounterFromError(err error) counters.CounterTypes {
 	}
 }
 
-func netUDPAckCounterFromError(err error) counters.CounterTypes {
+func netUDPAckCounterFromError(err error) counters.CounterType {
 	switch err {
 	case tokens.ErrInvalidTokenLength:
 		return counters.ErrUDPAckInvalidTokenLength
