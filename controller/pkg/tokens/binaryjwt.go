@@ -136,7 +136,7 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 	// Encode the claims in a buffer.
 	buf, err := encode(allclaims)
 	if err != nil {
-		return nil, ErrTokenEncodeFailed
+		return nil, logError(ErrTokenEncodeFailed, err.Error())
 	}
 
 	var sig []byte
@@ -161,7 +161,7 @@ func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, header *claim
 	// Encode the claims in a buffer.
 	buf, err := encode(allclaims)
 	if err != nil {
-		return nil, ErrTokenEncodeFailed
+		return nil, logError(ErrTokenEncodeFailed, err.Error())
 	}
 
 	// Sign the buffer with the pre-shared key.
@@ -324,14 +324,14 @@ func (c *BinaryJWTConfig) sign(buf []byte, key *ecdsa.PrivateKey) ([]byte, error
 	// of the token.
 	h, err := hash(buf, nil)
 	if err != nil {
-		return nil, ErrTokenHashFailed
+		return nil, logError(ErrTokenHashFailed, err.Error())
 	}
 
 	// Sign the hash with the private key using the ECDSA algorithm
 	// and properly format the resulting signature.
 	r, s, err := ecdsa.Sign(rand.Reader, key, h)
 	if err != nil {
-		return nil, ErrTokenSignFailed
+		return nil, logError(ErrTokenSignFailed, err.Error())
 	}
 
 	curveBits := key.Curve.Params().BitSize
@@ -374,7 +374,7 @@ func (c *BinaryJWTConfig) verify(buf []byte, sig []byte, key *ecdsa.PublicKey) e
 		return nil
 	}
 
-	return logError(ErrInvalidSignature, err.Error())
+	return ErrInvalidSignature
 }
 
 func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, error) {
@@ -391,7 +391,7 @@ func (c *BinaryJWTConfig) signWithSharedKey(buf []byte, id string) ([]byte, erro
 
 	b, err := hash(buf, sk.key)
 	if err != nil {
-		return nil, ErrTokenHashFailed
+		return nil, logError(ErrTokenHashFailed, err.Error())
 	}
 
 	return b, nil
@@ -405,7 +405,7 @@ func (c *BinaryJWTConfig) verifyWithSharedKey(buf []byte, key []byte, sig []byte
 	}
 
 	if !bytes.Equal(ps, sig) {
-		return logError(ErrSignatureMismatch, err.Error())
+		return logError(ErrSignatureMismatch, fmt.Sprintf("unable to verify token with shared secret: they don't match %d %d ", len(ps), len(sig)))
 	}
 
 	return nil
@@ -427,7 +427,7 @@ func (c *BinaryJWTConfig) newSharedKey(id string, publicKey interface{}, publicK
 
 	key, err := symmetricKey(privateKey, publicKey)
 	if err != nil {
-		return nil, ErrSharedKeyHashFailed
+		return nil, logError(ErrSharedKeyHashFailed, err.Error())
 	}
 
 	// Add it in the cache
@@ -467,7 +467,7 @@ func decode(buf []byte) (*BinaryJWTClaims, error) {
 
 	dec := codec.NewDecoderBytes(buf, h)
 	if err := dec.Decode(binaryClaims); err != nil {
-		return nil, ErrTokenDecodeFailed
+		return nil, logError(ErrTokenDecodeFailed, err.Error())
 	}
 
 	if binaryClaims.ExpiresAt < time.Now().Unix() {

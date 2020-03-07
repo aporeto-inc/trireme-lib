@@ -2,11 +2,11 @@ package nfqdatapath
 
 // Go libraries
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -98,7 +98,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	if d.service != nil {
 		if !d.service.PreProcessUDPNetPacket(p, conn.Context, conn) {
 			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
-			return conn, conn.Context.Counters().CounterError(counters.ErrUDPNetPreProcessingFailed, fmt.Errorf("pre  processing failed for network packet"))
+			return conn, conn.Context.Counters().CounterError(counters.ErrUDPNetPreProcessingFailed, errors.New("pre  processing failed for network packet"))
 		}
 	}
 
@@ -116,7 +116,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (conn *connection.U
 	if d.service != nil {
 		if !d.service.PostProcessUDPNetPacket(p, action, claims, conn.Context, conn) {
 			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
-			return conn, conn.Context.Counters().CounterError(counters.ErrUDPNetPostProcessingFailed, fmt.Errorf("post service processing failed for network packet"))
+			return conn, conn.Context.Counters().CounterError(counters.ErrUDPNetPostProcessingFailed, errors.New("post service processing failed for network packet"))
 		}
 	}
 
@@ -172,7 +172,7 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 
 	conn, err := d.udpSourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
-		return nil, counters.CounterError(counters.ErrUDPSynAckNoConnection, fmt.Errorf("No connection.Drop the syn ack packet"))
+		return nil, counters.CounterError(counters.ErrUDPSynAckNoConnection, errors.New("No connection.Drop the syn ack packet"))
 	}
 
 	return conn.(*connection.UDPConnection), nil
@@ -295,7 +295,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		// PreProcessServiceInterface
 		if !d.service.PreProcessUDPAppPacket(p, conn.Context, conn, packet.UDPSynMask) {
 			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
-			return nil, conn.Context.Counters().CounterError(counters.ErrUDPAppPreProcessingFailed, fmt.Errorf("pre service processing failed for UDP application packet"))
+			return nil, conn.Context.Counters().CounterError(counters.ErrUDPAppPreProcessingFailed, errors.New("pre service processing failed for UDP application packet"))
 		}
 	}
 
@@ -323,14 +323,14 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		if err = conn.QueuePackets(p); err != nil {
 			return conn, conn.Context.Counters().CounterError(counters.ErrUDPDropQueueFull, fmt.Errorf("Unable to queue packets:%s", err))
 		}
-		return conn, conn.Context.Counters().CounterError(counters.ErrUDPDropInNfQueue, fmt.Errorf("Drop in nfq - buffered"))
+		return conn, conn.Context.Counters().CounterError(counters.ErrUDPDropInNfQueue, errors.New("Drop in nfq - buffered"))
 	}
 
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(p, nil, conn.Context, conn) {
 			p.Print(packet.PacketFailureService, d.PacketLogsEnabled())
-			return conn, conn.Context.Counters().CounterError(counters.ErrUDPAppPostProcessingFailed, fmt.Errorf("Encryption failed for application packet"))
+			return conn, conn.Context.Counters().CounterError(counters.ErrUDPAppPostProcessingFailed, errors.New("Encryption failed for application packet"))
 		}
 	}
 
@@ -339,7 +339,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (conn *connecti
 		if err != nil {
 			return conn, err
 		}
-		return conn, conn.Context.Counters().CounterError(counters.ErrUDPDropInNfQueue, fmt.Errorf("Drop in nfq - buffered"))
+		return conn, conn.Context.Counters().CounterError(counters.ErrUDPDropInNfQueue, errors.New("Drop in nfq - buffered"))
 	}
 
 	return conn, nil
