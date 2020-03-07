@@ -76,6 +76,7 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, dstPort uint16, request int) error {
 
 	tcpConn := connection.NewTCPConnection(context, nil)
+	tcpConn.Secrets = d.secrets()
 
 	claimsHeader := claimsheader.NewClaimsHeader(
 		claimsheader.OptionPingType(pingConfig.Type),

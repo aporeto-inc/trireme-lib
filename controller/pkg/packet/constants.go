@@ -3,6 +3,7 @@ package packet
 const (
 	// minIPPacketLen is the min ip packet size for TCP packet
 	minTCPIPPacketLen = 20
+
 	// minIPPacketLen is the min ip packet size for UDP packet
 	minUDPIPPacketLen = 8
 	// minIPHdrSize
