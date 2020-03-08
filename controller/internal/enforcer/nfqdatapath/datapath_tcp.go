@@ -1108,7 +1108,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		// Remove any of our data from the packet.
 		if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			zap.L().Error("Syn received with tcp option not set", zap.Error(err))
-			return nil, counters.CounterError(counters.ErrNonPUTraffic, fmt.Errorf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+			return nil, counters.CounterError(counters.ErrNonPUTraffic, errNonPUTraffic)
 		}
 
 		if err = p.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
@@ -1134,7 +1134,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 		return nil, counters.CounterError(counters.ErrNonPUTraffic, errNonPUTraffic)
 	}
 	if conn.(*connection.TCPConnection).MarkForDeletion {
-		return nil, counters.CounterError(counters.ErrOutOfOrderSynAck, fmt.Errorf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+		return nil, errOutOfOrderSynAck
 	}
 	return conn.(*connection.TCPConnection), nil
 }

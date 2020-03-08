@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 )
 
@@ -70,30 +69,6 @@ func (p *packetEventMatcher) String() string {
 // PacketEventMatcher return gomock matcher
 func PacketEventMatcher(x interface{}) gomock.Matcher {
 	return &packetEventMatcher{x: x}
-}
-
-type myCounterMatcher struct {
-	x interface{}
-}
-
-func (m *myCounterMatcher) Matches(x interface{}) bool {
-	f1 := m.x.(*collector.CounterReport)
-	f2 := x.(*collector.CounterReport)
-	if f2.Namespace != "/ns1" {
-		return true
-	}
-
-	return f1.PUID == f2.PUID && f1.Counters[counters.ErrNonPUTraffic] == 0
-
-}
-
-func (m *myCounterMatcher) String() string {
-	return fmt.Sprintf("is equal to %v", m.x)
-}
-
-// MyCounterMatcher custom matcher for counter record
-func MyCounterMatcher(x interface{}) gomock.Matcher {
-	return &myCounterMatcher{x: x}
 }
 
 type fakeSecrets struct {

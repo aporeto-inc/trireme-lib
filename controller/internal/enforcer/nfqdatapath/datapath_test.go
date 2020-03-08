@@ -4778,28 +4778,24 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 			So(enforcer, ShouldNotBeNil)
-			//collectCounterInterval = 1 * time.Second
+			// err := enforcer.Unenforce(puInfo2.ContextID)
+			// So(err, ShouldBeNil)
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			So(puContext, ShouldNotBeNil)
-			counterRecord := &collector.CounterReport{
-				PUID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					1,
-				},
-				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
-			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+
+			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).Counters().CounterError((counters.ErrNetSynNotSeen), fmt.Errorf("error"))
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError((counters.ErrNonPUTraffic), fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
 
 		})
+
 		Convey("So When enforer exits and waits for stuff to exit", func() {
 			mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
@@ -4811,19 +4807,12 @@ func TestCheckCounterCollection(t *testing.T) {
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
 			So(puContext, ShouldNotBeNil)
-			counterRecord := &collector.CounterReport{
-				PUID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					1,
-				},
-				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
-			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNetSynNotSeen, fmt.Errorf("error"))
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNonPUTraffic, fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
@@ -4839,19 +4828,12 @@ func TestCheckCounterCollection(t *testing.T) {
 
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
-			counterRecord := &collector.CounterReport{
-				PUID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					1,
-				},
-				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
-			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
+			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
 			So(puContext, ShouldNotBeNil)
 			So(err, ShouldBeNil)
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
-			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNetSynNotSeen, fmt.Errorf("error"))
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNonPUTraffic, fmt.Errorf("error"))
 			So(puErr, ShouldNotBeNil)
 			<-time.After(5 * collectCounterInterval)
 			cancel()

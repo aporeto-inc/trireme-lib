@@ -411,7 +411,6 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 			return
 		case <-time.After(collectCounterInterval):
 			d.collectCounters()
-
 		}
 
 	}
