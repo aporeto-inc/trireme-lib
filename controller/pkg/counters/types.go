@@ -2,6 +2,7 @@ package counters
 
 import "sync"
 
+// Counters holds the counters value.
 type Counters struct {
 	counters []uint32
 

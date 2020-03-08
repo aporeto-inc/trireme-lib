@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Custom errors used by this package.
 var (
 	ErrTokenTooSmall           = errors.New("randomize: token is small")
 	ErrTokenEncodeFailed       = errors.New("unable to encode token")

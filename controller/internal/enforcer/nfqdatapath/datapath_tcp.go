@@ -1163,8 +1163,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		return conn.(*connection.TCPConnection), nil
 	}
 
-	var counter counters.CounterType
-	counter = counters.ErrInvalidNetSynAckState
+	var c = counters.ErrInvalidNetSynAckState
 	// We reach in this state for a client PU only when the service connection(encrypt) sends data sparsely.
 	// Packets are dropped when this happens, and that is a BUG!!!
 	// For the server PU we mark the connection in the unknown state.
@@ -1174,13 +1173,13 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if cerr != nil {
 			return nil, err
 		}
-		counter = counters.ErrInvalidNetAckState
+		c = counters.ErrInvalidNetAckState
 		conn = connection.NewTCPConnection(context, p)
 		conn.(*connection.TCPConnection).SetState(connection.UnknownState)
 		return conn.(*connection.TCPConnection), nil
 	}
 
-	return nil, counters.CounterError(counter, fmt.Errorf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
+	return nil, counters.CounterError(c, fmt.Errorf("DestPort %d %s", int(p.DestPort()), p.SourceAddress().String()))
 }
 
 // updateTimer updates the timers for the service connections
