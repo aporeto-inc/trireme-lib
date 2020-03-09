@@ -176,4 +176,5 @@ const (
 	ErrAckToFinAck
 	ErrIgnoreFin
 	ErrInvalidNetState
+	ErrInvalidNetAckState
 )
