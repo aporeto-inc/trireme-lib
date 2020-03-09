@@ -19,7 +19,6 @@ type PuErrors struct {
 // Error Constants
 const (
 	ErrUnknownError ErrorType = iota
-	ErrDuplicateHandshakeAckDrop
 	ErrInvalidNetState
 	ErrNonPUTraffic
 	ErrNetSynNotSeen
@@ -77,12 +76,12 @@ const (
 	ErrUDPDropQueueFull
 	ErrUDPDropInNfQueue
 	ErrUDPSynDropped
+	ErrDuplicateHandshakeAckDrop
 )
 
 // CounterNames is the name for each error reported to the collector
 var CounterNames = []string{
 	ErrUnknownError:                 "UNKNOWNERROR",
-	ErrDuplicateHandshakeAckDrop:    "DUPLICATEHANDSHAKEACKDROP",
 	ErrInvalidNetState:              "INVALIDNETSTATE",
 	ErrNonPUTraffic:                 "NONPUTRAFFIC",
 	ErrNetSynNotSeen:                "SYNNOTSEEN",
@@ -140,6 +139,7 @@ var CounterNames = []string{
 	ErrUDPDropQueueFull:             "UDPDROPQUEUEFULL",
 	ErrUDPDropInNfQueue:             "UDPDROPINNFQUEUE",
 	ErrUDPSynDropped:                "UDPSYNDROPPED",
+	ErrDuplicateHandshakeAckDrop:    "DUPLICATEHANDSHAKEACKDROP",
 }
 
 var countedEvents = []PuErrors{
@@ -147,10 +147,6 @@ var countedEvents = []PuErrors{
 	ErrUnknownError: {
 		index: ErrUnknownError,
 		err:   "Unknown Error",
-	},
-	ErrDuplicateHandshakeAckDrop: {
-		index: ErrDuplicateHandshakeAckDrop,
-		err:   "Duplicate Ack Drop",
 	},
 	ErrInvalidNetState: {
 		index: ErrInvalidNetState,
@@ -381,6 +377,10 @@ var countedEvents = []PuErrors{
 	ErrUDPSynDropped: {
 		index: ErrUDPSynDropped,
 		err:   "UDP syn packet dropped missing claims",
+	},
+	ErrDuplicateHandshakeAckDrop: {
+		index: ErrDuplicateHandshakeAckDrop,
+		err:   "Duplicate Ack Drop",
 	},
 }
 
