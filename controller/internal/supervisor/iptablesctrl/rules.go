@@ -23,6 +23,7 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
 
+{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
 {{if isBPFEnabled}}
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{else}}

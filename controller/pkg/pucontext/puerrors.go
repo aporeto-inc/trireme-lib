@@ -19,6 +19,7 @@ type PuErrors struct {
 // Error Constants
 const (
 	ErrUnknownError ErrorType = iota
+	ErrDuplicateHandshakeAckDrop
 	ErrInvalidNetState
 	ErrNonPUTraffic
 	ErrNetSynNotSeen
@@ -81,6 +82,7 @@ const (
 // CounterNames is the name for each error reported to the collector
 var CounterNames = []string{
 	ErrUnknownError:                 "UNKNOWNERROR",
+	ErrDuplicateHandshakeAckDrop:    "DUPLICATEHANDSHAKEACKDROP",
 	ErrInvalidNetState:              "INVALIDNETSTATE",
 	ErrNonPUTraffic:                 "NONPUTRAFFIC",
 	ErrNetSynNotSeen:                "SYNNOTSEEN",
@@ -146,10 +148,13 @@ var countedEvents = []PuErrors{
 		index: ErrUnknownError,
 		err:   "Unknown Error",
 	},
+	ErrDuplicateHandshakeAckDrop: {
+		index: ErrDuplicateHandshakeAckDrop,
+		err:   "Duplicate Ack Drop",
+	},
 	ErrInvalidNetState: {
 		index: ErrInvalidNetState,
-
-		err: "Invalid net state",
+		err:   "Invalid net state",
 	},
 	ErrNonPUTraffic: {
 		index: ErrNonPUTraffic,
