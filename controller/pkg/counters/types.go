@@ -62,7 +62,6 @@ const (
 	ErrSynAckInvalidFormat
 	ErrSynAckEncryptionMismatch
 	ErrSynAckRejected
-	ErrInvalidNetSynAckState
 	ErrSynAckToExtNetAccept
 	ErrSynAckFromExtNetAccept
 	ErrSynAckFromExtNetReject
@@ -72,7 +71,6 @@ const (
 	ErrAckInvalidFormat
 	ErrAckInvalidToken
 	ErrAckInUnknownState
-	ErrInvalidNetAckState
 	ErrAckFromExtNetAccept
 	ErrAckFromExtNetReject
 	ErrUDPAppPreProcessingFailed
@@ -177,4 +175,5 @@ const (
 	ErrAppTCPAuthOptionSet
 	ErrAckToFinAck
 	ErrIgnoreFin
+	ErrInvalidNetState
 )
