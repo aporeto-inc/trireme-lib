@@ -1,6 +1,7 @@
 #! /bin/bash -e
 
 GO111MODULE=on go get github.com/golang/mock/mockgen@latest
+go get github.com/golang/mock/mockgen/model
 go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
@@ -104,5 +105,14 @@ echo "Trireme Controller Mock"
 mkdir -p controller/mockcontroller
 mockgen -source controller/interfaces.go -destination controller/mockcontroller/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go
 goimport_sanitize controller/mockcontroller/mocktrireme.go
+
+echo "Pod Monitor Mocks (manager, client and zap core)"
+# NOTE: this uses interface mode because these are all 3rd party dependencies
+mockgen -package podmonitor -destination monitor/internal/pod/mockzapcore_test.go go.uber.org/zap/zapcore Core
+goimport_sanitize monitor/internal/pod/mockzapcore_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go sigs.k8s.io/controller-runtime/pkg/client Client
+goimport_sanitize monitor/internal/pod/mockclient_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
+goimport_sanitize monitor/internal/pod/mockmanager_test.go
 
 echo >&2 "OK"
