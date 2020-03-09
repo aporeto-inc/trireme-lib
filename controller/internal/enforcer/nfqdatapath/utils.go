@@ -9,9 +9,6 @@ import (
 )
 
 func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil {
-		conn.SetReported(connection.AcceptReported)
-	}
 
 	if sourceID == destID {
 		report = &policy.FlowPolicy{
@@ -27,9 +24,6 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil && mode == collector.PolicyDrop {
-		conn.SetReported(connection.RejectReported)
-	}
 
 	if report == nil {
 		report = &policy.FlowPolicy{
@@ -47,9 +41,6 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 }
 
 func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil {
-		conn.SetReported(connection.AcceptReported)
-	}
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
@@ -57,9 +48,6 @@ func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPC
 }
 
 func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) {
-	if conn != nil && mode == collector.PolicyDrop {
-		conn.SetReported(connection.RejectReported)
-	}
 
 	if report == nil {
 		report = &policy.FlowPolicy{

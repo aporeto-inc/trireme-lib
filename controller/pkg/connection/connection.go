@@ -98,15 +98,6 @@ const (
 // MaximumUDPQueueLen is the maximum number of UDP packets buffered.
 const MaximumUDPQueueLen = 50
 
-const (
-
-	// RejectReported represents that flow was reported as rejected
-	RejectReported bool = true
-
-	// AcceptReported represents that flow was reported as accepted
-	AcceptReported bool = false
-)
-
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
 	LocalContext         []byte
@@ -143,9 +134,6 @@ type TCPConnection struct {
 	state TCPFlowState
 	Auth  AuthInfo
 
-	// Debugging Information
-	flowReported int
-
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
@@ -155,9 +143,6 @@ type TCPConnection struct {
 
 	// TimeOut signals the timeout to be used by the state machines
 	TimeOut time.Duration
-
-	// Debugging information - pushed to the end for compact structure
-	flowLastReporting bool
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
@@ -189,7 +174,7 @@ type TCPConnection struct {
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
-func TCPConnectionExpirationNotifier(_ cache.DataStore, _ interface{}, item interface{}) {
+func TCPConnectionExpirationNotifier(c cache.DataStore, _ interface{}, item interface{}) {
 
 	conn, ok := item.(*TCPConnection)
 	if !ok {
@@ -218,31 +203,10 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 	c.state = state
 }
 
-// SetReported is used to track if a flow is reported
-func (c *TCPConnection) SetReported(flowState bool) {
-
-	c.flowReported++
-
-	if c.flowReported > 1 && c.flowLastReporting != flowState {
-		zap.L().Info("Connection reported multiple times",
-			zap.Int("report count", c.flowReported),
-			zap.Bool("previous", c.flowLastReporting),
-			zap.Bool("next", flowState),
-		)
-	}
-
-	c.flowLastReporting = flowState
-}
-
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup() {
-	c.Lock()
-	// Logging information
-	if c.flowReported == 0 {
-		zap.L().Error("Connection not reported",
-			zap.String("connection", c.String()))
-	}
 
+	c.Lock()
 	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
 		c.Context.Counters().IncrementCounter(counters.ErrTCPConnectionsExpired)
@@ -341,8 +305,6 @@ type UDPConnection struct {
 	state   UDPFlowState
 	Context *pucontext.PUContext
 	Auth    AuthInfo
-	// Debugging Information
-	flowReported int
 
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
@@ -352,8 +314,6 @@ type UDPConnection struct {
 	// PacketQueue indicates app UDP packets queued while authorization is in progress.
 	PacketQueue chan *packet.Packet
 	Writer      afinetrawsocket.SocketWriter
-	// Debugging information - pushed to the end for compact structure
-	flowLastReporting bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 
@@ -484,30 +444,10 @@ func (c *UDPConnection) ReadPacket() *packet.Packet {
 	}
 }
 
-// SetReported is used to track if a flow is reported
-func (c *UDPConnection) SetReported(flowState bool) {
-	c.flowReported++
-
-	if c.flowReported > 1 && c.flowLastReporting != flowState {
-		zap.L().Info("Connection reported multiple times",
-			zap.Int("report count", c.flowReported),
-			zap.Bool("previous", c.flowLastReporting),
-			zap.Bool("next", flowState),
-		)
-	}
-
-	c.flowLastReporting = flowState
-}
-
 // Cleanup is called on cache expiry of the connection to record incomplete connections
-func (c *UDPConnection) Cleanup(expired bool) {
-	c.Lock()
-	// Logging information
-	if c.flowReported == 0 {
-		zap.L().Error("Connection not reported",
-			zap.String("connection", c.String()))
-	}
+func (c *UDPConnection) Cleanup() {
 
+	c.Lock()
 	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
 		c.Context.Counters().IncrementCounter(counters.ErrUDPConnectionsExpired)
@@ -525,6 +465,6 @@ func (c *UDPConnection) String() string {
 func UDPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
 
 	if conn, ok := item.(*UDPConnection); ok {
-		conn.Cleanup(true)
+		conn.Cleanup()
 	}
 }
