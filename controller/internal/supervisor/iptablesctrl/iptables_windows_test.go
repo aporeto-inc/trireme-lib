@@ -30,7 +30,7 @@ const (
 type abi struct {
 	filters    map[string]map[string]bool
 	ipsets     map[string][]string
-	ipsetById  map[int]string
+	ipsetByID  map[int]string
 	ipsetCount int
 }
 
@@ -54,12 +54,12 @@ func (a *abi) NewIpset(driverHandle, name, ipsetType, ipset uintptr) (uintptr, e
 	if name == 0 || ipsetType == 0 || ipset == 0 {
 		return 0, errInvalidParameter
 	}
-	nameStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(name)))
-	ipsetPtr := (*int)(unsafe.Pointer(ipset))
+	nameStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(name))) //nolint:govet
+	ipsetPtr := (*int)(unsafe.Pointer(ipset))                                   //nolint:govet
 	a.ipsetCount++
 	*ipsetPtr = a.ipsetCount
 	a.ipsets[nameStr] = make([]string, 0)
-	a.ipsetById[a.ipsetCount] = nameStr
+	a.ipsetByID[a.ipsetCount] = nameStr
 	return 1, nil
 }
 
@@ -67,9 +67,9 @@ func (a *abi) GetIpset(driverHandle, name, ipset uintptr) (uintptr, error) {
 	if name == 0 || ipset == 0 {
 		return 0, errInvalidParameter
 	}
-	nameStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(name)))
-	ipsetPtr := (*int)(unsafe.Pointer(ipset))
-	for k, v := range a.ipsetById {
+	nameStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(name))) //nolint:govet
+	ipsetPtr := (*int)(unsafe.Pointer(ipset))                                   //nolint:govet
+	for k, v := range a.ipsetByID {
 		if v == nameStr {
 			*ipsetPtr = k
 			return 1, nil
@@ -82,12 +82,12 @@ func (a *abi) DestroyAllIpsets(driverHandle, prefix uintptr) (uintptr, error) {
 	if prefix == 0 {
 		return 0, errInvalidParameter
 	}
-	prefixStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(prefix)))
+	prefixStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(prefix))) //nolint:govet
 	for k := range a.ipsets {
 		if strings.HasPrefix(k, prefixStr) {
-			for id, name := range a.ipsetById {
+			for id, name := range a.ipsetByID {
 				if name == k {
-					delete(a.ipsetById, id)
+					delete(a.ipsetByID, id)
 					break
 				}
 			}
@@ -101,7 +101,7 @@ func (a *abi) ListIpsets(driverHandle, ipsetNames, ipsetNamesSize, bytesReturned
 	if bytesReturned == 0 {
 		return 0, errInvalidParameter
 	}
-	bytesReturnedPtr := (*uint32)(unsafe.Pointer(bytesReturned))
+	bytesReturnedPtr := (*uint32)(unsafe.Pointer(bytesReturned)) //nolint:govet
 	fstr := ""
 	for k := range a.ipsets {
 		fstr += k + ","
@@ -118,8 +118,8 @@ func (a *abi) ListIpsets(driverHandle, ipsetNames, ipsetNamesSize, bytesReturned
 	if ipsetNames == 0 {
 		return 0, errInvalidParameter
 	}
-	buf := (*[1 << 20]uint16)(unsafe.Pointer(ipsetNames))[: ipsetNamesSize/2 : ipsetNamesSize/2]
-	copy(buf, syscall.StringToUTF16(fstr))
+	buf := (*[1 << 20]uint16)(unsafe.Pointer(ipsetNames))[: ipsetNamesSize/2 : ipsetNamesSize/2] //nolint:govet
+	copy(buf, syscall.StringToUTF16(fstr))                                                       //nolint:staticcheck
 	buf[ipsetNamesSize/2-1] = 0
 	return 1, nil
 }
@@ -128,9 +128,9 @@ func (a *abi) IpsetAdd(driverHandle, ipset, entry, timeout uintptr) (uintptr, er
 	if entry == 0 {
 		return 0, errInvalidParameter
 	}
-	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry)))
+	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry))) //nolint:govet
 	id := int(ipset)
-	name := a.ipsetById[id]
+	name := a.ipsetByID[id]
 	entries, ok := a.ipsets[name]
 	if !ok {
 		return 0, errInvalidParameter
@@ -147,9 +147,9 @@ func (a *abi) IpsetDelete(driverHandle, ipset, entry uintptr) (uintptr, error) {
 	if entry == 0 {
 		return 0, errInvalidParameter
 	}
-	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry)))
+	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry))) //nolint:govet
 	id := int(ipset)
-	name := a.ipsetById[id]
+	name := a.ipsetByID[id]
 	entries, ok := a.ipsets[name]
 	if !ok {
 		return 0, errInvalidParameter
@@ -165,18 +165,18 @@ func (a *abi) IpsetDelete(driverHandle, ipset, entry uintptr) (uintptr, error) {
 
 func (a *abi) IpsetDestroy(driverHandle, ipset uintptr) (uintptr, error) {
 	id := int(ipset)
-	name := a.ipsetById[id]
+	name := a.ipsetByID[id]
 	if _, ok := a.ipsets[name]; !ok {
 		return 0, errInvalidParameter
 	}
-	delete(a.ipsetById, id)
+	delete(a.ipsetByID, id)
 	delete(a.ipsets, name)
 	return 1, nil
 }
 
 func (a *abi) IpsetFlush(driverHandle, ipset uintptr) (uintptr, error) {
 	id := int(ipset)
-	name := a.ipsetById[id]
+	name := a.ipsetByID[id]
 	if _, ok := a.ipsets[name]; !ok {
 		return 0, errInvalidParameter
 	}
@@ -188,9 +188,9 @@ func (a *abi) IpsetTest(driverHandle, ipset, entry uintptr) (uintptr, error) {
 	if entry == 0 {
 		return 0, errInvalidParameter
 	}
-	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry)))
+	entryStr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(entry))) //nolint:govet
 	id := int(ipset)
-	name := a.ipsetById[id]
+	name := a.ipsetByID[id]
 	entries, ok := a.ipsets[name]
 	if !ok {
 		return 0, errInvalidParameter
@@ -224,7 +224,7 @@ func (a *abi) InsertFilter(driverHandle, outbound, priority, filterName uintptr)
 	if filterName == 0 {
 		return 0, errInvalidParameter
 	}
-	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))
+	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName))) //nolint:govet
 	a.filters[str] = make(map[string]bool)
 	return 1, nil
 }
@@ -233,7 +233,7 @@ func (a *abi) DestroyFilter(driverHandle, filterName uintptr) (uintptr, error) {
 	if filterName == 0 {
 		return 0, errInvalidParameter
 	}
-	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))
+	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName))) //nolint:govet
 	delete(a.filters, str)
 	return 1, nil
 }
@@ -242,7 +242,7 @@ func (a *abi) EmptyFilter(driverHandle, filterName uintptr) (uintptr, error) {
 	if filterName == 0 {
 		return 0, errInvalidParameter
 	}
-	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))
+	str := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName))) //nolint:govet
 	a.filters[str] = make(map[string]bool)
 	return 1, nil
 }
@@ -251,7 +251,7 @@ func (a *abi) GetFilterList(driverHandle, outbound, buffer, bufferSize, bytesRet
 	if bytesReturned == 0 {
 		return 0, errInvalidParameter
 	}
-	bytesReturnedPtr := (*uint32)(unsafe.Pointer(bytesReturned))
+	bytesReturnedPtr := (*uint32)(unsafe.Pointer(bytesReturned)) //nolint:govet
 	fstr := ""
 	for k := range a.filters {
 		fstr += k + ","
@@ -268,8 +268,8 @@ func (a *abi) GetFilterList(driverHandle, outbound, buffer, bufferSize, bytesRet
 	if buffer == 0 {
 		return 0, errInvalidParameter
 	}
-	buf := (*[1 << 20]uint16)(unsafe.Pointer(buffer))[: bufferSize/2 : bufferSize/2]
-	copy(buf, syscall.StringToUTF16(fstr))
+	buf := (*[1 << 20]uint16)(unsafe.Pointer(buffer))[: bufferSize/2 : bufferSize/2] //nolint:govet
+	copy(buf, syscall.StringToUTF16(fstr))                                           //nolint:staticcheck
 	buf[bufferSize/2-1] = 0
 	return 1, nil
 }
@@ -278,8 +278,8 @@ func (a *abi) AppendFilterCriteria(driverHandle, filterName, criteriaName, ruleS
 	if filterName == 0 || criteriaName == 0 {
 		return 0, errInvalidParameter
 	}
-	fstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))
-	cstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(criteriaName)))
+	fstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))   //nolint:govet
+	cstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(criteriaName))) //nolint:govet
 	m, ok := a.filters[fstr]
 	if !ok {
 		return 0, errInvalidParameter
@@ -292,8 +292,8 @@ func (a *abi) DeleteFilterCriteria(driverHandle, filterName, criteriaName uintpt
 	if filterName == 0 || criteriaName == 0 {
 		return 0, errInvalidParameter
 	}
-	fstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))
-	cstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(criteriaName)))
+	fstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(filterName)))   //nolint:govet
+	cstr := windows.WideCharPointerToString((*uint16)(unsafe.Pointer(criteriaName))) //nolint:govet
 	m, ok := a.filters[fstr]
 	if !ok {
 		return 0, errInvalidParameter
@@ -307,7 +307,7 @@ func Test_WindowsConfigureRulesV4(t *testing.T) {
 	a := &abi{
 		filters:   make(map[string]map[string]bool),
 		ipsets:    make(map[string][]string),
-		ipsetById: make(map[int]string),
+		ipsetByID: make(map[int]string),
 	}
 	frontman.Driver = a
 
