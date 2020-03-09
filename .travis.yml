@@ -4,8 +4,14 @@ dist: bionic
 
 go_import_path: go.aporeto.io/trireme-lib
 
-go:
- - 1.13.x
+matrix:
+  include:
+  - go: "1.13.x"
+  - go: "1.14.x"
+  - go: master
+  allow_failures:
+  - go: master
+  fast_finish: true
 
 addons:
    apt:
