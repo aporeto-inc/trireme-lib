@@ -7,3 +7,4 @@ Gopkg.lock
 .history/
 .vscode/
 **/debug.test
+profile.out
