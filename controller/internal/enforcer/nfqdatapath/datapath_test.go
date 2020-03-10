@@ -4950,7 +4950,7 @@ func Test_Secrets(t *testing.T) {
 	})
 }
 
-func Test_CounterReportedOnAuthSetByApp(t *testing.T) {
+func Test_CounterReportedOnAuthSetAppSyn(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -4990,7 +4990,7 @@ func Test_CounterReportedOnAuthSetByApp(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			c := conn.Context.Counters().GetErrorCounters()
-			So(c[counters.ErrAppTCPAuthOptionSet], ShouldBeZeroValue)
+			So(c[counters.ErrAppSynAuthOptionSet], ShouldBeZeroValue)
 
 			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, true, false), "0", false)
 			So(err, ShouldBeNil)
@@ -4999,7 +4999,63 @@ func Test_CounterReportedOnAuthSetByApp(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			c = conn.Context.Counters().GetErrorCounters()
-			So(c[counters.ErrAppTCPAuthOptionSet], ShouldEqual, 1)
+			So(c[counters.ErrAppSynAuthOptionSet], ShouldEqual, 1)
+		})
+	})
+}
+
+func Test_CounterReportedOnAuthSetAppSynAck(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynAckPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn|tcp.Ack, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			conn.PacketFlowPolicy = &policy.FlowPolicy{Action: policy.Accept}
+			err = enforcer.processApplicationSynAckPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAckAuthOptionSet], ShouldBeZeroValue)
+
+			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn|tcp.Ack, true, false), "0", false)
+			So(err, ShouldBeNil)
+			conn = connection.NewTCPConnection(puContext, p)
+			conn.PacketFlowPolicy = &policy.FlowPolicy{Action: policy.Accept}
+			err = enforcer.processApplicationSynAckPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAckAuthOptionSet], ShouldEqual, 1)
 		})
 	})
 }

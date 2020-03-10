@@ -307,7 +307,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	}
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err == nil {
-		conn.Context.Counters().IncrementCounter(counters.ErrAppTCPAuthOptionSet)
+		conn.Context.Counters().IncrementCounter(counters.ErrAppSynAuthOptionSet)
 	}
 
 	// We are now processing as a Trireme packet that needs authorization headers
@@ -380,6 +380,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		}
 
 		return nil
+	}
+
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err == nil {
+		conn.Context.Counters().IncrementCounter(counters.ErrAppSynAckAuthOptionSet)
 	}
 
 	// We now process packets that need authorization options

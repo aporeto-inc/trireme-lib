@@ -172,9 +172,10 @@ const (
 	ErrUDPAckTokenDecodeFailed
 	ErrUDPAckTokenExpired
 	ErrUDPAckSignatureMismatch
-	ErrAppTCPAuthOptionSet
+	ErrAppSynAuthOptionSet
 	ErrAckToFinAck
 	ErrIgnoreFin
 	ErrInvalidNetState
 	ErrInvalidNetAckState
+	ErrAppSynAckAuthOptionSet
 )
