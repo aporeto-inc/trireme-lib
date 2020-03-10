@@ -6,5 +6,5 @@ controller/internal/processmon/testbinary/testbinary
 Gopkg.lock
 .history/
 .vscode/
-**/debug.test
+**/*.test
 profile.out
