@@ -1095,6 +1095,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
+						_, err = enforcer.processNetworkTCPPackets(outPacket)
+						So(err, ShouldNotBeNil)
 
 					})
 				}
