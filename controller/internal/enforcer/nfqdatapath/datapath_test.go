@@ -1091,13 +1091,13 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						copy(output, tcpPacket.GetTCPBytes())
 
 						outPacket, err = packet.New(0, output, "0", true)
+						outPacketCopy, err = packet.New(0, output, "0", true)
 						So(err, ShouldBeNil)
 						CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 						_, err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
-						_, err = enforcer.processNetworkTCPPackets(outPacket)
+						_, err = enforcer.processNetworkTCPPackets(outPacketCopy)
 						So(err, ShouldNotBeNil)
-
 					})
 				}
 			}
