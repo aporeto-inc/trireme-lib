@@ -14,7 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-    "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/secretsproxy"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/secretsproxy"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
@@ -166,6 +166,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 }
 
 func (e *enforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
+	zap.L().Debug("DEADBEEF: enforcer object is ", zap.Reflect("enforcer", e)) // DEBUG
 	return e.transport.SetTargetNetworks(cfg)
 }
 

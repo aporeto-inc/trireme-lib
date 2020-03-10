@@ -590,6 +590,7 @@ func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
 	}
 
+	zap.L().Debug("DEADBEEF: Datapath object is ", zap.Reflect("datapath", d)) // DEBUG
 	d.targetNetworks = acls.NewACLCache()
 	targetacl := createPolicy(networks)
 	return d.targetNetworks.AddRuleList(targetacl)
