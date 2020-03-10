@@ -4,15 +4,16 @@ go 1.13
 
 // Aporeto modules
 require (
+	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
+	github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661
+	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
 	go.aporeto.io/netlink-go v1.42.1-0.20200227185020-753e5756b1b7
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
+// 3rd party
 require (
 	github.com/DavidGamba/go-getoptions v0.17.0
-	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661
-	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/cespare/xxhash v1.1.0
@@ -25,7 +26,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.1.0
 	github.com/gogo/googleapis v1.3.2
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/mock v1.4.0
+	github.com/golang/mock v1.4.1
 	github.com/golang/protobuf v1.3.3
 	github.com/google/gopacket v1.1.17
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
@@ -48,7 +49,7 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	go.uber.org/zap v1.13.0
-	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
@@ -64,9 +65,10 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
+	golang.org/x/tools v0.0.0-20200309202150-20ab64c0d93f // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
-	k8s.io/client-go v0.17.2
+	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	sigs.k8s.io/controller-runtime v0.4.0
 )
 
@@ -80,7 +82,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655
 	k8s.io/client-go => k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
 	k8s.io/utils => k8s.io/utils v0.0.0-20190801114015-581e00157fb1
-	sigs.k8s.io/controller-runtime => github.com/aporeto-inc/controller-runtime v0.4.1
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.4.0
 	sigs.k8s.io/yaml => sigs.k8s.io/yaml v1.1.0
 )
 
