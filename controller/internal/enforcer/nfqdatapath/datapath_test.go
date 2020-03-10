@@ -35,6 +35,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -4945,6 +4946,118 @@ func Test_Secrets(t *testing.T) {
 			So(err, ShouldNotBeNil)
 			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "BCD")
 			So(enforcer.secrets().(*fakeSecrets).getID(), ShouldEqual, "CDE")
+		})
+	})
+}
+
+func Test_CounterReportedOnAuthSetByApp(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppTCPAuthOptionSet], ShouldBeZeroValue)
+
+			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, true, false), "0", false)
+			So(err, ShouldBeNil)
+			conn = connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppTCPAuthOptionSet], ShouldEqual, 1)
+		})
+	})
+}
+
+func Test_CounterOnSynCacheTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+
+			// Update the connection timer for testing.
+			enforcer.appOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", 2*time.Second, connection.TCPConnectionExpirationNotifier)
+
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrTCPConnectionsExpired], ShouldBeZeroValue)
+			So(enforcer.appOrigConnectionTracker.(*cache.Cache).SizeOf(), ShouldEqual, 1)
+
+			// Wait for the connection to expire.
+			time.Sleep(3 * time.Second)
+
+			So(enforcer.appOrigConnectionTracker.(*cache.Cache).SizeOf(), ShouldEqual, 0)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrTCPConnectionsExpired], ShouldEqual, 1)
 		})
 	})
 }
