@@ -22,10 +22,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	startupWarningMessage = "pod: the Kubernetes controller did not start within the last 5s. Waiting..."
-)
-
 // PodMonitor implements a monitor that sends pod events upstream
 // It is implemented as a filter on the standard DockerMonitor.
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
@@ -127,7 +123,7 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 	}
 
 	if err := m.handlers.IsComplete(); err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
+		return fmt.Errorf("pod: handlers are not complete: %s", err.Error())
 	}
 
 	// ensure to run the reset net_cls
@@ -139,30 +135,9 @@ func (m *PodMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("pod: failed to reset net_cls cgroups: %s", err.Error())
 	}
 
-	syncPeriod := time.Second * 30
-	mgr, err := manager.New(m.kubeCfg, manager.Options{
-		SyncPeriod: &syncPeriod,
-	})
-	if err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
-	}
-
-	// Create the delete event controller first
-	dc := NewDeleteController(mgr.GetClient(), m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh)
-	if err := mgr.Add(dc); err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
-	}
-
-	// Create the main controller for the monitor
-	r := newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh(), m.resyncInfo)
-	if err := addController(mgr, r, m.workers, m.eventsCh); err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
-	}
-
 	// starts the manager in the background and will return once it is running
-	if err := m.startManager(ctx, mgr); err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
-	}
+	// NOTE: This will block until the Kubernetes manager and all controllers are up. All errors are being handled within the function
+	m.startManager(ctx)
 
 	// call ResyncWithAllPods before we return from here
 	// this will block until every pod at this point in time has been seeing at least one `Reconcile` call
@@ -196,47 +171,101 @@ func (m *PodMonitor) Resync(ctx context.Context) error {
 	return ResyncWithAllPods(ctx, m.kubeClient, m.resyncInfo, m.eventsCh, m.localNode)
 }
 
-func (m *PodMonitor) startManager(ctx context.Context, mgr manager.Manager) error {
-	controllerStarted := make(chan struct{})
-	if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
-		return fmt.Errorf("pod: %s", err.Error())
-	}
+const (
+	startupWarningMessage = "pod: the Kubernetes controller did not start within the last 5s. Waiting..."
+)
 
-	// starting the manager is a bit awkward:
-	// - it does not use contexts
-	// - we pass in a fake signal handler channel
-	// - we start another go routine which waits for the context to be cancelled
-	//   and closes that channel if that is the case
+var (
+	retrySleep          = time.Second * 3
+	warningMessageSleep = time.Second * 5
+	managerNew          = manager.New
+)
+
+func (m *PodMonitor) startManager(ctx context.Context) {
+	var mgr manager.Manager
+
 	startTimestamp := time.Now()
 	z := make(chan struct{})
-	errCh := make(chan error, 2)
+	controllerStarted := make(chan struct{})
+
 	go func() {
-		<-ctx.Done()
-		close(z)
-		errCh <- ctx.Err()
-	}()
-	go func() {
-		if err := mgr.Start(z); err != nil {
-			errCh <- err
+		// manager.New already contacts the Kubernetes API
+		for {
+			var err error
+			mgr, err = managerNew(m.kubeCfg, manager.Options{})
+			if err != nil {
+				zap.L().Error("pod: new manager instantiation failed. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
+		}
+
+		// Create the delete event controller first
+		dc := NewDeleteController(mgr.GetClient(), m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh)
+		for {
+			if err := mgr.Add(dc); err != nil {
+				zap.L().Error("pod: adding delete controller failed. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
+		}
+
+		// Create the main controller for the monitor
+		for {
+			if err := addController(
+				mgr,
+				newReconciler(mgr, m.handlers, m.metadataExtractor, m.netclsProgrammer, m.sandboxExtractor, m.localNode, m.enableHostPods, dc.GetDeleteCh(), dc.GetReconcileCh(), m.resyncInfo),
+				m.workers,
+				m.eventsCh,
+			); err != nil {
+				zap.L().Error("pod: adding main monitor controller failed. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
+		}
+
+		for {
+			if err := mgr.Add(&runnable{ch: controllerStarted}); err != nil {
+				zap.L().Error("pod: adding side controller failed. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
+		}
+
+		// starting the manager is a bit awkward:
+		// - it does not use contexts
+		// - we pass in a fake signal handler channel
+		// - we start another go routine which waits for the context to be cancelled
+		//   and closes that channel if that is the case
+
+		for {
+			if err := mgr.Start(z); err != nil {
+				zap.L().Error("pod: manager start failed. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
 		}
 	}()
 
 waitLoop:
 	for {
 		select {
-		case err := <-errCh:
-			return err
-		case <-time.After(5 * time.Second):
+		case <-ctx.Done():
+			close(z)
+		case <-time.After(warningMessageSleep):
 			// we give the controller 5 seconds to report back before we issue a warning
 			zap.L().Warn(startupWarningMessage)
 		case <-controllerStarted:
 			m.kubeClient = mgr.GetClient()
-			zap.L().Debug("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
+			zap.L().Error("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
 			break waitLoop
 		}
 	}
-
-	return nil
 }
 
 type runnable struct {

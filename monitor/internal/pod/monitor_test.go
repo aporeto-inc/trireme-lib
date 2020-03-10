@@ -79,7 +79,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 		m              *PodMonitor
 		args           args
 		expect         func(t *testing.T)
-		wantErr        bool
 		wantKubeClient bool
 	}{
 		{
@@ -89,7 +88,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				ctx: ctx,
 				mgr: mgr,
 			},
-			wantErr:        false,
 			wantKubeClient: true,
 			expect: func(t *testing.T) {
 				var r manager.Runnable
@@ -111,7 +109,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				ctx: ctx,
 				mgr: mgr,
 			},
-			wantErr:        false,
 			wantKubeClient: true,
 			expect: func(t *testing.T) {
 				zc.EXPECT().Enabled(zapcore.WarnLevel).Times(1).Return(true)
@@ -147,7 +144,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				ctx: ctx,
 				mgr: mgr,
 			},
-			wantErr: true,
 			expect: func(t *testing.T) {
 				mgr.EXPECT().Add(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
 			},
@@ -159,7 +155,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				ctx: ctx,
 				mgr: mgr,
 			},
-			wantErr: true,
 			expect: func(t *testing.T) {
 				mgr.EXPECT().Add(gomock.Any()).Return(nil).Times(1)
 				mgr.EXPECT().Start(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
@@ -172,7 +167,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				ctx: ctxWithCancel,
 				mgr: mgr,
 			},
-			wantErr: true,
 			expect: func(t *testing.T) {
 				mgr.EXPECT().Add(gomock.Any()).Return(nil).Times(1)
 				mgr.EXPECT().Start(gomock.Any()).DoAndReturn(func(z <-chan struct{}) error {
@@ -186,9 +180,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.expect(t)
 			tt.m.kubeClient = nil
-			if err := tt.m.startManager(tt.args.ctx, tt.args.mgr); (err != nil) != tt.wantErr {
-				t.Errorf("PodMonitor.startManager() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			tt.m.startManager(tt.args.ctx)
 			if tt.wantKubeClient && tt.m.kubeClient == nil {
 				t.Errorf("PodMonitor.startManager() kubeClient = %v, wantKubeClient %v", tt.m.kubeClient, tt.wantKubeClient)
 			}
