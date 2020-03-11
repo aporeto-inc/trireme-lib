@@ -76,6 +76,7 @@ const (
 	ErrUDPDropQueueFull
 	ErrUDPDropInNfQueue
 	ErrUDPSynDropped
+	ErrDuplicateHandshakeAckDrop
 )
 
 // CounterNames is the name for each error reported to the collector
@@ -138,6 +139,7 @@ var CounterNames = []string{
 	ErrUDPDropQueueFull:             "UDPDROPQUEUEFULL",
 	ErrUDPDropInNfQueue:             "UDPDROPINNFQUEUE",
 	ErrUDPSynDropped:                "UDPSYNDROPPED",
+	ErrDuplicateHandshakeAckDrop:    "DUPLICATEHANDSHAKEACKDROP",
 }
 
 var countedEvents = []PuErrors{
@@ -148,8 +150,7 @@ var countedEvents = []PuErrors{
 	},
 	ErrInvalidNetState: {
 		index: ErrInvalidNetState,
-
-		err: "Invalid net state",
+		err:   "Invalid net state",
 	},
 	ErrNonPUTraffic: {
 		index: ErrNonPUTraffic,
@@ -376,6 +377,10 @@ var countedEvents = []PuErrors{
 	ErrUDPSynDropped: {
 		index: ErrUDPSynDropped,
 		err:   "UDP syn packet dropped missing claims",
+	},
+	ErrDuplicateHandshakeAckDrop: {
+		index: ErrDuplicateHandshakeAckDrop,
+		err:   "Duplicate Ack Drop",
 	},
 }
 
