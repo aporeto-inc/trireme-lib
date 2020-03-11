@@ -9,8 +9,9 @@ type Counters struct {
 	sync.RWMutex
 }
 
+// This should be multiples of 10.
 const (
-	totalCounters = 160
+	totalCounters = 170
 )
 
 // CounterType custom counter error type.
@@ -18,6 +19,8 @@ type CounterType int
 
 // WARNING: Append any new counters at the end of the list.
 // DO NOT CHANGE EXISTING ORDER.
+// Also ensure that the list doesn't exceed current totalCounters,
+// If it does, increase the totalCounters by multiples of 10.
 const (
 	ErrUnknownError CounterType = iota
 	ErrNonPUTraffic
