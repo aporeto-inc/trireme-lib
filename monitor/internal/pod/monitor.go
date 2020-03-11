@@ -178,6 +178,7 @@ const (
 var (
 	retrySleep          = time.Second * 3
 	warningMessageSleep = time.Second * 5
+	warningTimeout      = time.Second * 5
 	managerNew          = manager.New
 )
 
@@ -258,11 +259,16 @@ waitLoop:
 		case <-ctx.Done():
 			close(z)
 		case <-time.After(warningMessageSleep):
-			// we give the controller 5 seconds to report back before we issue a warning
+			// we give everything 5 seconds to report back before we issue a warning
 			zap.L().Warn(startupWarningMessage)
 		case <-controllerStarted:
 			m.kubeClient = mgr.GetClient()
-			zap.L().Error("pod: controller startup finished", zap.Duration("duration", time.Since(startTimestamp)))
+			t := time.Since(startTimestamp)
+			if t > warningTimeout {
+				zap.L().Warn("pod: controller startup finished, but took longer than expected", zap.Duration("duration", t))
+			} else {
+				zap.L().Debug("pod: controller startup finished", zap.Duration("duration", t))
+			}
 			break waitLoop
 		}
 	}
