@@ -4769,7 +4769,7 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 	})
 }
 
-func TestCheckCounterCollection(t *testing.T) {
+func Test_CheckCounterCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	collectCounterInterval = 1 * time.Second
@@ -4785,10 +4785,16 @@ func TestCheckCounterCollection(t *testing.T) {
 			// So(err, ShouldBeNil)
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
 			So(puContext, ShouldNotBeNil)
 
-			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
-			So(err, ShouldBeNil)
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
@@ -4809,9 +4815,16 @@ func TestCheckCounterCollection(t *testing.T) {
 			//collectCounterInterval = 1 * time.Second
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
-			So(puContext, ShouldNotBeNil)
-			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
 			So(err, ShouldBeNil)
+			So(puContext, ShouldNotBeNil)
+
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
@@ -4830,10 +4843,18 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(enforcer, ShouldNotBeNil)
 
 			contextID := puInfo1.ContextID
+
 			puContext, err := enforcer.puFromContextID.Get(contextID)
-			mockCollector.EXPECT().CollectCounterEvent(gomock.Any()).MinTimes(1)
-			So(puContext, ShouldNotBeNil)
 			So(err, ShouldBeNil)
+			So(puContext, ShouldNotBeNil)
+
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
+				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
+			}
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNonPUTraffic, fmt.Errorf("error"))

@@ -71,6 +71,28 @@ func PacketEventMatcher(x interface{}) gomock.Matcher {
 	return &packetEventMatcher{x: x}
 }
 
+type myCounterMatcher struct {
+	x *collector.CounterReport
+}
+
+func (m *myCounterMatcher) Matches(x interface{}) bool {
+
+	f := x.(*collector.CounterReport)
+	if f.Namespace != "/ns1" {
+		return true
+	}
+	return m.x.PUID == f.PUID && m.x.Namespace == f.Namespace
+}
+
+func (m *myCounterMatcher) String() string {
+	return fmt.Sprintf("is equal to %v", m.x)
+}
+
+// MyCounterMatcher custom matcher for counter record
+func MyCounterMatcher(x *collector.CounterReport) gomock.Matcher {
+	return &myCounterMatcher{x: x}
+}
+
 type fakeSecrets struct {
 	id string
 	*secrets.NullPKI
