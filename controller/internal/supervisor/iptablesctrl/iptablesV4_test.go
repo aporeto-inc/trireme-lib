@@ -277,6 +277,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -345,6 +346,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -442,6 +444,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -531,6 +534,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -620,6 +624,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -747,6 +752,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -1700,6 +1706,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
@@ -1753,6 +1760,7 @@ var (
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v4-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v4-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance 24:27 --queue-bypass",
