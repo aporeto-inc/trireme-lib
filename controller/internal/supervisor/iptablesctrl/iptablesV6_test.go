@@ -157,6 +157,7 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
+<<<<<<< HEAD
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -167,6 +168,10 @@ var (
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
+=======
+			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
+>>>>>>> 2781aef2... drop duplicate ack packets with fast open (#983)
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 
@@ -246,6 +251,7 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
+<<<<<<< HEAD
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -256,6 +262,10 @@ var (
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
+=======
+			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
+>>>>>>> 2781aef2... drop duplicate ack packets with fast open (#983)
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -409,6 +419,7 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
+<<<<<<< HEAD
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -419,6 +430,10 @@ var (
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
+=======
+			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
+>>>>>>> 2781aef2... drop duplicate ack packets with fast open (#983)
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-j TRI-UID-Net",
@@ -811,6 +826,7 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
+<<<<<<< HEAD
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -821,6 +837,10 @@ var (
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
+=======
+			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
+>>>>>>> 2781aef2... drop duplicate ack packets with fast open (#983)
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
@@ -884,6 +904,7 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
+<<<<<<< HEAD
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -894,6 +915,10 @@ var (
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
+=======
+			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance 24:27",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance 20:23",
+>>>>>>> 2781aef2... drop duplicate ack packets with fast open (#983)
 			"-m connmark --mark 61167 -j ACCEPT",
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
