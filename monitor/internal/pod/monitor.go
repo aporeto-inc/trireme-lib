@@ -186,7 +186,6 @@ func (m *PodMonitor) startManager(ctx context.Context) {
 	var mgr manager.Manager
 
 	startTimestamp := time.Now()
-	z := make(chan struct{})
 	controllerStarted := make(chan struct{})
 
 	go func() {
@@ -244,7 +243,7 @@ func (m *PodMonitor) startManager(ctx context.Context) {
 		//   and closes that channel if that is the case
 
 		for {
-			if err := mgr.Start(z); err != nil {
+			if err := mgr.Start(ctx.Done()); err != nil {
 				zap.L().Error("pod: manager start failed. Retrying in 3s...", zap.Error(err))
 				time.Sleep(retrySleep)
 				continue
@@ -257,7 +256,7 @@ waitLoop:
 	for {
 		select {
 		case <-ctx.Done():
-			close(z)
+			break waitLoop
 		case <-time.After(warningMessageSleep):
 			// we give everything 5 seconds to report back before we issue a warning
 			zap.L().Warn(startupWarningMessage)

@@ -488,6 +488,19 @@ func TestPodMonitor_startManager(t *testing.T) {
 				})
 			},
 		},
+		{
+			name:           "context gets cancelled",
+			m:              m,
+			wantKubeClient: false,
+			expect: func(t *testing.T, ctrl *gomock.Controller, ctx context.Context, cancel context.CancelFunc) {
+				managerNew = managerNewTest(nil, fmt.Errorf("error"))
+				zc := NewMockCore(ctrl)
+				logger := zap.New(zc)
+				zap.ReplaceGlobals(logger)
+				zc.EXPECT().Enabled(zapcore.ErrorLevel).AnyTimes().Return(false)
+				cancel()
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
