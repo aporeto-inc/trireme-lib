@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.uber.org/zap"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
@@ -73,19 +74,22 @@ type ACLInfo struct {
 	// common info
 	DefaultConnmark         string
 	DefaultExternalConnmark string
-	QueueBalanceAppSyn      string
-	QueueBalanceAppSynAck   string
-	QueueBalanceAppAck      string
-	QueueBalanceNetSyn      string
-	QueueBalanceNetSynAck   string
-	QueueBalanceNetAck      string
 	InitialMarkVal          string
 	RawSocketMark           string
 	TargetTCPNetSet         string
 	TargetUDPNetSet         string
 	ExclusionsSet           string
 	IpsetPrefix             string
-
+	NumTransmitterQueues    uint32
+	StartTransmitterQueue   uint32
+	NumReceiverQueue        uint32
+	StartReceiverQueue      uint32
+	NetSynQueues            []uint32
+	NetAckQueues            []uint32
+	NetSynAckQueues         []uint32
+	AppSynQueues            []uint32
+	AppSynAckQueues         []uint32
+	AppAckQueues            []uint32
 	// IPv4 IPv6
 	DefaultIP     string
 	needICMPRules bool
@@ -109,6 +113,7 @@ type ACLInfo struct {
 	CgroupMark    string
 	ProxyMark     string
 	AuthPhaseMark string
+	PacketMark    string
 	ProxySetName  string
 
 	// UID PUs
@@ -175,16 +180,18 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	}
 
 	var tcpPorts, udpPorts string
-	var servicePort, mark, uid, dnsProxyPort string
+	var servicePort, mark, uid, dnsProxyPort, packetMark string
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
 		puType = p.Runtime.PUType()
 		servicePort = p.Policy.ServicesListeningPort()
 		dnsProxyPort = p.Policy.DNSProxyPort()
 		mark = p.Runtime.Options().CgroupMark
+		markIntVal, _ := strconv.Atoi(mark)
+		packetMark = strconv.Itoa(markIntVal << cgnetcls.MarkShift)
 		uid = p.Runtime.Options().UserID
 	}
-
+	zap.L().Debug("Marks", zap.String("PacketMark", packetMark), zap.String("CgroupMark", mark))
 	proxyPrefix := ipsetPrefix + proxyPortSetPrefix
 	proxySetName := puPortSetName(contextID, proxyPrefix)
 	destSetName, srvSetName := i.getSetNames(proxySetName)
@@ -238,15 +245,16 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		// common info
 		DefaultConnmark:         strconv.Itoa(int(constants.DefaultConnMark)),
 		DefaultExternalConnmark: strconv.Itoa(int(constants.DefaultExternalConnMark)),
-		QueueBalanceAppSyn:      i.fqc.GetApplicationQueueSynStr(),
-		QueueBalanceAppSynAck:   i.fqc.GetApplicationQueueSynAckStr(),
-		QueueBalanceAppAck:      i.fqc.GetApplicationQueueAckStr(),
-		QueueBalanceNetSyn:      i.fqc.GetNetworkQueueSynStr(),
-		QueueBalanceNetSynAck:   i.fqc.GetNetworkQueueSynAckStr(),
-		QueueBalanceNetAck:      i.fqc.GetNetworkQueueAckStr(),
+		NetSynQueues:            i.fqc.NetworkSynQueues,
+		NetAckQueues:            i.fqc.NetworkAckQueues,
+		NetSynAckQueues:         i.fqc.NetworkSynAckQueues,
+		AppSynQueues:            i.fqc.ApplicationSynQueues,
+		AppSynAckQueues:         i.fqc.ApplicationSynAckQueues,
+		AppAckQueues:            i.fqc.ApplicationAckQueues,
 		InitialMarkVal:          strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		CgroupMark:              mark,
+		PacketMark:              packetMark,
 		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
 		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,

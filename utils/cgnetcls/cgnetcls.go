@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 
 	"github.com/kardianos/osext"
@@ -158,6 +157,7 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 // DeleteCgroup assumes the cgroup is already empty and destroys the directory structure.
 // It will return an error if the group is not empty. Use RempoveProcess to remove all processes
 // Before we try deletion
+
 func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	_, err := os.Stat(filepath.Join(basePath, s.TriremePath, cgroupname))
@@ -165,8 +165,15 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 		zap.L().Debug("Group already deleted", zap.Error(err))
 		return nil
 	}
-	markVal := getAssignedMarkVal(cgroupName)
-
+	markVal := getAssignedMarkVal(cgroupname)
+	value, err := strconv.Atoi(markVal)
+	if err != nil {
+		return fmt.Errorf("Unable to read mark for cgroup %s", cgroupname)
+	}
+	err = s.markAllocator.Put(value)
+	if err != nil {
+		return fmt.Errorf("Cgroup not managed by this cgroup manager %s value %d", cgroupname, value)
+	}
 	err = os.Remove(filepath.Join(basePath, s.TriremePath, cgroupname))
 	if err != nil {
 		return fmt.Errorf("unable to delete cgroup %s: %s", cgroupname, err)
@@ -230,8 +237,8 @@ func (s *netCls) ListAllCgroups(path string) []string {
 }
 
 // GetMark get a mark from the indexallocator
-func (s *netCls) GetMark() uint64 {
-	return uint64(s.indexes.Get())
+func (s *netCls) GetMark() int32 {
+	return int32(s.markAllocator.Get())
 }
 
 func mountCgroupController() error {
@@ -301,7 +308,6 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 	binpath, _ := osext.Executable()
 	indexes, _, _ := indexallocator.New(ReservedMarkValues, Initialmarkval)
 	controller := &netCls{
-		markchan:         make(chan uint64),
 		ReleaseAgentPath: binpath,
 		TriremePath:      "",
 		markAllocator:    indexes,
@@ -318,7 +324,14 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 	return controller
 }
 
-// MarkVal returns a new Mark Value
-func MarkVal() uint64 {
-	return atomic.AddUint64(&markval, 1)
+// NewMarkAllocator returns an interface to retrieve mark values for cgroups
+func NewMarkAllocator() MarkAllocator {
+	indexes, _, _ := indexallocator.New(ReservedMarkValues, Initialmarkval)
+	controller := &netCls{
+		ReleaseAgentPath: "",
+		TriremePath:      "",
+		markAllocator:    indexes,
+	}
+	return controller
+
 }

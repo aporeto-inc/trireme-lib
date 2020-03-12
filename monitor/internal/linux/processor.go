@@ -277,8 +277,13 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 			puType = common.SSHSessionPU
 		}
 		runtime.SetPUType(puType)
+		markHdl := cgnetcls.NewMarkAllocator()
+		markValue := markHdl.GetMark()
+		if markValue == -1 {
+			return fmt.Errorf("Unable to allocated mark for %s", cgroup)
+		}
 		runtime.SetOptions(policy.OptionsType{
-			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+			CgroupMark: strconv.FormatUint(uint64(markValue), 10),
 			CgroupName: cgroup,
 		})
 

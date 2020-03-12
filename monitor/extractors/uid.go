@@ -28,11 +28,15 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 	if event.Name == "" {
 		event.Name = event.PUID
 	}
-
+	markHdl := cgnetcls.NewMarkAllocator()
+	markValue := markHdl.GetMark()
+	if markValue == -1 {
+		return nil, fmt.Errorf("Unable to allocated mark for %s", event.PUID)
+	}
 	// TODO: improve with additional information here.
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
-		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		CgroupMark: strconv.FormatUint(uint64(markValue), 10),
 		UserID:     event.PUID,
 		Services:   event.Services,
 	}

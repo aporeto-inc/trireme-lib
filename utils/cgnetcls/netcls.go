@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/indexallocator"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/internal/indexallocator"
+
 	"go.uber.org/zap"
 )
 
 // receiver definition.
 type netCls struct {
-	markchan         chan uint64
 	ReleaseAgentPath string
 	TriremePath      string
 	markAllocator    indexallocator.IndexAllocator
