@@ -73,6 +73,8 @@ func (m *controllerMatcher) String() string {
 	return "is not a Kubernetes controller"
 }
 
+const durationKey = "duration"
+
 func TestPodMonitor_startManager(t *testing.T) {
 	origLogger := zap.L()
 	// reset logger after this test completes
@@ -191,7 +193,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					}
 					var foundDuration bool
 					for _, field := range fields {
-						if field.Key == "duration" {
+						if field.Key == durationKey {
 							foundDuration = true
 							if field.Type != zapcore.DurationType {
 								t.Errorf("duration field of log message is not DurationType (8), but %v", field.Type)
@@ -304,7 +306,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					for _, expectedLogMessage := range expectedLogMessages {
 						if ent.Message == expectedLogMessage {
 							found = true
-							return nil
+							break
 						}
 					}
 					if !found {
@@ -315,7 +317,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					if ent.Message == "pod: controller startup finished, but took longer than expected undefined" {
 						var foundDuration bool
 						for _, field := range fields {
-							if field.Key == "duration" {
+							if field.Key == durationKey {
 								foundDuration = true
 								if field.Type != zapcore.DurationType {
 									t.Errorf("duration field of log message is not DurationType (8), but %v", field.Type)
@@ -461,7 +463,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					for _, expectedLogMessage := range expectedLogMessages {
 						if ent.Message == expectedLogMessage {
 							found = true
-							return nil
+							break
 						}
 					}
 					if !found {
@@ -472,7 +474,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					if ent.Message == "pod: controller startup finished" {
 						var foundDuration bool
 						for _, field := range fields {
-							if field.Key == "duration" {
+							if field.Key == durationKey {
 								foundDuration = true
 								if field.Type != zapcore.DurationType {
 									t.Errorf("duration field of log message is not DurationType (8), but %v", field.Type)
