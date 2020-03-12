@@ -74,6 +74,11 @@ func (m *controllerMatcher) String() string {
 }
 
 func TestPodMonitor_startManager(t *testing.T) {
+	origLogger := zap.L()
+	// reset logger after this test completes
+	defer func() {
+		zap.ReplaceGlobals(origLogger)
+	}()
 
 	// overwrite globals
 	retrySleep = time.Duration(0)
