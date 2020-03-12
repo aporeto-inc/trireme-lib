@@ -42,7 +42,7 @@ func setupDatapath(collector collector.EventCollector) *Datapath {
 	return NewWithDefaults("serverID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1._,1.1.1/31"}, nil)
 }
 
-func generateCommonTestData(action policy.ActionType, oaction policy.ObserveActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) {
+func generateCommonTestData(action policy.ActionType, oaction policy.ObserveActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) { // nolint
 
 	p := packet.TestGetTCPPacket(srcAddress, dstAddress, srcPort, dstPort)
 
