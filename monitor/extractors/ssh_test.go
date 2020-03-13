@@ -40,7 +40,9 @@ func TestSSHMetadataExtractor(t *testing.T) {
 			pu, err := SSHMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runtime", func() {
 				So(err, ShouldBeNil)
-				So(pu, ShouldResemble, testRuntime())
+				So(pu.Pid(), ShouldEqual, 1234)
+				So(pu.Name(), ShouldEqual, "curl")
+				So(pu.Tags().Tags, ShouldResemble, []string{"@user:ssh:app=web", "$cert=ss"})
 			})
 		})
 	})
