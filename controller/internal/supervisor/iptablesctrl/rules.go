@@ -177,7 +177,7 @@ var packetCaptureTemplate = `
 {{end}}
 {{if isUIDProcess}}
 {{range $index,$queuenum := .AppSynAckQueues}}
-{{$.MangleTable}} {{$.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK --m mark --mark {{Increment $index}}/{{$.QueueMask}} j NFQUEUE --queue-num {{$queuenum}}
+{{$.MangleTable}} {{$.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} j NFQUEUE --queue-num {{$queuenum}}
 {{end}}
 {{end}}
 {{range $index,$queuenum := .AppSynQueues}}
