@@ -26,7 +26,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.1.0
 	github.com/gogo/googleapis v1.3.2
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/mock v1.4.1
+	github.com/golang/mock v1.4.2
 	github.com/golang/protobuf v1.3.3
 	github.com/google/gopacket v1.1.17
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
@@ -65,7 +65,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	golang.org/x/tools v0.0.0-20200312194400-c312e98713c2 // indirect
+	golang.org/x/tools v0.0.0-20200313205530-4303120df7d8 // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
