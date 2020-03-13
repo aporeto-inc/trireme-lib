@@ -17,7 +17,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
-	"go.uber.org/zap"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
@@ -80,6 +79,7 @@ type ACLInfo struct {
 	TargetUDPNetSet         string
 	ExclusionsSet           string
 	IpsetPrefix             string
+	QueueMask               string
 	NumTransmitterQueues    uint32
 	StartTransmitterQueue   uint32
 	NumReceiverQueue        uint32
@@ -90,6 +90,7 @@ type ACLInfo struct {
 	AppSynQueues            []uint32
 	AppSynAckQueues         []uint32
 	AppAckQueues            []uint32
+
 	// IPv4 IPv6
 	DefaultIP     string
 	needICMPRules bool
@@ -178,7 +179,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		}
 		return ""
 	}
-
+	queueMask := "0x" + strconv.FormatUint(uint64(constants.NFQueueMask), 16)
 	var tcpPorts, udpPorts string
 	var servicePort, mark, uid, dnsProxyPort, packetMark string
 	if p != nil {
@@ -191,7 +192,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		packetMark = strconv.Itoa(markIntVal << cgnetcls.MarkShift)
 		uid = p.Runtime.Options().UserID
 	}
-	zap.L().Debug("Marks", zap.String("PacketMark", packetMark), zap.String("CgroupMark", mark))
+
 	proxyPrefix := ipsetPrefix + proxyPortSetPrefix
 	proxySetName := puPortSetName(contextID, proxyPrefix)
 	destSetName, srvSetName := i.getSetNames(proxySetName)
@@ -259,7 +260,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
 		IpsetPrefix:             ipsetPrefix,
-
+		QueueMask:               queueMask,
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
 		needICMPRules: i.impl.NeedICMP(),

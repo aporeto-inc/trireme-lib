@@ -21,8 +21,7 @@ type netCls struct {
 }
 
 var (
-	basePath        = "/sys/fs/cgroup/net_cls"
-	markval  uint64 = Initialmarkval
+	basePath = "/sys/fs/cgroup/net_cls"
 )
 
 // GetCgroupList geta list of all cgroup names

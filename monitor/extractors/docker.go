@@ -70,7 +70,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) (*policy.OptionsType, erro
 	markHdl := cgnetcls.NewMarkAllocator()
 	markValue := markHdl.GetMark()
 	if markValue == -1 {
-		return nil, fmt.Errorf("Unable to allocated mark for %s", dockerInfo.State.Pid)
+		return nil, fmt.Errorf("Unable to allocated mark for %d", dockerInfo.State.Pid)
 	}
 
 	options := policy.OptionsType{
