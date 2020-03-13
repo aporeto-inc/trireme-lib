@@ -125,7 +125,7 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	}
 	rulespec = strings.TrimSpace(rulespec)
 	if validate {
-		if _, err := ParseRuleSpec(rulespec); err != nil {
+		if _, err := ParseRuleSpec(strings.Split(rulespec, " ")...); err != nil {
 			return "", err
 		}
 	}
