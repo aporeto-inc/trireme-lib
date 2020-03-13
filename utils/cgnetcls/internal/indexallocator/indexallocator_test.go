@@ -11,11 +11,11 @@ func TestAllocator(t *testing.T) {
 	Convey("Given I do a new with size and start index", t, func() {
 		indexes, size, startIndex := New(10, 10)
 		So(size, ShouldEqual, 10)
-		So(startIndex, ShouldEqual, 10)
+		So(startIndex, ShouldEqual, 110)
 		So(len(indexes.(*allocator).availableMarks), ShouldEqual, size)
 		Convey("If i call New Again with a different size we get the original start back", func() {
 			newIndex, newSize, newStartIndex := New(11, 11)
-			So(newStartIndex, ShouldEqual, 10)
+			So(newStartIndex, ShouldEqual, 110)
 			So(newSize, ShouldEqual, 10)
 			So(len(newIndex.(*allocator).availableMarks), ShouldEqual, size)
 		})

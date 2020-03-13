@@ -29,14 +29,14 @@ func New(size int, startIndex int) (IndexAllocator, int, int) {
 	once.Do(func() {
 		indexes = &allocator{
 			size:           size,
-			startIndex:     startIndex,
+			startIndex:     startIndex + 100,
 			availableMarks: make(map[int]struct{}, size),
 		}
-		for i := startIndex; i < startIndex+size; i++ {
+		for i := startIndex + 100; i < startIndex+size+100; i++ {
 			indexes.availableMarks[i] = struct{}{}
 		}
 	})
-	return indexes, size, startIndex
+	return indexes, indexes.size, indexes.startIndex
 }
 
 // Get gets an index from the allocator
