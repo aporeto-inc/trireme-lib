@@ -2,12 +2,7 @@
 
 package cgnetcls
 
-import "sync/atomic"
-
-// MarkVal returns a new Mark Value
-func MarkVal() uint64 {
-	return atomic.AddUint64(&markval, 1)
-}
+import "go.aporeto.io/trireme-lib/utils/cgnetcls/internal/indexallocator"
 
 //Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 //To add a new process to this cgroup we need to write to the cgroup file
@@ -67,4 +62,21 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 //NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewDockerCgroupNetController() Cgroupnetcls {
 	return &netCls{}
+}
+
+// NewMarkAllocator returns an interface to retrieve mark values for cgroups
+func NewMarkAllocator() MarkAllocator {
+	indexes, _, _ := indexallocator.New(ReservedMarkValues, Initialmarkval)
+	controller := &netCls{
+		ReleaseAgentPath: "",
+		TriremePath:      "",
+		markAllocator:    indexes,
+	}
+	return controller
+
+}
+
+// GetMark get a mark from the indexallocator
+func (s *netCls) GetMark() int32 {
+	return 0
 }
