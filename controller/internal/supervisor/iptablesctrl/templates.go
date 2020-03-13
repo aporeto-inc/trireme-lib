@@ -80,6 +80,7 @@ type ACLInfo struct {
 	ExclusionsSet           string
 	IpsetPrefix             string
 	QueueMask               string
+	HMarkRandomSeed         string
 	NumTransmitterQueues    uint32
 	StartTransmitterQueue   uint32
 	NumReceiverQueue        uint32
@@ -180,6 +181,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		return ""
 	}
 	queueMask := "0x" + strconv.FormatUint(uint64(constants.NFQueueMask), 16)
+	hmarkRandomSeed := "0x" + strconv.FormatUint(uint64(constants.HMARKRandomSeed), 16)
 	var tcpPorts, udpPorts string
 	var servicePort, mark, uid, dnsProxyPort, packetMark string
 	if p != nil {
@@ -261,6 +263,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
 		IpsetPrefix:             ipsetPrefix,
 		QueueMask:               queueMask,
+		HMarkRandomSeed:         hmarkRandomSeed,
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
 		needICMPRules: i.impl.NeedICMP(),

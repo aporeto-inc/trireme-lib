@@ -152,4 +152,6 @@ const (
 	MaxNFQueuesSupported = (1 << 10)
 	// NFQueueMask is used to generate a mask value on the mark to mask out NFquue index
 	NFQueueMask = (1 << 10) - 1
+	// HMARKRandomSeed is used as a seed for hmark hash generator
+	HMARKRandomSeed = 0x1313405
 )

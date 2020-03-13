@@ -23,11 +23,11 @@ var globalRules = `
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 
-{{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0xdeafbee1 --hmark-mod {{$length}}
+{{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
 {{range $index,$queuenum := .NetSynAckQueues}}
 {{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -m string --string {{$.UDPSignature}} --algo bm --to 65535 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-bypass --queue-num {{$queuenum}}
 {{end}}
-{{$.MangleTable}} {{$.MainNetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0xdeafbee1 --hmark-mod {{$length}}
+{{$.MangleTable}} {{$.MainNetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
 {{range $index,$queuenum := .NetAckQueues}}
 {{$.MangleTable}} {{$.MainNetChain}} -m set --match-set {{$.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
 {{end}}
@@ -68,8 +68,8 @@ var globalRules = `
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK  -j ACCEPT
 {{end}}
 {{$length := len .AppSynQueues}}
-{{$.MangleTable}} {{$.MainAppChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0xdeafbee1 --hmark-mod {{$length}}
-{{$.MangleTable}} {{$.MainAppChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0xdeafbee1 --hmark-mod {{$length}}
+{{$.MangleTable}} {{$.MainAppChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
+{{$.MangleTable}} {{$.MainAppChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.UIDOutput}}
 {{end}}
