@@ -111,6 +111,10 @@ mockgen -package podmonitor -destination monitor/internal/pod/mockzapcore_test.g
 goimport_sanitize monitor/internal/pod/mockzapcore_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go sigs.k8s.io/controller-runtime/pkg/client Client
 goimport_sanitize monitor/internal/pod/mockclient_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockcache_test.go sigs.k8s.io/controller-runtime/pkg/cache Cache
+goimport_sanitize monitor/internal/pod/mockcache_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+goimport_sanitize monitor/internal/pod/mockinformer_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
 goimport_sanitize monitor/internal/pod/mockmanager_test.go
 
