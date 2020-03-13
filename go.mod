@@ -65,7 +65,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	golang.org/x/tools v0.0.0-20200309202150-20ab64c0d93f // indirect
+	golang.org/x/tools v0.0.0-20200312194400-c312e98713c2 // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible

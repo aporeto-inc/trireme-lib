@@ -12,7 +12,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
-	cache "k8s.io/client-go/tools/cache"
+	cache "sigs.k8s.io/controller-runtime/pkg/cache"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -61,10 +61,10 @@ func (mr *MockCacheMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call 
 
 // GetInformer mocks base method
 // nolint
-func (m *MockCache) GetInformer(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+func (m *MockCache) GetInformer(arg0 runtime.Object) (cache.Informer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInformer", arg0)
-	ret0, _ := ret[0].(cache.SharedIndexInformer)
+	ret0, _ := ret[0].(cache.Informer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -78,10 +78,10 @@ func (mr *MockCacheMockRecorder) GetInformer(arg0 interface{}) *gomock.Call {
 
 // GetInformerForKind mocks base method
 // nolint
-func (m *MockCache) GetInformerForKind(arg0 schema.GroupVersionKind) (cache.SharedIndexInformer, error) {
+func (m *MockCache) GetInformerForKind(arg0 schema.GroupVersionKind) (cache.Informer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInformerForKind", arg0)
-	ret0, _ := ret[0].(cache.SharedIndexInformer)
+	ret0, _ := ret[0].(cache.Informer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -111,18 +111,23 @@ func (mr *MockCacheMockRecorder) IndexField(arg0, arg1, arg2 interface{}) *gomoc
 
 // List mocks base method
 // nolint
-func (m *MockCache) List(arg0 context.Context, arg1 *client.ListOptions, arg2 runtime.Object) error {
+func (m *MockCache) List(arg0 context.Context, arg1 runtime.Object, arg2 ...client.ListOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "List", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // List indicates an expected call of List
 // nolint
-func (mr *MockCacheMockRecorder) List(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCacheMockRecorder) List(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockCache)(nil).List), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockCache)(nil).List), varargs...)
 }
 
 // Start mocks base method
