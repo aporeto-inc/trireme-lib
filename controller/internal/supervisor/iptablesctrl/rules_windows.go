@@ -28,17 +28,17 @@ var globalRules = `
 var cgroupCaptureTemplate = `
 {{if isHostPU}}
 -A HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP -m set --match-set {{.DestIPSet}} dstIP,dstPort -j REDIRECT  --to-ports {{.ProxyPort}}
--A HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP -j NFQUEUE -j MARK {{.Mark}}
--A HostPU-OUTPUT -p udp -m set --match-set {{.TargetUDPNetSet}} dstIP -j NFQUEUE -j MARK {{.Mark}}
+-A HostPU-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP -j NFQUEUE -j MARK {{.PacketMark}}
+-A HostPU-OUTPUT -p udp -m set --match-set {{.TargetUDPNetSet}} dstIP -j NFQUEUE -j MARK {{.PacketMark}}
 -A HostPU-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
--A HostPU-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP -j NFQUEUE -j MARK {{.Mark}}
--A HostPU-INPUT -p udp -m set --match-set {{.TargetUDPNetSet}} srcIP -m string --string {{.UDPSignature}} --offset 2 -j NFQUEUE -j MARK {{.Mark}}
+-A HostPU-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP -j NFQUEUE -j MARK {{.PacketMark}}
+-A HostPU-INPUT -p udp -m set --match-set {{.TargetUDPNetSet}} srcIP -m string --string {{.UDPSignature}} --offset 2 -j NFQUEUE -j MARK {{.PacketMark}}
 {{else}}
 -A HostSvcRules-INPUT -p tcp -m set --match-set {{.SrvIPSet}} dstPort -j REDIRECT --to-ports {{.ProxyPort}}
--A HostSvcRules-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP --dports {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
--A HostSvcRules-INPUT -p udp -m set --match-set {{.TargetUDPNetSet}} srcIP --dports {{.UDPPorts}} -m string --string {{.UDPSignature}} --offset 2 -j NFQUEUE -j MARK {{.Mark}}
--A HostSvcRules-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP --sports {{.TCPPorts}} -j NFQUEUE -j MARK {{.Mark}}
--A HostSvcRules-OUTPUT -p udp -m set --match-set {{.TargetUDPNetSet}} dstIP --sports {{.UDPPorts}} -j NFQUEUE -j MARK {{.Mark}}
+-A HostSvcRules-INPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} srcIP --dports {{.TCPPorts}} -j NFQUEUE -j MARK {{.PacketMark}}
+-A HostSvcRules-INPUT -p udp -m set --match-set {{.TargetUDPNetSet}} srcIP --dports {{.UDPPorts}} -m string --string {{.UDPSignature}} --offset 2 -j NFQUEUE -j MARK {{.PacketMark}}
+-A HostSvcRules-OUTPUT -p tcp -m set --match-set {{.TargetTCPNetSet}} dstIP --sports {{.TCPPorts}} -j NFQUEUE -j MARK {{.PacketMark}}
+-A HostSvcRules-OUTPUT -p udp -m set --match-set {{.TargetUDPNetSet}} dstIP --sports {{.UDPPorts}} -j NFQUEUE -j MARK {{.PacketMark}}
 {{end}}
 `
 

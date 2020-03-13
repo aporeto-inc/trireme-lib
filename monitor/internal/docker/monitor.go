@@ -39,6 +39,7 @@ type DockerMonitor struct {
 	clientHdl                  lockedDockerClient
 	socketType                 string
 	socketAddress              string
+	releasePath                string
 	metadataExtractor          extractors.DockerMetadataExtractor
 	handlers                   map[Event]func(ctx context.Context, event *events.Message) error
 	eventnotifications         []chan *events.Message
@@ -82,11 +83,12 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
 	d.handlers = make(map[Event]func(ctx context.Context, event *events.Message) error)
 	d.stoplistener = make(chan bool)
-	d.netcls = cgnetcls.NewDockerCgroupNetController()
+	d.netcls = cgnetcls.NewCgroupNetController(common.TriremeDockerHostNetwork, "")
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
 	d.terminateStoppedContainers = dockerConfig.DestroyStoppedContainers
+	d.releasePath = dockerConfig.ReleasePath
 
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
@@ -382,7 +384,10 @@ func (d *DockerMonitor) resyncContainersByOrder(ctx context.Context, containers 
 		// If it is a host container, we need to activate it as a Linux process. We will
 		// override the options that the metadata extractor provided.
 		if container.HostConfig.NetworkMode == constants.DockerHostMode {
-			options := hostModeOptions(&container)
+			options, err := hostModeOptions(&container)
+			if err != nil {
+				return err
+			}
 			options.PolicyExtensions = runtime.Options().PolicyExtensions
 			runtime.SetOptions(*options)
 			runtime.SetPUType(common.LinuxProcessPU)
@@ -522,7 +527,11 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 	// override the options that the metadata extractor provided. We will maintain
 	// any policy extensions in the object.
 	if container.HostConfig.NetworkMode == constants.DockerHostMode {
-		options := hostModeOptions(container)
+
+		options, err := hostModeOptions(container)
+		if err != nil {
+			return err
+		}
 		options.PolicyExtensions = runtime.Options().PolicyExtensions
 		runtime.SetOptions(*options)
 		runtime.SetPUType(common.LinuxProcessPU)
@@ -560,7 +569,10 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	// If it is a host container, we need to activate it as a Linux process. We will
 	// override the options that the metadata extractor provided.
 	if container.HostConfig.NetworkMode == constants.DockerHostMode {
-		options := hostModeOptions(container)
+		options, err := hostModeOptions(container)
+		if err != nil {
+			return err
+		}
 		options.PolicyExtensions = runtime.Options().PolicyExtensions
 		runtime.SetOptions(*options)
 		runtime.SetPUType(common.LinuxProcessPU)
@@ -784,11 +796,17 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 
 // hostModeOptions creates the default options for a host-mode container. The
 // container must be activated as a Linux Process.
-func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
+func hostModeOptions(dockerInfo *types.ContainerJSON) (*policy.OptionsType, error) {
+
+	markHdl := cgnetcls.NewMarkAllocator()
+	markValue := markHdl.GetMark()
+	if markValue == -1 {
+		return nil, fmt.Errorf("Unable to allocated mark for %d", dockerInfo.State.Pid)
+	}
 
 	options := policy.OptionsType{
 		CgroupName:        strconv.Itoa(dockerInfo.State.Pid),
-		CgroupMark:        strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		CgroupMark:        strconv.FormatUint(uint64(markValue), 10),
 		ConvertedDockerPU: true,
 		AutoPort:          true,
 	}
@@ -807,5 +825,5 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 		}
 	}
 
-	return &options
+	return &options, nil
 }

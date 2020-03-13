@@ -30,10 +30,14 @@ func SSHMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 		runtimeTags.AppendKeyValue("@user:ssh:"+parts[0], parts[1])
 	}
-
+	markHdl := cgnetcls.NewMarkAllocator()
+	markValue := markHdl.GetMark()
+	if markValue == -1 {
+		return nil, fmt.Errorf("Unable to allocated mark for %s", event.PUID)
+	}
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
-		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		CgroupMark: strconv.FormatUint(uint64(markValue), 10),
 	}
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}

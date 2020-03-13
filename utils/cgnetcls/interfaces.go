@@ -1,6 +1,11 @@
 package cgnetcls
 
-//Cgroupnetcls interface exposing methods that can be called from outside to manage net_cls cgroups
+// MarkAllocator is an interface which gives access to only marks managd by cgnetcls
+type MarkAllocator interface {
+	GetMark() int32
+}
+
+// Cgroupnetcls interface exposing methods that can be called from outside to manage net_cls cgroups
 type Cgroupnetcls interface {
 	Creategroup(cgroupname string) error
 	AssignMark(cgroupname string, mark uint64) error
@@ -11,4 +16,5 @@ type Cgroupnetcls interface {
 	Deletebasepath(contextID string) bool
 	ListCgroupProcesses(cgroupname string) ([]string, error)
 	ListAllCgroups(path string) []string
+	MarkAllocator
 }

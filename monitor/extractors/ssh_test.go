@@ -1,28 +1,11 @@
 package extractors
 
 import (
-	"strconv"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/policy"
 )
-
-func testRuntime() *policy.PURuntime {
-
-	tags := policy.NewTagStore()
-	tags.AppendKeyValue("@user:ssh:app", "web")
-	tags.AppendKeyValue("$cert", "ss")
-
-	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
-	options := &policy.OptionsType{
-		CgroupName: "/1234",
-		CgroupMark: strconv.FormatUint(104, 10),
-	}
-
-	return policy.NewPURuntime("curl", 1234, "", tags, runtimeIps, common.SSHSessionPU, options)
-}
 
 func TestSSHMetadataExtractor(t *testing.T) {
 
@@ -40,7 +23,9 @@ func TestSSHMetadataExtractor(t *testing.T) {
 			pu, err := SSHMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runtime", func() {
 				So(err, ShouldBeNil)
-				So(pu, ShouldResemble, testRuntime())
+				So(pu.Pid(), ShouldEqual, 1234)
+				So(pu.Name(), ShouldEqual, "curl")
+				So(pu.Tags().Tags, ShouldResemble, []string{"@user:ssh:app=web", "$cert=ss"})
 			})
 		})
 	})

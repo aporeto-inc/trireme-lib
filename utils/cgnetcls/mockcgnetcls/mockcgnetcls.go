@@ -10,6 +10,49 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
+// MockMarkAllocator is a mock of MarkAllocator interface
+// nolint
+type MockMarkAllocator struct {
+	ctrl     *gomock.Controller
+	recorder *MockMarkAllocatorMockRecorder
+}
+
+// MockMarkAllocatorMockRecorder is the mock recorder for MockMarkAllocator
+// nolint
+type MockMarkAllocatorMockRecorder struct {
+	mock *MockMarkAllocator
+}
+
+// NewMockMarkAllocator creates a new mock instance
+// nolint
+func NewMockMarkAllocator(ctrl *gomock.Controller) *MockMarkAllocator {
+	mock := &MockMarkAllocator{ctrl: ctrl}
+	mock.recorder = &MockMarkAllocatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+// nolint
+func (m *MockMarkAllocator) EXPECT() *MockMarkAllocatorMockRecorder {
+	return m.recorder
+}
+
+// GetMark mocks base method
+// nolint
+func (m *MockMarkAllocator) GetMark() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMark")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetMark indicates an expected call of GetMark
+// nolint
+func (mr *MockMarkAllocatorMockRecorder) GetMark() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMark", reflect.TypeOf((*MockMarkAllocator)(nil).GetMark))
+}
+
 // MockCgroupnetcls is a mock of Cgroupnetcls interface
 // nolint
 type MockCgroupnetcls struct {
@@ -180,4 +223,20 @@ func (m *MockCgroupnetcls) ListAllCgroups(path string) []string {
 func (mr *MockCgroupnetclsMockRecorder) ListAllCgroups(path interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllCgroups", reflect.TypeOf((*MockCgroupnetcls)(nil).ListAllCgroups), path)
+}
+
+// GetMark mocks base method
+// nolint
+func (m *MockCgroupnetcls) GetMark() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMark")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetMark indicates an expected call of GetMark
+// nolint
+func (mr *MockCgroupnetclsMockRecorder) GetMark() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMark", reflect.TypeOf((*MockCgroupnetcls)(nil).GetMark))
 }

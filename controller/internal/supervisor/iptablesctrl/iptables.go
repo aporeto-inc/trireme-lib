@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -21,6 +22,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 
@@ -280,6 +282,8 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	cfg.TCPPorts = tcpPorts
 	cfg.CgroupMark = mark
 	cfg.Mark = mark
+	markIntVal, _ := strconv.Atoi(mark)
+	cfg.PacketMark = strconv.Itoa(markIntVal << cgnetcls.MarkShift)
 	cfg.UID = username
 	cfg.PUType = containerInfo.Runtime.PUType()
 	cfg.ProxyPort = containerInfo.Policy.ServicesListeningPort()

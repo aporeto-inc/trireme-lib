@@ -53,7 +53,11 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 	}
 
 	if info.HostConfig.NetworkMode == constants.DockerHostMode {
-		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.LinuxProcessPU, hostModeOptions(info)), nil
+		options, err := hostModeOptions(info)
+		if err != nil {
+			return nil, err
+		}
+		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.LinuxProcessPU, options), nil
 	}
 
 	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.ContainerPU, nil), nil
@@ -61,11 +65,17 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 
 // hostModeOptions creates the default options for a host-mode container. This is done
 // based on the policy and the metadata extractor logic and can very by implementation
-func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
+func hostModeOptions(dockerInfo *types.ContainerJSON) (*policy.OptionsType, error) {
+
+	markHdl := cgnetcls.NewMarkAllocator()
+	markValue := markHdl.GetMark()
+	if markValue == -1 {
+		return nil, fmt.Errorf("Unable to allocated mark for %d", dockerInfo.State.Pid)
+	}
 
 	options := policy.OptionsType{
 		CgroupName: strconv.Itoa(dockerInfo.State.Pid),
-		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		CgroupMark: strconv.FormatUint(uint64(markValue), 10),
 		AutoPort:   true,
 	}
 
@@ -83,7 +93,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 		}
 	}
 
-	return &options
+	return &options, nil
 }
 
 // NewExternalExtractor returns a new bash metadata extractor for Docker that will call

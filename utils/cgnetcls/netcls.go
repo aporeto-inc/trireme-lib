@@ -8,19 +8,20 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/internal/indexallocator"
+
 	"go.uber.org/zap"
 )
 
 // receiver definition.
 type netCls struct {
-	markchan         chan uint64
 	ReleaseAgentPath string
 	TriremePath      string
+	markAllocator    indexallocator.IndexAllocator
 }
 
 var (
-	basePath        = "/sys/fs/cgroup/net_cls"
-	markval  uint64 = Initialmarkval
+	basePath = "/sys/fs/cgroup/net_cls"
 )
 
 // GetCgroupList geta list of all cgroup names
@@ -67,9 +68,8 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	return procs, nil
 }
 
-// GetAssignedMarkVal -- returns the mark val assigned to the group
-// TODO: looks like dead code
-func GetAssignedMarkVal(cgroupName string) string {
+// getAssignedMarkVal -- returns the mark val assigned to the group
+func getAssignedMarkVal(cgroupName string) string {
 	mark, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, markFile))
 
 	if err != nil || len(mark) < 1 {

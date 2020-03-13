@@ -66,9 +66,14 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 			event.Services[index].Port = 0
 		}
 	}
+	markHdl := cgnetcls.NewMarkAllocator()
+	markValue := markHdl.GetMark()
+	if markValue == -1 {
+		return nil, fmt.Errorf("Unable to allocated mark for %s", event.PUID)
+	}
 	options.Services = event.Services
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
-	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options.CgroupMark = strconv.FormatUint(uint64(markValue), 10)
 	options.AutoPort = event.AutoPort
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}

@@ -165,6 +165,13 @@ func SubOptionMonitorDockerExtractor(extractor extractors.DockerMetadataExtracto
 	}
 }
 
+// SubOptionMonitorDockerRealeaseAgentPath specifies the path to release agent programmed in cgroup
+func SubOptionMonitorDockerRealeaseAgentPath(releasePath string) DockerMonitorOption {
+	return func(cfg *dockermonitor.Config) {
+		cfg.ReleasePath = releasePath
+	}
+}
+
 // SubOptionMonitorDockerSocket provides a way to specify socket info for docker.
 func SubOptionMonitorDockerSocket(socketType, socketAddress string) DockerMonitorOption {
 	return func(cfg *dockermonitor.Config) {
