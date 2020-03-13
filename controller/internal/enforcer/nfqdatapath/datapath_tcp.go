@@ -829,9 +829,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, conn.Context.PuContextError(pucontext.ErrDuplicateHandshakeAckDrop, fmt.Sprintf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
 		}
 
-		if !conn.ServiceConnection && d.bpf != nil {
-			d.bpf.RemoveFlow(conn.TCPtuple)
-		}
 		return nil, nil, nil
 	}
 
