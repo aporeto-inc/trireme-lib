@@ -44,7 +44,7 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Platfo
 			if netIP == nil {
 				err = fmt.Errorf("%s failed to get valid IP (%s)", frontman.GetDestInfoProc.Name, ipAddrStr)
 				// FrontmanGetDestInfo returned success, so clean up acquired resources
-				freeFunc(fd)
+				freeFunc(destHandle)
 			}
 		}
 	}
