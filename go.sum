@@ -44,6 +44,7 @@ github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a h1:NErengbX
 github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a/go.mod h1:qK6gR4hkFGuBMBAUpLocng5d7ymzJ6+vpZqsTwFrjAg=
 github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661 h1:nr542GaIkuS78WLXbP+s2i1coTrX9Cu4WnHh9A0DtSY=
 github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661/go.mod h1:0vXsw3vJ1lRZ709fHGWxGrVn0EuUXa81mfg5q5EE438=
+github.com/aporeto-inc/gopkt v0.0.0-20200314001002-dfa2409b099c/go.mod h1:0vXsw3vJ1lRZ709fHGWxGrVn0EuUXa81mfg5q5EE438=
 github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97 h1:gIIxuy3y8eiEHJWNBOMrdO+meCoMm6vK+kBBCl4648c=
 github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97/go.mod h1:eFOrfW2GmZY9YPBd0+M0pUOuAJ8hZOEWucCHmFk5Ink=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
@@ -214,9 +215,7 @@ github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6 h1:ZgQEtGgCBiWRM
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/mock v1.2.0/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
-github.com/golang/mock v1.4.0 h1:Rd1kQnQu0Hq3qvJppYSG0HtP+f5LPPUiDswTLiEegLg=
 github.com/golang/mock v1.4.0/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
-github.com/golang/mock v1.4.1 h1:ocYkMQY5RrXTYgXl7ICpV0IXwlEQGwKIsery4gyXa1U=
 github.com/golang/mock v1.4.1/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.2 h1:fXIkPzOBCwDUPvYmOPzETABgbqpYlYNigQ2o64eMr5c=
 github.com/golang/mock v1.4.2/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
@@ -570,7 +569,6 @@ github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV
 github.com/vishvananda/netlink v1.1.0/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=
 github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc h1:R83G5ikgLMxrBvLh22JhdfI8K6YXEPHx5P03Uu3DRs4=
 github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc/go.mod h1:ZjcWmFBXmLKZu9Nxj3WKYEafiSqer2rnvPr0en9UNpI=
-github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df h1:OviZH7qLw/7ZovXvuNyL3XQl8UFofeikI1NW1Gypu7k=
 github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df/go.mod h1:JP3t17pCcGlemwknint6hfoeCVQrEMVwxRLRjXpq+BU=
 github.com/vmihailenco/msgpack v4.0.4+incompatible h1:dSLoQfGFAo3F6OoNhwUmLwVgaUXK79GlxNBwueZn0xI=
 github.com/vmihailenco/msgpack v4.0.4+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=
@@ -581,12 +579,17 @@ github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+go.aporeto.io/netlink-go v1.42.0 h1:HYMF4AFBhi0wgDNdhfoezdtQ0Pf+rGHFyoLDeKxwKWo=
+go.aporeto.io/netlink-go v1.42.0/go.mod h1:r7qN3u1emBZjZRmK71oRhncZXOgJOXrVGqhZpZR+vEM=
 go.aporeto.io/netlink-go v1.42.1-0.20200227184237-96ad70aa83b3/go.mod h1:2vyoRxqIRK1K0epBp8thLL85aROuilqNB9HKWsTJv+o=
-go.aporeto.io/netlink-go v1.42.1-0.20200227185020-753e5756b1b7 h1:Euqj6XZVmbhRrZI8+bZnsaG14WQKKkpuCJj1CtOOKqw=
 go.aporeto.io/netlink-go v1.42.1-0.20200227185020-753e5756b1b7/go.mod h1:2vyoRxqIRK1K0epBp8thLL85aROuilqNB9HKWsTJv+o=
+go.aporeto.io/netlink-go v1.42.1-0.20200313235738-e32d68592a75/go.mod h1:IwftVA1Ugqd8AjbdAo5zsSn+yuyjwMIF5k6xhynyzP8=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 h1:ngw1NIPglTWLQnjgz2IKiHftrNmZwOikuRpJVNK4/O8=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8/go.mod h1:ylsR0KTuv3cSfWPRDfv8ff1rKvuCUWdKDE3+kaVtmjc=
+go.aporeto.io/trireme-lib v10.273.0+incompatible h1:tVgRvh2yWgpUtiA6XkQCzFGuchGNyFVQfPUaSvBl8Cw=
+go.aporeto.io/trireme-lib v10.273.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc16/go.mod h1:nIArJ2LaX73vYMqTEXvFO+PQjMvLJKTbQbq60WpFRVU=
+go.aporeto.io/trireme-lib/v11 v11.0.0-rc24/go.mod h1:1SbaVRaVBE7aG/4iY7txvpfOuKaURnYQkHNSKUMahbM=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
@@ -659,7 +662,6 @@ golang.org/x/net v0.0.0-20190812203447-cdfb69ac37fc/go.mod h1:mL1N/T3taQHkDXs73r
 golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20190923162816-aa69164e4478/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
-golang.org/x/net v0.0.0-20200202094626-16171245cfb2 h1:CCH4IOTTfewWjGOlSp+zGcjutRKlBEZQ6wTn8ozI/nI=
 golang.org/x/net v0.0.0-20200202094626-16171245cfb2/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20200226121028-0de0cce0169b h1:0mm1VjtFUOIlE1SbDlwjYaDxZVDP2S5ou6y0gSgXHu8=
 golang.org/x/net v0.0.0-20200226121028-0de0cce0169b/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
@@ -743,7 +745,6 @@ golang.org/x/tools v0.0.0-20191029190741-b9c20aec41a5/go.mod h1:b+2E5dAYhXwXZwtn
 golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191216052735-49a3e744a425 h1:VvQyQJN0tSuecqgcIxMWnnfG5kSmgy9KZR9sW3W5QeA=
 golang.org/x/tools v0.0.0-20191216052735-49a3e744a425/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
-golang.org/x/tools v0.0.0-20200312194400-c312e98713c2 h1:6TB4+MaZlkcSsJDu+BS5yxSEuZIYhjWz+jhbSLEZylI=
 golang.org/x/tools v0.0.0-20200312194400-c312e98713c2/go.mod h1:o4KQGtdN14AW+yjsvvwRTJJuXz8XRtIHtEnmAXLyFUw=
 golang.org/x/tools v0.0.0-20200313205530-4303120df7d8 h1:gkI/wGGwpcG5W4hLCzZNGxA4wzWBGGDStRI1MrjDl2Q=
 golang.org/x/tools v0.0.0-20200313205530-4303120df7d8/go.mod h1:Sl4aGygMT6LrqrWclx+PTx3U+LnKx/seiNR+3G19Ar8=

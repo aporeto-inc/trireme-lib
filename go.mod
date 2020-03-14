@@ -5,9 +5,9 @@ go 1.13
 // Aporeto modules
 require (
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200227025542-1a427ec14661
+	github.com/aporeto-inc/gopkt v0.0.0-20200314001002-dfa2409b099c
 	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
-	go.aporeto.io/netlink-go v1.42.1-0.20200227185020-753e5756b1b7
+	go.aporeto.io/netlink-go v1.42.1-0.20200313235738-e32d68592a75
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
 )
 
