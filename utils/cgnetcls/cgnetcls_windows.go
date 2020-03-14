@@ -4,6 +4,11 @@ package cgnetcls
 
 import "sync/atomic"
 
+type netCls struct {
+}
+
+var markval uint64 = Initialmarkval
+
 // MarkVal returns a new Mark Value
 func MarkVal() uint64 {
 	return atomic.AddUint64(&markval, 1)

@@ -25,24 +25,25 @@ import (
 // other handles required by the remote enforcer to talk to the external processes
 //
 // Why is this public when all members are private ? For golang RPC server requirements
+// The lint directives below are for non-linux compiles that use remoteenforcer_stub.go
 type RemoteEnforcer struct {
-	rpcSecret      string
+	rpcSecret      string //nolint:structcheck,unused
 	rpcHandle      rpcwrapper.RPCServer
-	collector      statscollector.Collector
+	collector      statscollector.Collector //nolint:structcheck,unused
 	statsClient    client.Reporter
 	reportsClient  client.Reporter
 	procMountPoint string
 	enforcer       enforcer.Enforcer
 	supervisor     supervisor.Supervisor
 	service        packetprocessor.PacketProcessor
-	secrets        secrets.Secrets
+	secrets        secrets.Secrets //nolint:structcheck,unused
 	ctx            context.Context
 	cancel         context.CancelFunc
 	exit           chan bool
-	zapConfig      zap.Config
-	logLevel       constants.LogLevel
-	tokenIssuer    tokenissuer.TokenClient
-	enforcerType   policy.EnforcerType
-	aclmanager     ipsetmanager.ACLManager
-	agentVersion   semver.Version
+	zapConfig      zap.Config              //nolint:structcheck,unused
+	logLevel       constants.LogLevel      //nolint:structcheck,unused
+	tokenIssuer    tokenissuer.TokenClient //nolint:structcheck,unused
+	enforcerType   policy.EnforcerType     //nolint:structcheck,unused
+	aclmanager     ipsetmanager.ACLManager //nolint:structcheck,unused
+	agentVersion   semver.Version          //nolint:structcheck,unused
 }

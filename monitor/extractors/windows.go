@@ -3,7 +3,6 @@
 package extractors
 
 import (
-	"debug/pe"
 	"encoding/hex"
 	"fmt"
 	"os/user"
@@ -76,7 +75,7 @@ func WindowsServiceEventMetadataExtractor(event *common.EventInfo) (*policy.PURu
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
 }
 
-// ProcessInfo returns all metadata captured by a Windows process
+// WinProcessInfo returns all metadata captured by a Windows process
 func WinProcessInfo(pid int32) []string {
 	userdata := []string{}
 
@@ -134,11 +133,7 @@ func WinProcessInfo(pid int32) []string {
 }
 
 // getDllImports returns the list of dynamic library dependencies of an executable
+// TODO(windows): debug/pe File.ImportedLibraries is not implemented currently
 func getDllImports(binpath string) []string {
-	f, err := pe.Open(binpath)
-	if err != nil {
-		return []string{}
-	}
-	libraries, _ := f.ImportedLibraries()
-	return libraries
+	return []string{}
 }

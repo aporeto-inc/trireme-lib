@@ -13,6 +13,11 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 )
 
+const (
+	sampleTCPPorts = "80,443"
+	sampleUDPPorts = ""
+)
+
 func TestTransformACLRuleHost(t *testing.T) {
 
 	Convey("When I parse some acl rules", t, func() {
@@ -26,8 +31,8 @@ func TestTransformACLRuleHost(t *testing.T) {
 		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 6 -m state --state NEW -m set --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
 
 		aclInfo := &ACLInfo{}
-		aclInfo.TCPPorts = "80,443"
-		aclInfo.UDPPorts = ""
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
 		aclInfo.PUType = common.HostPU
 
 		xformedRules := transformACLRules(aclRules, aclInfo, nil, true)
@@ -55,15 +60,15 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetSrcIp, ShouldBeFalse)
+			So(rs.MatchSet[0].MatchSetSrcIP, ShouldBeFalse)
 			So(rs.MatchSet[0].MatchSetSrcPort, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetDstIp, ShouldBeTrue)
+			So(rs.MatchSet[0].MatchSetDstIP, ShouldBeTrue)
 			So(rs.MatchSet[0].MatchSetDstPort, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetName, ShouldEqual, "TRI-v4-TargetTCP")
 			So(rs.MatchSet[1].MatchSetNegate, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetSrcIp, ShouldBeFalse)
+			So(rs.MatchSet[1].MatchSetSrcIP, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetSrcPort, ShouldBeFalse)
-			So(rs.MatchSet[1].MatchSetDstIp, ShouldBeTrue)
+			So(rs.MatchSet[1].MatchSetDstIP, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeTrue)
 
 			// check singular rule 3
@@ -98,15 +103,15 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-z4QRD1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetSrcIp, ShouldBeFalse)
+			So(rs.MatchSet[0].MatchSetSrcIP, ShouldBeFalse)
 			So(rs.MatchSet[0].MatchSetSrcPort, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetDstIp, ShouldBeTrue)
+			So(rs.MatchSet[0].MatchSetDstIP, ShouldBeTrue)
 			So(rs.MatchSet[0].MatchSetDstPort, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetName, ShouldEqual, "TRI-v4-TargetTCP")
 			So(rs.MatchSet[1].MatchSetNegate, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetSrcIp, ShouldBeFalse)
+			So(rs.MatchSet[1].MatchSetSrcIP, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetSrcPort, ShouldBeFalse)
-			So(rs.MatchSet[1].MatchSetDstIp, ShouldBeTrue)
+			So(rs.MatchSet[1].MatchSetDstIP, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeTrue)
 
 			// check last rule 6
@@ -137,8 +142,8 @@ func TestTransformACLRuleHostNet(t *testing.T) {
 		aclRules = append(aclRules, strings.Split("OUTPUT TRI-Net-hostZ7PbqL-0 -p 6 -m set --match-set TRI-v6-ext-cUDEx1114Z2xd src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 1:65535 -j ACCEPT", " "))
 
 		aclInfo := &ACLInfo{}
-		aclInfo.TCPPorts = "80,443"
-		aclInfo.UDPPorts = ""
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
 		aclInfo.PUType = common.HostPU
 
 		xformedRules := transformACLRules(aclRules, aclInfo, nil, false)
@@ -163,15 +168,15 @@ func TestTransformACLRuleHostNet(t *testing.T) {
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v6-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetSrcIp, ShouldBeTrue)
+			So(rs.MatchSet[0].MatchSetSrcIP, ShouldBeTrue)
 			So(rs.MatchSet[0].MatchSetSrcPort, ShouldBeTrue)
-			So(rs.MatchSet[0].MatchSetDstIp, ShouldBeFalse)
+			So(rs.MatchSet[0].MatchSetDstIP, ShouldBeFalse)
 			So(rs.MatchSet[0].MatchSetDstPort, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetName, ShouldEqual, "TRI-v6-TargetTCP")
 			So(rs.MatchSet[1].MatchSetNegate, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetSrcIp, ShouldBeTrue)
+			So(rs.MatchSet[1].MatchSetSrcIP, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetSrcPort, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetDstIp, ShouldBeFalse)
+			So(rs.MatchSet[1].MatchSetDstIP, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeFalse)
 
 		})
@@ -191,8 +196,8 @@ func TestTransformACLRuleHostSvc(t *testing.T) {
 		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-1114oqLQAD-0 -m set --match-set TRI-v4-ext-z4QRD1114Z2xd dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 2323 -j ACCEPT", " "))
 
 		aclInfo := &ACLInfo{}
-		aclInfo.TCPPorts = "80,443"
-		aclInfo.UDPPorts = ""
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
 		aclInfo.PUType = common.HostNetworkPU
 
 		xformedRules := transformACLRules(aclRules, aclInfo, nil, true)
@@ -219,8 +224,8 @@ func TestTransformACLRuleHostSvcNet(t *testing.T) {
 		aclRules = append(aclRules, strings.Split("OUTPUT TRI-Net-1114oqLQAD-0 -m set --match-set TRI-v4-ext-dxxgXBWCQy0= src -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP src --match multiport --dports 1:65535 -j ACCEPT", " "))
 
 		aclInfo := &ACLInfo{}
-		aclInfo.TCPPorts = "80,443"
-		aclInfo.UDPPorts = ""
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
 		aclInfo.PUType = common.HostNetworkPU
 
 		xformedRules := transformACLRules(aclRules, aclInfo, nil, false)
@@ -248,15 +253,15 @@ func TestTransformACLRuleHostSvcNet(t *testing.T) {
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
-			So(rs.MatchSet[0].MatchSetSrcIp, ShouldBeTrue)
+			So(rs.MatchSet[0].MatchSetSrcIP, ShouldBeTrue)
 			So(rs.MatchSet[0].MatchSetSrcPort, ShouldBeTrue)
-			So(rs.MatchSet[0].MatchSetDstIp, ShouldBeFalse)
+			So(rs.MatchSet[0].MatchSetDstIP, ShouldBeFalse)
 			So(rs.MatchSet[0].MatchSetDstPort, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetName, ShouldEqual, "TRI-v4-TargetTCP")
 			So(rs.MatchSet[1].MatchSetNegate, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetSrcIp, ShouldBeTrue)
+			So(rs.MatchSet[1].MatchSetSrcIP, ShouldBeTrue)
 			So(rs.MatchSet[1].MatchSetSrcPort, ShouldBeTrue)
-			So(rs.MatchSet[1].MatchSetDstIp, ShouldBeFalse)
+			So(rs.MatchSet[1].MatchSetDstIP, ShouldBeFalse)
 			So(rs.MatchSet[1].MatchSetDstPort, ShouldBeFalse)
 
 		})
