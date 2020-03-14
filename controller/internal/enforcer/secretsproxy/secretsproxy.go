@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aporeto-inc/oxy/forward"
+	"github.com/vulcand/oxy/forward"
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/v11/common"
 	"go.aporeto.io/trireme-lib/v11/controller/constants"

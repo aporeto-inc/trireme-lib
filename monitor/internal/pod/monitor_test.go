@@ -140,14 +140,14 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
@@ -250,14 +250,14 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
@@ -389,14 +389,14 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(2).Return(c)
 				mgr.EXPECT().GetScheme().Times(2).Return(scheme.Scheme)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(2).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(2).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(2).Return(cch)
 				mgr.EXPECT().GetConfig().Times(2).Return(nil)
 				mgr.EXPECT().GetScheme().Times(2).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(3).Return(c) // twice in controller.New because of the failure, and one time after that (that is after mgr.Add actually)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
+				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(2).Return(nil)
 				var mainControllerErrored bool
 				mgr.EXPECT().Add(isKubernetesController()).Times(2).DoAndReturn(func(run manager.Runnable) error {
 					if !mainControllerErrored {
