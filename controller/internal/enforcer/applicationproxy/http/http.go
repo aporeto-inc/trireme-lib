@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/oxy/forward"
+	"github.com/vulcand/oxy/forward"
 	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/v11/collector"
 	"go.aporeto.io/trireme-lib/v11/common"

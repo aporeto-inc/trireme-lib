@@ -4,11 +4,14 @@ go 1.13
 
 // Aporeto modules
 require (
-	github.com/aporeto-inc/go-ipset v1.5.3-0.20191002024208-fab1debc861a
-	github.com/aporeto-inc/gopkt v0.0.0-20200314001002-dfa2409b099c
-	github.com/aporeto-inc/oxy v1.2.3-0.20200204041758-974988a35e97
+	github.com/aporeto-inc/go-ipset v1.5.3-0.20200314060509-7b95f15c9600
 	go.aporeto.io/netlink-go v1.42.1-0.20200313235738-e32d68592a75
 	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
+)
+
+replace (
+	github.com/ghedo/go.pkt => github.com/aporeto-inc/gopkt v0.0.0-20200314054312-ec36c21fa4e0
+	github.com/vulcand/oxy => github.com/aporeto-inc/oxy v1.3.1-0.20200314064302-4c2778768cee
 )
 
 // 3rd party
@@ -59,17 +62,13 @@ require (
 
 // Kubernetes
 require (
-	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/containerd/containerd v1.3.3 // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
+	github.com/ghedo/go.pkt v0.0.0-00010101000000-000000000000
+	github.com/vulcand/oxy v0.0.0-00010101000000-000000000000
 	golang.org/x/tools v0.0.0-20200313205530-4303120df7d8 // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
-	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/controller-runtime v0.5.1
 )
 
 // NOTE: we must use the replace directive as below, otherwise we might get
