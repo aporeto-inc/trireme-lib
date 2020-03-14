@@ -24,11 +24,16 @@ func (*testPassFD) Control(f func(uintptr)) error {
 func TestGetOrigDestV4(t *testing.T) {
 
 	testGetOrigV4 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+
+		assert.Equal(t, trap, uintptr(syscall.SYS_GETSOCKOPT), "expected syscall trap to be SYS.GETSOCKOPT")
+		assert.Equal(t, unsafe.Alignof(a4), unsafe.Alignof(&sockaddr4{}), "uintptr and sockaddr4 alignment must be the same")
 		sa := (*(*sockaddr4)(unsafe.Pointer(a4))) //nolint
 		sa.family = syscall.AF_INET
+
 		copy(sa.data[2:6], []byte{127, 0, 0, 1})
 		binary.BigEndian.PutUint16(sa.data[:2], 3000)
-		*(*sockaddr4)(unsafe.Pointer(a4)) = sa //nolint
+
+		*(*sockaddr4)(unsafe.Pointer(a4)) = sa // nolint
 		return 0, 0, 0
 	}
 
@@ -40,6 +45,8 @@ func TestGetOrigDestV4(t *testing.T) {
 
 func TestGetOrigDestV6(t *testing.T) {
 	testGetOrigV6 := func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+		assert.Equal(t, trap, uintptr(syscall.SYS_GETSOCKOPT), "expected syscall trap to be SYS.GETSOCKOPT")
+		assert.Equal(t, unsafe.Alignof(a4), unsafe.Alignof(&sockaddr6{}), "uintptr and sockaddr6 alignment must be the same")
 		sa := (*(*sockaddr6)(unsafe.Pointer(a4))) //nolint
 		sa.family = syscall.AF_INET6
 
