@@ -25,18 +25,18 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
-	github.com/envoyproxy/go-control-plane v0.9.2
+	github.com/envoyproxy/go-control-plane v0.9.4
 	github.com/envoyproxy/protoc-gen-validate v0.1.0
 	github.com/ghedo/go.pkt v0.0.0-20200209120728-c97f47ad982f
 	github.com/gogo/googleapis v1.3.2
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/mock v1.4.2
-	github.com/golang/protobuf v1.3.3
+	github.com/golang/protobuf v1.3.5
 	github.com/google/gopacket v1.1.17
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/magiconair/properties v1.8.1
-	github.com/mattn/go-shellwords v1.0.9
+	github.com/mattn/go-shellwords v1.0.10
 	github.com/mdlayher/netlink v1.0.1-0.20191210152442-a1644773bc99
 	github.com/miekg/dns v1.1.27
 	github.com/minio/minio v0.0.0-20200203082420-9bbf5cb74f55
@@ -45,20 +45,20 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.2.1
 	github.com/shirou/gopsutil v2.20.1+incompatible
-	github.com/smartystreets/assertions v1.0.0
+	github.com/smartystreets/assertions v1.0.1
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.4.0
 	github.com/ti-mo/conntrack v0.0.0-20191219100429-c9b176489c1a
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
-	github.com/vulcand/oxy v1.0.0
-	go.uber.org/zap v1.13.0
+	github.com/vulcand/oxy v1.3.1
+	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
-	google.golang.org/grpc v1.27.0
+	google.golang.org/grpc v1.28.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 
 )
