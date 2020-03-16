@@ -15,31 +15,31 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 )
 
-// structure representing result of parsed --match-set
-type WindowsRuleMatchSet struct {
+// WindowsRuleMatchSet represents result of parsed --match-set
+type WindowsRuleMatchSet struct { //nolint:golint // ignore type name stutters
 	MatchSetName    string
 	MatchSetNegate  bool
-	MatchSetDstIp   bool
+	MatchSetDstIP   bool
 	MatchSetDstPort bool
-	MatchSetSrcIp   bool
+	MatchSetSrcIP   bool
 	MatchSetSrcPort bool
 }
 
-// structure representing parsed port range
-type WindowsRulePortRange struct {
+// WindowsRulePortRange represents parsed port range
+type WindowsRulePortRange struct { //nolint:golint // ignore type name stutters
 	PortStart int
 	PortEnd   int
 }
 
-// structure representing result of parsed iptables rule
-type WindowsRuleSpec struct {
+// WindowsRuleSpec represents result of parsed iptables rule
+type WindowsRuleSpec struct { //nolint:golint // ignore type name stutters
 	Protocol         int
 	Action           int // FilterAction (allow, drop, nfq, proxy)
 	ProxyPort        int
 	Mark             int
 	Log              bool
 	LogPrefix        string
-	GroupId          int
+	GroupID          int
 	MatchSrcPort     []*WindowsRulePortRange
 	MatchDstPort     []*WindowsRulePortRange
 	MatchBytes       []byte
@@ -47,7 +47,7 @@ type WindowsRuleSpec struct {
 	MatchSet         []*WindowsRuleMatchSet
 }
 
-// converts a WindowsRuleSpec back into a string for an iptables rule
+// MakeRuleSpecText converts a WindowsRuleSpec back into a string for an iptables rule
 func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, error) {
 	rulespec := ""
 	if winRuleSpec.Protocol > 0 && winRuleSpec.Protocol < math.MaxUint8 {
@@ -89,12 +89,12 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 				rulespec += "! "
 			}
 			rulespec += fmt.Sprintf("--match-set %s ", ms.MatchSetName)
-			if ms.MatchSetSrcIp {
+			if ms.MatchSetSrcIP {
 				rulespec += "srcIP"
 				if ms.MatchSetSrcPort || ms.MatchSetDstPort {
 					rulespec += ","
 				}
-			} else if ms.MatchSetDstIp {
+			} else if ms.MatchSetDstIP {
 				rulespec += "dstIP"
 				if ms.MatchSetSrcPort || ms.MatchSetDstPort {
 					rulespec += ","
@@ -121,18 +121,18 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 		rulespec += fmt.Sprintf("-j NFQUEUE --queue-force -j MARK %d ", winRuleSpec.Mark)
 	}
 	if winRuleSpec.Log {
-		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupId, winRuleSpec.LogPrefix)
+		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupID, winRuleSpec.LogPrefix)
 	}
 	rulespec = strings.TrimSpace(rulespec)
 	if validate {
-		if _, err := ParseRuleSpec(rulespec); err != nil {
+		if _, err := ParseRuleSpec(strings.Split(rulespec, " ")...); err != nil {
 			return "", err
 		}
 	}
 	return rulespec, nil
 }
 
-// parse comma-separated list of port or port ranges
+// ParsePortString parses comma-separated list of port or port ranges
 func ParsePortString(portString string) ([]*WindowsRulePortRange, error) {
 	var result []*WindowsRulePortRange
 	if portString != "" {
@@ -179,7 +179,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	redirectPortOpt := opt.Int("to-ports", 0)
 	opt.String("state", "") // "--state NEW" et al ignored
 	opt.String("match", "") // "--match multiport" ignored
-	groupIdOpt := opt.Int("nflog-group", 0)
+	groupIDOpt := opt.Int("nflog-group", 0)
 	logPrefixOpt := opt.String("nflog-prefix", "")
 	nfqForceOpt := opt.Bool("queue-force", false)
 
@@ -249,9 +249,9 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 			// second part is the dst/src match specifier
 			ipPortSpecLower := strings.ToLower((*matchSetOpt)[matchSetIndex+1])
 			if strings.HasPrefix(ipPortSpecLower, "dstip") {
-				matchSet.MatchSetDstIp = true
+				matchSet.MatchSetDstIP = true
 			} else if strings.HasPrefix(ipPortSpecLower, "srcip") {
-				matchSet.MatchSetSrcIp = true
+				matchSet.MatchSetSrcIP = true
 			}
 			if strings.HasSuffix(ipPortSpecLower, "dstport") {
 				matchSet.MatchSetDstPort = true
@@ -264,13 +264,13 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 					return nil, errors.New("rulespec not valid: ipset match on port requires protocol be set")
 				}
 			}
-			if !matchSet.MatchSetDstIp && !matchSet.MatchSetDstPort && !matchSet.MatchSetSrcIp && !matchSet.MatchSetSrcPort {
+			if !matchSet.MatchSetDstIP && !matchSet.MatchSetDstPort && !matchSet.MatchSetSrcIP && !matchSet.MatchSetSrcPort {
 				// look for acl-created iptables-conforming match on 'dst' or 'src'.
 				// a dst or src by itself we take to mean match both. otherwise, we take it as ip-match,port-match.
 				if strings.HasPrefix(ipPortSpecLower, "dst") {
-					matchSet.MatchSetDstIp = true
+					matchSet.MatchSetDstIP = true
 				} else if strings.HasPrefix(ipPortSpecLower, "src") {
-					matchSet.MatchSetSrcIp = true
+					matchSet.MatchSetSrcIP = true
 				}
 				if strings.HasSuffix(ipPortSpecLower, "dst") && !isProtoAnyRule {
 					matchSet.MatchSetDstPort = true
@@ -284,7 +284,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 					}
 				}
 			}
-			if !matchSet.MatchSetDstIp && !matchSet.MatchSetDstPort && !matchSet.MatchSetSrcIp && !matchSet.MatchSetSrcPort {
+			if !matchSet.MatchSetDstIP && !matchSet.MatchSetDstPort && !matchSet.MatchSetSrcIP && !matchSet.MatchSetSrcPort {
 				return nil, errors.New("rulespec not valid: ipset match needs ip/port specifier")
 			}
 			result.MatchSet = append(result.MatchSet, matchSet)
@@ -299,7 +299,6 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 		case "state":
 			// for "-m state --state NEW"
 			// skip it for now
-			break
 
 		default:
 			return nil, errors.New("rulespec not valid: unknown -m option")
@@ -333,7 +332,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 			// if no other action specified, it will default to 'continue' action (zero)
 			result.Log = true
 			result.LogPrefix = *logPrefixOpt
-			result.GroupId = *groupIdOpt
+			result.GroupID = *groupIDOpt
 		default:
 			return nil, errors.New("rulespec not valid: invalid action")
 		}
@@ -358,9 +357,9 @@ func (w *WindowsRuleMatchSet) Equal(other *WindowsRuleMatchSet) bool {
 	}
 	return w.MatchSetName == other.MatchSetName &&
 		w.MatchSetNegate == other.MatchSetNegate &&
-		w.MatchSetDstIp == other.MatchSetDstIp &&
+		w.MatchSetDstIP == other.MatchSetDstIP &&
 		w.MatchSetDstPort == other.MatchSetDstPort &&
-		w.MatchSetSrcIp == other.MatchSetSrcIp &&
+		w.MatchSetSrcIP == other.MatchSetSrcIP &&
 		w.MatchSetSrcPort == other.MatchSetSrcPort
 }
 
@@ -383,7 +382,7 @@ func (w *WindowsRuleSpec) Equal(other *WindowsRuleSpec) bool {
 		w.Mark == other.Mark &&
 		w.Log == other.Log &&
 		w.LogPrefix == other.LogPrefix &&
-		w.GroupId == other.GroupId &&
+		w.GroupID == other.GroupID &&
 		w.MatchBytesOffset == other.MatchBytesOffset &&
 		bytes.Equal(w.MatchBytes, other.MatchBytes) &&
 		len(w.MatchSrcPort) == len(other.MatchSrcPort) &&

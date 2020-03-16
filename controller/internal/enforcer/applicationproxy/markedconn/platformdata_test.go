@@ -16,8 +16,8 @@ func TestStoreTake(t *testing.T) {
 	Convey("Given a ProxiedListener with a PlatformDataControl", t, func() {
 
 		proxiedListener := ProxiedListener{
-			netListener:    nil,
-			mark:           100,
+			netListener:      nil,
+			mark:             100,
 			platformDataCtrl: NewPlatformDataControl(),
 		}
 
@@ -51,8 +51,8 @@ func TestStoreRemove(t *testing.T) {
 	Convey("Given a ProxiedListener with a PlatformDataControl", t, func() {
 
 		proxiedListener := ProxiedListener{
-			netListener:    nil,
-			mark:           101,
+			netListener:      nil,
+			mark:             101,
 			platformDataCtrl: NewPlatformDataControl(),
 		}
 
@@ -67,7 +67,7 @@ func TestStoreRemove(t *testing.T) {
 			originalIP:            ip,
 			originalPort:          port,
 			originalTCPConnection: nil,
-			platformData:            platformData,
+			platformData:          platformData,
 		}
 
 		Convey("When I store PlatformData for an ip/port, it should be retained until removed", func() {
@@ -93,8 +93,8 @@ func TestStoreMultiple(t *testing.T) {
 	Convey("Given a ProxiedListener with a PlatformDataControl", t, func() {
 
 		proxiedListener := ProxiedListener{
-			netListener:    nil,
-			mark:           100,
+			netListener:      nil,
+			mark:             100,
 			platformDataCtrl: NewPlatformDataControl(),
 		}
 

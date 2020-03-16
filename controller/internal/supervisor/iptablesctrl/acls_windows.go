@@ -62,11 +62,11 @@ func (i *iptables) platformInit() error {
 	}
 
 	if cfg.DNSServerIP != "" && !setExists("TRI-WindowsDNSServer") {
-		dnsIpSet, err := i.ipset.NewIpset("TRI-WindowsDNSServer", "hash:net", nil)
+		dnsIPSet, err := i.ipset.NewIpset("TRI-WindowsDNSServer", "hash:net", nil)
 		if err != nil {
 			return err
 		}
-		err = dnsIpSet.Add(cfg.DNSServerIP, 0)
+		err = dnsIPSet.Add(cfg.DNSServerIP, 0)
 		if err != nil {
 			return err
 		}
@@ -169,16 +169,16 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 	// save action/log properties, as long as one rule is an action and the other is nflog
 	action := 0
 	logPrefix := ""
-	groupId := 0
+	groupID := 0
 	if action == 0 && winRuleSpec1.Action != 0 && winRuleSpec2.Log {
 		action = winRuleSpec1.Action
 		logPrefix = winRuleSpec2.LogPrefix
-		groupId = winRuleSpec2.GroupId
+		groupID = winRuleSpec2.GroupID
 	}
 	if action == 0 && winRuleSpec2.Action != 0 && winRuleSpec1.Log {
 		action = winRuleSpec2.Action
 		logPrefix = winRuleSpec1.LogPrefix
-		groupId = winRuleSpec1.GroupId
+		groupID = winRuleSpec1.GroupID
 	}
 	if action == 0 {
 		return nil
@@ -187,16 +187,16 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 	// if one is nflog and one is another action, and they are otherwise equal, then combine into one rule
 	winRuleSpec1.Log = false
 	winRuleSpec1.LogPrefix = ""
-	winRuleSpec1.GroupId = 0
+	winRuleSpec1.GroupID = 0
 	winRuleSpec1.Action = 0
 	winRuleSpec2.Log = false
 	winRuleSpec2.LogPrefix = ""
-	winRuleSpec2.GroupId = 0
+	winRuleSpec2.GroupID = 0
 	winRuleSpec2.Action = 0
 	if winRuleSpec1.Equal(winRuleSpec2) {
 		winRuleSpec1.Log = true
 		winRuleSpec1.LogPrefix = logPrefix
-		winRuleSpec1.GroupId = groupId
+		winRuleSpec1.GroupID = groupID
 		winRuleSpec1.Action = action
 		return winRuleSpec1
 	}
@@ -204,8 +204,8 @@ func makeTerminatingRuleFromPair(aclRule1, aclRule2 []string) *winipt.WindowsRul
 }
 
 // take a parsed acl rule and clean it up, returning an acl rule in []string format
-func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleSpec, cfg *ACLInfo, isAppAcls bool) ([]string, error) {
-	// update chain name
+func processWindowsACLRule(table, _ string, winRuleSpec *winipt.WindowsRuleSpec, cfg *ACLInfo, isAppAcls bool) ([]string, error) {
+	var chain string
 	switch cfg.PUType {
 	case common.HostPU:
 		if isAppAcls {
@@ -216,18 +216,17 @@ func processWindowsACLRule(table, chain string, winRuleSpec *winipt.WindowsRuleS
 	case common.HostNetworkPU:
 		if isAppAcls {
 			return nil, nil
-		} else {
-			chain = "HostSvcRules-INPUT"
-			// in Windows, our host svc chain is for all host svc PUs, so we need to set destination port
-			// to that of the PU in order to discriminate
-			switch winRuleSpec.Protocol {
-			case packet.IPProtocolTCP:
-				winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.TCPPorts)
-			case packet.IPProtocolUDP:
-				winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.UDPPorts)
-			default:
-				return nil, nil
-			}
+		}
+		chain = "HostSvcRules-INPUT"
+		// in Windows, our host svc chain is for all host svc PUs, so we need to set destination port
+		// to that of the PU in order to discriminate
+		switch winRuleSpec.Protocol {
+		case packet.IPProtocolTCP:
+			winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.TCPPorts)
+		case packet.IPProtocolUDP:
+			winRuleSpec.MatchDstPort, _ = winipt.ParsePortString(cfg.UDPPorts)
+		default:
+			return nil, nil
 		}
 	default:
 		return nil, fmt.Errorf("unexpected Windows PU: %v", cfg.PUType)

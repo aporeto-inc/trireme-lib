@@ -16,7 +16,6 @@ import (
 
 type windowsProcessor struct {
 	regStart          *regexp.Regexp
-	regStop           *regexp.Regexp
 	metadataExtractor extractors.EventMetadataExtractor
 	config            *config.ProcessorConfig
 	host              bool
@@ -31,10 +30,7 @@ func (w *windowsProcessor) Start(ctx context.Context, eventInfo *common.EventInf
 
 	// Normalize to a nativeID context. This will become key for any recoveries
 	// and it's an one way function.
-	nativeID, err := w.generateContextID(eventInfo)
-	if err != nil {
-		return err
-	}
+	nativeID := w.generateContextID(eventInfo)
 	// Extract the metadata and create the runtime
 	runtime, err := w.metadataExtractor(eventInfo)
 	if err != nil {
@@ -55,10 +51,7 @@ func (w *windowsProcessor) Start(ctx context.Context, eventInfo *common.EventInf
 
 // Event processes PU stop events
 func (w *windowsProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
-	puID, err := w.generateContextID(eventInfo)
-	if err != nil {
-		return err
-	}
+	puID := w.generateContextID(eventInfo)
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetPUType(eventInfo.PUType)
 
@@ -72,10 +65,7 @@ func (w *windowsProcessor) Create(ctx context.Context, eventInfo *common.EventIn
 
 // Event process a PU destroy event
 func (w *windowsProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
-	puID, err := w.generateContextID(eventInfo)
-	if err != nil {
-		return err
-	}
+	puID := w.generateContextID(eventInfo)
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetPUType(eventInfo.PUType)
 
@@ -86,7 +76,7 @@ func (w *windowsProcessor) Destroy(ctx context.Context, eventInfo *common.EventI
 			zap.Error(err),
 		)
 	}
-	return err
+	return nil
 }
 
 // Event processes a pause event
@@ -103,10 +93,7 @@ func (w *windowsProcessor) Resync(ctx context.Context, eventInfo *common.EventIn
 			if err != nil {
 				return err
 			}
-			nativeID, err := w.generateContextID(eventInfo)
-			if err != nil {
-				return err
-			}
+			nativeID := w.generateContextID(eventInfo)
 			if err = w.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
 				return fmt.Errorf("Unable to start PU: %s", err)
 			}
@@ -120,12 +107,10 @@ func (w *windowsProcessor) Resync(ctx context.Context, eventInfo *common.EventIn
 	return nil
 }
 
-func (w *windowsProcessor) generateContextID(eventInfo *common.EventInfo) (string, error) {
+func (w *windowsProcessor) generateContextID(eventInfo *common.EventInfo) string {
 	puID := eventInfo.PUID
-	if eventInfo.Cgroup == "" {
-		return puID, nil
-	}
 
-	return puID, nil
+	// TODO(windows): regStop may be used here somewhere in the future?
 
+	return puID
 }

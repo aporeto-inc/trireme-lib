@@ -6,12 +6,36 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 )
+
+const (
+	procNetTCPFile     = "/proc/net/tcp"
+	uidFieldOffset     = 7
+	inodeFieldOffset   = 9
+	procHeaderLineNum  = 0
+	portOffset         = 1
+	ipPortOffset       = 1
+	sockStateOffset    = 3
+	sockListeningState = "0A"
+	hexFormat          = 16
+	integerSize        = 64
+	minimumFields      = 2
+)
+
+func getUserName(uid string) (string, error) {
+
+	u, err := user.LookupId(uid)
+	if err != nil {
+		return "", err
+	}
+	return u.Username, nil
+}
 
 func (d *defaultRead) readProcNetTCP() (inodeMap map[string]string, userMap map[string]map[string]bool, err error) {
 
