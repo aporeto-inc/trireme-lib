@@ -22,11 +22,17 @@ case "$(go version)" in
     *)      CHECKPTR="-gcflags=all=-d=checkptr=0" ;;
 esac
 
+if [[ $# -gt 0 ]]; then
+    pkglist="$*"
+else
+    pkglist="$(go list ./... | grep -E -v '(mock|bpf)')"
+fi
+
 echo
 echo  "========= BEGIN LINUX TESTS ==========="
 echo
 
-for pkg in $(go list ./... | grep -E -v '(mock|bpf)' ); do
+for pkg in $pkglist ; do
     go test -tags test $CHECKPTR -race -coverprofile=profile.out -covermode=atomic "$pkg"
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
