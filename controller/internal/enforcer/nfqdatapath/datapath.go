@@ -726,7 +726,9 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	}
 
 	if app {
-		pu, err := d.puFromMark.Get(mark)
+		markIntVal, _ := strconv.Atoi(mark)
+		cgroupMark := strconv.Itoa(markIntVal >> constants.MarkShift)
+		pu, err := d.puFromMark.Get(cgroupMark)
 		if err != nil {
 			zap.L().Error("Unable to find context for application flow with mark",
 				zap.String("mark", mark),

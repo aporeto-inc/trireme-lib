@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -275,11 +276,12 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
 		return err
 	}
-
+	markIntVal, _ := strconv.Atoi(mark)
 	cfg.UDPPorts = udpPorts
 	cfg.TCPPorts = tcpPorts
 	cfg.CgroupMark = mark
 	cfg.Mark = mark
+	cfg.PacketMark = strconv.Itoa(markIntVal << constants.MarkShift)
 	cfg.UID = username
 	cfg.PUType = containerInfo.Runtime.PUType()
 	cfg.ProxyPort = containerInfo.Policy.ServicesListeningPort()
