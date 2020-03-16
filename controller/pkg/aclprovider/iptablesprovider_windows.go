@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
-
 	winipt "go.aporeto.io/trireme-lib/controller/internal/windows"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.uber.org/zap"
@@ -87,14 +85,6 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		return err
 	}
 
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
-
 	criteriaID := strings.Join(rulespec, " ")
 	argRuleSpec := frontman.RuleSpec{
 		Action:    uint8(winRuleSpec.Action),
@@ -141,26 +131,8 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argIpsetRuleSpecs[i].IpsetSrcPort = boolToUint8(matchSet.MatchSetSrcPort)
 		argIpsetRuleSpecs[i].IpsetName = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(matchSet.MatchSetName))) //nolint:staticcheck
 	}
-	var dllRet uintptr
-	if len(argIpsetRuleSpecs) > 0 {
-		dllRet, err = frontman.Driver.AppendFilterCriteria(driverHandle,
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID))), //nolint:staticcheck
-			uintptr(unsafe.Pointer(&argRuleSpec)),
-			uintptr(unsafe.Pointer(&argIpsetRuleSpecs[0])),
-			uintptr(len(argIpsetRuleSpecs)))
-	} else {
-		dllRet, err = frontman.Driver.AppendFilterCriteria(driverHandle,
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID))), //nolint:staticcheck
-			uintptr(unsafe.Pointer(&argRuleSpec)), 0, 0)
-	}
 
-	if dllRet == 0 {
-		return fmt.Errorf("AppendFilterCriteria failed (%v)", err)
-	}
-
-	return nil
+	return frontman.Wrapper.AppendFilterCriteria(chain, criteriaID, &argRuleSpec, argIpsetRuleSpecs)
 }
 
 // Insert will insert the rule in the corresponding position in the local
@@ -172,129 +144,47 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
-
 	criteriaID := strings.Join(rulespec, " ")
-	dllRet, err := frontman.Driver.DeleteFilterCriteria(driverHandle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID)))) //nolint:staticcheck
-
-	if dllRet == 0 {
-		return fmt.Errorf("DeleteFilterCriteria failed - could not delete %s (%v)", criteriaID, err)
-	}
-
-	return nil
+	return frontman.Wrapper.DeleteFilterCriteria(chain, criteriaID)
 }
 
 // ListChains will provide a list of the current chains.
 func (b *BatchProvider) ListChains(table string) ([]string, error) {
-	var outbound uintptr
+	var outbound bool
 	if strings.HasPrefix(table, "O") || strings.HasPrefix(table, "o") {
-		outbound = 1
+		outbound = true
 	} else if strings.HasPrefix(table, "I") || strings.HasPrefix(table, "i") {
-		outbound = 0
+		outbound = false
 	} else {
 		return nil, fmt.Errorf("'%s' is not a valid table for ListChains", table)
 	}
 
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return nil, err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return nil, fmt.Errorf("failed to get driver handle")
-	}
-
-	// first query for needed buffer size
-	var bytesNeeded, ignore uint32
-	dllRet, err := frontman.Driver.GetFilterList(driverHandle, outbound, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
-	if dllRet != 0 && bytesNeeded == 0 {
-		return []string{}, nil
-	}
-	if err != windows.ERROR_INSUFFICIENT_BUFFER {
-		return nil, fmt.Errorf("GetFilterList failed: %v", err)
-	}
-	if bytesNeeded%2 != 0 {
-		return nil, fmt.Errorf("GetFilterList failed: odd result (%d)", bytesNeeded)
-	}
-	// then allocate buffer for wide string and call again
-	buf := make([]uint16, bytesNeeded/2)
-	dllRet, err = frontman.Driver.GetFilterList(driverHandle, outbound, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
-	if dllRet == 0 {
-		return nil, fmt.Errorf("GetFilterList failed (ret=%d err=%v)", dllRet, err)
-	}
-	str := syscall.UTF16ToString(buf)
-	ipsets := strings.Split(str, ",")
-	return ipsets, nil
+	return frontman.Wrapper.GetFilterList(outbound)
 }
 
 // ClearChain will clear the chains.
 func (b *BatchProvider) ClearChain(table, chain string) error {
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
-
-	dllRet, err := frontman.Driver.EmptyFilter(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
-	if dllRet == 0 {
-		return fmt.Errorf("EmptyFilter failed (%v)", err)
-	}
-
-	return nil
+	return frontman.Wrapper.EmptyFilter(chain)
 }
 
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
-
-	dllRet, err := frontman.Driver.DestroyFilter(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
-	if dllRet == 0 {
-		return fmt.Errorf("DestroyFilter failed (%v)", err)
-	}
-
-	return nil
+	return frontman.Wrapper.DestroyFilter(chain)
 }
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
 
-	var outbound uintptr
+	var outbound bool
 	if strings.HasPrefix(table, "O") || strings.HasPrefix(table, "o") {
-		outbound = 1
+		outbound = true
 	} else if strings.HasPrefix(table, "I") || strings.HasPrefix(table, "i") {
-		outbound = 0
+		outbound = false
 	} else {
 		return fmt.Errorf("'%s' is not a valid table for NewChain", table)
 	}
 
-	dllRet, err := frontman.Driver.AppendFilter(driverHandle, outbound, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
-	if dllRet == 0 {
-		return fmt.Errorf("AppendFilter failed (%v)", err)
-	}
-
-	return nil
+	return frontman.Wrapper.AppendFilter(outbound, chain)
 }
 
 // Commit commits the rules to the system
