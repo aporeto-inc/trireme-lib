@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// nfLog
-type NfLogWindows struct {
+// NfLogWindows has nflog data for windows
+type NfLogWindows struct { //nolint:golint // ignore type name stutters
 	getPUContext    GetPUContextFunc
 	ipv4groupSource uint16
 	ipv4groupDest   uint16
@@ -31,18 +31,20 @@ func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUContext GetPUContex
 	}
 }
 
+// Run does nothing for Windows
 func (n *NfLogWindows) Run(ctx context.Context) {
 }
 
+// NfLogHandler handles log info from our Windows driver
 func (n *NfLogWindows) NfLogHandler(logPacketInfo *frontman.LogPacketInfo, packetHeaderBytes []byte) error {
 	var puIsSource bool
-	switch uint16(logPacketInfo.GroupId) {
+	switch uint16(logPacketInfo.GroupID) {
 	case n.ipv4groupSource:
 		puIsSource = false
 	case n.ipv4groupDest:
 		puIsSource = true
 	default:
-		return fmt.Errorf("unrecognized log group id: %d", logPacketInfo.GroupId)
+		return fmt.Errorf("unrecognized log group id: %d", logPacketInfo.GroupID)
 	}
 
 	ipPacket, err := packet.New(packet.PacketTypeNetwork, packetHeaderBytes, "", false)

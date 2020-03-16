@@ -28,6 +28,7 @@ addons:
        - libnetfilter-log-dev
        - iptables
        - ipset
+       - wine-stable
 
 env:
   global:
@@ -63,8 +64,10 @@ install:
 
 script:
   - ./mockgen.sh
-  - ./scripts/test.sh
   - ./scripts/lint.sh
+  - ./scripts/test.sh
+  - ./scripts/lint.windows.sh
+  - ./scripts/test.windows.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

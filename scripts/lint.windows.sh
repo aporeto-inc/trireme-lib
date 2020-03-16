@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 export GO111MODULE=auto
+export CGO_ENABLED=0
+export GOOS=windows
+export GOARCH=amd64
 
 # goimports and gofmt complain about cr-lf line endings, so don't run them on
 #	a Windows machine where git is configured to auto-convert line endings
@@ -41,4 +44,3 @@ golangci-lint run \
     $GOIMPORTS_OPTION \
     $GOFMT_OPTION \
     ./...
-

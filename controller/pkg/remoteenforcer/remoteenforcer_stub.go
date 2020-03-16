@@ -18,13 +18,13 @@ import (
 	"go.uber.org/zap"
 )
 
+//nolint:unused // seem to be used by the test
 var (
-	createEnforcer = enforcer.New
-
+	createEnforcer   = enforcer.New
 	createSupervisor = supervisor.NewSupervisor
 )
 
-// newServer is a fake implementation for building on darwin.
+// newServer is a fake implementation for building on darwin/windows.
 func newRemoteEnforcer(
 	ctx context.Context,
 	cancel context.CancelFunc,
@@ -77,8 +77,4 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 // EnableIPTablesPacketTracing enables iptables trace packet tracing
 func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
-}
-
-func (s *RemoteEnforcer) cleanup() {
-	return
 }

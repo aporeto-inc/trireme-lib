@@ -1,12 +1,10 @@
-// +build !windows
+// +build windows
 
-package linuxmonitor
+package windowsmonitor
 
 import (
 	"context"
 	"errors"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,23 +15,20 @@ import (
 	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.aporeto.io/trireme-lib/v11/policy/mockpolicy"
-	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls/mockcgnetcls"
 )
 
-func testLinuxProcessor(puHandler policy.Resolver) *linuxProcessor {
-	l := New()
-	l.SetupHandlers(&config.ProcessorConfig{
+func testWindowsProcessor(puHandler policy.Resolver) *windowsProcessor {
+	w := New()
+	w.SetupHandlers(&config.ProcessorConfig{
 		Collector: &collector.DefaultCollector{},
 		Policy:    puHandler,
 	})
-	if err := l.SetupConfig(nil, &Config{
+	if err := w.SetupConfig(nil, &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
-		StoredPath:             "/tmp",
-		ReleasePath:            "./",
 	}); err != nil {
 		return nil
 	}
-	return l.proc
+	return w.proc
 }
 
 func TestCreate(t *testing.T) {
@@ -43,7 +38,7 @@ func TestCreate(t *testing.T) {
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 
-		p := testLinuxProcessor(puHandler)
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I try a create event with invalid PU ID, ", func() {
 			event := &common.EventInfo{
@@ -74,9 +69,7 @@ func TestStop(t *testing.T) {
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 
-		p := testLinuxProcessor(puHandler)
-		mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-		p.netcls = mockcls
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I get a stop event that is valid", func() {
 			event := &common.EventInfo{
@@ -84,7 +77,6 @@ func TestStop(t *testing.T) {
 			}
 
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-			mockcls.EXPECT().ListCgroupProcesses("/trireme/1234")
 
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Stop(context.Background(), event)
@@ -100,22 +92,16 @@ func TestStop(t *testing.T) {
 func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	dummyPUPath := "/var/run/trireme/linux/1234"
-	ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
 
-	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 
-		p := testLinuxProcessor(puHandler)
-		mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-		p.netcls = mockcls
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I get a destroy event that is valid", func() {
 			event := &common.EventInfo{
 				PUID: "1234",
 			}
-			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
 
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
@@ -147,17 +133,16 @@ func TestPause(t *testing.T) {
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 
-		p := testLinuxProcessor(puHandler)
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I get a pause event that is valid", func() {
 			event := &common.EventInfo{
 				PUID: "/trireme/1234",
 			}
 
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Pause(context.Background(), event)
-				So(err, ShouldBeNil)
+				So(err, ShouldNotBeNil) // Pause does nothing on Windows
 			})
 		})
 	})
@@ -169,7 +154,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
-		p := testLinuxProcessor(puHandler)
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I get a start event with no PUID", func() {
 			event := &common.EventInfo{
@@ -217,28 +202,6 @@ func TestStart(t *testing.T) {
 			})
 		})
 
-		Convey("When I get a start event and create group fails ", func() {
-			event := &common.EventInfo{
-				Name:      "PU",
-				PID:       1,
-				PUID:      "12345",
-				EventType: common.EventStop,
-				PUType:    common.LinuxProcessPU,
-			}
-
-			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-			p.netcls = mockcls
-
-			Convey("I should get an error ", func() {
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
-				mockcls.EXPECT().Creategroup(gomock.Any()).Return(errors.New("error"))
-				mockcls.EXPECT().ListCgroupProcesses("12345")
-
-				err := p.Start(context.Background(), event)
-				So(err, ShouldNotBeNil)
-			})
-		})
-
 		Convey("When I get a start event and the runtime options don't have a mark value", func() {
 			event := &common.EventInfo{
 				Name:      "PU",
@@ -248,15 +211,8 @@ func TestStart(t *testing.T) {
 				PUType:    common.LinuxProcessPU,
 			}
 
-			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-			p.netcls = mockcls
-
 			Convey("I should not get an error ", func() {
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
-				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
-				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
-				mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any())
-				mockcls.EXPECT().ListCgroupProcesses("12345")
 				err := p.Start(context.Background(), event)
 				So(err, ShouldBeNil)
 			})
@@ -270,7 +226,7 @@ func TestResync(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
-		p := testLinuxProcessor(puHandler)
+		p := testWindowsProcessor(puHandler)
 
 		Convey("When I get a resync event ", func() {
 			event := &common.EventInfo{
@@ -281,36 +237,7 @@ func TestResync(t *testing.T) {
 				PUType:    common.LinuxProcessPU,
 			}
 
-			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-			p.netcls = mockcls
-
 			Convey("I should not get an error ", func() {
-				mockcls.EXPECT().ListAllCgroups(gomock.Any()).Return([]string{"cgroup"})
-				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{"procs"}, nil)
-				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
-				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				err := p.Resync(context.Background(), event)
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I get a resync event with no croup process", func() {
-			event := &common.EventInfo{
-				Name:      "PU",
-				PID:       1,
-				PUID:      "12345",
-				EventType: common.EventStart,
-				PUType:    common.LinuxProcessPU,
-			}
-
-			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-			p.netcls = mockcls
-
-			Convey("I should not get an error ", func() {
-				mockcls.EXPECT().ListAllCgroups(gomock.Any()).Return([]string{"cgroup"})
-				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{}, nil)
-				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
 				err := p.Resync(context.Background(), event)
 				So(err, ShouldBeNil)
 			})

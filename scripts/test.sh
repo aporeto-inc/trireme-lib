@@ -22,10 +22,6 @@ esac
 rm -f coverage.txt
 touch coverage.txt
 
-echo
-echo  "========= BEGIN TESTS ==========="
-echo
-
 ## FIX ME. go1.14 automatically enables unsafe ptr checks when doing race checks,
 ## and it is not clear if this is compatible (it is disabled on Windows)
 ##
@@ -42,8 +38,12 @@ case "$(go version)" in
     *)      CHECKPTR="-gcflags=all=-d=checkptr=0" ;;
 esac
 
-for d in $(go list ./... | grep -E -v '(mock|bpf)' ); do
-    go test ${CHECKPTR} -race -tags test -coverprofile=profile.out -covermode=atomic "$d"
+echo
+echo  "========= BEGIN LINUX TESTS ==========="
+echo
+
+for pkg in $(go list ./... | grep -E -v '(mock|bpf)' ); do
+    go test -tags test $CHECKPTR -race -coverprofile=profile.out -covermode=atomic "$pkg"
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
         rm profile.out
@@ -51,5 +51,5 @@ for d in $(go list ./... | grep -E -v '(mock|bpf)' ); do
 done
 
 echo
-echo  "========= END TESTS ==========="
+echo  "========= END LINUX TESTS ==========="
 echo
