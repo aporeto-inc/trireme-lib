@@ -87,16 +87,19 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		return err
 	}
 
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
 	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
+	}
 
-	criteriaId := strings.Join(rulespec, " ")
+	criteriaID := strings.Join(rulespec, " ")
 	argRuleSpec := frontman.RuleSpec{
 		Action:    uint8(winRuleSpec.Action),
 		Log:       boolToUint8(winRuleSpec.Log),
-		GroupId:   uint32(winRuleSpec.GroupId),
+		GroupID:   uint32(winRuleSpec.GroupID),
 		ProxyPort: uint16(winRuleSpec.ProxyPort),
 		Mark:      uint32(winRuleSpec.Mark),
 	}
@@ -108,7 +111,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.SrcPortCount = int32(len(winRuleSpec.MatchSrcPort))
 		srcPorts := make([]frontman.PortRange, argRuleSpec.SrcPortCount)
 		for i, portRange := range winRuleSpec.MatchSrcPort {
-			srcPorts[i] = frontman.PortRange{uint16(portRange.PortStart), uint16(portRange.PortEnd)}
+			srcPorts[i] = frontman.PortRange{PortStart: uint16(portRange.PortStart), PortEnd: uint16(portRange.PortEnd)}
 		}
 		argRuleSpec.SrcPorts = &srcPorts[0]
 	}
@@ -116,7 +119,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.DstPortCount = int32(len(winRuleSpec.MatchDstPort))
 		dstPorts := make([]frontman.PortRange, argRuleSpec.DstPortCount)
 		for i, portRange := range winRuleSpec.MatchDstPort {
-			dstPorts[i] = frontman.PortRange{uint16(portRange.PortStart), uint16(portRange.PortEnd)}
+			dstPorts[i] = frontman.PortRange{PortStart: uint16(portRange.PortStart), PortEnd: uint16(portRange.PortEnd)}
 		}
 		argRuleSpec.DstPorts = &dstPorts[0]
 	}
@@ -127,34 +130,34 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.BytesMatch = &winRuleSpec.MatchBytes[0]
 	}
 	if winRuleSpec.LogPrefix != "" {
-		argRuleSpec.LogPrefix = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(winRuleSpec.LogPrefix)))
+		argRuleSpec.LogPrefix = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(winRuleSpec.LogPrefix))) //nolint:staticcheck
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.MatchSet))
 	for i, matchSet := range winRuleSpec.MatchSet {
 		argIpsetRuleSpecs[i].NotIpset = boolToUint8(matchSet.MatchSetNegate)
-		argIpsetRuleSpecs[i].IpsetDstIp = boolToUint8(matchSet.MatchSetDstIp)
+		argIpsetRuleSpecs[i].IpsetDstIP = boolToUint8(matchSet.MatchSetDstIP)
 		argIpsetRuleSpecs[i].IpsetDstPort = boolToUint8(matchSet.MatchSetDstPort)
-		argIpsetRuleSpecs[i].IpsetSrcIp = boolToUint8(matchSet.MatchSetSrcIp)
+		argIpsetRuleSpecs[i].IpsetSrcIP = boolToUint8(matchSet.MatchSetSrcIP)
 		argIpsetRuleSpecs[i].IpsetSrcPort = boolToUint8(matchSet.MatchSetSrcPort)
-		argIpsetRuleSpecs[i].IpsetName = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(matchSet.MatchSetName)))
+		argIpsetRuleSpecs[i].IpsetName = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(matchSet.MatchSetName))) //nolint:staticcheck
 	}
 	var dllRet uintptr
 	if len(argIpsetRuleSpecs) > 0 {
-		dllRet, _, err = frontman.AppendFilterCriteriaProc.Call(driverHandle,
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
+		dllRet, err = frontman.Driver.AppendFilterCriteria(driverHandle,
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID))), //nolint:staticcheck
 			uintptr(unsafe.Pointer(&argRuleSpec)),
 			uintptr(unsafe.Pointer(&argIpsetRuleSpecs[0])),
 			uintptr(len(argIpsetRuleSpecs)))
 	} else {
-		dllRet, _, err = frontman.AppendFilterCriteriaProc.Call(driverHandle,
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
-			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))),
+		dllRet, err = frontman.Driver.AppendFilterCriteria(driverHandle,
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
+			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID))), //nolint:staticcheck
 			uintptr(unsafe.Pointer(&argRuleSpec)), 0, 0)
 	}
 
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (%v)", frontman.AppendFilterCriteriaProc.Name, err)
+		return fmt.Errorf("AppendFilterCriteria failed (%v)", err)
 	}
 
 	return nil
@@ -169,18 +172,21 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
 	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
+	}
 
-	criteriaId := strings.Join(rulespec, " ")
-	dllRet, _, err := frontman.DeleteFilterCriteriaProc.Call(driverHandle,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))))
+	criteriaID := strings.Join(rulespec, " ")
+	dllRet, err := frontman.Driver.DeleteFilterCriteria(driverHandle,
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),      //nolint:staticcheck
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaID)))) //nolint:staticcheck
 
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed - could not delete %s (%v)", frontman.DeleteFilterCriteriaProc.Name, criteriaId, err)
+		return fmt.Errorf("DeleteFilterCriteria failed - could not delete %s (%v)", criteriaID, err)
 	}
 
 	return nil
@@ -197,28 +203,31 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 		return nil, fmt.Errorf("'%s' is not a valid table for ListChains", table)
 	}
 
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return nil, err
+	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return nil, fmt.Errorf("failed to get driver handle")
 	}
 
 	// first query for needed buffer size
 	var bytesNeeded, ignore uint32
-	dllRet, _, err := frontman.GetFilterListProc.Call(driverHandle, outbound, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	dllRet, err := frontman.Driver.GetFilterList(driverHandle, outbound, 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
 	if dllRet != 0 && bytesNeeded == 0 {
 		return []string{}, nil
 	}
 	if err != windows.ERROR_INSUFFICIENT_BUFFER {
-		return nil, fmt.Errorf("%s failed: %v", frontman.GetFilterListProc.Name, err)
+		return nil, fmt.Errorf("GetFilterList failed: %v", err)
 	}
 	if bytesNeeded%2 != 0 {
-		return nil, fmt.Errorf("%s failed: odd result (%d)", frontman.GetFilterListProc.Name, bytesNeeded)
+		return nil, fmt.Errorf("GetFilterList failed: odd result (%d)", bytesNeeded)
 	}
 	// then allocate buffer for wide string and call again
 	buf := make([]uint16, bytesNeeded/2)
-	dllRet, _, err = frontman.GetFilterListProc.Call(driverHandle, outbound, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	dllRet, err = frontman.Driver.GetFilterList(driverHandle, outbound, uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
 	if dllRet == 0 {
-		return nil, fmt.Errorf("%s failed (ret=%d err=%v)", frontman.GetFilterListProc.Name, dllRet, err)
+		return nil, fmt.Errorf("GetFilterList failed (ret=%d err=%v)", dllRet, err)
 	}
 	str := syscall.UTF16ToString(buf)
 	ipsets := strings.Split(str, ",")
@@ -227,14 +236,17 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 
 // ClearChain will clear the chains.
 func (b *BatchProvider) ClearChain(table, chain string) error {
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
 	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
+	}
 
-	dllRet, _, err := frontman.EmptyFilterProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))))
+	dllRet, err := frontman.Driver.EmptyFilter(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (%v)", frontman.EmptyFilterProc.Name, err)
+		return fmt.Errorf("EmptyFilter failed (%v)", err)
 	}
 
 	return nil
@@ -242,14 +254,17 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
 	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
+	}
 
-	dllRet, _, err := frontman.DestroyFilterProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))))
+	dllRet, err := frontman.Driver.DestroyFilter(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (%v)", frontman.DestroyFilterProc.Name, err)
+		return fmt.Errorf("DestroyFilter failed (%v)", err)
 	}
 
 	return nil
@@ -257,9 +272,12 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
-	driverHandle, err := frontman.GetDriverHandle()
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
+	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
 	}
 
 	var outbound uintptr
@@ -271,9 +289,9 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 		return fmt.Errorf("'%s' is not a valid table for NewChain", table)
 	}
 
-	dllRet, _, err := frontman.AppendFilterProc.Call(driverHandle, outbound, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))))
+	dllRet, err := frontman.Driver.AppendFilter(driverHandle, outbound, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain)))) //nolint:staticcheck
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed (%v)", frontman.AppendFilterProc.Name, err)
+		return fmt.Errorf("AppendFilter failed (%v)", err)
 	}
 
 	return nil

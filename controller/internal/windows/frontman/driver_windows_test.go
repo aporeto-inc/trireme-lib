@@ -2,6 +2,8 @@
 
 package frontman
 
+// TODO(windows): these tests need to be moved to integration tests when possible
+
 import (
 	"testing"
 	"unsafe"
@@ -432,10 +434,11 @@ func TestFrontmanFunctionArguments(t *testing.T) {
 		Convey("The arguments to PacketFilterStart should be as expected", func() {
 			funcArgs, err := pdb.GetFunctionArguments("PacketFilterStart")
 			So(err, ShouldBeNil)
-			So(len(funcArgs), ShouldEqual, 3)
+			So(len(funcArgs), ShouldEqual, 4)
 			So(funcArgs[0].Size, ShouldEqual, pointerSize)
 			So(funcArgs[1].Size, ShouldEqual, pointerSize)
 			So(funcArgs[2].Size, ShouldEqual, pointerSize)
+			So(funcArgs[3].Size, ShouldEqual, pointerSize)
 		})
 
 		Convey("The arguments to PacketFilterClose should be as expected", func() {

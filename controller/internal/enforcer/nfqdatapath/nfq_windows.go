@@ -18,18 +18,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog.NFLogger) error {
-	driverHandle, err := frontman.GetDriverHandle()
+func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.NFLogger) error {
+	driverHandle, err := frontman.Driver.FrontmanOpenShared()
 	if err != nil {
 		return err
+	}
+	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
+		return fmt.Errorf("failed to get driver handle")
 	}
 
 	nflogWin := nflogger.(*nflog.NfLogWindows)
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
-		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))
-		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize]
+		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))                                   //nolint:govet
+		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize] //nolint:govet
 
 		var packetType int
 		if packetInfo.Outbound != 0 {
@@ -55,9 +58,9 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 				zap.L().Error("Failed to handle DNS response", zap.Error(err))
 			}
 			// forward packet
-			dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&packetBytes[0])))
+			dllRet, err := frontman.Driver.PacketFilterForward(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&packetBytes[0])))
 			if dllRet == 0 {
-				zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.PacketFilterForwardProc.Name, err))
+				zap.L().Error(fmt.Sprintf("PacketFilterForward failed: %v", err))
 			}
 			return 0
 		}
@@ -125,9 +128,9 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		if parsedPacket.PlatformMetadata.(*afinetrawsocket.PacketMetadata).IgnoreFlow {
 			packetInfo.IgnoreFlow = 1
 		}
-		dllRet, _, err := frontman.PacketFilterForwardProc.Call(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
+		dllRet, err := frontman.Driver.PacketFilterForward(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
 		if dllRet == 0 {
-			zap.L().Error(fmt.Sprintf("%s failed: %v", frontman.PacketFilterForwardProc.Name, err))
+			zap.L().Error(fmt.Sprintf("PacketFilterForward failed: %v", err))
 		}
 
 		if parsedPacket.IPProto() == packet.IPProtocolTCP {
@@ -155,7 +158,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
 
-		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr))
+		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr)) //nolint:govet
 		packetHeaderBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:logPacketInfo.PacketSize:logPacketInfo.PacketSize]
 
 		err := nflogWin.NfLogHandler(&logPacketInfo, packetHeaderBytes)
@@ -166,10 +169,10 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 		return 0
 	}
 
-	dllRet, _, err := frontman.PacketFilterStartProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))),
+	dllRet, err := frontman.Driver.PacketFilterStart(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))), //nolint:staticcheck
 		syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
 	if dllRet == 0 {
-		return fmt.Errorf("%s failed: %v", frontman.PacketFilterStartProc.Name, err)
+		return fmt.Errorf("PacketFilterStart failed: %v", err)
 	}
 
 	return nil
@@ -178,7 +181,7 @@ func (d *Datapath) startFrontmanPacketFilter(ctx context.Context, nflogger nflog
 // cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down
 func (d *Datapath) cleanupPlatform() {
 
-	dllRet, _, err := frontman.PacketFilterCloseProc.Call()
+	dllRet, err := frontman.Driver.PacketFilterClose()
 	if dllRet == 0 {
 		zap.L().Error("Failed to close packet proxy", zap.Error(err))
 	}

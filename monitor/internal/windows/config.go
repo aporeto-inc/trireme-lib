@@ -14,7 +14,7 @@ type Config struct {
 func DefaultConfig(host bool) *Config {
 	return &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
-		Host: host,
+		Host:                   host,
 	}
 }
 

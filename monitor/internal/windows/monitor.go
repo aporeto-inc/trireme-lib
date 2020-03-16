@@ -39,7 +39,6 @@ func (w *WindowsMonitor) Run(ctx context.Context) error {
 // by the consumer of the monitor
 func (w *WindowsMonitor) SetupHandlers(m *config.ProcessorConfig) {
 	w.proc.config = m
-	return
 }
 
 // SetupConfig sets up the config for the monitor
