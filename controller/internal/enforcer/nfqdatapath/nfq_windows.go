@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"syscall"
 	"unsafe"
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
@@ -19,13 +18,6 @@ import (
 )
 
 func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.NFLogger) error {
-	driverHandle, err := frontman.Driver.FrontmanOpenShared()
-	if err != nil {
-		return err
-	}
-	if syscall.Handle(driverHandle) == syscall.InvalidHandle {
-		return fmt.Errorf("failed to get driver handle")
-	}
 
 	nflogWin := nflogger.(*nflog.NfLogWindows)
 
@@ -58,9 +50,9 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 				zap.L().Error("Failed to handle DNS response", zap.Error(err))
 			}
 			// forward packet
-			dllRet, err := frontman.Driver.PacketFilterForward(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&packetBytes[0])))
-			if dllRet == 0 {
-				zap.L().Error(fmt.Sprintf("PacketFilterForward failed: %v", err))
+			err = frontman.Wrapper.PacketFilterForward(&packetInfo, packetBytes)
+			if err != nil {
+				zap.L().Error("failed to forward packet", zap.Error(err))
 			}
 			return 0
 		}
@@ -128,9 +120,8 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 		if parsedPacket.PlatformMetadata.(*afinetrawsocket.PacketMetadata).IgnoreFlow {
 			packetInfo.IgnoreFlow = 1
 		}
-		dllRet, err := frontman.Driver.PacketFilterForward(uintptr(unsafe.Pointer(&packetInfo)), uintptr(unsafe.Pointer(&modifiedPacketBytes[0])))
-		if dllRet == 0 {
-			zap.L().Error(fmt.Sprintf("PacketFilterForward failed: %v", err))
+		if err := frontman.Wrapper.PacketFilterForward(&packetInfo, modifiedPacketBytes); err != nil {
+			zap.L().Error("failed to forward packet", zap.Error(err))
 		}
 
 		if parsedPacket.IPProto() == packet.IPProtocolTCP {
@@ -169,10 +160,8 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 		return 0
 	}
 
-	dllRet, err := frontman.Driver.PacketFilterStart(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Aporeto Enforcer"))), //nolint:staticcheck
-		syscall.NewCallbackCDecl(packetCallback), syscall.NewCallbackCDecl(logCallback))
-	if dllRet == 0 {
-		return fmt.Errorf("PacketFilterStart failed: %v", err)
+	if err := frontman.Wrapper.PacketFilterStart("Aporeto Enforcer", packetCallback, logCallback); err != nil {
+		return err
 	}
 
 	return nil
@@ -181,8 +170,7 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 // cleanupPlatform for windows is needed to stop the frontman threads and permit the enforcerd app to shut down
 func (d *Datapath) cleanupPlatform() {
 
-	dllRet, err := frontman.Driver.PacketFilterClose()
-	if dllRet == 0 {
+	if err := frontman.Wrapper.PacketFilterClose(); err != nil {
 		zap.L().Error("Failed to close packet proxy", zap.Error(err))
 	}
 
