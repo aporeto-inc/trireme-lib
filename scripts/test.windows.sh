@@ -5,6 +5,10 @@ export CGO_ENABLED=0
 export GOOS=windows
 export GOARCH=amd64
 
+# set -e
+rm -f coverage.windows.txt
+touch coverage.windows.txt
+
 # use wine to execute if not running tests on a Windows machine
 OS="$(uname -s)"
 if [[ "$OS" == *"NT-"* ]]; then
@@ -29,15 +33,17 @@ case "$(go version)" in
     *)      CHECKPTR="-gcflags=all=-d=checkptr=0" ;;
 esac
 
-# set -e
-rm -f coverage.windows.txt
-touch coverage.windows.txt
+if [[ $# -gt 0 ]]; then
+    pkglist="$*"
+else
+    pkglist="$(go list ./... | grep -v remoteenforcer | grep -v remoteapi | grep -v "plugins/pam")"
+fi
 
 echo
 echo  "========= BEGIN WINDOWS TESTS ==========="
 echo
 
-for pkg in $(go list ./... | grep -v remoteenforcer | grep -v remoteapi | grep -v "plugins/pam"); do
+for pkg in $pkglist; do
     go test -tags test $WINE_EXEC $CHECKPTR -coverprofile=profile.windows.out -covermode=atomic "$pkg"
     if [ -f profile.windows.out ]; then
         cat profile.windows.out >> coverage.windows.txt

@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	cache "k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -112,7 +112,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				managerNew = managerNewTest(mgr, nil)
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -154,7 +154,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)
@@ -222,7 +222,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				managerNew = managerNewTest(mgr, nil)
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -264,7 +264,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)
@@ -354,7 +354,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				}
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -408,7 +408,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)
