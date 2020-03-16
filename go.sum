@@ -603,12 +603,15 @@ go.aporeto.io/netlink-go v1.42.1-0.20200314081018-cc4c87e61900 h1:SsPb4y9aphIgkf
 go.aporeto.io/netlink-go v1.42.1-0.20200314081018-cc4c87e61900/go.mod h1:oqRzQzflgAnKhFwuMJpgP7fMfHIN7HsogSikhWpUvns=
 go.aporeto.io/netlink-go v1.42.1-0.20200314115648-20e5fd3f309a h1:G8V2XqNuiLcqHEwFDiUHPriC6izX7/N7oNDSQY4rdtY=
 go.aporeto.io/netlink-go v1.42.1-0.20200314115648-20e5fd3f309a/go.mod h1:wR6tlfVCo0LDOQarGR0noaN36sJvsOQo63Njk3N2Lz4=
+go.aporeto.io/netlink-go v1.42.1-0.20200316093853-d3f47143fbb0 h1:/1uZUSudwobNB/fYWFB+rV0kbjag86VsCAWn09R6yHU=
+go.aporeto.io/netlink-go v1.42.1-0.20200316093853-d3f47143fbb0/go.mod h1:1SripPulsu+XSWubsx7A8cwHBpRqkIycenGEsa/PZwo=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 h1:ngw1NIPglTWLQnjgz2IKiHftrNmZwOikuRpJVNK4/O8=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8/go.mod h1:ylsR0KTuv3cSfWPRDfv8ff1rKvuCUWdKDE3+kaVtmjc=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc16/go.mod h1:nIArJ2LaX73vYMqTEXvFO+PQjMvLJKTbQbq60WpFRVU=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc24/go.mod h1:1SbaVRaVBE7aG/4iY7txvpfOuKaURnYQkHNSKUMahbM=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc26/go.mod h1:ENH2VFrPASkESekR8bKWX0Ww53xZr7k/D80gdmKRcJc=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc27/go.mod h1:HQVGBX0jcDCiKX9KUROUDjF+nERWrztIsPBPdWMBjkw=
+go.aporeto.io/trireme-lib/v11 v11.0.0-rc30/go.mod h1:aSpqEIFpVBqQvOjdKAF4tBZVCIgp9YBzurcs2k6lm6E=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
