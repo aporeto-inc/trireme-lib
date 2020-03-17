@@ -9,7 +9,7 @@ const (
 	// HMARKRandomSeed is used as a seed for hmark hash generator
 
 	// NFMarkMask is the mask to extract the mark and mask out the encoded queue
-	NFMarkMask = uint32(^NFQueueMask)
+	NFMarkMask = ^NFQueueMask
 
 	// HMARKRandomSeed is the seed to
 	HMARKRandomSeed = 0x1313405
