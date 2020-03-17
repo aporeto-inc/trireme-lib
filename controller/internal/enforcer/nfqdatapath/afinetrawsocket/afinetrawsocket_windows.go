@@ -4,7 +4,6 @@ package afinetrawsocket
 
 import (
 	"errors"
-	"unsafe"
 
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -59,9 +58,8 @@ func (w *PacketMetadata) udpForward(buf []byte, version packet.IPver) error {
 		w.PacketInfo.Ipv4 = 0
 	}
 	w.PacketInfo.PacketSize = uint32(len(buf))
-	r1, err1 := frontman.Driver.PacketFilterForward(uintptr(unsafe.Pointer(&w.PacketInfo)), uintptr(unsafe.Pointer(&buf[0])))
-	if r1 == 0 {
-		return err1
+	if err := frontman.Wrapper.PacketFilterForward(&w.PacketInfo, buf); err != nil {
+		return err
 	}
 	return nil
 }
