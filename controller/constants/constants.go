@@ -16,12 +16,6 @@ const (
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
 	DefaultRemoteArg = "enforce"
-	// DefaultConnMark is the default conn mark for all data packets
-	DefaultConnMark = uint32(0xEEEE)
-	// DefaultExternalConnMark is the default conn mark for all data packets
-	DefaultExternalConnMark = uint32(0xEEEF)
-	// DeleteConnmark is the mark used to trigger udp handshake.
-	DeleteConnmark = uint32(0xABCD)
 )
 
 const (
@@ -145,15 +139,4 @@ const (
 
 	// DatapathTokenValidity determines how long the tokens are valid.
 	DatapathTokenValidity = 1 * time.Minute
-)
-
-const (
-	// MaxNFQueuesSupported is the maximum number of queues supported by this datapath.1024 -> 128 queues each for SYN/SYNACK/ACK packets default is 4
-	MaxNFQueuesSupported = (1 << 10)
-	// NFQueueMask is used to generate a mask value on the mark to mask out NFquue index
-	NFQueueMask = (1 << 10) - 1
-	// HMARKRandomSeed is used as a seed for hmark hash generator
-	HMARKRandomSeed = 0x1313405
-
-	MarkShift = 16
 )

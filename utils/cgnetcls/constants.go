@@ -7,6 +7,4 @@ const (
 	CgroupMarkTag = "@cgroup_mark"
 	// PortTag is the tag for the port values
 	PortTag = "port"
-	//Initialmarkval is the start of mark values we assign to cgroup
-	Initialmarkval = 100
 )

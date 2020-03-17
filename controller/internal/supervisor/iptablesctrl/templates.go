@@ -12,11 +12,10 @@ import (
 	"text/template"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/constants"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
@@ -262,7 +261,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		AppSynQueues:            i.fqc.ApplicationSynQueues,
 		AppSynAckQueues:         i.fqc.ApplicationSynAckQueues,
 		AppAckQueues:            i.fqc.ApplicationAckQueues,
-		InitialMarkVal:          strconv.Itoa((cgnetcls.Initialmarkval - 1) << constants.MarkShift),
+		InitialMarkVal:          strconv.Itoa((constants.Initialmarkval - 1) << constants.MarkShift),
 		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		CgroupMark:              mark,
 		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
