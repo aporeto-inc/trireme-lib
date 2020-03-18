@@ -13,6 +13,7 @@ import (
 	"github.com/DavidGamba/go-getoptions"
 	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"golang.org/x/net/ipv6"
 )
 
 // structure representing result of parsed --match-set
@@ -199,6 +200,8 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 		result.Protocol = packet.IPProtocolUDP
 	case "icmp":
 		result.Protocol = 1
+	case "icmpv6":
+		result.Protocol = ipv6.ICMPType(0).Protocol()
 	case "": // not specified = all
 		fallthrough
 	case "all":
