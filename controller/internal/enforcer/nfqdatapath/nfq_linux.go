@@ -232,10 +232,10 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(0), uint32(copyIndex), uint32(p.ID), buffer)
 
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(0), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
 	}
 
 	if appPacket.IPProto() == packet.IPProtocolTCP {
