@@ -273,7 +273,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -361,7 +361,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -398,8 +398,8 @@ var (
 			"-j TRI-Hst-Net",
 		},
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 40960/0xfffffc00",
-			"-m mark --mark 40960/0xfffffc00 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
+			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
@@ -496,7 +496,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -534,8 +534,8 @@ var (
 		},
 
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 40960/0xfffffc00",
-			"-m mark --mark 40960/0xfffffc00 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
+			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
@@ -624,7 +624,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -662,8 +662,8 @@ var (
 		},
 
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 40960/0xfffffc00",
-			"-m mark --mark 40960/0xfffffc00 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
+			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
@@ -752,7 +752,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -789,8 +789,8 @@ var (
 			"-j TRI-Hst-Net",
 		},
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 40960/0xfffffc00",
-			"-m mark --mark 40960/0xfffffc00 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
+			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
@@ -917,7 +917,7 @@ var (
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -954,8 +954,8 @@ var (
 			"-j TRI-Hst-Net",
 		},
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 40960/0xfffffc00",
-			"-m mark --mark 40960/0xfffffc00 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
+			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
 		},
 		"TRI-Pid-Net": {
 			"-p tcp -m set --match-set TRI-v4-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--1",
@@ -1910,7 +1910,7 @@ var (
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
@@ -1983,7 +1983,7 @@ var (
 			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 405504/0xfffffc00",
+			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
 			"-p tcp -m set --match-set TRI-v4-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",

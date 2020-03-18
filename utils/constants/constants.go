@@ -6,15 +6,14 @@ const (
 	MaxNFQueuesSupported = uint32(1 << 10)
 	// NFQueueMask is used to generate a mask value on the mark to mask out NFquue index
 	NFQueueMask = uint32((1 << 10) - 1)
-	// HMARKRandomSeed is used as a seed for hmark hash generator
+	// MarkShift is the number of bits we shift the cgroupMark by
+	MarkShift = 18
 
-	// NFMarkMask is the mask to extract the mark and mask out the encoded queue
-	NFMarkMask = ^NFQueueMask
+	// NFSetMarkMask is the mask to extract the mark and mask out the encoded queue
+	NFSetMarkMask = ^uint32((1 << MarkShift) - 1)
 
 	// HMARKRandomSeed is the seed to
 	HMARKRandomSeed = 0x1313405
-
-	MarkShift = 12
 
 	//Initialmarkval is the start of mark values we assign to cgroup
 	Initialmarkval = 100

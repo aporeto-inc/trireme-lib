@@ -74,7 +74,7 @@ var globalRules = `
 {{.MangleTable}} {{.MainAppChain}} -j {{.UIDOutput}}
 {{end}}
 
-{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}/0xfffffc00
+{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}/{{.MarkMask}}
 {{range $index,$queuenum := .AppSynAckQueues}}
 {{$.MangleTable}} {{$.MainAppChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}} --queue-bypass
 {{end}}
@@ -101,7 +101,7 @@ var cgroupCaptureTemplate = `
 {{end}}
 
 {{if isHostPU}}
-{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/0xfffffc00 -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.NetSection}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
@@ -109,12 +109,12 @@ var cgroupCaptureTemplate = `
 {{.MangleTable}} {{.NetSection}} -p udp -m multiport --destination-ports {{.UDPPorts}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
-{{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.PacketMark}}/0xfffffc00
+{{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
 {{if isHostPU}}
-{{.MangleTable}} {{.AppSection}} -p udp -m mark --mark {{.PacketMark}}/0xfffffc00 -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGAcceptPrefix}} --nflog-group 10
-{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/0xfffffc00 -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.AppSection}} -p udp -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGAcceptPrefix}} --nflog-group 10
+{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{end}}
-{{.MangleTable}} {{.AppSection}} -m mark --mark {{.PacketMark}}/0xfffffc00 -m comment --comment PU-Chain -j {{.AppChain}}
+{{.MangleTable}} {{.AppSection}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment PU-Chain -j {{.AppChain}}
 `
 
 // containerChainTemplate will hook traffic towards the container specific chains.
@@ -123,10 +123,10 @@ var containerChainTemplate = `
 {{.MangleTable}} {{.NetSection}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
 
 var uidChainTemplate = `
-{{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.PacketMark}}/0xfffffc00
-{{.MangleTable}} {{.UIDOutput}} -m mark --mark {{.PacketMark}}/0xfffffc00 -m comment --comment Server-specific-chain -j {{.AppChain}}
-{{.MangleTable}} {{.UIDInput}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.PacketMark}}/0xfffffc00
-{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.PacketMark}}/0xfffffc00 -m comment --comment Container-specific-chain -j {{.NetChain}}
+{{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
+{{.MangleTable}} {{.UIDOutput}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment Server-specific-chain -j {{.AppChain}}
+{{.MangleTable}} {{.UIDInput}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
+{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment Container-specific-chain -j {{.NetChain}}
 `
 
 var acls = `

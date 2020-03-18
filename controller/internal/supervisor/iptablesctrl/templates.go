@@ -92,6 +92,7 @@ type ACLInfo struct {
 	AppSynAckQueues []uint32
 	AppAckQueues    []uint32
 	QueueMask       string
+	MarkMask        string
 	HMarkRandomSeed string
 	// IPv4 IPv6
 	DefaultIP     string
@@ -184,6 +185,8 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	var tcpPorts, udpPorts string
 	var servicePort, mark, uid, dnsProxyPort, packetMark string
 	queueMask := "0x" + strconv.FormatUint(uint64(constants.NFQueueMask), 16)
+	markMask := "0x" + strconv.FormatUint(uint64(constants.NFSetMarkMask), 16)
+
 	hmarkRandomSeed := "0x" + strconv.FormatUint(uint64(constants.HMARKRandomSeed), 16)
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
@@ -269,6 +272,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
 		IpsetPrefix:             ipsetPrefix,
 		QueueMask:               queueMask,
+		MarkMask:                markMask,
 		HMarkRandomSeed:         hmarkRandomSeed,
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
