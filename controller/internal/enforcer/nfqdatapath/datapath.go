@@ -721,7 +721,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, co
 // its IP information, we use the default IP. This will only work with remotes
 // and Linux processes.
 func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol uint8) (*pucontext.PUContext, error) {
-
+	zap.L().Debug("contextFromIP", zap.String("Mark", mark))
 	if d.puFromIP != nil {
 		return d.puFromIP, nil
 	}
