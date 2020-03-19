@@ -272,7 +272,7 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 	}
 
 	dllRet, _, err := frontman.AppendFilterProc.Call(driverHandle, outbound, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))))
-	if dllRet == 0 {
+	if dllRet == 0 && err != windows.ERROR_ALREADY_EXISTS {
 		return fmt.Errorf("%s failed (%v)", frontman.AppendFilterProc.Name, err)
 	}
 
