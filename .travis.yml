@@ -21,7 +21,6 @@ addons:
        - iptables
        - ipset
        - wine-stable
-       - wine32
 
 env:
   global:
@@ -32,6 +31,7 @@ env:
 before_install:
   - GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.21.0
   - GO111MODULE=off go get github.com/golang/dep/cmd/dep
+  - sudo apt-get install wine32
 
 install:
   - dep ensure
