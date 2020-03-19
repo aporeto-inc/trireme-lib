@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	markconstants "go.aporeto.io/trireme-lib/utils/constants"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -501,7 +503,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			udpPacket.IPProto(),
 			udpPacket.SourcePort(),
 			udpPacket.DestPort(),
-			constants.DefaultConnMark,
+			markconstants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table for UDP flow at transmitter",
 				zap.String("context", string(conn.Auth.LocalContext)),
@@ -618,7 +620,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 			udpPacket.IPProto(),
 			udpPacket.SourcePort(),
 			udpPacket.DestPort(),
-			constants.DefaultConnMark,
+			markconstants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table after ack packet")
 		}
@@ -676,7 +678,7 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 		udpPacket.IPProto(),
 		udpPacket.SourcePort(),
 		udpPacket.DestPort(),
-		constants.DeleteConnmark,
+		markconstants.DeleteConnmark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table for flow to terminate connection",
 			zap.String("app-conn", udpPacket.L4FlowHash()),
