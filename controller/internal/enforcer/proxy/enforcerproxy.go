@@ -173,7 +173,9 @@ func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
 func (s *ProxyInfo) CleanUp() error {
 	var synch sync.Mutex
 
-	lenCids := len(s.rpchdl.ContextList())
+	contextList := s.rpchdl.ContextList()
+	lenCids := len(contextList)
+
 	zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
 
 	var chs []chan string
@@ -198,7 +200,7 @@ func (s *ProxyInfo) CleanUp() error {
 		}(ch)
 	}
 
-	for i, contextID := range s.rpchdl.ContextList() {
+	for i, contextID := range contextList {
 		chs[i%4] <- contextID
 	}
 
