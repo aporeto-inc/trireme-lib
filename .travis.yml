@@ -21,6 +21,7 @@ addons:
        - iptables
        - ipset
        - wine-stable
+       - wine32
 
 env:
   global:
