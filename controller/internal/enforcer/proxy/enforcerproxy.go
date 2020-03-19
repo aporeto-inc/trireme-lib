@@ -172,14 +172,20 @@ func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
 	var synch sync.Mutex
+	var wg sync.WaitGroup
 
 	contextList := s.rpchdl.ContextList()
 	lenCids := len(contextList)
+
+	if lenCids == 0 {
+		return nil
+	}
 
 	zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
 
 	var chs []chan string
 
+	wg.Add(lenCids)
 	for i := 0; i < 4; i++ {
 		ch := make(chan string)
 		chs = append(chs, ch)
@@ -195,7 +201,7 @@ func (s *ProxyInfo) CleanUp() error {
 				lenCids = lenCids - 1
 				zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
 				synch.Unlock()
-
+				wg.Done()
 			}
 		}(ch)
 	}
@@ -204,6 +210,7 @@ func (s *ProxyInfo) CleanUp() error {
 		chs[i%4] <- contextID
 	}
 
+	wg.Wait()
 	zap.L().Info("All remote enforcers have exited...")
 
 	return nil
