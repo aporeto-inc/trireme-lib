@@ -23,11 +23,13 @@ var globalRules = `
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
 
 
+
 {{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
 {{range $index,$queuenum := .NetSynAckQueues}}
 {{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -m string --string {{$.UDPSignature}} --algo bm --to 65535 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-bypass --queue-num {{$queuenum}}
 {{end}}
 {{$.MangleTable}} {{$.MainNetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
+
 
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultExternalConnmark}} -j ACCEPT
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT

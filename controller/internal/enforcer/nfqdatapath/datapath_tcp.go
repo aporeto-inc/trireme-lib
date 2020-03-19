@@ -827,8 +827,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
-
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
+		// This rule is required as network packets are being duplicated by the middle box in google. Our ack packets contain payload and that will be sent to the tcp stack,
+		// if we don't drop them here.
+		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err == nil {
+			return nil, nil, conn.Context.PuContextError(pucontext.ErrDuplicateHandshakeAckDrop, fmt.Sprintf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
+		}
+
 		return nil, nil, nil
 	}
 

@@ -282,7 +282,6 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -367,7 +366,6 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
@@ -499,7 +497,6 @@ var (
 		},
 		"TRI-Net": {
 			"-j TRI-Prx-Net",
-
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
 			"-p udp -m set --match-set TRI-v4-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
