@@ -277,7 +277,11 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
 		return err
 	}
-	markIntVal, _ := strconv.Atoi(mark)
+	markIntVal, err := strconv.Atoi(mark)
+	if err != nil {
+		zap.L().Error("mark Conversion error", zap.Error(err))
+		return err
+	}
 	cfg.UDPPorts = udpPorts
 	cfg.TCPPorts = tcpPorts
 	cfg.CgroupMark = mark
