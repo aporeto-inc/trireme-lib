@@ -12,11 +12,10 @@ import (
 	"text/template"
 
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/constants"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
@@ -78,12 +77,22 @@ type ACLInfo struct {
 	QueueBalanceNetSyn      string
 	QueueBalanceNetSynAck   string
 	QueueBalanceNetAck      string
-	InitialMarkVal          string
-	RawSocketMark           string
-	TargetTCPNetSet         string
-	TargetUDPNetSet         string
-	ExclusionsSet           string
 
+	InitialMarkVal  string
+	RawSocketMark   string
+	TargetTCPNetSet string
+	TargetUDPNetSet string
+	ExclusionsSet   string
+	IpsetPrefix     string
+	NetSynQueues    []uint32
+	NetAckQueues    []uint32
+	NetSynAckQueues []uint32
+	AppSynQueues    []uint32
+	AppSynAckQueues []uint32
+	AppAckQueues    []uint32
+	QueueMask       string
+	MarkMask        string
+	HMarkRandomSeed string
 	// IPv4 IPv6
 	DefaultIP     string
 	needICMPRules bool
@@ -109,10 +118,10 @@ type ACLInfo struct {
 	ProxySetName string
 
 	// UID PUs
-	Mark    string
-	UID     string
-	PortSet string
-
+	PacketMark             string
+	Mark                   string
+	UID                    string
+	PortSet                string
 	NFLOGPrefix            string
 	NFLOGAcceptPrefix      string
 	DefaultNFLOGDropPrefix string
@@ -172,13 +181,19 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	}
 
 	var tcpPorts, udpPorts string
-	var servicePort, mark, uid, dnsProxyPort string
+	var servicePort, mark, uid, dnsProxyPort, packetMark string
+	queueMask := "0x" + strconv.FormatUint(uint64(constants.NFQueueMask), 16)
+	markMask := "0x" + strconv.FormatUint(uint64(constants.NFSetMarkMask), 16)
+
+	hmarkRandomSeed := "0x" + strconv.FormatUint(uint64(constants.HMARKRandomSeed), 16)
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
 		puType = p.Runtime.PUType()
 		servicePort = p.Policy.ServicesListeningPort()
 		dnsProxyPort = p.Policy.DNSProxyPort()
 		mark = p.Runtime.Options().CgroupMark
+		markIntVal, _ := strconv.Atoi(mark)
+		packetMark = strconv.Itoa(markIntVal << constants.MarkShift)
 		uid = p.Runtime.Options().UserID
 	}
 
@@ -241,11 +256,22 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		QueueBalanceNetSyn:      i.fqc.GetNetworkQueueSynStr(),
 		QueueBalanceNetSynAck:   i.fqc.GetNetworkQueueSynAckStr(),
 		QueueBalanceNetAck:      i.fqc.GetNetworkQueueAckStr(),
-		InitialMarkVal:          strconv.Itoa(cgnetcls.Initialmarkval - 1),
+		NetSynQueues:            i.fqc.NetworkSynQueues,
+		NetAckQueues:            i.fqc.NetworkAckQueues,
+		NetSynAckQueues:         i.fqc.NetworkSynAckQueues,
+		AppSynQueues:            i.fqc.ApplicationSynQueues,
+		AppSynAckQueues:         i.fqc.ApplicationSynAckQueues,
+		AppAckQueues:            i.fqc.ApplicationAckQueues,
+		InitialMarkVal:          strconv.Itoa((constants.Initialmarkval - 1) << constants.MarkShift),
 		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
 		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
 		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
+
+		IpsetPrefix:     ipsetPrefix,
+		QueueMask:       queueMask,
+		MarkMask:        markMask,
+		HMarkRandomSeed: hmarkRandomSeed,
 
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
@@ -272,9 +298,10 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ProxySetName: proxySetName,
 
 		// // UID PUs
-		UID:     uid,
-		Mark:    mark,
-		PortSet: portSetName,
+		UID:        uid,
+		PacketMark: packetMark,
+		Mark:       mark,
+		PortSet:    portSetName,
 
 		NFLOGPrefix:            policy.DefaultLogPrefix(contextID),
 		NFLOGAcceptPrefix:      policy.DefaultAcceptLogPrefix(contextID),
