@@ -87,6 +87,10 @@ var packetCaptureTemplate = `
 {{range netAnyRules}}
 {{joinRule .}}
 {{end}}
+{{if needICMP}}
+-A HostPU-OUTPUT -p icmpv6 -j ACCEPT
+-A HostPU-INPUT -p icmpv6 -j ACCEPT
+{{end}}
 -A HostPU-OUTPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs dstIP -j DROP -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 -A HostPU-INPUT -m set --match-set {{.IpsetPrefix}}WindowsAllIPs srcIP -j DROP -j NFLOG --nflog-group 11 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 {{else}}
