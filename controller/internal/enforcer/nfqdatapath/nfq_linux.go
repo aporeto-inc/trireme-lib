@@ -13,7 +13,9 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
+	markconstants "go.aporeto.io/trireme-lib/utils/constants"
 	"go.uber.org/zap"
 )
 
@@ -104,7 +106,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		)
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), length, uint32(p.ID), buffer)
 		if netPacket.IPProto() == packet.IPProtocolTCP {
 			d.collectTCPPacket(&debugpacketmessage{
 				Mark:    p.Mark,
@@ -134,10 +136,9 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex := copy(buffer, netPacket.GetBuffer(0))
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
-
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
 	}
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
@@ -194,7 +195,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), length, uint32(p.ID), buffer)
 		if appPacket.IPProto() == packet.IPProtocolTCP {
 
 			d.collectTCPPacket(&debugpacketmessage{
@@ -225,10 +226,10 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), uint32(copyIndex), uint32(p.ID), buffer)
 
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark)&^(markconstants.NFQueueMask|markconstants.NFSetMarkMask), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
 	}
 	if appPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{

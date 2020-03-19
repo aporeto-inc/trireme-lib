@@ -1,6 +1,8 @@
 package constants
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// DefaultProcMountPoint The default proc mountpoint
@@ -14,12 +16,6 @@ const (
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
 	DefaultRemoteArg = "enforce"
-	// DefaultConnMark is the default conn mark for all data packets
-	DefaultConnMark = uint32(0xEEEE)
-	// DefaultExternalConnMark is the default conn mark for all data packets
-	DefaultExternalConnMark = uint32(0xEEEF)
-	// DeleteConnmark is the mark used to trigger udp handshake.
-	DeleteConnmark = uint32(0xABCD)
 )
 
 const (
