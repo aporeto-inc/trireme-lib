@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	cache "k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -32,7 +31,7 @@ func createNewPodMonitor() *PodMonitor {
 	mockError := fmt.Errorf("mockerror: overwrite function with your own mock before using")
 	monitorConfig := DefaultConfig()
 	monitorConfig.Kubeconfig = "testdata/kubeconfig"
-	monitorConfig.MetadataExtractor = func(context.Context, client.Client, *runtime.Scheme, *corev1.Pod, bool) (*policy.PURuntime, error) {
+	monitorConfig.MetadataExtractor = func(context.Context, *corev1.Pod, bool) (*policy.PURuntime, error) {
 		return nil, mockError
 	}
 	monitorConfig.NetclsProgrammer = func(context.Context, *corev1.Pod, policy.RuntimeReader) error {
@@ -139,7 +138,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
@@ -249,7 +247,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
@@ -388,7 +385,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(2).Return(c)
-				mgr.EXPECT().GetScheme().Times(2).Return(scheme.Scheme)
 				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(2).DoAndReturn(sf)
