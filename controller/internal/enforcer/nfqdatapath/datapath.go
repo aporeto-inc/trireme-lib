@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	markconstants "go.aporeto.io/trireme-lib/utils/constants"
 	"go.aporeto.io/trireme-lib/utils/portcache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
@@ -681,9 +683,14 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if d.puFromIP != nil {
 		return d.puFromIP, nil
 	}
-
 	if app {
-		pu, err := d.puFromMark.Get(mark)
+		markIntVal, _ := strconv.Atoi(mark)
+		cgroupMark := strconv.Itoa(markIntVal >> markconstants.MarkShift)
+		pu, err := d.puFromMark.Get(cgroupMark)
+		zap.L().Debug("puFromMark",
+			zap.String("CgroupMark", cgroupMark),
+			zap.Int("MarkIntVal", markIntVal),
+		)
 		if err != nil {
 			zap.L().Error("Unable to find context for application flow with mark",
 				zap.String("mark", mark),

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -21,6 +22,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	markconstants "go.aporeto.io/trireme-lib/utils/constants"
 	"go.uber.org/zap"
 )
 
@@ -270,11 +272,16 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Error("unable to create cleanup configuration", zap.Error(err))
 		return err
 	}
-
+	markIntVal, err := strconv.Atoi(mark)
+	if err != nil {
+		zap.L().Error("mark Conversion error", zap.Error(err))
+		return err
+	}
 	cfg.UDPPorts = udpPorts
 	cfg.TCPPorts = tcpPorts
 	cfg.CgroupMark = mark
 	cfg.Mark = mark
+	cfg.PacketMark = strconv.Itoa(markIntVal << markconstants.MarkShift)
 	cfg.UID = username
 	cfg.PUType = puType
 	cfg.ProxyPort = proxyPort
