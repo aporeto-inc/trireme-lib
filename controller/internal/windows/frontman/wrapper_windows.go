@@ -209,6 +209,10 @@ func (w *wrapper) PacketFilterForward(info *PacketInfo, packetBytes []byte) erro
 func (w *wrapper) AppendFilter(outbound bool, filterName string) error {
 	w.initDriverHandle()
 	if ret, err := Driver.AppendFilter(w.driverHandle, marshalBool(outbound), marshalString(filterName)); ret == 0 {
+		// no error if already exists
+		if err == windows.ERROR_ALREADY_EXISTS {
+			return nil
+		}
 		return fmt.Errorf("AppendFilter failed: %v", err)
 	}
 	return nil
