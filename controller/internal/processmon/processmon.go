@@ -124,7 +124,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	procMountPoint string,
 	enforcerType policy.EnforcerType,
 ) (bool, error) {
-
 	// Locking here to get the procesinfo to avoid race conditions
 	// where multiple LaunchProcess happen for the same context.
 	p.Lock()
