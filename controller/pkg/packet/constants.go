@@ -58,6 +58,9 @@ const (
 
 	// IPProtocolUDP defines the constant for UDP protocol number
 	IPProtocolUDP = 17
+
+	// IPProtocolICMP defines the constants for ICMP protocol number
+	IPProtocolICMP = 1
 )
 
 // IP Header masks
