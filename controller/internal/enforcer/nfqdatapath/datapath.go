@@ -3,6 +3,7 @@ package nfqdatapath
 // Go libraries
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -15,13 +16,12 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
 	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
@@ -255,9 +255,11 @@ func New(
 
 		puFromContextID: puFromContextID,
 
-		sourcePortConnectionCache:    cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appReplyConnectionTracker:    cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netReplyConnectionTracker:    cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
+		sourcePortConnectionCache:    cache.NewCacheWithExpirationNotifier("sourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		appOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		appReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("appReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		netOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
+		netReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("netReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
 		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
 		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
@@ -367,38 +369,40 @@ func NewWithDefaults(
 }
 
 func (d *Datapath) collectCounters() {
+
 	keysList := d.puFromContextID.KeyList()
-	zap.L().Debug("Collecting Counters for", zap.Int("Num PU", len(keysList)))
 	for _, keys := range keysList {
 		val, err := d.puFromContextID.Get(keys)
 		if err != nil {
 			continue
 		}
-		counters := val.(*pucontext.PUContext).GetErrorCounters()
+		counters := val.(*pucontext.PUContext).Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(
 			&collector.CounterReport{
-				ContextID: keys.(string),
+				PUID:      val.(*pucontext.PUContext).ManagementID(),
 				Counters:  counters,
 				Namespace: val.(*pucontext.PUContext).ManagementNamespace(),
 			})
 	}
-	counters := pucontext.GetErrorCounters()
+
+	counters := counters.GetErrorCounters()
 	d.collector.CollectCounterEvent(
 		&collector.CounterReport{
-			ContextID: "",
+			PUID:      "",
 			Counters:  counters,
 			Namespace: "",
 		})
 }
+
 func (d *Datapath) counterCollector(ctx context.Context) {
 
 	for {
 		//drain the channel everytime we come here
 		select {
 		case pu := <-d.puCountersChannel:
-			counters := pu.GetErrorCounters()
+			counters := pu.Counters().GetErrorCounters()
 			d.collector.CollectCounterEvent(&collector.CounterReport{
-				ContextID: pu.ManagementID(),
+				PUID:      pu.ManagementID(),
 				Counters:  counters,
 				Namespace: pu.ManagementNamespace(),
 			})
@@ -408,7 +412,6 @@ func (d *Datapath) counterCollector(ctx context.Context) {
 			return
 		case <-time.After(collectCounterInterval):
 			d.collectCounters()
-
 		}
 
 	}
@@ -427,9 +430,9 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	case d.puCountersChannel <- pu:
 	default:
 		zap.L().Debug("Failed to enqueue pu to counters channel")
-		counters := pu.GetErrorCounters()
+		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			ContextID: pu.ID(),
+			PUID:      pu.ManagementID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})
@@ -516,9 +519,9 @@ func (d *Datapath) Unenforce(contextID string) error {
 	case d.puCountersChannel <- pu:
 	default:
 		zap.L().Debug("Failed to enqueue pu to counters channel")
-		counters := pu.GetErrorCounters()
+		counters := pu.Counters().GetErrorCounters()
 		d.collector.CollectCounterEvent(&collector.CounterReport{
-			ContextID: pu.ID(),
+			PUID:      pu.ManagementID(),
 			Counters:  counters,
 			Namespace: pu.ManagementNamespace(),
 		})
@@ -739,7 +742,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 				zap.Int("protocol", int(protocol)),
 				zap.Int("port", int(port)),
 			)
-			return nil, pucontext.PuContextError(pucontext.ErrMarkNotFound, "Mark Not Found")
+			return nil, counters.CounterError(counters.ErrMarkNotFound, errors.New("Mark Not Found"))
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -749,12 +752,12 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for TCP server port ", zap.Uint16("port", port))
-			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf(" TCP Port Not Found %v", port))
+			return nil, counters.CounterError(counters.ErrPortNotFound, fmt.Errorf(" TCP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, "")
+			return nil, counters.CounterError(counters.ErrContextIDNotFound, err)
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
@@ -763,19 +766,19 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
 		if err != nil {
 			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
-			return nil, pucontext.PuContextError(pucontext.ErrPortNotFound, fmt.Sprintf("UDP Port Not Found %v", port))
+			return nil, counters.CounterError(counters.ErrPortNotFound, fmt.Errorf("UDP Port Not Found %v", port))
 		}
 
 		pu, err := d.puFromContextID.Get(contextID)
 		if err != nil {
-			return nil, pucontext.PuContextError(pucontext.ErrContextIDNotFound, fmt.Sprintf("contextID %s not Found", contextID))
+			return nil, counters.CounterError(counters.ErrContextIDNotFound, fmt.Errorf("contextID %s not Found", contextID))
 		}
 		return pu.(*pucontext.PUContext), nil
 	}
 
 	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
 
-	return nil, pucontext.PuContextError(pucontext.ErrInvalidProtocol, fmt.Sprintf("Invalid Protocol %d", int(protocol)))
+	return nil, counters.CounterError(counters.ErrInvalidProtocol, fmt.Errorf("Invalid Protocol %d", int(protocol)))
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
