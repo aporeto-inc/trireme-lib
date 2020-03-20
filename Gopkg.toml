@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "master"
+  branch = "sirupsen"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
@@ -10,7 +10,7 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "github.com/docker/distribution"
-  revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
+  revision = "v2.7.0""
 
 [[override]]
   name = "github.com/ti-mo/netfilter"
