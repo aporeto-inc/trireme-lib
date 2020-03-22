@@ -17,7 +17,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -46,7 +45,6 @@ var (
 func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}, resyncInfo *ResyncInfoChan) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
-		scheme:            mgr.GetScheme(),
 		recorder:          mgr.GetRecorder("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
@@ -114,7 +112,6 @@ type ReconcilePod struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client            client.Client
-	scheme            *runtime.Scheme
 	recorder          record.EventRecorder
 	handler           *config.ProcessorConfig
 	metadataExtractor extractors.PodMetadataExtractor
@@ -212,7 +209,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// now try to do the metadata extraction
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
+		puRuntime, err := r.metadataExtractor(extractCtx, pod, started)
 		if err != nil {
 			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
@@ -311,7 +308,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// in stopped state, so we have to do metadata extraction here as well
 		extractCtx, extractCancel := context.WithTimeout(ctx, r.metadataExtractTimeout)
 		defer extractCancel()
-		puRuntime, err := r.metadataExtractor(extractCtx, r.client, r.scheme, pod, started)
+		puRuntime, err := r.metadataExtractor(extractCtx, pod, started)
 		if err != nil {
 			zap.L().Error("failed to extract metadata", zap.String("puID", puID), zap.String("namespacedName", nn), zap.Error(err))
 			r.recorder.Eventf(pod, "Warning", "PUExtractMetadata", "PU '%s' failed to extract metadata: %s", puID, err.Error())
