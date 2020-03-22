@@ -110,13 +110,15 @@ func (s *RuncProxyServer) ContainerCreatedPost(ctx context.Context, req *protos.
 	uid := st.GetMetadata().GetUid()
 	zap.L().Info("k8srunc: runc create: container is sandbox", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid))
 
+	// Kubernetes API call to get the API pod object
+	// TODO: we might be okay to get everything done without an API call
 	pod, err := s.c.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		zap.L().Error("k8srunc: runc create: failed to get pod from Kubernetes API", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid), zap.Error(err))
 		return ret, nil
 	}
 
-	pu, err := s.metadataExtractor(ctx, pod, false)
+	pu, err := s.metadataExtractor(ctx, pod, true)
 	if err != nil {
 		zap.L().Error("k8srunc: runc create: failed to extract metadata", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid), zap.Error(err))
 		return ret, nil
@@ -134,12 +136,44 @@ func (s *RuncProxyServer) ContainerCreatedPost(ctx context.Context, req *protos.
 
 // ContainerDeletedPost is called after a successful call to 'runc delete'
 func (s *RuncProxyServer) ContainerDeletedPost(ctx context.Context, req *protos.DeletePostRequest) (*protos.DeletePostResponse, error) {
-	containerID := req.GetContainerID()
-	flags := req.GetFlags()
-	zap.L().Debug("k8srunc: runc create: ContainerCreatedPost", zap.String("containerID", containerID), zap.Any("flags", flags))
-
-	return &protos.DeletePostResponse{
+	ret := &protos.DeletePostResponse{
 		Failed:  false,
 		Message: "",
-	}, nil
+	}
+
+	containerID := req.GetContainerID()
+	flags := req.GetFlags()
+	zap.L().Debug("k8srunc: runc delete: ContainerDeletedPost", zap.String("containerID", containerID), zap.Any("flags", flags))
+
+	st, err := s.rs.PodSandboxStatus(containerID)
+	if err != nil {
+		zap.L().Error("k8srunc: runc delete: failed to get sandbox status", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
+	name := st.GetMetadata().GetName()
+	namespace := st.GetMetadata().GetNamespace()
+	uid := st.GetMetadata().GetUid()
+	zap.L().Info("k8srunc: runc delete: container is sandbox", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid))
+
+	// Kubernetes API call to get the API pod object
+	// TODO: we might be okay to get everything done without an API call
+	pod, err := s.c.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		zap.L().Error("k8srunc: runc delete: failed to get pod from Kubernetes API", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid), zap.Error(err))
+		return ret, nil
+	}
+
+	pu, err := s.metadataExtractor(ctx, pod, false)
+	if err != nil {
+		zap.L().Error("k8srunc: runc delete: failed to extract metadata", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid), zap.Error(err))
+		return ret, nil
+	}
+
+	//todo: pid/netns extraction
+
+	if err := s.handler.Policy.HandlePUEvent(ctx, uid, common.EventDestroy, pu); err != nil {
+		zap.L().Error("k8srunc: runc delete: failed to start PU", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid), zap.Error(err))
+		return ret, nil
+	}
+	return ret, nil
 }
