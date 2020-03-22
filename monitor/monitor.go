@@ -10,6 +10,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	k8sruncmonitor "go.aporeto.io/trireme-lib/monitor/internal/k8srunc"
 	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
 	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
@@ -82,6 +83,14 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("kubernetes: %s", err.Error())
 			}
 			m.monitors[config.Kubernetes] = mon
+
+		case config.K8sRunc:
+			mon := k8sruncmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(nil, v); err != nil {
+				return nil, fmt.Errorf("k8srunc: %s", err.Error())
+			}
+			m.monitors[config.K8sRunc] = mon
 
 		case config.Pod:
 			mon := podmonitor.New()

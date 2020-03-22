@@ -6,11 +6,13 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
 	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	k8sruncmonitor "go.aporeto.io/trireme-lib/monitor/internal/k8srunc"
 	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
 	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
 	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cri"
 )
 
 // Options is provided using functional arguments.
@@ -30,6 +32,9 @@ type KubernetesMonitorOption func(*kubernetesmonitor.Config)
 
 // PodMonitorOption is provided using functional arguments.
 type PodMonitorOption func(*podmonitor.Config)
+
+// K8sRuncMonitorOption is provided using functional arguments.
+type K8sRuncMonitorOption func(*k8sruncmonitor.Config)
 
 // LinuxMonitorOption is provided using functional arguments.
 type LinuxMonitorOption func(*linuxmonitor.Config)
@@ -328,6 +333,62 @@ func SubOptionMonitorPodPidsSetMaxProcsProgrammer(pidsprogrammer extractors.PodP
 func SubOptionMonitorPodResetNetcls(resetnetcls extractors.ResetNetclsKubepods) PodMonitorOption {
 	return func(cfg *podmonitor.Config) {
 		cfg.ResetNetcls = resetnetcls
+	}
+}
+
+// OptionMonitorK8sRunc provides a way to add a K8sRunc monitor and related configuration to be used with New().
+func OptionMonitorK8sRunc(opts ...K8sRuncMonitorOption) Options {
+	kc := k8sruncmonitor.DefaultConfig()
+	for _, opt := range opts {
+		opt(kc)
+	}
+
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.K8sRunc] = kc
+	}
+}
+
+// SubOptionMonitorK8sRuncKubeconfig provides a way to specify a kubeconfig to use to connect to Kubernetes.
+// In case of an in-cluter config, leave the kubeconfig field blank
+func SubOptionMonitorK8sRuncKubeconfig(kubeconfig string) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.Kubeconfig = kubeconfig
+	}
+}
+
+// SubOptionMonitorK8sRuncNodename provides a way to specify the kubernetes node name.
+// This is useful for filtering
+func SubOptionMonitorK8sRuncNodename(nodename string) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.Nodename = nodename
+	}
+}
+
+// SubOptionMonitorK8sRuncMetadataExtractor provides a way to specify metadata extractor for Kubernetes
+func SubOptionMonitorK8sRuncMetadataExtractor(extractor extractors.PodMetadataExtractor) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.MetadataExtractor = extractor
+	}
+}
+
+// SubOptionMonitorK8sRuncNetclsProgrammer provides a way to program the net_cls cgroup for host network pods in Kubernetes
+func SubOptionMonitorK8sRuncNetclsProgrammer(netclsprogrammer extractors.PodNetclsProgrammer) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.NetclsProgrammer = netclsprogrammer
+	}
+}
+
+// SubOptionMonitorK8sRuncResetNetcls provides a way to reset all net_cls cgroups on resync
+func SubOptionMonitorK8sRuncResetNetcls(resetnetcls extractors.ResetNetclsKubepods) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.ResetNetcls = resetnetcls
+	}
+}
+
+// SubOptionMonitorK8sRuncCRIRuntimeService provides a way to pass through the CRI runtime service
+func SubOptionMonitorK8sRuncCRIRuntimeService(criRuntimeService cri.ExtendedRuntimeService) K8sRuncMonitorOption {
+	return func(cfg *k8sruncmonitor.Config) {
+		cfg.CRIRuntimeService = criRuntimeService
 	}
 }
 

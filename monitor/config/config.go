@@ -21,6 +21,7 @@ const (
 	Kubernetes
 	SSH
 	Pod
+	K8sRunc
 	Windows
 )
 
