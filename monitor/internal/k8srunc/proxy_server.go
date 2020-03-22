@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"go.aporeto.io/runc/protos"
+	"github.com/mheese/runc-wrapper/protos"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
