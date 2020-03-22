@@ -6,11 +6,12 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "github.com/docker/docker"
-  version = "v17.05.0-ce-rc3"
+  version = "19.03"
+  source = "github.com/docker/engine"
 
 [[constraint]]
   name = "github.com/docker/distribution"
-  revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
+  version = "2.7.1"
 
 [[override]]
   name = "github.com/ti-mo/netfilter"
