@@ -608,7 +608,6 @@ go.aporeto.io/netlink-go v1.42.1-0.20200316093853-d3f47143fbb0 h1:/1uZUSudwobNB/
 go.aporeto.io/netlink-go v1.42.1-0.20200316093853-d3f47143fbb0/go.mod h1:1SripPulsu+XSWubsx7A8cwHBpRqkIycenGEsa/PZwo=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8 h1:ngw1NIPglTWLQnjgz2IKiHftrNmZwOikuRpJVNK4/O8=
 go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8/go.mod h1:ylsR0KTuv3cSfWPRDfv8ff1rKvuCUWdKDE3+kaVtmjc=
-go.aporeto.io/trireme-lib v1.0.72 h1:m2Z/Z0G3x3PMzQMZKTyGqHvpNEK0JO6XRHxFG0sqWAo=
 go.aporeto.io/trireme-lib v10.281.0+incompatible h1:WPv9LsZXQCeZ6CR1y1mvUrv0sdQfcdtOIXOniGMJr8w=
 go.aporeto.io/trireme-lib v10.281.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
 go.aporeto.io/trireme-lib/v11 v11.0.0-rc16/go.mod h1:nIArJ2LaX73vYMqTEXvFO+PQjMvLJKTbQbq60WpFRVU=
