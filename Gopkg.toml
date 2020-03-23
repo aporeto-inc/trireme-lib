@@ -10,7 +10,7 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "github.com/docker/distribution"
-  revision = "v2.7.0""
+  revision = "v2.7.0"
 
 [[override]]
   name = "github.com/ti-mo/netfilter"
