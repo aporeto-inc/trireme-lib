@@ -64,6 +64,23 @@ const (
 	restoreCmdV6 = "ip6tables-restore"
 )
 
+func IsCgroupsSupported() bool {
+	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m cgroup --cgroup 100 -j LOG")...)
+	_, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	cmd = exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -D OUTPUT -m cgroup --cgroup 100 -j LOG")...)
+	_, err = cmd.CombinedOutput()
+	if err != nil {
+		zap.L().Error("Error removing rule")
+	}
+
+	return true
+
+}
+
 // TestIptablesPinned returns error if the kernel doesn't support bpf pinning in iptables
 func TestIptablesPinned(bpf string) error {
 	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
