@@ -19,11 +19,18 @@ var triremChains = `
 -t {{.NatTable}} -N {{.NatProxyNetChain}}
 `
 var globalRules = `
+{{$length := len .NetSynQueues}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
-{{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}
 
-{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
+{{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
+{{range $index,$queuenum := .NetSynAckQueues}}
+{{$.MangleTable}} {{$.MainNetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src -m string --string {{$.UDPSignature}} --algo bm --to 65535 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-bypass --queue-num {{$queuenum}}
+{{end}}
+{{$.MangleTable}} {{$.MainNetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
+{{range $index,$queuenum := .NetAckQueues}}
+{{$.MangleTable}} {{$.MainNetChain}} -m set --match-set {{$.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
 {{if isBPFEnabled}}
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{else}}
@@ -34,9 +41,15 @@ var globalRules = `
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.UIDInput}}
 {{end}}
+{{range $index,$queuenum := .NetSynAckQueues}}
+{{$.MangleTable}} {{$.MainNetChain}} -m set --match-set {{$.TargetTCPNetSet}} src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}} --queue-bypass
+{{end}}
 
-{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}} --queue-bypass
-{{.MangleTable}} {{.MainNetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}} --queue-bypass
+{{range $index,$queuenum := .NetSynQueues}} 
+{{$.MangleTable}} {{$.MainNetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}} --queue-bypass
+{{end}}
+
+
 
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainNetChain}} -j {{.TriremeInput}}
@@ -54,14 +67,17 @@ var globalRules = `
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultExternalConnmark}} -j ACCEPT
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK  -j ACCEPT
 {{end}}
-
+{{$length := len .AppSynQueues}}
+{{$.MangleTable}} {{$.MainAppChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
+{{$.MangleTable}} {{$.MainAppChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd {{$.HMarkRandomSeed}} --hmark-mod {{$length}}
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.UIDOutput}}
 {{end}}
 
-{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}
-{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}} --queue-bypass
-
+{{.MangleTable}} {{.MainAppChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark {{.InitialMarkVal}}/{{.MarkMask}}
+{{range $index,$queuenum := .AppSynAckQueues}}
+{{$.MangleTable}} {{$.MainAppChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}} --queue-bypass
+{{end}}
 {{if isLocalServer}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.TriremeOutput}}
 {{.MangleTable}} {{.MainAppChain}} -j {{.NetworkSvcOutput}}
@@ -85,7 +101,7 @@ var cgroupCaptureTemplate = `
 {{end}}
 
 {{if isHostPU}}
-{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.Mark}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{.MangleTable}} {{.NetSection}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
@@ -93,12 +109,12 @@ var cgroupCaptureTemplate = `
 {{.MangleTable}} {{.NetSection}} -p udp -m multiport --destination-ports {{.UDPPorts}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
-{{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.Mark}}
+{{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
 {{if isHostPU}}
-{{.MangleTable}} {{.AppSection}} -p udp -m mark --mark {{.Mark}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGAcceptPrefix}} --nflog-group 10
-{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.Mark}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{.MangleTable}} {{.AppSection}} -p udp -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGAcceptPrefix}} --nflog-group 10
+{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
 {{end}}
-{{.MangleTable}} {{.AppSection}} -m mark --mark {{.Mark}} -m comment --comment PU-Chain -j {{.AppChain}}
+{{.MangleTable}} {{.AppSection}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment PU-Chain -j {{.AppChain}}
 `
 
 // containerChainTemplate will hook traffic towards the container specific chains.
@@ -107,10 +123,10 @@ var containerChainTemplate = `
 {{.MangleTable}} {{.NetSection}} -m comment --comment Container-specific-chain -j {{.NetChain}}`
 
 var uidChainTemplate = `
-{{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.Mark}}
-{{.MangleTable}} {{.UIDOutput}} -m mark --mark {{.Mark}} -m comment --comment Server-specific-chain -j {{.AppChain}}
-{{.MangleTable}} {{.UIDInput}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.Mark}}
-{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.Mark}} -m comment --comment Container-specific-chain -j {{.NetChain}}
+{{.MangleTable}} {{.UIDOutput}} -m owner --uid-owner {{.UID}} -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
+{{.MangleTable}} {{.UIDOutput}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment Server-specific-chain -j {{.AppChain}}
+{{.MangleTable}} {{.UIDInput}} -m set --match-set {{.PortSet}} dst -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
+{{.MangleTable}} {{.UIDInput}} -p tcp -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment Container-specific-chain -j {{.NetChain}}
 `
 
 var acls = `
@@ -152,15 +168,22 @@ var packetCaptureTemplate = `
 {{if needDnsRules}}
 {{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
 {{end}}
-
-{{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
-{{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
-
+{{range $index,$queuenum := .AppSynQueues}}
+{{$.MangleTable}} {{$.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
+{{range $index,$queuenum := .AppAckQueues}}
+{{$.MangleTable}} {{$.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
 {{if isUIDProcess}}
-{{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppSynAck}}
+{{range $index,$queuenum := .AppSynAckQueues}}
+{{$.MangleTable}} {{$.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
+{{end}}
+{{range $index,$queuenum := .AppSynQueues}}
+{{$.MangleTable}} {{$.AppChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} dst -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
 {{end}}
 
-{{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}
+
 {{.MangleTable}} {{.AppChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT
 {{.MangleTable}} {{.AppChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 
@@ -179,14 +202,23 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
 {{end}}
 
-{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
-{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
-
-{{if isUIDProcess}}
-{{.MangleTable}} {{.NetChain}} -p tcp -m set --match-set {{.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN,ACK -j NFQUEUE --queue-balance {{.QueueBalanceNetSynAck}}
+{{range $index,$queuenum := .NetSynQueues}} 
+{{$.MangleTable}} {{$.NetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
+{{range $index,$queuenum := .NetAckQueues}}
+{{$.MangleTable}} {{$.NetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
 {{end}}
 
-{{.MangleTable}} {{.NetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src --match limit --limit 1000/s -j NFQUEUE --queue-balance {{.QueueBalanceNetSyn}}
+{{if isUIDProcess}}
+{{range $index,$queuenum := .NetSynAckQueues}}
+{{$.MangleTable}} {{$.NetChain}} -p tcp -m set --match-set {{$.TargetTCPNetSet}} src -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
+{{end}}
+{{range $index,$queuenum := .NetSynQueues}}
+{{$.MangleTable}} {{$.NetChain}} -p udp -m set --match-set {{$.TargetUDPNetSet}} src --match limit --limit 1000/s -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
+{{end}}
+
+
 {{.MangleTable}} {{.NetChain}} -p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT
 {{range netAnyRules}}
 {{joinRule .}}

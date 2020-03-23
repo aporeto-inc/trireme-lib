@@ -44,7 +44,7 @@ func setupDatapath(collector collector.EventCollector) *Datapath {
 	return NewWithDefaults("serverID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1._,1.1.1/31"}, nil)
 }
 
-func generateCommonTestData(action policy.ActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) {
+func generateCommonTestData(action policy.ActionType, oaction policy.ObserveActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) { // nolint
 
 	p := packet.TestGetTCPPacket(srcAddress, dstAddress, srcPort, dstPort)
 
@@ -103,9 +103,27 @@ func TestReportAcceptedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, policy := generateCommonTestData(policy.Accept)
+			p, conn, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
 
 			dp.reportAcceptedFlow(p, conn, srcID, dstID, context, policy, policy, false)
+		})
+
+		Convey("Then check reportAcceptedFlow with same src dst ID", func() {
+
+			src, dst := generateTestEndpoints(false)
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      src,
+				Destination: dst,
+				Action:      policy.Accept,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+			p, conn, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
+
+			dp.reportAcceptedFlow(p, conn, srcID, srcID, context, policy, policy, false)
 		})
 
 		Convey("Then check reportAcceptedFlow with reverse", func() {
@@ -121,9 +139,62 @@ func TestReportAcceptedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, policy := generateCommonTestData(policy.Accept)
+			p, conn, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
 
 			dp.reportAcceptedFlow(p, conn, srcID, dstID, context, policy, policy, true)
+		})
+	})
+}
+
+func TestReportExternalServiceFlow(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+	Convey("Given I setup datapath", t, func() {
+		dp := setupDatapath(mockCollector)
+
+		Convey("Then datapath should not be nil", func() {
+			So(dp, ShouldNotBeNil)
+		})
+
+		Convey("Then check reportAcceptedFlow", func() {
+
+			src, dst := generateTestEndpoints(false)
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      src,
+				Destination: dst,
+				Action:      policy.Accept,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+			p, _, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
+
+			dp.reportExternalServiceFlow(context, policy, policy, true, p)
+		})
+
+		Convey("Then check reportAcceptedFlow reverse", func() {
+
+			src, dst := generateTestEndpoints(false)
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      dst,
+				Destination: src,
+				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+			p, _, _, context, policy := generateCommonTestData(policy.Reject, policy.ObserveContinue)
+
+			dp.reportReverseExternalServiceFlow(context, policy, policy, false, p)
 		})
 	})
 }
@@ -155,7 +226,7 @@ func TestReportUDPAcceptedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, _, conn, context, policy := generateCommonTestData(policy.Accept)
+			p, _, conn, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
 
 			dp.reportUDPAcceptedFlow(p, conn, srcID, dstID, context, policy, policy, false)
 		})
@@ -173,7 +244,7 @@ func TestReportUDPAcceptedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, _, conn, context, policy := generateCommonTestData(policy.Accept)
+			p, _, conn, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
 
 			dp.reportUDPAcceptedFlow(p, conn, srcID, dstID, context, policy, policy, true)
 		})
@@ -208,9 +279,28 @@ func TestReportRejectedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, policy := generateCommonTestData(policy.Reject)
+			p, conn, _, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
 
 			dp.reportRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, policy, policy, false)
+		})
+
+		Convey("Then check reportRejectedFlow with report and packet policy nil", func() {
+
+			src, dst := generateTestEndpoints(false)
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      src,
+				Destination: dst,
+				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+			p, conn, _, context, _ := generateCommonTestData(policy.Reject, policy.ObserveNone)
+
+			dp.reportRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, nil, nil, false)
 		})
 
 		Convey("Then check reportRejectedFlow with reverse", func() {
@@ -227,7 +317,7 @@ func TestReportRejectedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, policy := generateCommonTestData(policy.Reject)
+			p, conn, _, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
 
 			dp.reportRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, policy, policy, true)
 		})
@@ -262,9 +352,28 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, _, conn, context, policy := generateCommonTestData(policy.Reject)
+			p, _, conn, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
 
 			dp.reportUDPRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, policy, policy, false)
+		})
+
+		Convey("Then check reportRejectedFlow with policy and packet policy nil", func() {
+
+			src, dst := generateTestEndpoints(false)
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      src,
+				Destination: dst,
+				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+			p, _, conn, context, _ := generateCommonTestData(policy.Reject, policy.ObserveNone)
+
+			dp.reportUDPRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, nil, nil, false)
 		})
 
 		Convey("Then check reportRejectedFlow with reverse", func() {
@@ -281,7 +390,7 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, _, conn, context, policy := generateCommonTestData(policy.Reject)
+			p, _, conn, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
 
 			dp.reportUDPRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, policy, policy, true)
 		})

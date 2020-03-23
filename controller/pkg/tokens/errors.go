@@ -1,50 +1,39 @@
 package tokens
 
-import "go.aporeto.io/trireme-lib/v11/collector"
+import (
+	"errors"
 
-const (
-	errCompressedTagMismatch   = "Compressed tag mismatch"
-	errDatapathVersionMismatch = "Datapath version mismatch"
+	"go.uber.org/zap"
 )
 
-// ErrToken holds error message in string
-type ErrToken struct {
-	message string
-}
+// Custom errors used by this package.
+var (
+	ErrTokenTooSmall           = errors.New("randomize: token is small")
+	ErrTokenEncodeFailed       = errors.New("unable to encode token")
+	ErrTokenHashFailed         = errors.New("unable to hash token")
+	ErrTokenSignFailed         = errors.New("unable to sign token")
+	ErrSharedSecretMissing     = errors.New("secret not found")
+	ErrInvalidSecret           = errors.New("invalid secret")
+	ErrInvalidTokenLength      = errors.New("not enough data")
+	ErrMissingSignature        = errors.New("signature is missing")
+	ErrInvalidSignature        = errors.New("invalid signature")
+	ErrCompressedTagMismatch   = errors.New("Compressed tag mismatch")
+	ErrDatapathVersionMismatch = errors.New("Datapath version mismatch")
+	ErrTokenDecodeFailed       = errors.New("unable to decode token")
+	ErrTokenExpired            = errors.New("token expired")
+	ErrSignatureMismatch       = errors.New("signature mismatch")
+	ErrSharedKeyHashFailed     = errors.New("unable to hash shared key")
+	ErrPublicKeyFailed         = errors.New("unable to verify public key")
+)
 
-// newErrToken returns ErrToken handle
-func newErrToken(message string) *ErrToken {
-	return &ErrToken{
-		message: message,
-	}
-}
+// logError is a convinience function which logs the err:msg and returns the error.
+func logError(err error, msg string) error {
 
-// Error returns error in string
-func (e *ErrToken) Error() string {
-
-	return e.message
-}
-
-// Code returns collector reason
-func (e *ErrToken) Code() string {
-
-	switch e.message {
-	case errCompressedTagMismatch:
-		return collector.CompressedTagMismatch
-	case errDatapathVersionMismatch:
-		return collector.DatapathVersionMismatch
-	default:
-		return collector.InvalidToken
-	}
-}
-
-// CodeFromErr returns the collector code from ErrToken
-func CodeFromErr(err error) string {
-
-	errToken, ok := err.(*ErrToken)
-	if !ok {
-		return collector.InvalidToken
+	if err == nil {
+		return nil
 	}
 
-	return errToken.Code()
+	zap.L().Debug(err.Error(), zap.String("error", msg))
+
+	return err
 }

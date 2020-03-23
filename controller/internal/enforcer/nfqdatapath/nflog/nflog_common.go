@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/v11/policy"
@@ -22,7 +23,39 @@ type NFLogger interface {
 // GetPUContextFunc provides PU information given the id
 type GetPUContextFunc func(hash string) (*pucontext.PUContext, error)
 
-func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, srcPort, dstPort uint16, pu *pucontext.PUContext) (*collector.PacketReport, error) {
+func recordCounters(protocol uint8, dstport uint16, srcport uint16, pu *pucontext.PUContext, puIsSource bool) {
+	switch protocol {
+	case packet.IPProtocolTCP:
+		pu.Counters().IncrementCounter(counters.ErrDroppedTCPPackets)
+	case packet.IPProtocolUDP:
+		pu.Counters().IncrementCounter(counters.ErrDroppedUDPPackets)
+		if puIsSource {
+			switch dstport {
+			case 53:
+				pu.Counters().IncrementCounter(counters.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.Counters().IncrementCounter(counters.ErrDroppedDHCPPackets)
+			case 123:
+				pu.Counters().IncrementCounter(counters.ErrDroppedNTPPackets)
+			}
+		} else {
+			switch srcport {
+			case 53:
+				pu.Counters().IncrementCounter(counters.ErrDroppedDNSPackets)
+			case 67, 68:
+				pu.Counters().IncrementCounter(counters.ErrDroppedDHCPPackets)
+			case 123:
+				pu.Counters().IncrementCounter(counters.ErrDroppedNTPPackets)
+			}
+		}
+
+	case packet.IPProtocolICMP:
+		pu.Counters().IncrementCounter(counters.ErrDroppedICMPPackets)
+
+	}
+}
+
+func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, srcPort, dstPort uint16, pu *pucontext.PUContext, puIsSource bool) (*collector.PacketReport, error) {
 
 	report := &collector.PacketReport{}
 
@@ -37,7 +70,7 @@ func recordDroppedPacket(payload []byte, protocol uint8, srcIP, dstIP net.IP, sr
 		zap.L().Debug("payload not valid", zap.Error(err))
 		return nil, err
 	}
-
+	recordCounters(protocol, dstPort, srcPort, pu, puIsSource)
 	if protocol == packet.IPProtocolTCP || protocol == packet.IPProtocolUDP {
 		report.SourcePort = int(srcPort)
 		report.DestinationPort = int(dstPort)
@@ -85,7 +118,7 @@ func recordFromNFLogData(payload []byte, prefix string, protocol uint8, srcIP, d
 	}
 
 	if encodedAction == "10" {
-		packetReport, err = recordDroppedPacket(payload, protocol, srcIP, dstIP, srcPort, dstPort, pu)
+		packetReport, err = recordDroppedPacket(payload, protocol, srcIP, dstIP, srcPort, dstPort, pu, puIsSource)
 		return nil, packetReport, err
 	}
 

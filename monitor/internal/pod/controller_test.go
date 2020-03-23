@@ -22,9 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -210,7 +208,7 @@ func TestController(t *testing.T) {
 
 		handler := mockpolicy.NewMockResolver(ctrl)
 
-		metadataExtractor := func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+		metadataExtractor := func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 			return nil, nil
 		}
 		netclsProgrammer := func(context.Context, *corev1.Pod, policy.RuntimeReader) error {
@@ -232,7 +230,6 @@ func TestController(t *testing.T) {
 
 		r := &ReconcilePod{
 			client:            c,
-			scheme:            scheme.Scheme,
 			recorder:          &fakeRecorder{},
 			handler:           pc,
 			metadataExtractor: metadataExtractor,
@@ -301,7 +298,7 @@ func TestController(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			Convey("and retry if metadata extraction fails", func() {
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return nil, failure
 				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "succeeded", Namespace: "default"}})
@@ -316,7 +313,7 @@ func TestController(t *testing.T) {
 
 		Convey("a pod in pending state should update or create a PU if it does already exist", func() {
 			// metadata extractor needs to change tags in order to provoke an update call
-			r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+			r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 				ru := policy.NewPURuntimeWithDefaults()
 				ru.SetTags(policy.NewTagStoreFromMap(map[string]string{"exists": "exists", "a": "b"}))
 				return ru, nil
@@ -346,7 +343,7 @@ func TestController(t *testing.T) {
 		})
 
 		Convey("a pod in pending state which has an init container started, should silently return if everything could be started", func() {
-			r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+			r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 				return policy.NewPURuntime("default/pendingAndStarted", 42, "", nil, nil, common.ContainerPU, nil), nil
 			}
 			r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
@@ -366,7 +363,7 @@ func TestController(t *testing.T) {
 
 		Convey("a pod in running state", func() {
 			Convey("should retry if metadata extraction fails", func() {
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return nil, failure
 				}
 				_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "running", Namespace: "default"}})
@@ -375,7 +372,7 @@ func TestController(t *testing.T) {
 			})
 			Convey("should retry if metadata extraction succeeded, but no PID nor netns path were found and this is not a hostnetwork pod", func() {
 				handler.EXPECT().HandlePUEvent(gomock.Any(), "default/running", common.EventUpdate, gomock.Any()).Return(nil).Times(1)
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntimeWithDefaults(), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
@@ -386,7 +383,7 @@ func TestController(t *testing.T) {
 				So(err, ShouldEqual, ErrNetnsExtractionMissing)
 			})
 			Convey("should *not* fail if metadata and PID/netnspath extraction succeeded, but the Start PU event fails", func() {
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
@@ -398,7 +395,7 @@ func TestController(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 			Convey("should return silently if metadata and PID/netnspath extraction succeeded, but the PU has already been activated", func() {
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
@@ -410,7 +407,7 @@ func TestController(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 			Convey("should return silently if metadata and PID/netnspath extraction succeeded, and the PU could be successfully activated", func() {
-				r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+				r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 					return policy.NewPURuntime("default/running", 42, "", nil, nil, common.ContainerPU, nil), nil
 				}
 				r.sandboxExtractor = func(context.Context, *corev1.Pod) (string, error) {
@@ -424,7 +421,7 @@ func TestController(t *testing.T) {
 		})
 
 		Convey("a HostNetwork=true pod should try to start the PU and try to program the netcls cgroup", func() {
-			r.metadataExtractor = func(ctx context.Context, c client.Client, s *runtime.Scheme, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
+			r.metadataExtractor = func(ctx context.Context, p *corev1.Pod, extractNetns bool) (*policy.PURuntime, error) {
 				return policy.NewPURuntime("default/runningHostNetwork", 0, "", nil, nil, common.LinuxProcessPU, nil), nil
 			}
 			handler.EXPECT().HandlePUEvent(gomock.Any(), "default/runningHostNetwork", common.EventUpdate, gomock.Any()).Return(nil).Times(1)

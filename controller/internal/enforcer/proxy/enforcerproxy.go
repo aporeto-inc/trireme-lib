@@ -6,6 +6,7 @@ package enforcerproxy
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -63,6 +64,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.procMountPoint,
 		puInfo.Policy.EnforcerType(),
 	)
+
 	if err != nil {
 		return err
 	}
@@ -169,27 +171,47 @@ func (s *ProxyInfo) SetLogLevel(level constants.LogLevel) error {
 
 // CleanUp sends a cleanup command to all the remotes forcing them to exit and clean their state.
 func (s *ProxyInfo) CleanUp() error {
+	var synch sync.Mutex
+	var wg sync.WaitGroup
 
-	var allErrors string
+	contextList := s.rpchdl.ContextList()
+	lenCids := len(contextList)
 
-	remotes := s.rpchdl.ContextList()
-
-	for _, contextID := range remotes {
-
-		if err := s.prochdl.KillRemoteEnforcer(contextID, false); err != nil {
-			allErrors = allErrors + " contextID:" + err.Error()
-		}
-		// This sleep is added on purpose to reduce the rate of remotes
-		// that are activating iptables commands. When they are all
-		// started in parallel they overload the kernel and the iptables
-		// locks take a very long time. It is one of these times where
-		// a sleep is needed.
-		time.Sleep(3 * time.Millisecond)
+	if lenCids == 0 {
+		return nil
 	}
 
-	if len(allErrors) > 0 {
-		return fmt.Errorf("Remote enforcers failed: %s", allErrors)
+	zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
+
+	var chs []chan string
+
+	wg.Add(lenCids)
+	for i := 0; i < 4; i++ {
+		ch := make(chan string)
+		chs = append(chs, ch)
+
+		go func(ch chan string) {
+			var cid string
+			for {
+				cid = <-ch
+				if err := s.prochdl.KillRemoteEnforcer(cid, false); err != nil {
+					zap.L().Error("enforcer with contextID "+cid+"failed to exit", zap.Error(err))
+				}
+				synch.Lock()
+				lenCids = lenCids - 1
+				zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
+				synch.Unlock()
+				wg.Done()
+			}
+		}(ch)
 	}
+
+	for i, contextID := range contextList {
+		chs[i%4] <- contextID
+	}
+
+	wg.Wait()
+	zap.L().Info("All remote enforcers have exited...")
 
 	return nil
 }
