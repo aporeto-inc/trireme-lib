@@ -20,7 +20,6 @@ const (
 	UID
 	Kubernetes
 	SSH
-	Pod
 	K8sRunc
 	Windows
 )

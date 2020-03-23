@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "master"
+  branch = "go-mod"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
@@ -21,45 +21,6 @@ required = ["github.com/docker/distribution"]
 [[constraint]]
   name = "github.com/mdlayher/netlink"
   revision = "a1644773bc99cfd147417f646434a663b5892505"
-#
-# The most significant dependency for the Kubernetes monitor: the controller-runtime
-# NOTE: change with care and always adjust the Kubernetes dependencies below
-#
-[[override]]
-  name = "sigs.k8s.io/controller-runtime"
-  version = "v0.1.10"
-
-#
-# Kubernetes dependencies
-# NOTE: always match exactly to what controller-runtime uses
-#
-[[constraint]]
-  name = "k8s.io/api"
-  version = "kubernetes-1.13.1"
-
-[[override]]
-  name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.1"
-
-[[override]]
-  name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.1"
-
-[[override]]
-  name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.1"
-
-[[constraint]]
-  name = "k8s.io/client-go"
-  version = "kubernetes-1.13.1"
-
-[[override]]
-  name = "k8s.io/code-generator"
-  version = "kubernetes-1.13.1"
-
-[[override]]
-  name = "k8s.io/gengo"
-  branch = "master"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -67,7 +28,7 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "github.com/aporeto-inc/oxy"
-  branch = "sirupsen"
+  branch = "go-mod"
 
 [[constraint]]
   name = "go.aporeto.io/netlink-go"
@@ -76,10 +37,6 @@ required = ["github.com/docker/distribution"]
 [[constraint]]
   name = "go.aporeto.io/tg"
   branch = "master"
-
-[[constraint]]
-  name = "github.com/hashicorp/go-version"
-  version = "v1.0.0"
 
 [prune]
   go-tests = true
