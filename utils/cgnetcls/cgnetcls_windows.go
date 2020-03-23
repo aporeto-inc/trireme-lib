@@ -2,7 +2,16 @@
 
 package cgnetcls
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"go.aporeto.io/trireme-lib/utils/constants"
+)
+
+type netCls struct {
+}
+
+var markval uint64 = constants.Initialmarkval
 
 // MarkVal returns a new Mark Value
 func MarkVal() uint64 {
