@@ -14,6 +14,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
+	"github.com/opencontainers/runc/libcontainer"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -92,6 +95,7 @@ func (s *RuncProxyServer) ContainerCreated(context.Context, *protos.CreateReques
 
 // ContainerCreatedPost is called after a successful call to 'runc create'
 func (s *RuncProxyServer) ContainerCreatedPost(ctx context.Context, req *protos.CreatePostRequest) (*protos.CreatePostResponse, error) {
+	var err error
 	ret := &protos.CreatePostResponse{
 		Failed:  false,
 		Message: "",
@@ -100,14 +104,40 @@ func (s *RuncProxyServer) ContainerCreatedPost(ctx context.Context, req *protos.
 	flags := req.GetFlags()
 	zap.L().Info("k8srunc: runc create: ContainerCreatedPost", zap.String("containerID", containerID), zap.Any("flags", flags))
 
-	st, err := s.rs.PodSandboxStatus(containerID)
+	root := "/run/runc"
+	if rootFlag, ok := flags["--root"]; ok {
+		root = rootFlag
+	}
+	f, err := libcontainer.New("/proc/1/root" + root)
 	if err != nil {
-		zap.L().Error("k8srunc: runc create: failed to get sandbox status", zap.String("containerID", containerID), zap.Error(err))
+		zap.L().Error("k8srunc: runc create: failed to create libcontainer factory", zap.String("containerID", containerID), zap.Error(err))
 		return ret, nil
 	}
-	name := st.GetMetadata().GetName()
-	namespace := st.GetMetadata().GetNamespace()
-	uid := st.GetMetadata().GetUid()
+	c, err := f.Load(containerID)
+	if err != nil {
+		zap.L().Error("k8srunc: runc create: failed to load container", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
+	st, err := c.OCIState()
+	if err != nil {
+		zap.L().Error("k8srunc: runc create: failed to get OCI state", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
+	name, ok := st.Annotations["io.kubernetes.pod.name"]
+	if !ok {
+		zap.L().Error("k8srunc: runc create: failed to get pod name", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
+	namespace, ok := st.Annotations["io.kubernetes.pod.namespace"]
+	if !ok {
+		zap.L().Error("k8srunc: runc create: failed to get pod namespace", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
+	uid, ok := st.Annotations["io.kubernetes.pod.uid"]
+	if !ok {
+		zap.L().Error("k8srunc: runc create: failed to get pod UID", zap.String("containerID", containerID), zap.Error(err))
+		return ret, nil
+	}
 	zap.L().Info("k8srunc: runc create: container is sandbox", zap.String("containerID", containerID), zap.String("name", name), zap.String("namespace", namespace), zap.String("uid", uid))
 
 	// Kubernetes API call to get the API pod object
@@ -136,6 +166,7 @@ func (s *RuncProxyServer) ContainerCreatedPost(ctx context.Context, req *protos.
 
 // ContainerDeletedPost is called after a successful call to 'runc delete'
 func (s *RuncProxyServer) ContainerDeletedPost(ctx context.Context, req *protos.DeletePostRequest) (*protos.DeletePostResponse, error) {
+	var err error
 	ret := &protos.DeletePostResponse{
 		Failed:  false,
 		Message: "",
@@ -145,7 +176,15 @@ func (s *RuncProxyServer) ContainerDeletedPost(ctx context.Context, req *protos.
 	flags := req.GetFlags()
 	zap.L().Debug("k8srunc: runc delete: ContainerDeletedPost", zap.String("containerID", containerID), zap.Any("flags", flags))
 
-	st, err := s.rs.PodSandboxStatus(containerID)
+	var st *runtimeapi.PodSandboxStatus
+	for i := 0; i < 3; i++ {
+		st, err = s.rs.PodSandboxStatus(containerID)
+		if err != nil {
+			zap.L().Warn("k8srunc: runc delete: failed to get sandbox status", zap.Int("i", i), zap.String("containerID", containerID), zap.Error(err))
+			continue
+		}
+		break
+	}
 	if err != nil {
 		zap.L().Error("k8srunc: runc delete: failed to get sandbox status", zap.String("containerID", containerID), zap.Error(err))
 		return ret, nil
