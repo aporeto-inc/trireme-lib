@@ -255,9 +255,9 @@ func (c *JWTConfig) verifyClaimsHeader(claimsHeader *claimsheader.ClaimsHeader) 
 
 	switch {
 	case claimsHeader.CompressionType() != c.compressionType:
-		return newErrToken(errCompressedTagMismatch)
+		return ErrCompressedTagMismatch
 	case claimsHeader.DatapathVersion() != c.datapathVersion:
-		return newErrToken(errDatapathVersionMismatch)
+		return ErrDatapathVersionMismatch
 	}
 
 	return nil

@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/lookup"
 
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.aporeto.io/trireme-lib/v11/utils/cache"
@@ -57,14 +58,9 @@ type PUContext struct {
 	jwtExpiration       time.Time
 	scopes              []string
 	Extension           interface{}
-	counters            []uint32
+	counters            *counters.Counters
 
 	sync.RWMutex
-}
-
-// Bad PU to hold counters for packets we know nothing about. We cant figure out context
-var unknownPU = &PUContext{
-	counters: make([]uint32, len(countedEvents)),
 }
 
 // NewPU creates a new PU context
@@ -92,7 +88,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		DNSACLs:             puInfo.Policy.DNSNameACLs(),
 		mark:                puInfo.Runtime.Options().CgroupMark,
 		scopes:              puInfo.Policy.Scopes(),
-		counters:            make([]uint32, len(countedEvents)),
+		counters:            counters.NewCounters(),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -307,6 +303,14 @@ func (p *PUContext) Scopes() []string {
 	defer p.RUnlock()
 
 	return p.scopes
+}
+
+// Counters returns the scopes.
+func (p *PUContext) Counters() *counters.Counters {
+	p.RLock()
+	defer p.RUnlock()
+
+	return p.counters
 }
 
 // GetJWT retrieves the JWT if it exists in the cache. Returns error otherwise.

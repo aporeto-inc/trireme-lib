@@ -330,14 +330,6 @@ func TestCleanup(t *testing.T) {
 			err := e.CleanUp()
 			So(err, ShouldBeNil)
 		})
-
-		Convey("When I get a set of PUs, and one of them fails, I should get an error", func() {
-			rpchdl.EXPECT().ContextList().Return([]string{"pu1", "pu2"})
-			prochdl.EXPECT().KillRemoteEnforcer("pu1", false).Return(fmt.Errorf("error"))
-			prochdl.EXPECT().KillRemoteEnforcer("pu2", false)
-			err := e.CleanUp()
-			So(err, ShouldNotBeNil)
-		})
 	})
 }
 

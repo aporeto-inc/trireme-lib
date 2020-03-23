@@ -155,6 +155,9 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		"isHostPU": func() bool {
 			return isHostPU
 		},
+		"Increment": func(i int) int {
+			return i + 1
+		},
 	}).Parse(packetCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -548,6 +551,9 @@ func (i *iptables) setGlobalRules() error {
 		},
 		"enableDNSProxy": func() bool {
 			return cfg.DNSServerIP != ""
+		},
+		"Increment": func(i int) int {
+			return i + 1
 		},
 	}).Parse(globalRules))
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/utils/constants"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +23,7 @@ type netCls struct {
 
 var (
 	basePath        = "/sys/fs/cgroup/net_cls"
-	markval  uint64 = Initialmarkval
+	markval  uint64 = constants.Initialmarkval
 )
 
 // GetCgroupList geta list of all cgroup names
