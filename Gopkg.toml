@@ -39,7 +39,8 @@ required = ["github.com/docker/distribution"]
   branch = "master"
 
 [[constraint]]
-  revision = "4fc53a81fb7c994640722ac585fa9ca548971871"
+  #revision = "4fc53a81fb7c994640722ac585fa9ca548971871"
+  revision = "ccb5efd37fb7c86364786e9137e22948751de7ed"
   name = "github.com/opencontainers/runc"
 
 [prune]
