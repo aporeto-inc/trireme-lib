@@ -234,9 +234,13 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if encrypted {
 		config := p.newBaseTLSConfig()
 		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
+			p.RLock()
+			defer p.RUnlock()
 			return p.clientTLSConfiguration(helloMsg.Conn, config)
 		}
 		config.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			p.RLock()
+			defer p.RUnlock()
 			return p.cert, nil
 		}
 		l = tls.NewListener(l, config)
@@ -355,6 +359,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { // nolint
+				p.RLock()
+				defer p.RUnlock()
 				return p.cert, nil
 			},
 		},
@@ -602,7 +608,9 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Add the headers with the authorization parameters and public key. The other side
 	// must validate our public key.
+	p.RLock()
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
+	p.RUnlock()
 	r.Header.Add("X-APORETO-AUTH", resp.Token)
 
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, state)

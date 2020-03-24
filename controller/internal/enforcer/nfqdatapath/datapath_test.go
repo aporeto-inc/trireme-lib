@@ -1,4 +1,4 @@
-// +build !windows
+// +build linux
 
 package nfqdatapath
 
@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
@@ -36,6 +38,8 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	markconstants "go.aporeto.io/trireme-lib/utils/constants"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -1458,7 +1462,8 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the mark exists", func() {
-				ctx, err := enforcer.contextFromIP(true, "100", 0, packet.IPProtocolTCP)
+				markVal := strconv.Itoa(100 << markconstants.MarkShift)
+				ctx, err := enforcer.contextFromIP(true, markVal, 0, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
@@ -2910,6 +2915,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								if isChecked {
 									time.Sleep(time.Second * 61)
 									netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+
 									So(netconn, ShouldBeNil)
 									So(err, ShouldNotBeNil)
 								}
@@ -4768,7 +4774,7 @@ func TestEnableDatapathPacketTracing(t *testing.T) {
 	})
 }
 
-func TestCheckCounterCollection(t *testing.T) {
+func Test_CheckCounterCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	collectCounterInterval = 1 * time.Second
@@ -4780,31 +4786,30 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 			So(enforcer, ShouldNotBeNil)
-			//collectCounterInterval = 1 * time.Second
+			// err := enforcer.Unenforce(puInfo2.ContextID)
+			// So(err, ShouldBeNil)
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
 			So(puContext, ShouldNotBeNil)
-			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
-				},
+
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
-			So(err, ShouldBeNil)
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError((counters.ErrNonPUTraffic), fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
 
 		})
+
 		Convey("So When enforer exits and waits for stuff to exit", func() {
 			mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
@@ -4815,23 +4820,20 @@ func TestCheckCounterCollection(t *testing.T) {
 			//collectCounterInterval = 1 * time.Second
 			contextID := puInfo1.ContextID
 			puContext, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
 			So(puContext, ShouldNotBeNil)
-			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
-				},
+
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
-			So(err, ShouldBeNil)
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
 
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNonPUTraffic, fmt.Errorf("error"))
 
 			So(puErr, ShouldNotBeNil)
 			cancel()
@@ -4846,23 +4848,21 @@ func TestCheckCounterCollection(t *testing.T) {
 			So(enforcer, ShouldNotBeNil)
 
 			contextID := puInfo1.ContextID
+
 			puContext, err := enforcer.puFromContextID.Get(contextID)
-			counterRecord := &collector.CounterReport{
-				ContextID: puContext.(*pucontext.PUContext).ID(),
-				Counters: []collector.Counters{
-					pucontext.ErrNetSynNotSeen: {
-						Name:  "SYNNOTSEEN",
-						Value: 1,
-					},
-				},
+			So(err, ShouldBeNil)
+			So(puContext, ShouldNotBeNil)
+
+			c := &collector.CounterReport{
+				PUID:      puContext.(*pucontext.PUContext).ManagementID(),
 				Namespace: puContext.(*pucontext.PUContext).ManagementNamespace(),
 			}
-			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(counterRecord)).AnyTimes()
-			So(puContext, ShouldNotBeNil)
-			So(err, ShouldBeNil)
+
+			mockCollector.EXPECT().CollectCounterEvent(MyCounterMatcher(c)).MinTimes(1)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go enforcer.counterCollector(ctx)
-			puErr := puContext.(*pucontext.PUContext).PuContextError(pucontext.ErrNetSynNotSeen, "")
+			puErr := puContext.(*pucontext.PUContext).Counters().CounterError(counters.ErrNonPUTraffic, fmt.Errorf("error"))
 			So(puErr, ShouldNotBeNil)
 			<-time.After(5 * collectCounterInterval)
 			cancel()
@@ -4974,6 +4974,174 @@ func Test_Secrets(t *testing.T) {
 			So(err, ShouldNotBeNil)
 			So(conn.Secrets.(*fakeSecrets).getID(), ShouldEqual, "BCD")
 			So(enforcer.secrets().(*fakeSecrets).getID(), ShouldEqual, "CDE")
+		})
+	})
+}
+
+func Test_CounterReportedOnAuthSetAppSyn(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAuthOptionSet], ShouldBeZeroValue)
+
+			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, true, false), "0", false)
+			So(err, ShouldBeNil)
+			conn = connection.NewTCPConnection(puContext, p)
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAuthOptionSet], ShouldEqual, 1)
+		})
+	})
+}
+
+func Test_CounterReportedOnAuthSetAppSynAck(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynAckPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn|tcp.Ack, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+			conn.PacketFlowPolicy = &policy.FlowPolicy{Action: policy.Accept}
+			err = enforcer.processApplicationSynAckPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAckAuthOptionSet], ShouldBeZeroValue)
+
+			p, err = packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn|tcp.Ack, true, false), "0", false)
+			So(err, ShouldBeNil)
+			conn = connection.NewTCPConnection(puContext, p)
+			conn.PacketFlowPolicy = &policy.FlowPolicy{Action: policy.Accept}
+			err = enforcer.processApplicationSynAckPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrAppSynAckAuthOptionSet], ShouldEqual, 1)
+		})
+	})
+}
+
+func Test_CounterOnSynCacheTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		Convey("So When enforcer exits", func() {
+			mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+			puInfo1, _, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			So(enforcer, ShouldNotBeNil)
+
+			contextID := puInfo1.ContextID
+			puCtx, err := enforcer.puFromContextID.Get(contextID)
+			So(err, ShouldBeNil)
+			So(puCtx, ShouldNotBeNil)
+
+			puContext := puCtx.(*pucontext.PUContext)
+
+			err = enforcer.SetTargetNetworks(&runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0"},
+			})
+			So(err, ShouldBeNil)
+
+			mockTokenAccessor := mocktokenaccessor.NewMockTokenAccessor(ctrl)
+			enforcer.tokenAccessor = mockTokenAccessor
+
+			s := &fakeSecrets{}
+			enforcer.scrts = s
+
+			mockTokenAccessor.EXPECT().CreateSynPacketToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return([]byte{}, nil)
+
+			p, err := packet.New(packet.PacketTypeApplication, newPacket(tcp.Syn, false, false), "0", false)
+			So(err, ShouldBeNil)
+			conn := connection.NewTCPConnection(puContext, p)
+
+			// Update the connection timer for testing.
+			enforcer.appOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", 2*time.Second, connection.TCPConnectionExpirationNotifier)
+
+			_, err = enforcer.processApplicationSynPacket(p, puContext, conn)
+			So(err, ShouldBeNil)
+
+			c := conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrTCPConnectionsExpired], ShouldBeZeroValue)
+			So(enforcer.appOrigConnectionTracker.(*cache.Cache).SizeOf(), ShouldEqual, 1)
+
+			// Wait for the connection to expire.
+			time.Sleep(3 * time.Second)
+
+			So(enforcer.appOrigConnectionTracker.(*cache.Cache).SizeOf(), ShouldEqual, 0)
+
+			c = conn.Context.Counters().GetErrorCounters()
+			So(c[counters.ErrTCPConnectionsExpired], ShouldEqual, 1)
 		})
 	})
 }

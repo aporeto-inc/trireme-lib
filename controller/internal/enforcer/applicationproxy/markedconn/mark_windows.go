@@ -3,7 +3,6 @@
 package markedconn
 
 import (
-	"fmt"
 	"net"
 	"syscall"
 
@@ -17,9 +16,8 @@ func makeDialer(mark int, platformData *PlatformData) net.Dialer {
 		Control: func(_, _ string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
 				// call FrontmanApplyDestHandle to update WFP redirect data before the connect() call on the new socket
-				dllRet, err := frontman.Driver.ApplyDestHandle(fd, platformData.handle)
-				if dllRet == 0 {
-					zap.L().Error(fmt.Sprintf("ApplyDestHandle failed: %v", err))
+				if err := frontman.Wrapper.ApplyDestHandle(fd, platformData.handle); err != nil {
+					zap.L().Error("could not update proxy redirect", zap.Error(err))
 				}
 			})
 		},

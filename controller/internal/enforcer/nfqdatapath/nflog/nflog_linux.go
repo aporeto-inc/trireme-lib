@@ -8,7 +8,6 @@ import (
 
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.uber.org/zap"
 )
 
@@ -88,8 +87,4 @@ func (a *nfLog) nflogErrorHandler(err error) {
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
 	return recordFromNFLogData(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, puIsSource)
-}
-
-func (a *nfLog) recordDroppedPacket(buf *nflog.NfPacket, pu *pucontext.PUContext) (*collector.PacketReport, error) {
-	return recordDroppedPacket(buf.Payload, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, pu)
 }
