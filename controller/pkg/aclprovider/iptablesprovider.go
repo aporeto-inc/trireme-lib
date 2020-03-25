@@ -64,6 +64,7 @@ const (
 	restoreCmdV6 = "ip6tables-restore"
 )
 
+// IsCgroupsSupported returns true ifiptables allow cgroup match
 func IsCgroupsSupported() bool {
 	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m cgroup --cgroup 100 -j LOG")...)
 	_, err := cmd.CombinedOutput()
