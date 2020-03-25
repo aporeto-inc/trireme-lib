@@ -2,7 +2,9 @@
 
 package cgnetcls
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // MarkVal returns a new Mark Value
 func MarkVal() uint64 {

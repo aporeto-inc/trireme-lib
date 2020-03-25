@@ -20,6 +20,23 @@ type FilterQueue struct {
 	ApplicationQueueSize uint32
 	// NetworkQueueSize is the size of the network queue
 	NetworkQueueSize uint32
+	// NetworkSynQueues the range of network queues for syn packets
+	NetworkSynQueues []uint32
+	// NetworkSynAckQueues the range of network queues for syn ack packets
+	NetworkSynAckQueues []uint32
+	// NetworkAckQueues the range of network queues for ack packets
+	NetworkAckQueues []uint32
+	// NetworkQueuesSvc the range of network queus for services
+	NetworkQueuesSvc []uint32
+	// ApplicationSynQueues is the range of application queues for syn packets
+	ApplicationSynQueues []uint32
+	// ApplicationAckQueues is the range of application queues for application ack packets
+	ApplicationAckQueues []uint32
+	// ApplicationQueuesSvc is the range of queues  for application service packets
+	ApplicationQueuesSvc []uint32
+	// ApplicationSynAckQueues is the range of queues for application synack packets
+	ApplicationSynAckQueues []uint32
+
 	// NetworkQueuesSynStr is the queue string for network syn
 	NetworkQueuesSynStr string
 	// NetworkQueuesAckStr is the queue string for network ack
@@ -54,6 +71,14 @@ func NewFilterQueueWithDefaults() *FilterQueue {
 	)
 }
 
+func createQueueSlice(startQueue uint16, numQueues uint16) []uint32 {
+	queues := make([]uint32, int(numQueues))
+	for i := startQueue; i < (startQueue + numQueues); i++ {
+		queues[i-startQueue] = uint32(i)
+	}
+	return queues
+}
+
 // NewFilterQueue returns an instance of FilterQueue
 func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32, dnsServerAddress []string) *FilterQueue {
 
@@ -68,7 +93,12 @@ func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNet
 	if queueSeparation {
 
 		fq.ApplicationQueue = QueueStart
+		fq.ApplicationSynQueues = createQueueSlice(fq.ApplicationQueue, NumberOfApplicationQueues)
+		fq.ApplicationAckQueues = createQueueSlice(fq.ApplicationQueue+1*NumberOfApplicationQueues, NumberOfApplicationQueues)
+		fq.ApplicationSynAckQueues = createQueueSlice((fq.ApplicationQueue + 2*NumberOfApplicationQueues), NumberOfApplicationQueues)
+		fq.ApplicationQueuesSvc = createQueueSlice(fq.ApplicationQueue+3*NumberOfApplicationQueues, NumberOfApplicationQueues)
 		fq.ApplicationQueuesSynStr = strconv.Itoa(int(fq.ApplicationQueue)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+NumberOfApplicationQueues-1))
+
 		fq.ApplicationQueuesAckStr = strconv.Itoa(int(fq.ApplicationQueue+1*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+2*NumberOfApplicationQueues-1))
 		fq.ApplicationQueuesSynAckStr = strconv.Itoa(int(fq.ApplicationQueue+2*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+3*NumberOfApplicationQueues-1))
 		fq.ApplicationQueuesSvcStr = strconv.Itoa(int(fq.ApplicationQueue+3*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+4*NumberOfApplicationQueues-1))
@@ -76,6 +106,10 @@ func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNet
 
 		fq.NetworkQueue = QueueStart + fq.NumberOfApplicationQueues
 		fq.NetworkQueuesSynStr = strconv.Itoa(int(fq.NetworkQueue)) + ":" + strconv.Itoa(int(fq.NetworkQueue+NumberOfNetworkQueues-1))
+		fq.NetworkSynQueues = createQueueSlice(fq.NetworkQueue, NumberOfNetworkQueues)
+		fq.NetworkAckQueues = createQueueSlice(fq.NetworkQueue+1*NumberOfNetworkQueues, NumberOfNetworkQueues)
+		fq.NetworkSynAckQueues = createQueueSlice(fq.NetworkQueue+2*NumberOfNetworkQueues, NumberOfNetworkQueues)
+		fq.NetworkQueuesSvc = createQueueSlice(fq.NetworkQueue+3*NumberOfNetworkQueues, NumberOfNetworkQueues)
 		fq.NetworkQueuesAckStr = strconv.Itoa(int(fq.NetworkQueue+1*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+2*NumberOfNetworkQueues-1))
 		fq.NetworkQueuesSynAckStr = strconv.Itoa(int(fq.NetworkQueue+2*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+3*NumberOfNetworkQueues-1))
 		fq.NetworkQueuesSvcStr = strconv.Itoa(int(fq.NetworkQueue+3*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+4*NumberOfNetworkQueues-1))
