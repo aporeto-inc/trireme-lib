@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
+	"go.aporeto.io/trireme-lib/utils/frontman"
 )
 
 // IpsetProvider returns a fabric for Ipset.
