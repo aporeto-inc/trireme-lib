@@ -139,6 +139,14 @@ func (a *abi) DeleteFilterCriteria(driverHandle, filterName, criteriaName uintpt
 	return 1, nil
 }
 
+func (a *abi) ListIpsetsDetail(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error) {
+	return 1, nil
+}
+
+func (a *abi) GetCriteriaList(driverHandle, format, criteriaList, criteriaListSize, bytesReturned uintptr) (uintptr, error) {
+	return 1, nil
+}
+
 type testPassFD struct {
 }
 
