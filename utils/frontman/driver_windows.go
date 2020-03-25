@@ -311,13 +311,13 @@ const (
 // See Filter_set.h
 const (
 	CriteriaListFormatString = iota + 1
-	CriteriaListFormatJson
+	CriteriaListFormatJSON
 )
 
 // See Ipset.h
 const (
 	IpsetsDetailFormatString = iota + 1
-	IpsetsDetailFormatJson
+	IpsetsDetailFormatJSON
 )
 
 // DestInfo mirrors frontman's DEST_INFO struct
