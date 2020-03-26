@@ -230,6 +230,7 @@ type Counters uint32
 type CounterReport struct {
 	Namespace string
 	PUID      string
+	Timestamp int64
 	Counters  []Counters
 }
 
