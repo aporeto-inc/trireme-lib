@@ -5,7 +5,7 @@ package cgnetcls
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/trireme-lib/v11/utils/constants"
 )
 
 type netCls struct {

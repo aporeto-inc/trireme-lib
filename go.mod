@@ -5,8 +5,8 @@ go 1.13
 // Aporeto modules
 require (
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20200314060509-7b95f15c9600
-	go.aporeto.io/netlink-go v1.42.1-0.20200316093853-d3f47143fbb0
-	go.aporeto.io/tg v1.34.1-0.20191212031200-49e4a3e985d8
+	go.aporeto.io/netlink-go v1.42.1-0.20200323165338-b9a58c562f9f
+	go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4
 )
 
 replace (
@@ -46,7 +46,7 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/shirou/gopsutil v2.20.1+incompatible
 	github.com/smartystreets/assertions v1.0.1
-	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a
+	github.com/smartystreets/goconvey v1.6.4
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.4.0
 	github.com/ti-mo/conntrack v0.0.0-20191219100429-c9b176489c1a
@@ -56,7 +56,7 @@ require (
 	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
+	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
 	google.golang.org/grpc v1.28.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -65,7 +65,6 @@ require (
 
 // Kubernetes
 require (
-	go.aporeto.io/trireme-lib v10.281.0+incompatible
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible

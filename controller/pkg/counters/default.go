@@ -3,7 +3,7 @@ package counters
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/v11/collector"
 )
 
 // Bad PU to hold counters for packets we know nothing about. We cant figure out context

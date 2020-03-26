@@ -1,8 +1,8 @@
 package nfqdatapath
 
 import (
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/counters"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/tokens"
 )
 
 func appSynCounterFromError(err error) counters.CounterType {
