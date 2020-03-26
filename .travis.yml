@@ -51,6 +51,7 @@ before_install:
   - go get github.com/sourcegraph/go-diff@v0.5.1
   - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
   - cd "$OLD_DIR"
+  - sudo apt-get -y install wine32
 
 install:
   - go mod download
