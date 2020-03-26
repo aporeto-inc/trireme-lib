@@ -7,7 +7,7 @@ go 1.13
 // Aporeto modules
 require (
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20200314060509-7b95f15c9600
-	go.aporeto.io/netlink-go v1.42.1-0.20200326182637-77abaa6093b8
+	go.aporeto.io/netlink-go v1.42.1-0.20200326204605-aaccf2f37dec
 	go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4
 )
 
@@ -67,11 +67,6 @@ require (
 
 // Kubernetes
 require (
-	github.com/containerd/containerd v1.3.3 // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	golang.org/x/tools v0.0.0-20200326194725-b1df9901287c // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
