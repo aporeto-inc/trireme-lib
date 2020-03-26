@@ -1,17 +1,19 @@
 module go.aporeto.io/trireme-lib/v11
 
+replace go.aporeto.io/trireme-lib/v11 => ./
+
 go 1.13
 
 // Aporeto modules
 require (
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20200314060509-7b95f15c9600
-	go.aporeto.io/netlink-go v1.42.1-0.20200323165338-b9a58c562f9f
+	go.aporeto.io/netlink-go v1.42.1-0.20200326182637-77abaa6093b8
 	go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4
 )
 
 replace (
 	github.com/ghedo/go.pkt => github.com/aporeto-inc/gopkt v0.0.0-20200314054312-ec36c21fa4e0
-	github.com/vulcand/oxy => github.com/aporeto-inc/oxy v1.3.1-0.20200314064302-4c2778768cee
+	github.com/vulcand/oxy => github.com/aporeto-inc/oxy v1.3.0
 )
 
 // 3rd party
@@ -30,7 +32,7 @@ require (
 	github.com/ghedo/go.pkt v0.0.0-20200209120728-c97f47ad982f
 	github.com/gogo/googleapis v1.3.2
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/mock v1.4.2
+	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.3.5
 	github.com/google/gopacket v1.1.17
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
@@ -56,7 +58,7 @@ require (
 	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b
 	google.golang.org/grpc v1.28.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -65,6 +67,11 @@ require (
 
 // Kubernetes
 require (
+	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
+	golang.org/x/tools v0.0.0-20200326194725-b1df9901287c // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible

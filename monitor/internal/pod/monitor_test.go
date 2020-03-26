@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	cache "k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -138,14 +138,13 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
@@ -247,14 +246,13 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
@@ -290,7 +288,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				zc := NewMockCore(ctrl)
 				logger := zap.New(zc)
 				zap.ReplaceGlobals(logger)
-				zc.EXPECT().Enabled(zapcore.WarnLevel).Times(2).Return(true)
+				zc.EXPECT().Enabled(zapcore.DebugLevel).Times(1).Return(true)
 				zc.EXPECT().Check(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
 					return ce.AddCore(ent, zc)
 				})
@@ -385,14 +383,13 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(2).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(2).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(2).Return(cch)
 				mgr.EXPECT().GetConfig().Times(2).Return(nil)
 				mgr.EXPECT().GetScheme().Times(2).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(3).Return(c) // twice in controller.New because of the failure, and one time after that (that is after mgr.Add actually)
-				mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(2).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(2).Return(nil)
 				var mainControllerErrored bool
 				mgr.EXPECT().Add(isKubernetesController()).Times(2).DoAndReturn(func(run manager.Runnable) error {
 					if !mainControllerErrored {
