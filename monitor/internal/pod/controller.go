@@ -45,7 +45,7 @@ var (
 func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}, resyncInfo *ResyncInfoChan) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
-		recorder:          mgr.GetRecorder("trireme-pod-controller"),
+		recorder:          mgr.GetEventRecorderFor("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		netclsProgrammer:  netclsProgrammer,
