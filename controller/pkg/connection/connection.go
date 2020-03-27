@@ -9,6 +9,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
@@ -97,15 +98,6 @@ const (
 // MaximumUDPQueueLen is the maximum number of UDP packets buffered.
 const MaximumUDPQueueLen = 50
 
-const (
-
-	// RejectReported represents that flow was reported as rejected
-	RejectReported bool = true
-
-	// AcceptReported represents that flow was reported as accepted
-	AcceptReported bool = false
-)
-
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
 	LocalContext         []byte
@@ -142,9 +134,6 @@ type TCPConnection struct {
 	state TCPFlowState
 	Auth  AuthInfo
 
-	// Debugging Information
-	flowReported int
-
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
@@ -154,9 +143,6 @@ type TCPConnection struct {
 
 	// TimeOut signals the timeout to be used by the state machines
 	TimeOut time.Duration
-
-	// Debugging information - pushed to the end for compact structure
-	flowLastReporting bool
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
@@ -176,19 +162,26 @@ type TCPConnection struct {
 
 	RetransmittedSynAck bool
 
+	expiredConnection bool
+
+	// TCPtuple is tcp tuple
 	TCPtuple *TCPTuple
 
+	// PingConfig is the config of the enforcer ping diagnostic feature
 	PingConfig *PingConfig
 
 	Secrets secrets.Secrets
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
-func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
+func TCPConnectionExpirationNotifier(c cache.DataStore, _ interface{}, item interface{}) {
 
-	if conn, ok := item.(*TCPConnection); ok {
-		conn.Cleanup(true)
+	conn, ok := item.(*TCPConnection)
+	if !ok {
+		return
 	}
+
+	conn.Cleanup()
 }
 
 func (tcpTuple *TCPTuple) String() string {
@@ -197,45 +190,28 @@ func (tcpTuple *TCPTuple) String() string {
 
 // String returns a printable version of connection
 func (c *TCPConnection) String() string {
-
 	return fmt.Sprintf("state:%d auth: %+v", c.state, c.Auth)
 }
 
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
-
 	return c.state
 }
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
 	c.state = state
 }
 
-// SetReported is used to track if a flow is reported
-func (c *TCPConnection) SetReported(flowState bool) {
-
-	c.flowReported++
-
-	if c.flowReported > 1 && c.flowLastReporting != flowState {
-		zap.L().Info("Connection reported multiple times",
-			zap.Int("report count", c.flowReported),
-			zap.Bool("previous", c.flowLastReporting),
-			zap.Bool("next", flowState),
-		)
-	}
-
-	c.flowLastReporting = flowState
-}
-
 // Cleanup will provide information when a connection is removed by a timer.
-func (c *TCPConnection) Cleanup(expiration bool) {
-	// Logging information
-	if c.flowReported == 0 {
-		zap.L().Error("Connection not reported",
-			zap.String("connection", c.String()))
+func (c *TCPConnection) Cleanup() {
+
+	c.Lock()
+	if !c.expiredConnection && c.state != TCPData {
+		c.expiredConnection = true
+		c.Context.Counters().IncrementCounter(counters.ErrTCPConnectionsExpired)
 	}
+	c.Unlock()
 }
 
 // SetLoopbackConnection sets LoopbackConnection field.
@@ -329,8 +305,6 @@ type UDPConnection struct {
 	state   UDPFlowState
 	Context *pucontext.PUContext
 	Auth    AuthInfo
-	// Debugging Information
-	flowReported int
 
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
@@ -340,8 +314,6 @@ type UDPConnection struct {
 	// PacketQueue indicates app UDP packets queued while authorization is in progress.
 	PacketQueue chan *packet.Packet
 	Writer      afinetrawsocket.SocketWriter
-	// Debugging information - pushed to the end for compact structure
-	flowLastReporting bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 
@@ -352,6 +324,7 @@ type UDPConnection struct {
 
 	TestIgnore           bool
 	udpQueueFullDropCntr uint64
+	expiredConnection    bool
 
 	Secrets secrets.Secrets
 }
@@ -411,6 +384,7 @@ func (c *UDPConnection) AckStop() {
 // SynChannel returns the SynStop channel.
 func (c *UDPConnection) SynChannel() chan bool {
 	return c.synStop
+
 }
 
 // SynAckChannel returns the SynAck stop channel.
@@ -435,7 +409,6 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
-
 	buffer := make([]byte, len(udpPacket.GetBuffer(0)))
 	copy(buffer, udpPacket.GetBuffer(0))
 
@@ -471,18 +444,27 @@ func (c *UDPConnection) ReadPacket() *packet.Packet {
 	}
 }
 
-// SetReported is used to track if a flow is reported
-func (c *UDPConnection) SetReported(flowState bool) {
+// Cleanup is called on cache expiry of the connection to record incomplete connections
+func (c *UDPConnection) Cleanup() {
 
-	c.flowReported++
-
-	if c.flowReported > 1 && c.flowLastReporting != flowState {
-		zap.L().Info("Connection reported multiple times",
-			zap.Int("report count", c.flowReported),
-			zap.Bool("previous", c.flowLastReporting),
-			zap.Bool("next", flowState),
-		)
+	c.Lock()
+	if !c.expiredConnection && c.state != UDPData {
+		c.expiredConnection = true
+		c.Context.Counters().IncrementCounter(counters.ErrUDPConnectionsExpired)
 	}
+	c.Unlock()
+}
 
-	c.flowLastReporting = flowState
+// String returns a printable version of connection
+func (c *UDPConnection) String() string {
+
+	return fmt.Sprintf("udp-conn state:%d auth: %+v", c.state, c.Auth)
+}
+
+// UDPConnectionExpirationNotifier expiration notifier when cache entry expires
+func UDPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
+
+	if conn, ok := item.(*UDPConnection); ok {
+		conn.Cleanup()
+	}
 }

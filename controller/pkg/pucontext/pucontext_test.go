@@ -22,6 +22,7 @@ func Test_NewPU(t *testing.T) {
 		Convey("I should not get error", func() {
 			So(pu, ShouldNotBeNil)
 			So(pu.HashID(), ShouldEqual, pu.hashID)
+			So(pu.Counters(), ShouldNotBeNil)
 			So(err, ShouldBeNil)
 		})
 	})

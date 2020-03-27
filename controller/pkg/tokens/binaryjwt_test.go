@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/gob"
-	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
@@ -120,7 +119,7 @@ func Test_EncodeDecode(t *testing.T) {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
 				_, _, _, err := b.Decode(false, token, nil, scrts)
-				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: no signature in the token"))
+				So(err, ShouldResemble, ErrMissingSignature)
 			})
 		})
 
@@ -128,7 +127,7 @@ func Test_EncodeDecode(t *testing.T) {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
 				_, _, _, err := b.Decode(false, nil, nil, scrts)
-				So(err, ShouldResemble, fmt.Errorf("unable to unpack token: not enough data"))
+				So(err, ShouldResemble, ErrInvalidTokenLength)
 			})
 		})
 	})
