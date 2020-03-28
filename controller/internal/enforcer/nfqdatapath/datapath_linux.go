@@ -19,7 +19,8 @@ func writeProcFile(path, value string) error {
 		return err
 	}
 	if _, err := f.Write([]byte(value)); err != nil {
-		f.Close() // ignore error; Write error takes precedence
+		// ignore error; Write error takes precedence
+		f.Close() // nolint
 		return err
 	}
 	if err := f.Close(); err != nil {
