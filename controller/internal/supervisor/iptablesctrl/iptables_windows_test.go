@@ -14,12 +14,12 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/frontman"
 )
 
 const (
@@ -299,6 +299,14 @@ func (a *abi) DeleteFilterCriteria(driverHandle, filterName, criteriaName uintpt
 		return 0, errInvalidParameter
 	}
 	delete(m, cstr)
+	return 1, nil
+}
+
+func (a *abi) ListIpsetsDetail(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error) {
+	return 1, nil
+}
+
+func (a *abi) GetCriteriaList(driverHandle, format, criteriaList, criteriaListSize, bytesReturned uintptr) (uintptr, error) {
 	return 1, nil
 }
 
