@@ -94,8 +94,9 @@ type ACLInfo struct {
 	MarkMask        string
 	HMarkRandomSeed string
 	// IPv4 IPv6
-	DefaultIP     string
-	needICMPRules bool
+	DefaultIP      string
+	needICMPRules  bool
+	IsLegacyKernel bool
 
 	// UDP rules
 	Numpackets   string
@@ -298,11 +299,11 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ProxySetName: proxySetName,
 
 		// // UID PUs
-		UID:        uid,
-		PacketMark: packetMark,
-		Mark:       mark,
-		PortSet:    portSetName,
-
+		UID:                    uid,
+		PacketMark:             packetMark,
+		Mark:                   mark,
+		PortSet:                portSetName,
+		IsLegacyKernel:         i.isLegacyKernel,
 		NFLOGPrefix:            policy.DefaultLogPrefix(contextID),
 		NFLOGAcceptPrefix:      policy.DefaultAcceptLogPrefix(contextID),
 		DefaultNFLOGDropPrefix: policy.DefaultDroppedPacketLogPrefix(contextID),

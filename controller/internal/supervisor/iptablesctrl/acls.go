@@ -45,7 +45,7 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 			cfg.ContextID,
 			cfg.AppChain,
 			cfg.NetChain,
-			cfg.CgroupMark,
+			cfg.PacketMark,
 			cfg.TCPPorts,
 			cfg.UDPPorts,
 			cfg.ProxyPort,
