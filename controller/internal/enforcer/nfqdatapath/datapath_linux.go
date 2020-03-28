@@ -4,7 +4,7 @@ package nfqdatapath
 
 import (
 	"context"
-	"os/exec"
+	"os"
 
 	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -12,23 +12,36 @@ import (
 	"go.uber.org/zap"
 )
 
-func adjustConntrack(mode constants.ModeType) {
-	sysctlCmd, err := exec.LookPath("sysctl")
+func writeProcFile(path, value string) error {
+	// If the file doesn't exist, create it, or append to the file
+	f, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		zap.L().Fatal("sysctl command must be installed", zap.Error(err))
+		return err
 	}
+	if _, err := f.Write([]byte(value)); err != nil {
+		// ignore error; Write error takes precedence
+		f.Close() // nolint
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
+}
 
-	cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-	if err := cmd.Run(); err != nil {
-		zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
+func adjustConntrack(mode constants.ModeType) {
+	var err error
+
+	if err = writeProcFile("/proc/1/root/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal", "0"); err != nil {
+		zap.L().Error("failed to set /proc/1/root/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal=0: %s", zap.Error(err))
 	}
 
 	if mode == constants.LocalServer && !buildflags.IsLegacyKernel() {
-		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-		if err := cmd.Run(); err != nil {
-			zap.L().Fatal("Failed to set early demux options", zap.Error(err))
+		if err = writeProcFile("/proc/1/root/proc/sys/net/ipv4/ip_early_demux", "0"); err != nil {
+			zap.L().Error("failed to set /proc/1/root/proc/sys/net/ipv4/ip_early_demux=0: %s", zap.Error(err))
 		}
 	}
+
 }
 
 // ignoreFlow is for Windows. use flowtracking interface for Linux.
