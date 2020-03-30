@@ -213,7 +213,6 @@ github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6 h1:ZgQEtGgCBiWRM
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/mock v1.2.0/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
-github.com/golang/mock v1.4.2/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.3 h1:GV+pQPG/EUUbkh47niozDcADz6go/dUwhVzdUQHIVRw=
 github.com/golang/mock v1.4.3/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/protobuf v0.0.0-20161109072736-4bd1920723d7/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
@@ -589,12 +588,10 @@ github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-go.aporeto.io/netlink-go v1.42.1-0.20200326204605-aaccf2f37dec h1:FKWn7ylxFoJKHCSL0NOZnGjNZXv3925FolPexjgCOh8=
-go.aporeto.io/netlink-go v1.42.1-0.20200326204605-aaccf2f37dec/go.mod h1:lTvem4LcUvk7yAdN42OoFN+piLxzEPe3M/LjzNlHvBs=
+go.aporeto.io/netlink-go v1.42.1-0.20200330191440-369dbe408316 h1:yCtyb6FcfikV97tagQgRbFZP8kkVqBe5zInwZy00UTM=
+go.aporeto.io/netlink-go v1.42.1-0.20200330191440-369dbe408316/go.mod h1:4gW3NjVJW8zR6dzi/xcIhoH/ZxjeVGghlZ+US+cBIYY=
 go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4 h1:Aaq2I6nBOEHWZWvuFU30Fr3SUNMPdsBWK67FXztVdT0=
 go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4/go.mod h1:tj9qQdWdzoQDz6pn1vJVCkpUAEOuUZGnP7DBdwBLfXs=
-go.aporeto.io/trireme-lib v10.286.0+incompatible h1:8+V22tFtzoHmZWHeqHVM/ffE5Z4gY1Q92w3H2w+4vfE=
-go.aporeto.io/trireme-lib v10.286.0+incompatible/go.mod h1:5u7yywWztPMy7SnPxW8/0hm1CeuFUTY0QCvR4QFSVTo=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=

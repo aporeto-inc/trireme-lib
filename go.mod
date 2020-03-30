@@ -7,7 +7,7 @@ go 1.13
 // Aporeto modules
 require (
 	github.com/aporeto-inc/go-ipset v1.5.3-0.20200314060509-7b95f15c9600
-	go.aporeto.io/netlink-go v1.42.1-0.20200326204605-aaccf2f37dec
+	go.aporeto.io/netlink-go v1.42.1-0.20200330191440-369dbe408316
 	go.aporeto.io/tg v1.34.1-0.20200325203557-d13ca9b3c4b4
 )
 
