@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"go.aporeto.io/trireme-lib/v11/collector"
-	"go.aporeto.io/trireme-lib/v11/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"go.uber.org/zap"
 )
 

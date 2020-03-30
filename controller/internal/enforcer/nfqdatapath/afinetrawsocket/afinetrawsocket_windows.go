@@ -5,8 +5,8 @@ package afinetrawsocket
 import (
 	"errors"
 
-	"go.aporeto.io/trireme-lib/v11/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 )
 
 type rawsocket struct {

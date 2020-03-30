@@ -10,7 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/v11/controller/internal/windows/frontman"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 )
 
 type abi struct {
@@ -136,6 +136,14 @@ func (a *abi) AppendFilterCriteria(driverHandle, filterName, criteriaName, ruleS
 }
 
 func (a *abi) DeleteFilterCriteria(driverHandle, filterName, criteriaName uintptr) (uintptr, error) {
+	return 1, nil
+}
+
+func (a *abi) ListIpsetsDetail(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error) {
+	return 1, nil
+}
+
+func (a *abi) GetCriteriaList(driverHandle, format, criteriaList, criteriaListSize, bytesReturned uintptr) (uintptr, error) {
 	return 1, nil
 }
 

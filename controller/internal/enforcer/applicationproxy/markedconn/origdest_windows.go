@@ -7,7 +7,7 @@ import (
 	"net"
 
 	"go.aporeto.io/trireme-lib/v11/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/v11/controller/internal/windows/frontman"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"go.uber.org/zap"
 )
 

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/v11/controller/internal/windows/frontman"
 	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 )
 
 func TestParseRuleSpecMatchSet(t *testing.T) {
