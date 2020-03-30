@@ -9,7 +9,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 

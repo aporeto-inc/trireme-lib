@@ -1,7 +1,7 @@
 package statscollector
 
 import (
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/v11/collector"
 )
 
 // CollectorReader interface which provides functions to query pending stats.

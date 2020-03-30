@@ -3,7 +3,7 @@ package httpproxy
 import (
 	"net/http"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/flowstats"
 )
 
 // TriremeRoundTripper is the Trireme RoundTripper that will handle

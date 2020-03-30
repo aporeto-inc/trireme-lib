@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
 )
 
 const (

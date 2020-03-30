@@ -5,7 +5,7 @@ package iptablesctrl
 import (
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

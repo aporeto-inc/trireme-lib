@@ -1,6 +1,6 @@
 package runtime
 
-import "go.aporeto.io/trireme-lib/controller/constants"
+import "go.aporeto.io/trireme-lib/v11/controller/constants"
 
 // Configuration is configuration parameters that can be safely updated
 // for the controller after it is started

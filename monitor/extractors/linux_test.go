@@ -10,10 +10,10 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
-	portspec "go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	portspec "go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 func TestComputeFileMd5(t *testing.T) {

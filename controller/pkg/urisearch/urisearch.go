@@ -1,7 +1,7 @@
 package urisearch
 
 import (
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 type node struct {

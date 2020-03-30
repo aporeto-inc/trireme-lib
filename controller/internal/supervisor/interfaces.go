@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/runtime"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // A Supervisor is implementing the node control plane that captures the packets.

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 

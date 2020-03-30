@@ -14,15 +14,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	triremecommon "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/mockusertokens"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	triremecommon "go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/servicetokens"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/mockusertokens"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 const (

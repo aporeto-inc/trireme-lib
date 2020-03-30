@@ -15,7 +15,7 @@ import (
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/common"
 	"golang.org/x/oauth2"
 )
 

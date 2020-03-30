@@ -3,8 +3,8 @@
 package monitor
 
 import (
-	"go.aporeto.io/trireme-lib/monitor/config"
-	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	windowsmonitor "go.aporeto.io/trireme-lib/v11/monitor/internal/windows"
 )
 
 // WindowsMonitorOption is provided using functional arguments

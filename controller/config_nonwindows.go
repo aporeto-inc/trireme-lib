@@ -3,9 +3,9 @@
 package controller
 
 import (
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/supervisor"
 )
 
 func (t *trireme) setupEnvoyAuthorizer() error {

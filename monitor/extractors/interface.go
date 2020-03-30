@@ -3,8 +3,8 @@ package extractors
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/policy"
 
 	corev1 "k8s.io/api/core/v1"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
 )

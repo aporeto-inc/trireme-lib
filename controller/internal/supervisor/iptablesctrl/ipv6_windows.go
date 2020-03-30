@@ -3,7 +3,7 @@
 package iptablesctrl
 
 import (
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
 )
 
 // GetIPv6Impl creates the instance of ipv6 struct which implements

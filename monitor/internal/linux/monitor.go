@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/registerer"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls"
 )
 
 // LinuxMonitor captures all the monitor processor information

@@ -5,7 +5,7 @@ package kubernetesmonitor
 import (
 	"sync"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // puidCacheEntry is a Kubernetes entry based on Docker as a key.

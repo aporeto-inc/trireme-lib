@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/minio/minio/pkg/wildcard"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/acls"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/lookup"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/counters"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 )
 
 type policies struct {

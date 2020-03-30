@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/flowtracking"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 

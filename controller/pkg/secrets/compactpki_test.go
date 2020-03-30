@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/utils/crypto"
 )
 
 func TestNewCompactPKI(t *testing.T) {

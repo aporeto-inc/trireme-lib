@@ -11,11 +11,11 @@ import (
 	"strings"
 	"text/template"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/constants"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {

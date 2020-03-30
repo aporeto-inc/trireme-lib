@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/servicetokens"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

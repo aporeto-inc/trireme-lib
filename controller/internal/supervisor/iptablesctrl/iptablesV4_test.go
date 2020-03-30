@@ -12,14 +12,14 @@ import (
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/runtime"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvider, iptv4 provider.IptablesProvider, iptv6 provider.IptablesProvider, mode constants.ModeType) (*Instance, error) {

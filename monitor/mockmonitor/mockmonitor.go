@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	config "go.aporeto.io/trireme-lib/monitor/config"
-	registerer "go.aporeto.io/trireme-lib/monitor/registerer"
+	config "go.aporeto.io/trireme-lib/v11/monitor/config"
+	registerer "go.aporeto.io/trireme-lib/v11/monitor/registerer"
 )
 
 // MockMonitor is a mock of Monitor interface

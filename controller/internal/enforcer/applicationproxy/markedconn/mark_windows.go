@@ -6,7 +6,7 @@ import (
 	"net"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"go.uber.org/zap"
 )
 

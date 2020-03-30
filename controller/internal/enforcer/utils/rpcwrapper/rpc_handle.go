@@ -15,13 +15,12 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-
 	"github.com/mitchellh/hashstructure"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/pkitokens"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -269,17 +268,17 @@ func RegisterTypes() {
 	gob.Register(&collector.PingReport{})
 	gob.Register(&collector.DNSRequestReport{})
 	gob.Register(&collector.PacketReport{})
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Report_Payload", *(&ReportPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.SetLogLevel_Payload", *(&SetLogLevelPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenRequest_Payload", *(&TokenRequestPayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.TokenResponse_Payload", *(&TokenResponsePayload{}))
-	gob.RegisterName("go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper.Ping_Payload", *(&PingPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.SetTargetNetworks_Payload", *(&SetTargetNetworksPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.EnableIPTablesPacketTracing_PayLoad", *(&EnableIPTablesPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.EnableDatapathPacketTracing_PayLoad", *(&EnableDatapathPacketTracingPayLoad{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Report_Payload", *(&ReportPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.SetLogLevel_Payload", *(&SetLogLevelPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.TokenRequest_Payload", *(&TokenRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.TokenResponse_Payload", *(&TokenResponsePayload{}))
+	gob.RegisterName("go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper.Ping_Payload", *(&PingPayload{}))
 }

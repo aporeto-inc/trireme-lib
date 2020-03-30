@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pkiverifier"
+	"go.aporeto.io/trireme-lib/v11/utils/crypto"
 	"go.uber.org/zap"
 )
 

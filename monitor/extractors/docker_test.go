@@ -10,7 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/v11/monitor/constants"
 )
 
 func TestDefaultMetadataExtractor(t *testing.T) {

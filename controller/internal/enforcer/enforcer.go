@@ -6,24 +6,24 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/envoyauthorizer"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/secretsproxy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/controller/runtime"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -166,6 +166,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 }
 
 func (e *enforcer) SetTargetNetworks(cfg *runtime.Configuration) error {
+	zap.L().Debug("DEADBEEF: enforcer object is ", zap.Reflect("enforcer", e)) // DEBUG
 	return e.transport.SetTargetNetworks(cfg)
 }
 

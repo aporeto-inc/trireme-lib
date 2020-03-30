@@ -11,11 +11,11 @@ import (
 	"strings"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/monitor/remoteapi/client"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 // ExecuteCommandFromArguments processes the command from the arguments

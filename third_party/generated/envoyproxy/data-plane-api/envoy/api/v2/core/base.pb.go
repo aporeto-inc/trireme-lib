@@ -11,7 +11,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
-	_type "go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api/envoy/type"
+	_type "go.aporeto.io/trireme-lib/v11/third_party/generated/envoyproxy/data-plane-api/envoy/type"
 	io "io"
 	math "math"
 	math_bits "math/bits"

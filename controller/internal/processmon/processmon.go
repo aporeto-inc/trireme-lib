@@ -17,14 +17,14 @@ import (
 	"syscall"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/env"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/utils/crypto"
 	"go.uber.org/zap"
 )
 

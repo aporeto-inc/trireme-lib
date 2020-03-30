@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	collector "go.aporeto.io/trireme-lib/collector"
-	statscollector "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	collector "go.aporeto.io/trireme-lib/v11/collector"
+	statscollector "go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector"
 )
 
 // MockCollectorReader is a mock of CollectorReader interface

@@ -12,7 +12,7 @@ import (
 	"context"
 
 	"github.com/docker/go-connections/nat"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 // A RuntimeReader allows to get the specific parameters stored in the Runtime

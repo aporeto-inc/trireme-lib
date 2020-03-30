@@ -9,12 +9,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/policy/mockpolicy"
 )
 
 func testWindowsProcessor(puHandler policy.Resolver) *windowsProcessor {

@@ -6,11 +6,11 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	windowsmonitor "go.aporeto.io/trireme-lib/v11/monitor/internal/windows"
+	"go.aporeto.io/trireme-lib/v11/monitor/registerer"
+	"go.aporeto.io/trireme-lib/v11/monitor/remoteapi/server"
 	"go.uber.org/zap"
 )
 

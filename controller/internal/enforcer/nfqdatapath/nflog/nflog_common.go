@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/counters"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

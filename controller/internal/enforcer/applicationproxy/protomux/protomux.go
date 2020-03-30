@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.uber.org/zap"
 )
 

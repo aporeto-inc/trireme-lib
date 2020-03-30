@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/usertokens/common"
 )
 
 // PKIJWTVerifier is a generic JWT PKI verifier. It assumes that the tokens have

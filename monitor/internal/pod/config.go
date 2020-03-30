@@ -1,7 +1,7 @@
 package podmonitor
 
 import (
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
 )
 
 // Config is the config for the Kubernetes monitor

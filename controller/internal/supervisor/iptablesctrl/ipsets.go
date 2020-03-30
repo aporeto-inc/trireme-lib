@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/policy"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

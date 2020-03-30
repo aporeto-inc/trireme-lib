@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/v11/buildflags"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 

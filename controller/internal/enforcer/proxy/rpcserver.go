@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 // ProxyRPCServer This struct is a receiver for Statsserver and maintains a handle to the RPC ProxyRPCServer.

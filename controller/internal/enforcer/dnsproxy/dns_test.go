@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/collector"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 )
 
 type flowClientDummy struct {

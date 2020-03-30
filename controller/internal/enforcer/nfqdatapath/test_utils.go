@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
 )
 
 type myMatcher struct {

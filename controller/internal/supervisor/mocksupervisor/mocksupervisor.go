@@ -10,9 +10,9 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	runtime "go.aporeto.io/trireme-lib/v11/controller/runtime"
+	policy "go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // MockSupervisor is a mock of Supervisor interface

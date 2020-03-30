@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/runtime"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // NoopSupervisor is a struct to hold the implementation of the Supervisor interface

@@ -2,7 +2,7 @@
 
 package windowsmonitor
 
-import "go.aporeto.io/trireme-lib/monitor/extractors"
+import "go.aporeto.io/trireme-lib/v11/monitor/extractors"
 
 // Config is the configuration options to start a CNI monitor
 type Config struct {

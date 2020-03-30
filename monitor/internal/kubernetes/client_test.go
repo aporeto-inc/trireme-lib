@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	dockermonitor "go.aporeto.io/trireme-lib/v11/monitor/internal/docker"
 	api "k8s.io/api/core/v1"
 	kubefields "k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"

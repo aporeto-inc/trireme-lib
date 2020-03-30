@@ -10,7 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 )
 
 type abi struct {

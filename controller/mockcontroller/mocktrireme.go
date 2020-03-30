@@ -10,10 +10,10 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	packettracing "go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
+	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	runtime "go.aporeto.io/trireme-lib/v11/controller/runtime"
+	policy "go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // MockTriremeController is a mock of TriremeController interface

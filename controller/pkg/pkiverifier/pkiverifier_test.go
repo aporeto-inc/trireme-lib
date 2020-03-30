@@ -8,7 +8,7 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/v11/utils/crypto"
 )
 
 var (

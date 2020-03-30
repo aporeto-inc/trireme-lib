@@ -7,11 +7,19 @@ go_import_path: go.aporeto.io/trireme-lib
 matrix:
   include:
   - go: "1.13.x"
+    env: LINT_VERSION="@v1.21.0"
   - go: "1.14.x"
+    env: LINT_VERSION="@v1.23.8"
   - go: master
+    env: LINT_VERSION="@v1.23.8"
   allow_failures:
   - go: master
   fast_finish: true
+
+#cache:
+#  directories:
+#    - $HOME/.cache/go-build
+#    - $HOME/gopath/pkg/mod
 
 addons:
    apt:
@@ -24,25 +32,43 @@ addons:
 
 env:
   global:
+    - GOPRIVATE="go.aporeto.io,github.com/aporeto-inc"
     - TOOLS_CMD=golang.org/x/tools/cmd
     - PATH=$GOROOT/bin:$PATH
     - SUDO_PERMITTED=1
+    - GO111MODULE=auto
+    - GOLINT_GOGC=75
+    - GOGC=75
 
 before_install:
-  - GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.21.0
-  - GO111MODULE=off go get github.com/golang/dep/cmd/dep
+  # we move the go.mod file away so that the next two go gets don't modify the
+  # go.mod file for trireme-lib. (otherwise the "git diff" below will fail. We also must
+  # get go-diff@v0.5.1 or else go1.11.x will pull in a broken v0.5.0
+  - GET_TMP="/tmp/go.get.tmp"
+  - mkdir "$GET_TMP"
+  - cp go.mod go.sum "$GET_TMP"
+  - OLD_DIR="$PWD" ; cd "$GET_TMP"
+  - go get github.com/sourcegraph/go-diff@v0.5.1
+  - go get github.com/golangci/golangci-lint/cmd/golangci-lint${LINT_VERSION}
+  - cd "$OLD_DIR"
   - sudo apt-get -y install wine32
 
 install:
-  - dep ensure
-  - ./fix_bpf
-  - dep status || true
+  - go mod download
+  - |
+    if ! git diff --exit-code go.mod go.sum
+    then
+      echo -e "\n\ngo.mod or go.sum modified after download. Please run 'go mod tidy' and check in your code again\n\n"
+      false
+    fi
+  - go list -m all || true
 
 script:
-  - GO111MODULE=off ./.test.sh
-  - golangci-lint run --deadline=10m --disable-all --exclude-use-default=false --enable=errcheck --enable=goimports --enable=ineffassign --enable=govet --enable=golint --enable=unused --enable=structcheck --enable=varcheck --enable=deadcode --enable=unconvert --enable=goconst --enable=gosimple --enable=misspell --enable=staticcheck --enable=unparam --enable=prealloc --enable=nakedret --enable=gofmt --enable=typecheck --skip-dirs=vendor/github.com/iovisor ./...
-  - GO111MODULE=off ./.lint.windows.sh
-  - GO111MODULE=off ./.test.windows.sh
+  - ./mockgen.sh
+  - ./scripts/lint.sh
+  - ./scripts/test.sh
+  - ./scripts/lint.windows.sh
+  - ./scripts/test.windows.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

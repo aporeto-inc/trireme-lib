@@ -10,10 +10,10 @@ import (
 	"time"
 
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	markconstants "go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	markconstants "go.aporeto.io/trireme-lib/v11/utils/constants"
 	"go.uber.org/zap"
 )
 

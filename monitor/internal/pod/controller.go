@@ -9,10 +9,10 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +45,7 @@ var (
 func newReconciler(mgr manager.Manager, handler *config.ProcessorConfig, metadataExtractor extractors.PodMetadataExtractor, netclsProgrammer extractors.PodNetclsProgrammer, sandboxExtractor extractors.PodSandboxExtractor, nodeName string, enableHostPods bool, deleteCh chan<- DeleteEvent, deleteReconcileCh chan<- struct{}, resyncInfo *ResyncInfoChan) *ReconcilePod {
 	return &ReconcilePod{
 		client:            mgr.GetClient(),
-		recorder:          mgr.GetRecorder("trireme-pod-controller"),
+		recorder:          mgr.GetEventRecorderFor("trireme-pod-controller"),
 		handler:           handler,
 		metadataExtractor: metadataExtractor,
 		netclsProgrammer:  netclsProgrammer,

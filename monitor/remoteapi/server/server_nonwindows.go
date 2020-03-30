@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 func cleanupPipe(address string) error {

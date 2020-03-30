@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"go.uber.org/zap"
 )
 

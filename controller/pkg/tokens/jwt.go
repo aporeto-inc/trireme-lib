@@ -8,11 +8,11 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	enforcerconstants "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 )
 
 var (

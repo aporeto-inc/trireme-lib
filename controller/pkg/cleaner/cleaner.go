@@ -3,11 +3,11 @@ package cleaner
 import (
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/supervisor/iptablesctrl"
+	provider "go.aporeto.io/trireme-lib/v11/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/ipsetmanager"
 )
 
 // CleanAllTriremeACLs cleans up all previous Trireme ACLs. It can be called from

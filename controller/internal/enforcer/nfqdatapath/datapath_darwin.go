@@ -5,8 +5,8 @@ package nfqdatapath
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 )
 
 func adjustConntrack(mode constants.ModeType) {

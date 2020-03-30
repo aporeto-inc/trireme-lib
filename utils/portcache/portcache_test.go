@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 )
 
 func TestNewPortCache(t *testing.T) {

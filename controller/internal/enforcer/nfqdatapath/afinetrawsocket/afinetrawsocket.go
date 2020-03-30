@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 )
 
 type socketv4 struct {

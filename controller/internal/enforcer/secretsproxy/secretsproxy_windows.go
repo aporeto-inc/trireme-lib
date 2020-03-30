@@ -5,9 +5,9 @@ package secretsproxy
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // SecretsProxy holds all state information for applying policy

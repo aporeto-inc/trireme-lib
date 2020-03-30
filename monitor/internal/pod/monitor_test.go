@@ -11,16 +11,16 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/policy/mockpolicy"
 	"go.uber.org/zap"
 	zapcore "go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	cache "k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -111,7 +111,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				managerNew = managerNewTest(mgr, nil)
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -138,21 +138,20 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)
@@ -220,7 +219,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				managerNew = managerNewTest(mgr, nil)
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -247,21 +246,20 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(1).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(1).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(1).Return(cch)
 				mgr.EXPECT().GetConfig().Times(1).Return(nil)
 				mgr.EXPECT().GetScheme().Times(1).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(2).Return(c) // once inside of controller.New and once by us
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(1).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(1).Return(nil)
 				mgr.EXPECT().Add(isKubernetesController()).Times(1).DoAndReturn(func(run manager.Runnable) error {
 					return sf(run)
 				})
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)
@@ -290,7 +288,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				zc := NewMockCore(ctrl)
 				logger := zap.New(zc)
 				zap.ReplaceGlobals(logger)
-				zc.EXPECT().Enabled(zapcore.WarnLevel).Times(2).Return(true)
+				zc.EXPECT().Enabled(zapcore.DebugLevel).Times(1).Return(true)
 				zc.EXPECT().Check(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
 					return ce.AddCore(ent, zc)
 				})
@@ -351,7 +349,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				}
 				c := NewMockClient(ctrl)
 				cch := NewMockCache(ctrl)
-				inf := NewMockSharedIndexInformer(ctrl)
+				inf := NewMockInformer(ctrl)
 
 				// this is our version of a mocked SetFields function
 				var sf func(i interface{}) error
@@ -385,14 +383,13 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// main controller
 				// newReconciler calls these
 				mgr.EXPECT().GetClient().Times(2).Return(c)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
 				// addController calls controller.New which calls these
 				mgr.EXPECT().SetFields(gomock.AssignableToTypeOf(&ReconcilePod{})).Times(2).DoAndReturn(sf)
 				mgr.EXPECT().GetCache().Times(2).Return(cch)
 				mgr.EXPECT().GetConfig().Times(2).Return(nil)
 				mgr.EXPECT().GetScheme().Times(2).Return(scheme.Scheme)
 				mgr.EXPECT().GetClient().Times(3).Return(c) // twice in controller.New because of the failure, and one time after that (that is after mgr.Add actually)
-				mgr.EXPECT().GetRecorder("trireme-pod-controller").Times(2).Return(nil)
+				// mgr.EXPECT().GetEventRecorderFor("trireme-pod-controller").Times(2).Return(nil)
 				var mainControllerErrored bool
 				mgr.EXPECT().Add(isKubernetesController()).Times(2).DoAndReturn(func(run manager.Runnable) error {
 					if !mainControllerErrored {
@@ -404,7 +401,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 				// these are called by our c.Watch statement for registering our Pod event source
 				// NOTE: this will also call Start on the informer already! This is the reason why the mgr.Start which
 				//       waits for the caches to be filled will already download a fresh list of all the pods!
-				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.SharedIndexInformer, error) {
+				cch.EXPECT().GetInformer(gomock.AssignableToTypeOf(&corev1.Pod{})).Times(1).DoAndReturn(func(arg0 runtime.Object) (cache.Informer, error) {
 					return inf, nil
 				})
 				inf.EXPECT().AddEventHandler(gomock.Any()).Times(1)

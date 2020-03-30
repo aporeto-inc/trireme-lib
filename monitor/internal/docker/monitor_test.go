@@ -17,14 +17,14 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	tevents "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/constants"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	tevents "go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/config"
+	"go.aporeto.io/trireme-lib/v11/monitor/constants"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/monitor/internal/docker/mockdocker"
+	"go.aporeto.io/trireme-lib/v11/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls/mockcgnetcls"
 )
 
 var (

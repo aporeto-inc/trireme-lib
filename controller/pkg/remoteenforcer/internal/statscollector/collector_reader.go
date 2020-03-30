@@ -1,7 +1,7 @@
 package statscollector
 
 import (
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/v11/collector"
 )
 
 // Count returns the current number of records collected.

@@ -10,13 +10,13 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	constants "go.aporeto.io/trireme-lib/controller/constants"
-	ebpf "go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	constants "go.aporeto.io/trireme-lib/v11/controller/constants"
+	ebpf "go.aporeto.io/trireme-lib/v11/controller/pkg/ebpf"
+	fqconfig "go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	packettracing "go.aporeto.io/trireme-lib/v11/controller/pkg/packettracing"
+	secrets "go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	runtime "go.aporeto.io/trireme-lib/v11/controller/runtime"
+	policy "go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // MockEnforcer is a mock of Enforcer interface

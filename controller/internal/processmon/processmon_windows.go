@@ -6,9 +6,9 @@ package processmon
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/env"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 type remoteMonitor struct {

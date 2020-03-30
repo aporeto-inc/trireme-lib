@@ -4,7 +4,7 @@ CUR_DIR="$(pwd)"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 ENVOY_REPO="github.com/envoyproxy/data-plane-api"
-ENVOY_REPO_PKG="go.aporeto.io/trireme-lib/third_party/generated/envoyproxy/data-plane-api"
+ENVOY_REPO_PKG="go.aporeto.io/trireme-lib/v11/third_party/generated/envoyproxy/data-plane-api"
 PB_OUT="${DIR}/third_party/generated/envoyproxy/data-plane-api"
 # gogofaster and gogoslick don't work unfortunately
 # also, they currently don't work with validate

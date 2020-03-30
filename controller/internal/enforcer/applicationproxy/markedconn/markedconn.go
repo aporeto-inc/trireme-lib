@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"go.aporeto.io/trireme-lib/utils/netinterfaces"
+	"go.aporeto.io/trireme-lib/v11/utils/netinterfaces"
 	"go.uber.org/zap"
 )
 

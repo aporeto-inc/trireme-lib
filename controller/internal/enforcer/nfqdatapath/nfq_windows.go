@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"unsafe"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/nflog"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"go.uber.org/zap"
 )
 

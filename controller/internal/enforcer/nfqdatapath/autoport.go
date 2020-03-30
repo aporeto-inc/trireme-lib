@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/supervisor/iptablesctrl"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/utils/portspec"
 	"go.uber.org/zap"
 )
 

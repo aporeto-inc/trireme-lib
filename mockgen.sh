@@ -5,9 +5,10 @@ go get github.com/golang/mock/mockgen/model
 go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
-  goimports $1 > $1.bk
-  cat $1.bk | sed  $'s/^func /\/\/ nolint\\\nfunc /g' | sed  $'s/^type /\/\/ nolint\\\ntype /g' > $1
-  rm -f $1.bk
+  tmp=$(mktemp)
+  goimports "$1" > "$tmp"
+  sed  $'s/^func /\/\/ nolint\\\nfunc /g' < "$tmp" | sed  $'s/^type /\/\/ nolint\\\ntype /g' > "$1"
+  rm -f "$tmp"
 }
 
 echo "Cgnetcls Mocks"
@@ -52,7 +53,7 @@ mockgen \
 -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go \
 -package mockstatscollector \
 -aux_files collector=collector/interfaces.go \
--imports statscollector=go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector
+-imports statscollector=go.aporeto.io/trireme-lib/v11/controller/pkg/remoteenforcer/internal/statscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
 
 echo "controller/pkg/usertokens Mocks"
@@ -113,8 +114,10 @@ mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go
 goimport_sanitize monitor/internal/pod/mockclient_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockcache_test.go sigs.k8s.io/controller-runtime/pkg/cache Cache
 goimport_sanitize monitor/internal/pod/mockcache_test.go
-mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go sigs.k8s.io/controller-runtime/pkg/cache Informer
 goimport_sanitize monitor/internal/pod/mockinformer_test.go
+# mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+# goimport_sanitize monitor/internal/pod/mockinformer_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
 goimport_sanitize monitor/internal/pod/mockmanager_test.go
 

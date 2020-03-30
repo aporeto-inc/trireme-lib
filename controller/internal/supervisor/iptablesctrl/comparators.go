@@ -1,6 +1,6 @@
 package iptablesctrl
 
-import "go.aporeto.io/trireme-lib/policy"
+import "go.aporeto.io/trireme-lib/v11/policy"
 
 func testObserveContinue(p *policy.FlowPolicy) bool {
 	return p.ObserveAction.ObserveContinue()

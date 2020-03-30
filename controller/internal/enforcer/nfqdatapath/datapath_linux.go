@@ -6,9 +6,9 @@ import (
 	"context"
 	"os/exec"
 
-	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/buildflags"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 	"go.uber.org/zap"
 )
 

@@ -2,7 +2,7 @@
 
 package afinetrawsocket
 
-import "go.aporeto.io/trireme-lib/controller/pkg/packet"
+import "go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
 
 const (
 	// RawSocketMark is the mark asserted on all packet sent out of this socket

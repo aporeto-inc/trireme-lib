@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cgnetcls"
 )
 
 // SSHMetadataExtractor is a metadata extractor for ssh.

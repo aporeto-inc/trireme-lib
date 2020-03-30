@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 func initTrieRules() []*policy.HTTPRule {

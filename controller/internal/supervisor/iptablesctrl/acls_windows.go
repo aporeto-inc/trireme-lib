@@ -7,13 +7,13 @@ import (
 	"strings"
 	"text/template"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	winipt "go.aporeto.io/trireme-lib/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	winipt "go.aporeto.io/trireme-lib/v11/controller/internal/windows"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/monitor/extractors"
+	"go.aporeto.io/trireme-lib/v11/policy"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 	"go.uber.org/zap"
 )
 

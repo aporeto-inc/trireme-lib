@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 type dialContextFunc func(ctx context.Context, network, address string) (net.Conn, error)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	"go.aporeto.io/trireme-lib/v11/policy"
 )
 
 // Type specifies the type of monitors supported.

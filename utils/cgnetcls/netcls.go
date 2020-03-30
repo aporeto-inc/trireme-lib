@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/utils/constants"
 	"go.uber.org/zap"
 )
 

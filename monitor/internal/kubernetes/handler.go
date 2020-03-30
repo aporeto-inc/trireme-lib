@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/constants"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/monitor/constants"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
 )

@@ -6,14 +6,14 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	tpacket "go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/v11/controller/constants"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	tpacket "go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/tokens"
+	"go.aporeto.io/trireme-lib/v11/policy"
 	"go.uber.org/zap"
 )
 

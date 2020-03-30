@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"go.aporeto.io/trireme-lib/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/windows"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/v11/common"
 )
 
 const (

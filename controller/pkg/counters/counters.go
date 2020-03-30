@@ -3,7 +3,7 @@ package counters
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/v11/collector"
 )
 
 // NewCounters initializes new counters handler. Thread safe.

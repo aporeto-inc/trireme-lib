@@ -9,20 +9,20 @@ import (
 	"sync"
 
 	"go.aporeto.io/tg/tglib"
-	"go.aporeto.io/trireme-lib/collector"
-	tcommon "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	httpproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/v11/collector"
+	tcommon "go.aporeto.io/trireme-lib/v11/common"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/common"
+	httpproxy "go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/http"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/protomux"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/applicationproxy/tcp"
+	"go.aporeto.io/trireme-lib/v11/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/v11/policy"
+	"go.aporeto.io/trireme-lib/v11/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -282,7 +282,8 @@ func (p *AppProxy) createNetworkListener(ctx context.Context, port string) (net.
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
-func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, caPool *x509.CertPool) (bool, error) { //nolint
+// nolint: unparam (the bool return is not used within the library, but maybe used by clients of the library)
+func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, caPool *x509.CertPool) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
 	// services. If the certificates are nil, we ignore them.

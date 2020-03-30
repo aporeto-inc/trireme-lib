@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/DavidGamba/go-getoptions"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/trireme-lib/v11/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/v11/utils/frontman"
 	"golang.org/x/net/ipv6"
 )
 

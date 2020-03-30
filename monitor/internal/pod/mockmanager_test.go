@@ -14,8 +14,9 @@ import (
 	record "k8s.io/client-go/tools/record"
 	cache "sigs.k8s.io/controller-runtime/pkg/cache"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
+	healthz "sigs.k8s.io/controller-runtime/pkg/healthz"
 	manager "sigs.k8s.io/controller-runtime/pkg/manager"
-	types "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
+	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // MockManager is a mock of Manager interface
@@ -61,20 +62,52 @@ func (mr *MockManagerMockRecorder) Add(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockManager)(nil).Add), arg0)
 }
 
-// GetAdmissionDecoder mocks base method
+// AddHealthzCheck mocks base method
 // nolint
-func (m *MockManager) GetAdmissionDecoder() types.Decoder {
+func (m *MockManager) AddHealthzCheck(arg0 string, arg1 healthz.Checker) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAdmissionDecoder")
-	ret0, _ := ret[0].(types.Decoder)
+	ret := m.ctrl.Call(m, "AddHealthzCheck", arg0, arg1)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// GetAdmissionDecoder indicates an expected call of GetAdmissionDecoder
+// AddHealthzCheck indicates an expected call of AddHealthzCheck
 // nolint
-func (mr *MockManagerMockRecorder) GetAdmissionDecoder() *gomock.Call {
+func (mr *MockManagerMockRecorder) AddHealthzCheck(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAdmissionDecoder", reflect.TypeOf((*MockManager)(nil).GetAdmissionDecoder))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddHealthzCheck", reflect.TypeOf((*MockManager)(nil).AddHealthzCheck), arg0, arg1)
+}
+
+// AddReadyzCheck mocks base method
+// nolint
+func (m *MockManager) AddReadyzCheck(arg0 string, arg1 healthz.Checker) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddReadyzCheck", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddReadyzCheck indicates an expected call of AddReadyzCheck
+// nolint
+func (mr *MockManagerMockRecorder) AddReadyzCheck(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddReadyzCheck", reflect.TypeOf((*MockManager)(nil).AddReadyzCheck), arg0, arg1)
+}
+
+// GetAPIReader mocks base method
+// nolint
+func (m *MockManager) GetAPIReader() client.Reader {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAPIReader")
+	ret0, _ := ret[0].(client.Reader)
+	return ret0
+}
+
+// GetAPIReader indicates an expected call of GetAPIReader
+// nolint
+func (mr *MockManagerMockRecorder) GetAPIReader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIReader", reflect.TypeOf((*MockManager)(nil).GetAPIReader))
 }
 
 // GetCache mocks base method
@@ -125,6 +158,22 @@ func (mr *MockManagerMockRecorder) GetConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfig", reflect.TypeOf((*MockManager)(nil).GetConfig))
 }
 
+// GetEventRecorderFor mocks base method
+// nolint
+func (m *MockManager) GetEventRecorderFor(arg0 string) record.EventRecorder {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEventRecorderFor", arg0)
+	ret0, _ := ret[0].(record.EventRecorder)
+	return ret0
+}
+
+// GetEventRecorderFor indicates an expected call of GetEventRecorderFor
+// nolint
+func (mr *MockManagerMockRecorder) GetEventRecorderFor(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventRecorderFor", reflect.TypeOf((*MockManager)(nil).GetEventRecorderFor), arg0)
+}
+
 // GetFieldIndexer mocks base method
 // nolint
 func (m *MockManager) GetFieldIndexer() client.FieldIndexer {
@@ -157,22 +206,6 @@ func (mr *MockManagerMockRecorder) GetRESTMapper() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRESTMapper", reflect.TypeOf((*MockManager)(nil).GetRESTMapper))
 }
 
-// GetRecorder mocks base method
-// nolint
-func (m *MockManager) GetRecorder(arg0 string) record.EventRecorder {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRecorder", arg0)
-	ret0, _ := ret[0].(record.EventRecorder)
-	return ret0
-}
-
-// GetRecorder indicates an expected call of GetRecorder
-// nolint
-func (mr *MockManagerMockRecorder) GetRecorder(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRecorder", reflect.TypeOf((*MockManager)(nil).GetRecorder), arg0)
-}
-
 // GetScheme mocks base method
 // nolint
 func (m *MockManager) GetScheme() *runtime.Scheme {
@@ -187,6 +220,22 @@ func (m *MockManager) GetScheme() *runtime.Scheme {
 func (mr *MockManagerMockRecorder) GetScheme() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScheme", reflect.TypeOf((*MockManager)(nil).GetScheme))
+}
+
+// GetWebhookServer mocks base method
+// nolint
+func (m *MockManager) GetWebhookServer() *webhook.Server {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookServer")
+	ret0, _ := ret[0].(*webhook.Server)
+	return ret0
+}
+
+// GetWebhookServer indicates an expected call of GetWebhookServer
+// nolint
+func (mr *MockManagerMockRecorder) GetWebhookServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookServer", reflect.TypeOf((*MockManager)(nil).GetWebhookServer))
 }
 
 // SetFields mocks base method
