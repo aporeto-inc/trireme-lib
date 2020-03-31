@@ -16,6 +16,7 @@ type ABI interface {
 	GetIpset(driverHandle, name, ipset uintptr) (uintptr, error)
 	DestroyAllIpsets(driverHandle, prefix uintptr) (uintptr, error)
 	ListIpsets(driverHandle, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error)
+	ListIpsetsDetail(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error)
 	IpsetAdd(driverHandle, ipset, entry, timeout uintptr) (uintptr, error)
 	IpsetAddOption(driverHandle, ipset, entry, option, timeout uintptr) (uintptr, error)
 	IpsetDelete(driverHandle, ipset, entry uintptr) (uintptr, error)
@@ -32,6 +33,7 @@ type ABI interface {
 	GetFilterList(driverHandle, outbound, buffer, bufferSize, bytesReturned uintptr) (uintptr, error)
 	AppendFilterCriteria(driverHandle, filterName, criteriaName, ruleSpec, ipsetRuleSpecs, ipsetRuleSpecCount uintptr) (uintptr, error)
 	DeleteFilterCriteria(driverHandle, filterName, criteriaName uintptr) (uintptr, error)
+	GetCriteriaList(driverHandle, format, criteriaList, criteriaListSize, bytesReturned uintptr) (uintptr, error)
 }
 
 type driver struct {
@@ -98,6 +100,14 @@ func (d *driver) DestroyAllIpsets(driverHandle, prefix uintptr) (uintptr, error)
 
 func (d *driver) ListIpsets(driverHandle, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error) {
 	ret, _, err := listIpsetsProc.Call(driverHandle, ipsetNames, ipsetNamesSize, bytesReturned)
+	if err == syscall.Errno(0) {
+		err = nil
+	}
+	return ret, err
+}
+
+func (d *driver) ListIpsetsDetail(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned uintptr) (uintptr, error) {
+	ret, _, err := listIpsetsDetailProc.Call(driverHandle, format, ipsetNames, ipsetNamesSize, bytesReturned)
 	if err == syscall.Errno(0) {
 		err = nil
 	}
@@ -232,6 +242,14 @@ func (d *driver) DeleteFilterCriteria(driverHandle, filterName, criteriaName uin
 	return ret, err
 }
 
+func (d *driver) GetCriteriaList(driverHandle, format, criteriaList, criteriaListSize, bytesReturned uintptr) (uintptr, error) {
+	ret, _, err := getCriteriaListProc.Call(driverHandle, format, criteriaList, criteriaListSize, bytesReturned)
+	if err == syscall.Errno(0) {
+		err = nil
+	}
+	return ret, err
+}
+
 // Frontman.dll procs to be called from Go
 var (
 	driverDll        = syscall.NewLazyDLL("Frontman.dll")
@@ -251,6 +269,7 @@ var (
 	getIpsetProc         = driverDll.NewProc("IpsetProvider_GetIpset")
 	destroyAllIpsetsProc = driverDll.NewProc("IpsetProvider_DestroyAll")
 	listIpsetsProc       = driverDll.NewProc("IpsetProvider_ListIPSets")
+	listIpsetsDetailProc = driverDll.NewProc("IpsetProvider_ListIPSetsDetail")
 	ipsetAddProc         = driverDll.NewProc("Ipset_Add")
 	ipsetAddOptionProc   = driverDll.NewProc("Ipset_AddOption")
 	ipsetDeleteProc      = driverDll.NewProc("Ipset_Delete")
@@ -269,6 +288,7 @@ var (
 	getFilterListProc        = driverDll.NewProc("GetFilterList")
 	appendFilterCriteriaProc = driverDll.NewProc("AppendFilterCriteria")
 	deleteFilterCriteriaProc = driverDll.NewProc("DeleteFilterCriteria")
+	getCriteriaListProc      = driverDll.NewProc("GetCriteriaList")
 )
 
 // See frontmanIO.h for #defines
@@ -286,6 +306,18 @@ const (
 	BytesMatchStartIPHeader = iota + 1
 	BytesMatchStartProtocolHeader
 	BytesMatchStartPayload
+)
+
+// See Filter_set.h
+const (
+	CriteriaListFormatString = iota + 1
+	CriteriaListFormatJSON
+)
+
+// See Ipset.h
+const (
+	IpsetsDetailFormatString = iota + 1
+	IpsetsDetailFormatJSON
 )
 
 // DestInfo mirrors frontman's DEST_INFO struct

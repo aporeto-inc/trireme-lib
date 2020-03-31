@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"go.aporeto.io/trireme-lib/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/controller/internal/windows/frontman"
+	"go.aporeto.io/trireme-lib/utils/frontman"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"

@@ -376,6 +376,17 @@ func TestFrontmanFunctionArguments(t *testing.T) {
 			So(funcArgs[3].Size, ShouldEqual, pointerSize)
 		})
 
+		Convey("The arguments to IpsetProvider_ListIPSetsDetail should be as expected", func() {
+			funcArgs, err := pdb.GetFunctionArguments("IpsetProvider_ListIPSetsDetail")
+			So(err, ShouldBeNil)
+			So(len(funcArgs), ShouldEqual, 5)
+			So(funcArgs[0].Size, ShouldEqual, pointerSize)
+			So(funcArgs[1].Size, ShouldEqual, unsafe.Sizeof(int32(0)))
+			So(funcArgs[2].Size, ShouldEqual, pointerSize)
+			So(funcArgs[3].Size, ShouldEqual, unsafe.Sizeof(uint32(0)))
+			So(funcArgs[4].Size, ShouldEqual, pointerSize)
+		})
+
 		Convey("The arguments to Ipset_Add should be as expected", func() {
 			funcArgs, err := pdb.GetFunctionArguments("Ipset_Add")
 			So(err, ShouldBeNil)
@@ -520,6 +531,17 @@ func TestFrontmanFunctionArguments(t *testing.T) {
 			So(funcArgs[0].Size, ShouldEqual, pointerSize)
 			So(funcArgs[1].Size, ShouldEqual, pointerSize)
 			So(funcArgs[2].Size, ShouldEqual, pointerSize)
+		})
+
+		Convey("The arguments to GetCriteriaList should be as expected", func() {
+			funcArgs, err := pdb.GetFunctionArguments("GetCriteriaList")
+			So(err, ShouldBeNil)
+			So(len(funcArgs), ShouldEqual, 5)
+			So(funcArgs[0].Size, ShouldEqual, pointerSize)
+			So(funcArgs[1].Size, ShouldEqual, unsafe.Sizeof(int32(0)))
+			So(funcArgs[2].Size, ShouldEqual, pointerSize)
+			So(funcArgs[3].Size, ShouldEqual, unsafe.Sizeof(uint32(0)))
+			So(funcArgs[4].Size, ShouldEqual, pointerSize)
 		})
 
 	})

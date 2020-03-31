@@ -20,6 +20,7 @@ type WrapDriver interface {
 	GetIpset(name string) (uintptr, error)
 	DestroyAllIpsets(prefix string) error
 	ListIpsets() ([]string, error)
+	ListIpsetsDetail(format int) (string, error)
 	IpsetAdd(ipsetHandle uintptr, entry string, timeout int) error
 	IpsetAddOption(ipsetHandle uintptr, entry, option string, timeout int) error
 	IpsetDelete(ipsetHandle uintptr, entry string) error
@@ -36,6 +37,7 @@ type WrapDriver interface {
 	GetFilterList(outbound bool) ([]string, error)
 	AppendFilterCriteria(filterName, criteriaName string, ruleSpec *RuleSpec, ipsetRuleSpecs []IpsetRuleSpec) error
 	DeleteFilterCriteria(filterName, criteriaName string) error
+	GetCriteriaList(format int) (string, error)
 }
 
 type wrapper struct {
@@ -125,6 +127,31 @@ func (w *wrapper) ListIpsets() ([]string, error) {
 	}
 	str := syscall.UTF16ToString(buf)
 	return strings.Split(str, ","), nil
+}
+
+func (w *wrapper) ListIpsetsDetail(format int) (string, error) {
+	w.initDriverHandle()
+	// first query for needed buffer size
+	var bytesNeeded, ignore uint32
+	emptyStr := ""
+	ret, err := Driver.ListIpsetsDetail(w.driverHandle, uintptr(format), 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	if ret != 0 && bytesNeeded == 0 {
+		return emptyStr, nil
+	}
+	if err != windows.ERROR_INSUFFICIENT_BUFFER {
+		return emptyStr, fmt.Errorf("ListIpsetsDetail failed: %v", err)
+	}
+	if bytesNeeded%2 != 0 {
+		return emptyStr, fmt.Errorf("ListIpsetsDetail failed: odd result (%d)", bytesNeeded)
+	}
+	// then allocate buffer for wide string and call again
+	buf := make([]uint16, bytesNeeded/2)
+	ret, err = Driver.ListIpsetsDetail(w.driverHandle, uintptr(format), uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	if ret == 0 {
+		return emptyStr, fmt.Errorf("ListIpsetsDetail failed: %v", err)
+	}
+	str := syscall.UTF16ToString(buf)
+	return str, nil
 }
 
 func (w *wrapper) IpsetAdd(ipsetHandle uintptr, entry string, timeout int) error {
@@ -294,6 +321,31 @@ func (w *wrapper) DeleteFilterCriteria(filterName, criteriaName string) error {
 		return fmt.Errorf("DeleteFilterCriteria failed - could not delete %s: %v", criteriaName, err)
 	}
 	return nil
+}
+
+func (w *wrapper) GetCriteriaList(format int) (string, error) {
+	w.initDriverHandle()
+	// first query for needed buffer size
+	var bytesNeeded, ignore uint32
+	emptyStr := ""
+	ret, err := Driver.GetCriteriaList(w.driverHandle, uintptr(format), 0, 0, uintptr(unsafe.Pointer(&bytesNeeded)))
+	if ret != 0 && bytesNeeded == 0 {
+		return emptyStr, nil
+	}
+	if err != windows.ERROR_INSUFFICIENT_BUFFER {
+		return emptyStr, fmt.Errorf("GetCriteriaList failed: %v", err)
+	}
+	if bytesNeeded%2 != 0 {
+		return emptyStr, fmt.Errorf("GetCriteriaList failed: odd result (%d)", bytesNeeded)
+	}
+	// then allocate buffer for wide string and call again
+	buf := make([]uint16, bytesNeeded/2)
+	ret, err = Driver.GetCriteriaList(w.driverHandle, uintptr(format), uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
+	if ret == 0 {
+		return emptyStr, fmt.Errorf("GetCriteriaList failed: %v", err)
+	}
+	str := syscall.UTF16ToString(buf)
+	return str, nil
 }
 
 func marshalString(str string) uintptr {
