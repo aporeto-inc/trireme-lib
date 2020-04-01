@@ -5291,7 +5291,7 @@ func TestCheckConnectionDeletion(t *testing.T) {
 		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
 		err = enforcer.netOrigConnectionTracker[0].Add(conn, hash)
 		So(err, ShouldBeNil)
-		conn1, err = enforcer.netSynRetrieveState(tcpPacket, x0)
+		conn1, err = enforcer.netSynRetrieveState(tcpPacket, 0)
 		So(err, ShouldBeNil)
 		So(conn.Auth.LocalContext, ShouldNotEqual, conn1.Auth.LocalContext)
 
