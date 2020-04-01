@@ -86,31 +86,31 @@ type Datapath struct {
 	// When a new connection is created, we has the source IP/port. A return
 	// poacket might come with a different source IP NAT is done later.
 	// If we don't receife a return SynAck in 20 seconds, it expires
-	sourcePortConnectionCache cache.DataStore
+	sourcePortConnectionCache []cache.DataStore
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker  cache.DataStore
-	appReplyConnectionTracker cache.DataStore
-	netOrigConnectionTracker  cache.DataStore
-	netReplyConnectionTracker cache.DataStore
+	appOrigConnectionTracker  []cache.DataStore
+	appReplyConnectionTracker []cache.DataStore
+	netOrigConnectionTracker  []cache.DataStore
+	netReplyConnectionTracker []cache.DataStore
 
-	udpSourcePortConnectionCache cache.DataStore
+	udpSourcePortConnectionCache []cache.DataStore
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	udpAppOrigConnectionTracker  cache.DataStore
-	udpAppReplyConnectionTracker cache.DataStore
-	udpNetOrigConnectionTracker  cache.DataStore
-	udpNetReplyConnectionTracker cache.DataStore
-	udpNatConnectionTracker      cache.DataStore
-	udpFinPacketTracker          cache.DataStore
+	udpAppOrigConnectionTracker  []cache.DataStore
+	udpAppReplyConnectionTracker []cache.DataStore
+	udpNetOrigConnectionTracker  []cache.DataStore
+	udpNetReplyConnectionTracker []cache.DataStore
+	udpNatConnectionTracker      []cache.DataStore
+	udpFinPacketTracker          []cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
 	// Packettracing Cache :: We don't mark this in pucontext since it gets recreated on every policy update and we need to persist across them
-	packetTracingCache cache.DataStore
+	packetTracingCache []cache.DataStore
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -254,43 +254,120 @@ func New(
 		contextIDFromUDPPort: contextIDFromUDPPort,
 
 		puFromContextID: puFromContextID,
+		sourcePortConnectionCache: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("sourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		appReplyConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("appReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
 
-		sourcePortConnectionCache:    cache.NewCacheWithExpirationNotifier("sourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		appOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		appReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("appReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		netOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		netReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("netReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
-		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
-		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
-		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
-		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
-		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
-		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
-		packetTracingCache:           cache.NewCache("PacketTracingCache"),
-		targetNetworks:               acls.NewACLCache(),
-		ExternalIPCacheTimeout:       ExternalIPCacheTimeout,
-		filterQueue:                  filterQueue,
-		mutualAuthorization:          mutualAuth,
-		service:                      service,
-		collector:                    collector,
-		tokenAccessor:                tokenaccessor,
-		scrts:                        secrets,
-		ackSize:                      secrets.AckSize(),
-		mode:                         mode,
-		procMountPoint:               procMountPoint,
-		packetLogs:                   packetLogs,
-		udpSocketWriter:              udpSocketWriter,
-		puToPortsMap:                 map[string]map[string]bool{},
-		puCountersChannel:            make(chan *pucontext.PUContext, 220),
-		aclmanager:                   aclmanager,
-		bpf:                          bpf,
-		agentVersion:                 agentVersion,
+		netReplyConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("netReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpSourcePortConnectionCache: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpSourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpAppOrigConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpAppOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpAppReplyConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpAppReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpNetOrigConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpNetOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpNetReplyConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpNetReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpNatConnectionTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpNatConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		udpFinPacketTracker: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("udpFinPacketTracker", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		packetTracingCache: func() []cache.DataStore {
+			c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+			for index, _ := range c {
+				c[index] = cache.NewCacheWithExpirationNotifier("packetTracingCache", time.Second*24, connection.TCPConnectionExpirationNotifier)
+			}
+			return c
+		}(),
+		targetNetworks:         acls.NewACLCache(),
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		filterQueue:            filterQueue,
+		mutualAuthorization:    mutualAuth,
+		service:                service,
+		collector:              collector,
+		tokenAccessor:          tokenaccessor,
+		scrts:                  secrets,
+		ackSize:                secrets.AckSize(),
+		mode:                   mode,
+		procMountPoint:         procMountPoint,
+		packetLogs:             packetLogs,
+		udpSocketWriter:        udpSocketWriter,
+		puToPortsMap:           map[string]map[string]bool{},
+		puCountersChannel:      make(chan *pucontext.PUContext, 220),
+		aclmanager:             aclmanager,
+		bpf:                    bpf,
+		agentVersion:           agentVersion,
 	}
 
 	removeEntryCB := getCacheEntryRemoveCB(d)
-	d.appOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, removeEntryCB)
-	d.netOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, removeEntryCB)
+	d.appOrigConnectionTracker = func() []cache.DataStore {
+		c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+		for index, _ := range c {
+			c[index] = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, removeEntryCB)
+		}
+		return c
+	}()
+
+	d.netOrigConnectionTracker = func() []cache.DataStore {
+		c := make([]cache.DataStore, int(filterQueue.NumberOfApplicationQueues+filterQueue.NumberOfNetworkQueues))
+		for index, _ := range c {
+			c[index] = cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, removeEntryCB)
+		}
+		return c
+	}()
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
@@ -438,6 +515,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		})
 
 	}
+
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() != common.ContainerPU {
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
@@ -787,12 +865,12 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 	if _, err := d.puFromContextID.Get(contextID); err != nil {
 		return fmt.Errorf("contextID %s does not exist", contextID)
 	}
-	d.packetTracingCache.AddOrUpdate(contextID, &tracingCacheEntry{
+	d.packetTracingCache[0].AddOrUpdate(contextID, &tracingCacheEntry{
 		direction: direction,
 	})
 	go func() {
 		<-time.After(interval)
-		d.packetTracingCache.Remove(contextID) // nolint
+		d.packetTracingCache[0].Remove(contextID) // nolint
 	}()
 
 	return nil
@@ -813,7 +891,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 		if d.puFromIP == nil {
 			return
 		}
-		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+		if value, err = d.packetTracingCache[0].Get(d.puFromIP.ID()); err != nil {
 			//not being traced return
 			return
 		}
@@ -825,7 +903,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 
 	} else {
 		//udpConn is not nil
-		if value, err = d.packetTracingCache.Get(msg.udpConn.Context.ID()); err != nil {
+		if value, err = d.packetTracingCache[0].Get(msg.udpConn.Context.ID()); err != nil {
 			return
 		}
 		report.Encrypt = msg.udpConn.ServiceConnection
@@ -875,7 +953,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 			return
 		}
 
-		if value, err = d.packetTracingCache.Get(d.puFromIP.ID()); err != nil {
+		if value, err = d.packetTracingCache[0].Get(d.puFromIP.ID()); err != nil {
 			//not being traced return
 			return
 		}
@@ -887,7 +965,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 
 	} else {
 
-		if value, err = d.packetTracingCache.Get(msg.tcpConn.Context.ID()); err != nil {
+		if value, err = d.packetTracingCache[0].Get(msg.tcpConn.Context.ID()); err != nil {
 			//not being traced return
 			return
 		}

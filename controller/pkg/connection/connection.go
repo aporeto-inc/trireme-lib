@@ -134,6 +134,7 @@ type TCPConnection struct {
 	state TCPFlowState
 	Auth  AuthInfo
 
+	GroupNum int
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
@@ -227,7 +228,7 @@ func (c *TCPConnection) IsLoopbackConnection() bool {
 }
 
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnection {
+func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet, groupNum int) *TCPConnection {
 
 	nonce, err := crypto.GenerateRandomBytes(16)
 	if err != nil {
@@ -250,6 +251,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
+		GroupNum: groupNum,
 		TCPtuple: tuple,
 	}
 }
@@ -302,10 +304,10 @@ func (c *ProxyConnection) SetReported(reported bool) {
 type UDPConnection struct {
 	sync.RWMutex
 
-	state   UDPFlowState
-	Context *pucontext.PUContext
-	Auth    AuthInfo
-
+	state            UDPFlowState
+	Context          *pucontext.PUContext
+	Auth             AuthInfo
+	GroupNum         int
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	// ServiceData allows services to associate state with a connection

@@ -83,7 +83,8 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		netPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if netPacket.IPProto() == packet.IPProtocolTCP {
-		tcpConn, processError = d.processNetworkTCPPackets(netPacket)
+
+		tcpConn, processError = d.processNetworkTCPPackets(netPacket, (int(p.QueueHandle.QueueNum)-int(d.filterQueue.NumberOfApplicationQueues))%int(d.filterQueue.NumberOfApplicationQueues/4))
 	} else if netPacket.IPProto() == packet.IPProtocolUDP {
 		udpConn, processError = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
@@ -183,7 +184,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		appPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 	} else if appPacket.IPProto() == packet.IPProtocolTCP {
-		tcpConn, processError = d.processApplicationTCPPackets(appPacket)
+		tcpConn, processError = d.processApplicationTCPPackets(appPacket, (int(p.QueueHandle.QueueNum))%int(d.filterQueue.NumberOfApplicationQueues/4))
 	} else if appPacket.IPProto() == packet.IPProtocolUDP {
 		udpConn, processError = d.ProcessApplicationUDPPacket(appPacket)
 	} else {
