@@ -64,26 +64,91 @@ func listenUDP(network, addr string) (net.PacketConn, error) {
 	return lc.ListenPacket(context.Background(), network, addr)
 }
 
-func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, error) {
+func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) ([]byte, []string, error) {
+
 	var ips []string
+	var resp []byte
+	var msg *dns.Msg
+	var conn *dns.Conn
+	var err error
+
 	c := new(dns.Client)
-	c.Dialer = &net.Dialer{
-		Control: func(_, _ string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt); err != nil {
-					zap.L().Error("Failed to assing mark to socket", zap.Error(err))
-				}
-			})
-		},
-		Timeout: dnsRequestTimeout,
+
+	dial := func(address string) (*dns.Conn, error) {
+		c.Dialer = &net.Dialer{
+			Control: func(_, _ string, c syscall.RawConn) error {
+				return c.Control(func(fd uintptr) {
+					if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt); err != nil {
+						zap.L().Error("Failed to assing mark to socket", zap.Error(err))
+					}
+				})
+			},
+			Timeout: dnsRequestTimeout,
+		}
+
+		conn, err := c.Dial(address)
+		if err != nil {
+			return nil, err
+		}
+
+		return conn, nil
 	}
 
-	in, _, err := c.Exchange(r, net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
-	if err != nil {
+	sendRequest := func(r *dns.Msg, conn *dns.Conn) error {
+		opt := r.IsEdns0()
+		// If EDNS0 is used use that for size.
+		if opt != nil && opt.UDPSize() >= dns.MinMsgSize {
+			conn.UDPSize = opt.UDPSize()
+		}
+		// Otherwise use the client's configured UDP size.
+		if opt == nil && c.UDPSize >= dns.MinMsgSize {
+			conn.UDPSize = c.UDPSize
+		}
+
+		t := time.Now()
+		// write with the appropriate write timeout
+		conn.SetWriteDeadline(t.Add(c.Dialer.Timeout))
+		if err = conn.WriteMsg(r); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	readResponse := func(conn *dns.Conn) ([]byte, *dns.Msg, error) {
+		conn.SetReadDeadline(time.Now().Add(c.Dialer.Timeout))
+
+		p, err := conn.ReadMsgHeader(nil)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		m := new(dns.Msg)
+		if err := m.Unpack(p); err != nil {
+			// If an error was returned, we still want to allow the user to use
+			// the message, but naively they can just check err if they don't want
+			// to use an erroneous message
+			return nil, nil, err
+		}
+
+		return p, m, nil
+	}
+
+	if conn, err = dial(net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))); err != nil {
 		return nil, nil, err
 	}
 
-	for _, ans := range in.Answer {
+	defer conn.Close()
+
+	if err := sendRequest(r, conn); err != nil {
+		return nil, nil, err
+	}
+
+	if resp, msg, err = readResponse(conn); err != nil {
+		return nil, nil, err
+	}
+
+	for _, ans := range msg.Answer {
 		if ans.Header().Rrtype == dns.TypeA {
 			t, _ := ans.(*dns.A)
 			ips = append(ips, t.A.String())
@@ -95,7 +160,7 @@ func forwardDNSReq(r *dns.Msg, ip net.IP, port uint16) (*dns.Msg, []string, erro
 		}
 	}
 
-	return in, ips, nil
+	return resp, ips, nil
 }
 
 func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -143,7 +208,7 @@ func (s *serveDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
-	if err = w.WriteMsg(dnsReply); err != nil {
+	if _, err = w.Write(dnsReply); err != nil {
 		zap.L().Error("Writing dns response back to the client returned error", zap.Error(err))
 	}
 }
