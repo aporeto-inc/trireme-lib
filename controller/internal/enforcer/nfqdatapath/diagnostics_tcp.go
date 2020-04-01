@@ -75,7 +75,7 @@ func (d *Datapath) initiateDiagnostics(_ context.Context, contextID string, ping
 // sendSynPacket sends tcp syn packet to the socket. It also dispatches a report.
 func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *policy.PingConfig, conn net.Conn, srcIP net.IP, dstPort uint16, request int) error {
 
-	tcpConn := connection.NewTCPConnection(context, nil)
+	tcpConn := connection.NewTCPConnection(context, nil, 0)
 	tcpConn.Secrets = d.secrets()
 
 	claimsHeader := claimsheader.NewClaimsHeader(
@@ -130,7 +130,7 @@ func (d *Datapath) sendSynPacket(context *pucontext.PUContext, pingConfig *polic
 	)
 
 	tcpConn.SetState(connection.TCPSynSend)
-	d.sourcePortConnectionCache.AddOrUpdate(
+	d.sourcePortConnectionCache[0].AddOrUpdate(
 		packetTuple(tpacket.PacketTypeApplication, srcIP.String(), pingConfig.IP.String(), uint16(srcPort), dstPort),
 		tcpConn,
 	)
@@ -158,7 +158,7 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 		zap.L().Debug("Processing diagnostic network syn packet: defaultpassthrough")
 
 		tcpConn.PingConfig.Passthrough = true
-		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
+		d.appReplyConnectionTracker[0].AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
 		return nil
 	}
 

@@ -162,7 +162,7 @@ func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConn
 	// Check if a connection already exists for this flow. This can happen
 	// in the case of retransmissions. If there is no connection, create
 	// a new one.
-	conn, cerr := d.udpNetOrigConnectionTracker.Get(p.L4FlowHash())
+	conn, cerr := d.udpNetOrigConnectionTracker[0].Get(p.L4FlowHash())
 	if cerr != nil {
 		return connection.NewUDPConnection(context, d.udpSocketWriter), nil
 	}
@@ -171,7 +171,7 @@ func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConn
 
 func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
-	conn, err := d.udpSourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+	conn, err := d.udpSourcePortConnectionCache[0].GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		return nil, counters.CounterError(counters.ErrUDPSynAckNoConnection, errors.New("No connection.Drop the syn ack packet"))
 	}
@@ -182,9 +182,9 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
 	hash := p.L4FlowHash()
-	conn, err := d.udpNetReplyConnectionTracker.GetReset(hash, 0)
+	conn, err := d.udpNetReplyConnectionTracker[0].GetReset(hash, 0)
 	if err != nil {
-		conn, err = d.udpNetOrigConnectionTracker.GetReset(hash, 0)
+		conn, err = d.udpNetOrigConnectionTracker[0].GetReset(hash, 0)
 		if err != nil {
 			// This might be an existing udp connection.
 			// Send FinAck to reauthorize the connection.
@@ -350,11 +350,11 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 
 	hash := p.L4FlowHash()
 
-	if conn, err := d.udpAppReplyConnectionTracker.GetReset(hash, 0); err == nil {
+	if conn, err := d.udpAppReplyConnectionTracker[0].GetReset(hash, 0); err == nil {
 		return conn.(*connection.UDPConnection), nil
 	}
 
-	if conn, err := d.udpAppOrigConnectionTracker.GetReset(hash, 0); err == nil {
+	if conn, err := d.udpAppOrigConnectionTracker[0].GetReset(hash, 0); err == nil {
 		return conn.(*connection.UDPConnection), nil
 	}
 
@@ -394,8 +394,8 @@ func (d *Datapath) triggerNegotiation(udpPacket *packet.Packet, context *puconte
 
 	// Populate the caches to track the connection
 	hash := udpPacket.L4FlowHash()
-	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
-	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+	d.udpAppOrigConnectionTracker[0].AddOrUpdate(hash, conn)
+	d.udpSourcePortConnectionCache[0].AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
 	return nil
 
@@ -521,7 +521,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		}
 	}
 	zap.L().Debug("Clearing fin packet entry in cache", zap.String("flowhash", udpPacket.L4FlowHash()))
-	if err := d.udpFinPacketTracker.Remove(udpPacket.L4FlowHash()); err != nil {
+	if err := d.udpFinPacketTracker[0].Remove(udpPacket.L4FlowHash()); err != nil {
 		zap.L().Debug("Unable to remove entry from udp finack cache")
 	}
 	return nil
@@ -555,8 +555,8 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	hash := udpPacket.L4FlowHash()
 
 	// conntrack
-	d.udpNetOrigConnectionTracker.AddOrUpdate(hash, conn)
-	d.udpAppReplyConnectionTracker.AddOrUpdate(udpPacket.L4ReverseFlowHash(), conn)
+	d.udpNetOrigConnectionTracker[0].AddOrUpdate(hash, conn)
+	d.udpAppReplyConnectionTracker[0].AddOrUpdate(udpPacket.L4ReverseFlowHash(), conn)
 
 	// Record actions
 	conn.ReportFlowPolicy = report
@@ -589,7 +589,7 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	}
 
 	// conntrack
-	d.udpNetReplyConnectionTracker.AddOrUpdate(udpPacket.L4FlowHash(), conn)
+	d.udpNetReplyConnectionTracker[0].AddOrUpdate(udpPacket.L4FlowHash(), conn)
 
 	return pkt, claims, nil
 }
@@ -655,16 +655,16 @@ func (d *Datapath) processUDPFinPacket(udpPacket *packet.Packet) (err error) { /
 
 	// add it to the udp fin cache. If we have already received the fin packet
 	// for this flow. There is no need to change the connmark label again.
-	if d.udpFinPacketTracker.AddOrUpdate(udpPacket.L4ReverseFlowHash(), true) {
+	if d.udpFinPacketTracker[0].AddOrUpdate(udpPacket.L4ReverseFlowHash(), true) {
 		return nil
 	}
 
 	// clear cache entries.
-	if err := d.udpAppOrigConnectionTracker.Remove(udpPacket.L4ReverseFlowHash()); err != nil {
+	if err := d.udpAppOrigConnectionTracker[0].Remove(udpPacket.L4ReverseFlowHash()); err != nil {
 		zap.L().Debug("Failed to clean cache udpappOrigConnectionTracker", zap.Error(err))
 	}
 
-	if err := d.udpSourcePortConnectionCache.Remove(udpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
+	if err := d.udpSourcePortConnectionCache[0].Remove(udpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
 		zap.L().Debug("Failed to clean cache udpsourcePortConnectionCache", zap.Error(err))
 	}
 
