@@ -174,7 +174,7 @@ type TCPConnection struct {
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
-func TCPConnectionExpirationNotifier(c cache.DataStore, _ interface{}, item interface{}) {
+func TCPConnectionExpirationNotifier(_ interface{}, item interface{}) {
 
 	conn, ok := item.(*TCPConnection)
 	if !ok {
