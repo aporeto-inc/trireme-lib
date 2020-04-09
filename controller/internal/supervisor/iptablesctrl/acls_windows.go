@@ -316,3 +316,59 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 	}
 	return result
 }
+
+func (i *iptables) cleanACLs() error { // nolint
+	cfg, err := i.newACLInfo(0, "", nil, 0)
+	if err != nil {
+		return err
+	}
+
+	// First clear the nat rules
+	if err := i.removeGlobalHooks(cfg); err != nil {
+		zap.L().Error("unable to remove nat proxy rules")
+	}
+
+	// Clean Application Rules/Chains
+	i.cleanACLSection(appPacketIPTableContext, chainPrefix)
+	i.cleanACLSection(appProxyIPTableContext, chainPrefix)
+	i.impl.Commit() // nolint
+
+	// Always return nil here. No reason to block anything if cleans fail.
+	return nil
+}
+
+// cleanACLSection flushes and deletes all chains with Prefix - Trireme
+func (i *iptables) cleanACLSection(context, chainPrefix string) {
+
+	rules, err := i.impl.ListChains(context)
+	if err != nil {
+		zap.L().Warn("Failed to list chains",
+			zap.String("context", context),
+			zap.Error(err),
+		)
+	}
+
+	for _, rule := range rules {
+		if strings.Contains(rule, chainPrefix) {
+			if err := i.impl.ClearChain(context, rule); err != nil {
+				zap.L().Warn("Can not clear the chain",
+					zap.String("context", context),
+					zap.String("section", rule),
+					zap.Error(err),
+				)
+			}
+		}
+	}
+
+	for _, rule := range rules {
+		if strings.Contains(rule, chainPrefix) {
+			if err := i.impl.DeleteChain(context, rule); err != nil {
+				zap.L().Warn("Can not delete the chain",
+					zap.String("context", context),
+					zap.String("section", rule),
+					zap.Error(err),
+				)
+			}
+		}
+	}
+}

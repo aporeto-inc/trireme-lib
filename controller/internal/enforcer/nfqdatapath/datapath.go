@@ -167,7 +167,7 @@ func createPolicy(networks []string) policy.IPRuleList {
 }
 
 func getCacheEntryRemoveCB(d *Datapath) cache.ExpirationNotifier {
-	f := func(cache cache.DataStore, key interface{}, val interface{}) {
+	f := func(key interface{}, val interface{}) {
 		conn := val.(*connection.TCPConnection)
 		t := conn.TCPtuple
 

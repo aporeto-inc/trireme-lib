@@ -125,3 +125,11 @@ func (i *ipv6) Delete(table, chain string, rulespec ...string) error {
 func (i *ipv6) RetrieveTable() map[string]map[string][]string {
 	return i.ipt.RetrieveTable()
 }
+
+func (i *ipv6) ResetRules(subs string) error {
+	if !i.ipv6Enabled || i.ipt == nil {
+		return nil
+	}
+
+	return i.ipt.ResetRules(subs)
+}

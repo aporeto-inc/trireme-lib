@@ -105,3 +105,20 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 func (i *iptables) platformInit() error {
 	return nil
 }
+
+func (i *iptables) cleanACLs() error { // nolint
+	cfg, err := i.newACLInfo(0, "", nil, 0)
+	if err != nil {
+		return err
+	}
+
+	// First clear the nat rules
+	if err := i.removeGlobalHooks(cfg); err != nil {
+		zap.L().Error("unable to remove nat proxy rules")
+	}
+
+	// Clean all rules with TRI- sub
+	i.impl.ResetRules("TRI-")
+	// Always return nil here. No reason to block anything if cleans fail.
+	return nil
+}

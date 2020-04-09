@@ -25,6 +25,8 @@ type IptablesProvider interface {
 	Commit() error
 	// RetrieveTable allows a caller to retrieve the final table.
 	RetrieveTable() map[string]map[string][]string
+	// ResetRules resets the rules to a state where rules with the substring subs are removed
+	ResetRules(subs string) error
 }
 
 // BaseIPTables is the base interface of iptables functions.
@@ -290,4 +292,10 @@ func (b *BatchProvider) Commit() error {
 func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
 	// not applicable for windows
 	return map[string]map[string][]string{}
+}
+
+// ResetRules returns nil in windows
+func (b *BatchProvider) ResetRules(subs string) error {
+	// does nothing
+	return nil
 }
