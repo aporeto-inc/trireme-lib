@@ -105,3 +105,7 @@ func (i *ipv4) Delete(table, chain string, rulespec ...string) error {
 func (i *ipv4) RetrieveTable() map[string]map[string][]string {
 	return i.ipt.RetrieveTable()
 }
+
+func (i *ipv4) ResetRules(subs string) error {
+	return i.ipt.ResetRules(subs)
+}
