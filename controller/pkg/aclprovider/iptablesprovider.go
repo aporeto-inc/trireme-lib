@@ -21,6 +21,8 @@ type IptablesProvider interface {
 	Commit() error
 	// RetrieveTable allows a caller to retrieve the final table.
 	RetrieveTable() map[string]map[string][]string
+	// ResetRules resets the rules to a state where rules with the substring subs are removed
+	ResetRules(subs string) error
 }
 
 // BaseIPTables is the base interface of iptables functions.
@@ -54,6 +56,7 @@ type BatchProvider struct {
 	sync.Mutex
 	cmd        string
 	restoreCmd string
+	saveCmd    string
 	quote      bool
 }
 
@@ -62,6 +65,8 @@ const (
 	cmdV6        = "ip6tables --wait"
 	restoreCmdV4 = "iptables-restore"
 	restoreCmdV6 = "ip6tables-restore"
+	saveCmdV4    = "iptables-save"
+	saveCmdV6    = "ip6tables-save"
 )
 
 // TestIptablesPinned returns error if the kernel doesn't support bpf pinning in iptables
@@ -95,6 +100,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
+		saveCmd:     saveCmdV4,
 		quote:       true,
 	}
 
@@ -117,6 +123,7 @@ func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV6,
+		saveCmd:     saveCmdV6,
 		quote:       true,
 	}
 
@@ -491,4 +498,35 @@ func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
 	for i, rule := range rulesspec {
 		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
 	}
+}
+
+// ResetRules resets the rules to the original form.
+// It is implemented as "iptables-save | grep "-v" subs | iptables-restore"
+func (b *BatchProvider) ResetRules(subs string) error {
+
+	var out []byte
+	var err error
+
+	cmd := exec.Command("aporeto-iptables", b.saveCmd)
+	if out, err = cmd.CombinedOutput(); err != nil {
+		zap.L().Error("Failed to get iptables-save command", zap.Error(err),
+			zap.String("Output", string(out)))
+		return err
+	}
+
+	s := string(out)
+	rules := strings.Split(s, "\n")
+
+	var filterRules []string
+
+	for _, rule := range rules {
+		if !strings.Contains(rule, subs) {
+			filterRules = append(filterRules, rule)
+		}
+	}
+
+	combineRules := strings.Join(filterRules, "\n")
+	buf := bytes.NewBufferString(combineRules)
+
+	return b.commitFunc(buf)
 }
