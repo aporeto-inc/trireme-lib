@@ -89,11 +89,11 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 	addCache := func(address, port string) error {
 		var mask int
 		parts := strings.Split(address, "/")
-		ip := net.ParseIP(parts[0])
 		nomatch := strings.HasPrefix(parts[0], "!")
 		if nomatch {
 			parts[0] = parts[0][1:]
 		}
+		ip := net.ParseIP(parts[0])
 		if ip == nil {
 			return fmt.Errorf("invalid ip address: %s", parts[0])
 		}
