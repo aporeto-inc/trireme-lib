@@ -24,13 +24,15 @@ func newACL() *acl {
 	}
 }
 
-var errNoMatch = errors.New("No Match")
+// errNoMatchFromRule must stop the LPM check
+var errNoMatchFromRule = errors.New("No Match")
+var errNotFound = errors.New("No Match")
 
-func (a *acl) addToCache(ip net.IP, mask int, port string, policy *policy.FlowPolicy) error {
+func (a *acl) addToCache(ip net.IP, mask int, port string, policy *policy.FlowPolicy, nomatch bool) error {
 	var err error
 	var portList portActionList
 
-	r, err := newPortAction(port, policy)
+	r, err := newPortAction(port, policy, nomatch)
 	if err != nil {
 		return fmt.Errorf("unable to create port action: %s", err)
 	}
@@ -63,14 +65,14 @@ func (a *acl) removeIPMask(ip net.IP, mask int) {
 func (a *acl) matchRule(ip net.IP, port uint16, preReport *policy.FlowPolicy) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 	report = preReport
 
-	err = errNoMatch
+	err = errNotFound
 
 	lookup := func(val interface{}) bool {
 		if val != nil {
 			portList := val.(portActionList)
 
 			report, packet, err = portList.lookup(port, report)
-			if err == nil {
+			if err == nil || err == errNoMatchFromRule {
 				return true
 			}
 		}
@@ -88,6 +90,10 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 		var mask int
 		parts := strings.Split(address, "/")
 		ip := net.ParseIP(parts[0])
+		nomatch := strings.HasPrefix(parts[0], "!")
+		if nomatch {
+			parts[0] = parts[0][1:]
+		}
 		if ip == nil {
 			return fmt.Errorf("invalid ip address: %s", parts[0])
 		}
@@ -105,7 +111,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 			}
 		}
 
-		if err := a.addToCache(ip, mask, port, rule.Policy); err != nil {
+		if err := a.addToCache(ip, mask, port, rule.Policy, nomatch); err != nil {
 			return err
 		}
 

@@ -226,3 +226,82 @@ func TestObservedLookup(t *testing.T) {
 		})
 	})
 }
+
+func TestNomatchLookup(t *testing.T) {
+
+	ip1 := "200.17.0.0/16"
+	ip2 := "200.18.0.0/16"
+	ip3 := "200.0.0.0/8"
+	var (
+		rulesWithNomatch = policy.IPRuleList{
+			policy.IPRule{
+				Addresses: []string{"!" + ip1},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "nomatch-tcp200.17/16"},
+			},
+			policy.IPRule{
+				Addresses: []string{"!" + ip2},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "nomatch-tcp200.18/16"},
+			},
+			policy.IPRule{
+				Addresses: []string{ip3},
+				Ports:     []string{"401"},
+				Protocols: []string{constants.TCPProtoNum},
+				Policy: &policy.FlowPolicy{
+					Action:   policy.Accept,
+					PolicyID: "tcp200/8"},
+			},
+		}
+	)
+
+	Convey("Given a good DB", t, func() {
+		a := newACL()
+		So(a, ShouldNotBeNil)
+		for _, r := range rulesWithNomatch {
+			err := a.addRule(r)
+			So(err, ShouldBeNil)
+		}
+
+		// Ensure all the elements are there in the cache
+		cidrs := []string{ip1, ip2, ip3}
+
+		for _, cidr := range cidrs {
+			ip, ipnet, _ := net.ParseCIDR(cidr)
+			size, _ := ipnet.Mask.Size()
+			_, ok := a.cache.Get(ip, size)
+			So(ok, ShouldEqual, true)
+		}
+
+		Convey("When I lookup for a nomatch address and a port range, I should get nomatch", func() {
+			ip := net.ParseIP("200.17.0.1")
+			port := uint16(401)
+			_, _, err := a.getMatchingAction(ip.To4(), port, nil)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I lookup for another nomatch address and a port range, I should get nomatch", func() {
+			ip := net.ParseIP("200.18.0.1")
+			port := uint16(401)
+			_, _, err := a.getMatchingAction(ip.To4(), port, nil)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I lookup for a matching address and a port range, I should get the accept action", func() {
+			ip := net.ParseIP("200.19.0.1")
+			port := uint16(401)
+			r, p, err := a.getMatchingAction(ip.To4(), port, nil)
+			So(err, ShouldBeNil)
+			So(p.Action, ShouldEqual, policy.Accept)
+			So(p.PolicyID, ShouldEqual, "tcp200/8")
+			So(r.Action, ShouldEqual, policy.Accept)
+			So(r.PolicyID, ShouldEqual, "tcp200/8")
+		})
+	})
+}
