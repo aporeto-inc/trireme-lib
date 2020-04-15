@@ -788,6 +788,51 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 	})
 }
 
+func Test_OperationNomatchIpsetsV6(t *testing.T) {
+
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"::/0", "!2001:db8:1234::/48"},
+			UDPTargetNetworks: []string{"1120::/64"},
+			ExcludedNetworks:  []string{"::1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+
+			So(err, ShouldBeNil)
+
+			So(ipsv6.sets, ShouldContainKey, "TRI-v6-TargetTCP")
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set, ShouldContainKey, "2001:db8:1234::/48")
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set["2001:db8:1234::/48"], ShouldBeTrue)
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set, ShouldContainKey, "::/1")
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set["::/1"], ShouldBeFalse)
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set, ShouldContainKey, "8000::/1")
+			So(ipsv6.sets["TRI-v6-TargetTCP"].set["8000::/1"], ShouldBeFalse)
+		})
+	})
+}
+
 var (
 	expectedContainerGlobalMangleChainsV6 = map[string][]string{
 		"INPUT": {
