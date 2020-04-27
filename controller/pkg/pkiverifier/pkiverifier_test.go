@@ -67,18 +67,20 @@ func TestNewConfig(t *testing.T) {
 		})
 
 		Convey("When I use NewPKIVerifier valid keys, it should succeed ", func() {
-			p := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1).(*tokenManager)
+			pkiPublicKey := &PKIPublicKey{PublicKey: cert.PublicKey.(*ecdsa.PublicKey)}
+			p := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, -1).(*tokenManager)
 			So(p, ShouldNotBeNil)
 			So(p.validity, ShouldEqual, defaultValidity*time.Second)
 			So(p.privateKey, ShouldBeNil)
-			So(p.publicKeys, ShouldResemble, []*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)})
+			So(p.publicKeys, ShouldResemble, []*PKIPublicKey{pkiPublicKey})
 		})
 		Convey("When I use NewPKIVerifier valid keys with a custom validity, it should succeed ", func() {
-			p := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, 10*time.Second).(*tokenManager)
+			pkiPublicKey := &PKIPublicKey{PublicKey: cert.PublicKey.(*ecdsa.PublicKey)}
+			p := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, 10*time.Second).(*tokenManager)
 			So(p, ShouldNotBeNil)
 			So(p.validity, ShouldEqual, 10*time.Second)
 			So(p.privateKey, ShouldBeNil)
-			So(p.publicKeys, ShouldResemble, []*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)})
+			So(p.publicKeys, ShouldResemble, []*PKIPublicKey{pkiPublicKey})
 		})
 	})
 }
@@ -88,7 +90,8 @@ func TestCreateAndVerify(t *testing.T) {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
 		p := NewPKIIssuer(key)
-		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
+		pkiPublicKey := &PKIPublicKey{PublicKey: cert.PublicKey.(*ecdsa.PublicKey)}
+		v := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, -1).(*tokenManager)
 		So(p, ShouldNotBeNil)
 		Convey("When I create a token", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert, []string{"sometag"})
@@ -106,7 +109,8 @@ func TestCreateAndVerify(t *testing.T) {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
 		p := NewPKIIssuer(key)
-		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
+		pkiPublicKey := &PKIPublicKey{PublicKey: cert.PublicKey.(*ecdsa.PublicKey)}
+		v := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, -1).(*tokenManager)
 		So(p, ShouldNotBeNil)
 		Convey("When I a receive a bad token, I should get an error", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert, []string{})
@@ -121,7 +125,8 @@ func TestCreateAndVerify(t *testing.T) {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
 		p := NewPKIIssuer(key)
-		v := NewPKIVerifier([]*ecdsa.PublicKey{nil}, -1)
+		pkiPublicKey := &PKIPublicKey{PublicKey: nil}
+		v := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, -1).(*tokenManager)
 		So(p, ShouldNotBeNil)
 		Convey("When I a receive a valid token, I should get an error", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert, []string{})
@@ -137,7 +142,8 @@ func TestCaching(t *testing.T) {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
 		p := NewPKIIssuer(key)
-		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, 1*time.Second)
+		pkiPublicKey := &PKIPublicKey{PublicKey: cert.PublicKey.(*ecdsa.PublicKey)}
+		v := NewPKIVerifier([]*PKIPublicKey{pkiPublicKey}, 1*time.Second).(*tokenManager)
 
 		So(p, ShouldNotBeNil)
 
@@ -148,7 +154,7 @@ func TestCaching(t *testing.T) {
 			So(err2, ShouldBeNil)
 
 			Convey("The cache should have the token ", func() {
-				_, err := v.(*tokenManager).keycache.Get(string(token))
+				_, err := v.keycache.Get(string(token))
 				So(err, ShouldBeNil)
 				_, err2 := v.Verify(token)
 				So(err2, ShouldBeNil)
@@ -156,7 +162,7 @@ func TestCaching(t *testing.T) {
 
 			Convey("The cache should not have the token after 2 seconds ", func() {
 				time.Sleep(2 * time.Second)
-				_, err := v.(*tokenManager).keycache.Get(string(token))
+				_, err := v.keycache.Get(string(token))
 				So(err, ShouldNotBeNil)
 			})
 		})

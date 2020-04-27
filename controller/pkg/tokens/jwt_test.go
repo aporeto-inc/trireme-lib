@@ -92,7 +92,13 @@ func createCompactPKISecrets() (*x509.Certificate, secrets.Secrets, error) {
 		return nil, nil, err
 	}
 
-	scrts, err := secrets.NewCompactPKIWithTokenCA([]byte(keyPEM), []byte(certPEM), []byte(caPool), [][]byte{[]byte(certPEM)}, txtToken, claimsheader.CompressionTypeNone)
+	compactPKIPublicKey := &secrets.CompactPKIPublicKey{
+		PublicKey: []byte(certPEM),
+	}
+
+	tokenKeyPEMs := []*secrets.CompactPKIPublicKey{compactPKIPublicKey}
+
+	scrts, err := secrets.NewCompactPKIWithTokenCA([]byte(keyPEM), []byte(certPEM), []byte(caPool), tokenKeyPEMs, txtToken, claimsheader.CompressionTypeNone)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,7 +162,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 		nonce := []byte("1234567890123456")
 		Convey("Given a signature request for a normal packet", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
-			recoveredClaims, recoveredNonce, publicKey, err2 := jwtConfig.Decode(false, token, nil, scrts)
+			recoveredClaims, recoveredNonce, publicKey, _, err2 := jwtConfig.Decode(false, token, nil, scrts)
 
 			So(err2, ShouldBeNil)
 			So(err1, ShouldBeNil)
@@ -174,10 +180,10 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 
 		Convey("Given a signature request that hits the cache ", func() {
 			token1, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
-			recoveredClaims1, recoveredNonce1, key1, err2 := jwtConfig.Decode(false, token1, nil, scrts)
+			recoveredClaims1, recoveredNonce1, key1, _, err2 := jwtConfig.Decode(false, token1, nil, scrts)
 			nonce2 := []byte("9876543210123456")
 			err3 := jwtConfig.Randomize(token1, nonce2)
-			recoveredClaims2, recoveredNonce2, key2, err4 := jwtConfig.Decode(false, token1, nil, scrts)
+			recoveredClaims2, recoveredNonce2, key2, _, err4 := jwtConfig.Decode(false, token1, nil, scrts)
 
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
@@ -207,7 +213,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 
 		Convey("Given a signature request for an ACK packet", func() {
 			token, err1 := jwtConfig.CreateAndSign(true, &ackClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
-			recoveredClaims, _, _, err2 := jwtConfig.Decode(true, token, cert.PublicKey.(*ecdsa.PublicKey), scrts)
+			recoveredClaims, _, _, _, err2 := jwtConfig.Decode(true, token, cert.PublicKey.(*ecdsa.PublicKey), scrts)
 
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
@@ -229,7 +235,7 @@ func TestNegativeConditions(t *testing.T) {
 
 		Convey("Test a token with a bad length ", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
-			_, _, _, err2 := jwtConfig.Decode(false, token[:len(token)-len(certPEM)-1], nil, scrts)
+			_, _, _, _, err2 := jwtConfig.Decode(false, token[:len(token)-len(certPEM)-1], nil, scrts)
 			So(err2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 		})
@@ -241,14 +247,14 @@ func TestNegativeConditions(t *testing.T) {
 			token[len(token)-2] = 0
 			token[len(token)-3] = 0
 			token[len(token)-4] = 0
-			_, _, _, err2 := jwtConfig.Decode(false, token, nil, scrts)
+			_, _, _, _, err2 := jwtConfig.Decode(false, token, nil, scrts)
 			So(err2, ShouldNotBeNil)
 		})
 
 		Convey("Test an ack token with a bad key", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &ackClaims, nonce, claimsheader.NewClaimsHeader(), scrts)
 
-			_, _, _, err2 := jwtConfig.Decode(true, token, certPEM[:10], scrts)
+			_, _, _, _, err2 := jwtConfig.Decode(true, token, certPEM[:10], scrts)
 			So(err2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 		})

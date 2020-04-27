@@ -15,6 +15,7 @@ import (
 	"github.com/ugorji/go/codec"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -86,7 +87,7 @@ func NewBinaryJWT(validity time.Duration, issuer string) (*BinaryJWTConfig, erro
 // Decode  takes as argument the JWT token and the certificate of the issuer.
 // First it verifies the certificate with the local CA pool, and the decodes
 // the JWT if the certificate is trusted
-func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *BinaryJWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, controller *pkiverifier.PKIControllerInfo, err error) {
 
 	if isAck {
 		return c.decodeAck(data)
@@ -174,38 +175,38 @@ func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, header *claim
 	return packToken(header.ToBytes(), nil, buf, sig), nil
 }
 
-func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, controller *pkiverifier.PKIControllerInfo, err error) {
 
 	// Unpack the token first.
 	header, nonce, token, sig, err := unpackToken(false, data)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Validate the header version.
 	if err := c.verifyClaimsHeader(claimsheader.HeaderBytes(header).ToClaimsHeader()); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Decode the claims to a data structure.
 	binaryClaims, err := decode(token)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Derive the transmitter public key and associated claims. This will also
 	// validate that the transmitter key is valid or provide it from a cache.
 	// Once it succeeds we know that the public key that was provide is correct.
-	publicKey, publicKeyClaims, expTime, err := secrets.KeyAndClaims(binaryClaims.SignerKey)
+	publicKey, publicKeyClaims, expTime, controller, err := secrets.KeyAndClaims(binaryClaims.SignerKey)
 	if err != nil || publicKey == nil {
-		return nil, nil, nil, ErrPublicKeyFailed
+		return nil, nil, nil, nil, ErrPublicKeyFailed
 	}
 
 	// Since we know that the signature is valid, we check if the token is already in
 	// the cache and accept it. We do that after the verification, in case the
 	// public key has expired and we still have it in the cache.
 	if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
-		return cachedClaims.(*ConnectionClaims), nonce, publicKey, nil
+		return cachedClaims.(*ConnectionClaims), nonce, publicKey, controller, nil
 	}
 
 	// We haven't seen this token again, so we will validate it with the
@@ -222,7 +223,7 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 
 		key, err := c.deriveSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		if err := c.verifyWithSharedKey(token, key, sig); err != nil {
@@ -232,11 +233,11 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 			// we can do it here.
 			key, err = c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 
 			if err = c.verifyWithSharedKey(token, key, sig); err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 		}
 	} else {
@@ -244,13 +245,13 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 		// provided and validated public key. We will then add it in the
 		// cache for future reference.
 		if err := c.verify(token, sig, publicKey.(*ecdsa.PublicKey)); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		// We create a new symetric key if we don't already have one.
 		_, err := c.newSharedKey(binaryClaims.ID, publicKey, publicKeyClaims, expTime, secrets.EncodingKey())
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
@@ -264,44 +265,44 @@ func (c *BinaryJWTConfig) decodeSyn(data []byte, secrets secrets.Secrets) (claim
 	// connection claims.
 	c.tokenCache.AddOrUpdate(string(token), connClaims)
 
-	return connClaims, nonce, publicKey, nil
+	return connClaims, nonce, publicKey, controller, nil
 
 }
 
-func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *BinaryJWTConfig) decodeAck(data []byte) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, controller *pkiverifier.PKIControllerInfo, err error) {
 
 	// Unpack the token first.
 	header, nonce, token, sig, err := unpackToken(true, data)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Validate the header.
 	if err := c.verifyClaimsHeader(claimsheader.HeaderBytes(header).ToClaimsHeader()); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Decode the claims to a data structure.
 	binaryClaims, err := decode(token)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Find the shared key. This must already be in the cache and pre-calculated,
 	// since we have seen the syn and syn ack packets.
 	k, err := c.sharedKeys.Get(binaryClaims.ID)
 	if err != nil {
-		return nil, nil, nil, ErrSharedSecretMissing
+		return nil, nil, nil, nil, ErrSharedSecretMissing
 	}
 	key := k.(*sharedSecret).key
 
 	// Calculate the signature on the token and compare it with the incoming
 	// signature. Since this is simple symetric hashing this is simple.
 	if err := c.verifyWithSharedKey(token, key, sig); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return ConvertToJWTClaims(binaryClaims, header).ConnectionClaims, nonce, nil, nil
+	return ConvertToJWTClaims(binaryClaims, header).ConnectionClaims, nonce, nil, nil, nil
 }
 
 func (c *BinaryJWTConfig) verifyClaimsHeader(h *claimsheader.ClaimsHeader) error {

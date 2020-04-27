@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	pkiverifier "go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
@@ -59,14 +60,15 @@ func (mr *MockTokenEngineMockRecorder) CreateAndSign(isAck, claims, nonce, claim
 
 // Decode mocks base method
 // nolint
-func (m *MockTokenEngine) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (*tokens.ConnectionClaims, []byte, interface{}, error) {
+func (m *MockTokenEngine) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (*tokens.ConnectionClaims, []byte, interface{}, *pkiverifier.PKIControllerInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Decode", isAck, data, previousCert, secrets)
 	ret0, _ := ret[0].(*tokens.ConnectionClaims)
 	ret1, _ := ret[1].([]byte)
 	ret2, _ := ret[2].(interface{})
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret3, _ := ret[3].(*pkiverifier.PKIControllerInfo)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
 // Decode indicates an expected call of Decode

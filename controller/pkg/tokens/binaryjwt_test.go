@@ -98,7 +98,7 @@ func Test_EncodeDecode(t *testing.T) {
 			})
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				outClaims, outNonce, outKey, err := b.Decode(false, token, nil, scrts)
+				outClaims, outNonce, outKey, _, err := b.Decode(false, token, nil, scrts)
 				So(err, ShouldBeNil)
 				So(outKey, ShouldResemble, cert.PublicKey)
 				So(outNonce, ShouldResemble, pu1nonce)
@@ -118,7 +118,7 @@ func Test_EncodeDecode(t *testing.T) {
 			token = append(token, []byte("abcdefghijklmnopqrstuvwxyz")...)
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, token, nil, scrts)
+				_, _, _, _, err := b.Decode(false, token, nil, scrts)
 				So(err, ShouldResemble, ErrMissingSignature)
 			})
 		})
@@ -126,7 +126,7 @@ func Test_EncodeDecode(t *testing.T) {
 		Convey("When I encode and decode a nil Syn Packet", func() {
 
 			Convey("When I decode the token, it should be give the original claims", func() {
-				_, _, _, err := b.Decode(false, nil, nil, scrts)
+				_, _, _, _, err := b.Decode(false, nil, nil, scrts)
 				So(err, ShouldResemble, ErrInvalidTokenLength)
 			})
 		})
@@ -148,7 +148,7 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 				So(len(token), ShouldBeGreaterThan, 0)
 			})
 
-			outClaims, outNonce, outKey, err := b.Decode(false, token, nil, scrts)
+			outClaims, outNonce, outKey, _, err := b.Decode(false, token, nil, scrts)
 			Convey("Decoding of the Syn should be done", func() {
 				So(err, ShouldBeNil)
 				So(outKey, ShouldResemble, cert.PublicKey)
@@ -166,7 +166,7 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 				saToken, err := b.CreateAndSign(false, &pu2Claims, pu2nonce, header, scrts)
 				So(err, ShouldBeNil)
 
-				saClaims, _, _, err := b.Decode(false, saToken, nil, scrts)
+				saClaims, _, _, _, err := b.Decode(false, saToken, nil, scrts)
 				So(err, ShouldBeNil)
 				So(saClaims, ShouldNotBeNil)
 				So(saClaims.LCL, ShouldResemble, pu2Claims.LCL)
@@ -179,7 +179,7 @@ func Test_Syn_SynAck_Sequence(t *testing.T) {
 					So(err, ShouldBeNil)
 					So(ackToken, ShouldNotBeNil)
 
-					sackClaims, _, _, err := b.Decode(true, ackToken, nil, scrts)
+					sackClaims, _, _, _, err := b.Decode(true, ackToken, nil, scrts)
 					So(err, ShouldBeNil)
 					So(sackClaims, ShouldNotBeNil)
 				})

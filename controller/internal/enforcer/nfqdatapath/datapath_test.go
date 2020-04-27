@@ -4939,7 +4939,7 @@ func Test_Secrets(t *testing.T) {
 			err = enforcer.UpdateSecrets(s)
 			So(err, ShouldBeNil)
 
-			mockTokenAccessor.EXPECT().ParsePacketToken(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(&tokens.ConnectionClaims{}, fmt.Errorf("decode failed"))
+			mockTokenAccessor.EXPECT().ParsePacketToken(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(&tokens.ConnectionClaims{}, nil, fmt.Errorf("decode failed"))
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(flowRecord)).Times(1)
 
 			p, err = packet.New(packet.PacketTypeNetwork, newPacket(tcp.Syn|tcp.Ack, true, true), "0", false)

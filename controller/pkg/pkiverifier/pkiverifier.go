@@ -35,8 +35,21 @@ type verifierClaims struct {
 	jwt.StandardClaims
 }
 
+// PKIControllerInfo holds the controller information about public keys
+type PKIControllerInfo struct {
+	Namespace      string // The namespace of the public key.
+	Controller     string // The controller or controll plain of the public key.
+	SameController bool   // Does the public key come from the same controller
+}
+
+// PKIPublicKey holds information about public keys
+type PKIPublicKey struct {
+	PublicKey  *ecdsa.PublicKey
+	Controller *PKIControllerInfo
+}
+
 type tokenManager struct {
-	publicKeys []*ecdsa.PublicKey
+	publicKeys []*PKIPublicKey
 	privateKey *ecdsa.PrivateKey
 	signMethod jwt.SigningMethod
 	keycache   cache.DataStore
@@ -48,6 +61,7 @@ type DatapathKey struct {
 	PublicKey  *ecdsa.PublicKey
 	Tags       []string
 	Expiration time.Time
+	Controller *PKIControllerInfo
 }
 
 // NewPKIIssuer initializes a new signer structure
@@ -60,7 +74,7 @@ func NewPKIIssuer(privateKey *ecdsa.PrivateKey) PKITokenIssuer {
 }
 
 // NewPKIVerifier returns a new PKIConfiguration.
-func NewPKIVerifier(publicKeys []*ecdsa.PublicKey, cacheValidity time.Duration) PKITokenVerifier {
+func NewPKIVerifier(publicKeys []*PKIPublicKey, cacheValidity time.Duration) PKITokenVerifier {
 
 	validity := defaultValidity * time.Second
 	if cacheValidity > 0 {
@@ -88,12 +102,12 @@ func (p *tokenManager) Verify(token []byte) (*DatapathKey, error) {
 	var err error
 	for _, pk := range p.publicKeys {
 
-		if pk == nil {
+		if pk == nil || pk.PublicKey == nil {
 			continue
 		}
 
 		t, err = jwt.ParseWithClaims(tokenString, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
-			return pk, nil
+			return pk.PublicKey, nil
 		})
 		if err != nil || !t.Valid {
 			continue
@@ -108,6 +122,7 @@ func (p *tokenManager) Verify(token []byte) (*DatapathKey, error) {
 			},
 			Tags:       claims.Tags,
 			Expiration: expTime,
+			Controller: pk.Controller,
 		}
 
 		p.keycache.AddOrUpdate(tokenString, dp)

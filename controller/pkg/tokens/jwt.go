@@ -10,6 +10,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -152,7 +153,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 // Decode  takes as argument the JWT token and the certificate of the issuer.
 // First it verifies the certificate with the local CA pool, and the decodes
 // the JWT if the certificate is trusted
-func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, err error) {
+func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (claims *ConnectionClaims, nonce []byte, publicKey interface{}, controller *pkiverifier.PKIControllerInfo, err error) {
 
 	var ackCert interface{}
 	var certClaims []string
@@ -170,13 +171,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 	if !isAck {
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, errors.New("not enough data")
+			return nil, nil, nil, nil, errors.New("not enough data")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
 		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
-			return nil, nil, nil, errors.New("invalid token length")
+			return nil, nil, nil, nil, errors.New("invalid token length")
 		}
 
 		copy(nonce, data[noncePosition:tokenPosition])
@@ -185,13 +186,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 
 		certBytes := data[tokenPosition+tokenLength+1:]
 
-		ackCert, certClaims, _, err = secrets.KeyAndClaims(certBytes)
+		ackCert, certClaims, _, controller, err = secrets.KeyAndClaims(certBytes)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
+			return nil, nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
 
 		if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
-			return cachedClaims.(*ConnectionClaims), nonce, ackCert, nil
+			return cachedClaims.(*ConnectionClaims), nonce, ackCert, controller, nil
 		}
 	}
 
@@ -209,10 +210,10 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 
 	// If error is returned or the token is not valid, reject it
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to parse token: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to parse token: %s", err)
 	}
 	if !jwttoken.Valid {
-		return nil, nil, nil, errors.New("invalid token")
+		return nil, nil, nil, nil, errors.New("invalid token")
 	}
 
 	if !isAck {
@@ -230,13 +231,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}, se
 
 	if jwtClaims.ConnectionClaims.H != nil {
 		if err := c.verifyClaimsHeader(jwtClaims.ConnectionClaims.H.ToClaimsHeader()); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
 
-	return jwtClaims.ConnectionClaims, nonce, ackCert, nil
+	return jwtClaims.ConnectionClaims, nonce, ackCert, controller, nil
 }
 
 // Randomize adds a nonce to an existing token. Returns the nonce
