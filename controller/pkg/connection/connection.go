@@ -171,6 +171,9 @@ type TCPConnection struct {
 	PingConfig *PingConfig
 
 	Secrets secrets.Secrets
+
+	SourceController      string
+	DestinationController string
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -327,6 +330,9 @@ type UDPConnection struct {
 	expiredConnection    bool
 
 	Secrets secrets.Secrets
+
+	SourceController      string
+	DestinationController string
 }
 
 // NewUDPConnection returns UDPConnection struct.

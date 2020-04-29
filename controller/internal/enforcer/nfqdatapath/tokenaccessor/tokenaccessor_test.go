@@ -176,9 +176,9 @@ func Test_ParsePacketToken(t *testing.T) {
 			ts.AppendKeyValue(enforcerconstants.TransmitterLabel, "spuid1")
 			claims := &tokens.ConnectionClaims{T: ts}
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil)
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil, nil)
 
-			data, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldBeNil)
 			So(data, ShouldResemble, claims)
 		})
@@ -188,9 +188,9 @@ func Test_ParsePacketToken(t *testing.T) {
 			ts := policy.NewTagStore()
 			claims := &tokens.ConnectionClaims{T: ts}
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil)
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil, nil)
 
-			data, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("no transmitter label"))
 			So(data, ShouldBeNil)
 		})
@@ -199,18 +199,18 @@ func Test_ParsePacketToken(t *testing.T) {
 
 			claims := &tokens.ConnectionClaims{T: nil}
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil)
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil, nil)
 
-			data, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("no claims found"))
 			So(data, ShouldBeNil)
 		})
 
 		Convey("Given I call parse packet token with error", func() {
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil, nil, fmt.Errorf("decode failed"))
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil, nil, nil, fmt.Errorf("decode failed"))
 
-			data, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParsePacketToken(&connection.AuthInfo{}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("decode failed"))
 			So(data, ShouldBeNil)
 		})
@@ -234,9 +234,9 @@ func Test_ParseAckToken(t *testing.T) {
 
 			claims := &tokens.ConnectionClaims{RMT: []byte("abc")}
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil)
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil, nil)
 
-			data, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldBeNil)
 			So(data, ShouldResemble, claims)
 		})
@@ -245,32 +245,32 @@ func Test_ParseAckToken(t *testing.T) {
 
 			claims := &tokens.ConnectionClaims{RMT: []byte("abcd")}
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil)
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(claims, nil, nil, nil, nil)
 
-			data, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("failed to match context in ack packet"))
 			So(data, ShouldBeNil)
 		})
 
 		Convey("Given I call parse packet ack token with nil secrets", func() {
 
-			data, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, nil)
+			data, _, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, nil)
 			So(err, ShouldResemble, fmt.Errorf("secrets is nil"))
 			So(data, ShouldBeNil)
 		})
 
 		Convey("Given I call parse packet ack token with nil auth", func() {
 
-			data, err := tok.ParseAckToken(nil, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParseAckToken(nil, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("auth is nil"))
 			So(data, ShouldBeNil)
 		})
 
 		Convey("Given I call parse packet ack token with error", func() {
 
-			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil, nil, fmt.Errorf("decode failed"))
+			mt.EXPECT().Decode(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil, nil, nil, fmt.Errorf("decode failed"))
 
-			data, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
+			data, _, err := tok.ParseAckToken(&connection.AuthInfo{LocalContext: []byte("abc")}, []byte{}, &secrets.NullPKI{})
 			So(err, ShouldResemble, fmt.Errorf("decode failed"))
 			So(data, ShouldBeNil)
 		})

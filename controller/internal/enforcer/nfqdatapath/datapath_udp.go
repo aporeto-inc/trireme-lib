@@ -532,10 +532,14 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	conn.Secrets = d.secrets()
 
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
+	claims, controller, err := d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 		return nil, nil, conn.Context.Counters().CounterError(netUDPSynCounterFromError(err), fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err))
+	}
+
+	if controller != nil && !controller.SameController {
+		conn.SourceController = controller.Controller
 	}
 
 	// Why is this required. Take a look.
@@ -545,6 +549,11 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
 	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.DestPort()))))
+
+	// Add the controller to the claims
+	if controller != nil && len(controller.Controller) > 0 {
+		tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+	}
 
 	report, pkt := context.SearchRcvRules(tags)
 	if pkt.Action.Rejected() {
@@ -571,16 +580,25 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
+	claims, controller, err := d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, nil, context.ManagementID(), collector.DefaultEndPoint, context, collector.MissingToken, nil, nil, true)
 		return nil, nil, conn.Context.Counters().CounterError(netUDPSynAckCounterFromError(err), errors.New("SynAck packet dropped because of bad claims"))
+	}
+
+	if controller != nil && !controller.SameController {
+		conn.DestinationController = controller.Controller
 	}
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
 	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.UDPProtoString, strconv.Itoa(int(udpPacket.SourcePort()))))
+
+	// Add the controller to the claims
+	if controller != nil && len(controller.Controller) > 0 {
+		tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+	}
 
 	report, pkt := context.SearchTxtRules(tags, !d.mutualAuthorization)
 	if pkt.Action.Rejected() {
@@ -598,11 +616,10 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	conn.SynAckStop()
 
-	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
+	_, _, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken(), conn.Secrets)
 	if err != nil {
 		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidToken, conn.ReportFlowPolicy, conn.PacketFlowPolicy, false)
 		return conn.Context.Counters().CounterError(netUDPAckCounterFromError(err), fmt.Errorf("ack packet dropped because signature validation failed: %s", err))
-
 	}
 
 	if !conn.ServiceConnection {

@@ -9,6 +9,7 @@ import (
 	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -131,21 +132,21 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 // parsePacketToken parses the packet token and populates the right state.
 // Returns an error if the token cannot be parsed or the signature fails
-func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, *pkiverifier.PKIControllerInfo, error) {
 
 	// Validate the certificate and parse the token
-	claims, nonce, cert, err := t.tokens.Decode(false, data, auth.RemotePublicKey, secrets)
+	claims, nonce, cert, controller, err := t.tokens.Decode(false, data, auth.RemotePublicKey, secrets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// We always a need a valid remote context ID
 	if claims.T == nil {
-		return nil, errors.New("no claims found")
+		return nil, nil, errors.New("no claims found")
 	}
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
-		return nil, errors.New("no transmitter label")
+		return nil, nil, errors.New("no transmitter label")
 	}
 
 	auth.RemotePublicKey = cert
@@ -153,28 +154,28 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte,
 	auth.RemoteContextID = remoteContextID
 	auth.RemoteServiceContext = claims.EK
 
-	return claims, nil
+	return claims, controller, nil
 }
 
 // parseAckToken parses the tokens in Ack packets. They don't carry all the state context
 // and it needs to be recovered
-func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, *pkiverifier.PKIControllerInfo, error) {
 
 	if secrets == nil {
-		return nil, errors.New("secrets is nil")
+		return nil, nil, errors.New("secrets is nil")
 	}
 	if auth == nil {
-		return nil, errors.New("auth is nil")
+		return nil, nil, errors.New("auth is nil")
 	}
 	// Validate the certificate and parse the token
-	claims, _, _, err := t.tokens.Decode(true, data, auth.RemotePublicKey, secrets)
+	claims, _, _, controller, err := t.tokens.Decode(true, data, auth.RemotePublicKey, secrets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !bytes.Equal(claims.RMT, auth.LocalContext) {
-		return nil, errors.New("failed to match context in ack packet")
+		return nil, nil, errors.New("failed to match context in ack packet")
 	}
 
-	return claims, nil
+	return claims, controller, nil
 }

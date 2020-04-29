@@ -608,12 +608,16 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
+	claims, controller, err := d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
 	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
 	// The source will retry but we have no state to maintain here.
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 		return nil, nil, conn.Context.Counters().CounterError(netSynCounterFromError(err), fmt.Errorf("contextID %s SourceAddress %s DestPort %d", context.ManagementID(), tcpPacket.SourceAddress().String(), int(tcpPacket.DestPort())))
+	}
+
+	if controller != nil && !controller.SameController {
+		conn.SourceController = controller.Controller
 	}
 
 	if claims.H != nil {
@@ -646,6 +650,12 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
 	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(int(tcpPacket.DestPort()))))
+
+	// Add the controller to the claims
+	if controller != nil && len(controller.Controller) > 0 {
+		tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+	}
+
 	report, pkt := context.SearchRcvRules(tags)
 
 	if pkt.Action.Rejected() && (txLabel != context.ManagementID()) {
@@ -781,10 +791,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckMissingToken, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
+	claims, controller, err := d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets)
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, true)
 		return nil, nil, conn.Context.Counters().CounterError(netSynAckCounterFromError(err), fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
+	}
+
+	if controller != nil && !controller.SameController {
+		conn.DestinationController = controller.Controller
 	}
 
 	// Diagnostic packet with default token/identity.
@@ -827,6 +841,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
 	tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(int(tcpPacket.SourcePort()))))
+
+	// Add the controller to the claims
+	if controller != nil && len(controller.Controller) > 0 {
+		tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+	}
 
 	report, pkt := context.SearchTxtRules(tags, !d.mutualAuthorization)
 
@@ -938,7 +957,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, conn.Context.Counters().CounterError(counters.ErrAckTCPNoTCPAuthOption, fmt.Errorf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
 		}
 
-		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets); err != nil {
+		if _, _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData(), conn.Secrets); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil, false)
 			zap.L().Error("Ack Packet dropped because signature validation failed", zap.Error(err))
 			return nil, nil, conn.Context.Counters().CounterError(netAckCounterFromError(err), fmt.Errorf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))

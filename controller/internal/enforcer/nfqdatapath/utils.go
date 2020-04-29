@@ -20,7 +20,12 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, "", report, packet)
+	sourceController, destinationController := "", ""
+	if conn != nil {
+		sourceController, destinationController = conn.SourceController, conn.DestinationController
+	}
+
+	d.reportFlow(p, src, dst, context, "", report, packet, sourceController, destinationController)
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) { // nolint:unparam
@@ -37,14 +42,24 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, mode, report, packet)
+	sourceController, destinationController := "", ""
+	if conn != nil {
+		sourceController, destinationController = conn.SourceController, conn.DestinationController
+	}
+
+	d.reportFlow(p, src, dst, context, mode, report, packet, sourceController, destinationController)
 }
 
 func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) { // nolint:unparam
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, "", report, packet)
+	sourceController, destinationController := "", ""
+	if conn != nil {
+		sourceController, destinationController = conn.SourceController, conn.DestinationController
+	}
+
+	d.reportFlow(p, src, dst, context, "", report, packet, sourceController, destinationController)
 }
 
 func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, reverse bool) { // nolint:unparam
@@ -61,7 +76,12 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 
 	src, dst := d.generateEndpoints(p, sourceID, destID, reverse)
 
-	d.reportFlow(p, src, dst, context, mode, report, packet)
+	sourceController, destinationController := "", ""
+	if conn != nil {
+		sourceController, destinationController = conn.SourceController, conn.DestinationController
+	}
+
+	d.reportFlow(p, src, dst, context, mode, report, packet, sourceController, destinationController)
 }
 
 func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, actual *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {

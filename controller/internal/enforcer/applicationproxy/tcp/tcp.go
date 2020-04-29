@@ -164,7 +164,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 			return
 		}
 
-		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), "default", puContext, collector.UnableToDial, nil, nil)
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), "default", puContext, collector.UnableToDial, nil, nil, "", "")
 		return
 	}
 	defer downConn.Close() // nolint
@@ -318,6 +318,8 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 		SourceType: collector.EnpointTypePU,
 	}
 
+	sourceController, destController := "", ""
+
 	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
@@ -351,16 +353,25 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
 			}
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
+			claims, controller, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil, sourceController, destController)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(downPort)))
+			if controller != nil {
+				// Add the Controller to the claims
+				if len(controller.Controller) > 0 {
+					tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+				}
+				if !controller.SameController {
+					destController = controller.Controller
+				}
+			}
 			report, packet := puContext.SearchTxtRules(tags, false)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet, sourceController, destController)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
 			}
 			// NOTE: For backward compatibility, remove this check later
@@ -370,7 +381,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 					// TODO: This will be removed once we upgrade the connection in future
 					puFlowProperties := flowproperties
 					puFlowProperties.DestType = collector.EnpointTypePU
-					p.reportRejectedFlow(puFlowProperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.EncryptionMismatch, nil, nil)
+					p.reportRejectedFlow(puFlowProperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.EncryptionMismatch, nil, nil, sourceController, destController)
 					return isEncrypted, errors.New("dropping because of encryption mismatch")
 				}
 			}
@@ -418,6 +429,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	conn := connection.NewProxyConnection()
 	conn.SetState(connection.ServerReceivePeerToken)
 
+	sourceController, destController := "", ""
+
 	// First validate that L3 policies do not require a reject.
 	isEncrypted, err = p.CheckExternalNetwork(puContext, upConn.RemoteAddr().(*net.TCPAddr).IP, backendport, flowProperties, false)
 	if err != nil {
@@ -442,16 +455,25 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err != nil {
 				return false, fmt.Errorf("unable to receive syn token: %s", err)
 			}
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
+			claims, controller, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg, conn.Secrets)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil, sourceController, destController)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(constants.PortNumberLabelString, fmt.Sprintf("%s/%s", constants.TCPProtoString, strconv.Itoa(backendport)))
+			if controller != nil {
+				// Add the controller to the claims
+				if len(controller.Controller) > 0 {
+					tags.AppendKeyValue(constants.ControllerLabelString, controller.Controller)
+				}
+				if !controller.SameController {
+					sourceController = controller.Controller
+				}
+			}
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet, sourceController, destController)
 				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)
 			}
 
@@ -488,11 +510,11 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 			if err != nil {
 				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
-			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg, conn.Secrets); err != nil {
-				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
+			if _, _ /*platform*/, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg, conn.Secrets); err != nil {
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil, sourceController, destController)
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
-			p.reportAcceptedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+			p.reportAcceptedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy, sourceController, destController)
 			return isEncrypted, nil
 		}
 	}
@@ -527,13 +549,13 @@ func (p *Proxy) CheckExternalNetwork(puContext *pucontext.PUContext, IP net.IP, 
 
 	}
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy, "", "")
 		return false, fmt.Errorf("Unauthorized by Application ACLs")
 	}
 	return false, nil
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy, sourceController string, destController string) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
@@ -549,14 +571,16 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 			Port: flowproperties.DestPort,
 			Type: flowproperties.DestType,
 		},
-		Tags:        context.Annotations(),
-		Action:      actual.Action,
-		DropReason:  mode,
-		PolicyID:    actual.PolicyID,
-		L4Protocol:  packet.IPProtocolTCP,
-		ServiceType: policy.ServiceTCP,
-		ServiceID:   flowproperties.ServiceID,
-		Namespace:   context.ManagementNamespace(),
+		Tags:                  context.Annotations(),
+		Action:                actual.Action,
+		DropReason:            mode,
+		PolicyID:              actual.PolicyID,
+		L4Protocol:            packet.IPProtocolTCP,
+		ServiceType:           policy.ServiceTCP,
+		ServiceID:             flowproperties.ServiceID,
+		Namespace:             context.ManagementNamespace(),
+		SourceController:      sourceController,
+		DestinationController: destController,
 	}
 
 	if report.ObserveAction.Observed() {
@@ -567,12 +591,12 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 	p.collector.CollectFlowEvent(c)
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, sourceController string, destController string) {
 
-	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet, sourceController, destController)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy, sourceController string, destController string) {
 
 	if report == nil {
 		report = &policy.FlowPolicy{
@@ -583,7 +607,7 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID
 	if packet == nil {
 		packet = report
 	}
-	p.reportFlow(flowproperties, sourceID, destID, context, mode, report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, mode, report, packet, sourceController, destController)
 }
 
 func (p *Proxy) isLocal(conn net.Conn) bool {

@@ -68,7 +68,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 		// Public keys are cached and verified and they are the compact keys
 		// that we transmit in all other requests signed by the CA. These keys
 		// are not full certificates.
-		gKey, rootClaims, _, err := p.secrets.KeyAndClaims([]byte(publicKey))
+		gKey, rootClaims, _, _, err := p.secrets.KeyAndClaims([]byte(publicKey))
 		if err != nil {
 			return "", nil, nil, fmt.Errorf("Cannot validate public key: %s", err)
 		}

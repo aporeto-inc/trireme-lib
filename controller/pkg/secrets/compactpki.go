@@ -16,12 +16,18 @@ const (
 	compactPKIAckSize = 300
 )
 
+// CompactPKIPublicKey holds information about public keys
+type CompactPKIPublicKey struct {
+	PublicKey  []byte
+	Controller *pkiverifier.PKIControllerInfo
+}
+
 // CompactPKI holds all PKI information
 type CompactPKI struct {
 	PrivateKeyPEM []byte
 	PublicKeyPEM  []byte
 	AuthorityPEM  []byte
-	TokenKeyPEMs  [][]byte
+	TokenKeyPEMs  []*CompactPKIPublicKey
 	Compressed    claimsheader.CompressionType
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
@@ -33,7 +39,10 @@ type CompactPKI struct {
 func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, compress claimsheader.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Warn("DEPRECATED. secrets.NewCompactPKI is deprecated in favor of secrets.NewCompactPKIWithTokenCA")
-	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{caPEM}, txKey, compress)
+	tokenKey := &CompactPKIPublicKey{
+		PublicKey: caPEM,
+	}
+	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, []*CompactPKIPublicKey{tokenKey}, txKey, compress)
 }
 
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding.
@@ -44,20 +53,26 @@ func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, co
 //                  that were used to sign the txtKey
 //    txKey: is the public key that is send over the wire.
 //    compressionType: is packed with the secrets to indicate compression.
-func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress claimsheader.CompressionType) (*CompactPKI, error) {
+func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs []*CompactPKIPublicKey, txKey []byte, compress claimsheader.CompressionType) (*CompactPKI, error) {
 
 	key, cert, _, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil, err
 	}
 
-	tokenKeys := make([]*ecdsa.PublicKey, len(tokenKeyPEMs))
-	for _, ca := range tokenKeyPEMs {
-		caCert, err := crypto.LoadCertificate(ca)
+	tokenKeys := make([]*pkiverifier.PKIPublicKey, len(tokenKeyPEMs))
+	for _, tokenKey := range tokenKeyPEMs {
+		caCert, err := crypto.LoadCertificate(tokenKey.PublicKey)
 		if err != nil {
 			return nil, err
 		}
-		tokenKeys = append(tokenKeys, caCert.PublicKey.(*ecdsa.PublicKey))
+
+		namespaceKey := &pkiverifier.PKIPublicKey{
+			PublicKey:  caCert.PublicKey.(*ecdsa.PublicKey),
+			Controller: tokenKey.Controller,
+		}
+
+		tokenKeys = append(tokenKeys, namespaceKey)
 	}
 
 	if len(txKey) == 0 {
@@ -95,12 +110,12 @@ func (p *CompactPKI) PublicKey() interface{} {
 }
 
 //KeyAndClaims returns both the key and any attributes associated with the public key.
-func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error) {
+func (p *CompactPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, *pkiverifier.PKIControllerInfo, error) {
 	kc, err := p.verifier.Verify(pkey)
 	if err != nil {
-		return nil, nil, time.Unix(0, 0), err
+		return nil, nil, time.Unix(0, 0), nil, err
 	}
-	return kc.PublicKey, kc.Tags, kc.Expiration, nil
+	return kc.PublicKey, kc.Tags, kc.Expiration, kc.Controller, nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI
@@ -134,7 +149,7 @@ type CompactPKIPublicSecrets struct {
 	Key         []byte
 	Certificate []byte
 	CA          []byte
-	TokenCAs    [][]byte
+	TokenCAs    []*CompactPKIPublicKey
 	Token       []byte
 	Compressed  claimsheader.CompressionType
 }
