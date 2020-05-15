@@ -96,9 +96,9 @@ func TestSearch(t *testing.T) {
 				So(s.(string), ShouldResemble, "range3")
 			})
 
-			Convey("Last number is not included ", func() {
+			Convey("Last number is included ", func() {
 				_, err := p.GetSpecValueFromPort(20)
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeNil)
 			})
 		})
 	})

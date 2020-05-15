@@ -89,7 +89,7 @@ func (p *PortCache) GetSpecValueFromPort(port uint16) (interface{}, error) {
 	p.Lock()
 	defer p.Unlock()
 	for _, s := range p.ranges {
-		if s.Min <= port && port < s.Max {
+		if s.Min <= port && port <= s.Max {
 			return s.Value(), nil
 		}
 	}
