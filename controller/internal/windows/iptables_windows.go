@@ -34,18 +34,21 @@ type WindowsRulePortRange struct {
 
 // structure representing result of parsed iptables rule
 type WindowsRuleSpec struct {
-	Protocol         int
-	Action           int // FilterAction (allow, drop, nfq, proxy)
-	ProxyPort        int
-	Mark             int
-	Log              bool
-	LogPrefix        string
-	GroupId          int
-	MatchSrcPort     []*WindowsRulePortRange
-	MatchDstPort     []*WindowsRulePortRange
-	MatchBytes       []byte
-	MatchBytesOffset int
-	MatchSet         []*WindowsRuleMatchSet
+	Protocol                   int
+	Action                     int // FilterAction (allow, drop, nfq, proxy)
+	ProxyPort                  int
+	Mark                       int
+	Log                        bool
+	LogPrefix                  string
+	GroupId                    int
+	ProcessID                  int
+	ProcessIncludeChildren     bool
+	ProcessIncludeChildrenOnly bool
+	MatchSrcPort               []*WindowsRulePortRange
+	MatchDstPort               []*WindowsRulePortRange
+	MatchBytes                 []byte
+	MatchBytesOffset           int
+	MatchSet                   []*WindowsRuleMatchSet
 }
 
 // converts a WindowsRuleSpec back into a string for an iptables rule
@@ -124,6 +127,14 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	if winRuleSpec.Log {
 		rulespec += fmt.Sprintf("-j NFLOG --nflog-group %d --nflog-prefix %s ", winRuleSpec.GroupId, winRuleSpec.LogPrefix)
 	}
+	if winRuleSpec.ProcessID > 0 {
+		rulespec += fmt.Sprintf("-m owner --pid-owner %d ", winRuleSpec.ProcessID)
+		if winRuleSpec.ProcessIncludeChildrenOnly {
+			rulespec += fmt.Sprintf("--pid-childrenonly ")
+		} else if winRuleSpec.ProcessIncludeChildren {
+			rulespec += fmt.Sprintf("--pid-children ")
+		}
+	}
 	rulespec = strings.TrimSpace(rulespec)
 	if validate {
 		if _, err := ParseRuleSpec(rulespec); err != nil {
@@ -177,6 +188,9 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	matchSetOpt := opt.StringSlice("match-set", 2, 10)
 	matchStringOpt := opt.String("string", "")
 	matchStringOffsetOpt := opt.Int("offset", 0)
+	matchOwnerPidOpt := opt.Int("pid-owner", 0)
+	matchOwnerPidChildrenOpt := opt.Bool("pid-children", false)
+	matchOwnerPidChildrenOnlyOpt := opt.Bool("pid-childrenonly", false)
 	redirectPortOpt := opt.Int("to-ports", 0)
 	opt.String("state", "") // "--state NEW" et al ignored
 	opt.String("match", "") // "--match multiport" ignored
@@ -299,6 +313,21 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 			result.MatchBytes = []byte(*matchStringOpt)
 			result.MatchBytesOffset = *matchStringOffsetOpt
 
+		case "owner":
+			if *matchOwnerPidOpt <= 0 {
+				return nil, errors.New("rulespec not valid: valid pid-owner needed")
+			}
+			result.ProcessID = *matchOwnerPidOpt
+			if *matchOwnerPidChildrenOnlyOpt {
+				result.ProcessIncludeChildrenOnly = true
+			}
+			if *matchOwnerPidChildrenOpt {
+				if *matchOwnerPidChildrenOnlyOpt {
+					return nil, errors.New("rulespec not valid: cannot have both --pid-childrenonly and --pid-children")
+				}
+				result.ProcessIncludeChildren = true
+			}
+
 		case "state":
 			// for "-m state --state NEW"
 			// skip it for now
@@ -387,6 +416,9 @@ func (w *WindowsRuleSpec) Equal(other *WindowsRuleSpec) bool {
 		w.Log == other.Log &&
 		w.LogPrefix == other.LogPrefix &&
 		w.GroupId == other.GroupId &&
+		w.ProcessID == other.ProcessID &&
+		w.ProcessIncludeChildren == other.ProcessIncludeChildren &&
+		w.ProcessIncludeChildrenOnly == other.ProcessIncludeChildrenOnly &&
 		w.MatchBytesOffset == other.MatchBytesOffset &&
 		bytes.Equal(w.MatchBytes, other.MatchBytes) &&
 		len(w.MatchSrcPort) == len(other.MatchSrcPort) &&
