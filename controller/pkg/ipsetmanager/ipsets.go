@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	ipsetpackage "github.com/aporeto-inc/go-ipset/ipset"
@@ -122,6 +123,10 @@ func (m *managerType) AddToIPset(set provider.Ipset, data string) error {
 		return m.AddToIPset(set, "8000::/1")
 	}
 
+	if strings.HasPrefix(data, "!") {
+		return set.AddOption(data[1:], "nomatch", 0)
+	}
+
 	return set.Add(data, 0)
 }
 
@@ -144,6 +149,10 @@ func (m *managerType) DelFromIPset(set provider.Ipset, data string) error {
 		return m.DelFromIPset(set, "8000::/1")
 	}
 
+	if strings.HasPrefix(data, "!") {
+		data = data[1:]
+	}
+
 	return set.Del(data)
 }
 
@@ -152,6 +161,10 @@ func (m *managerType) synchronizeIPsinIpset(ipHandler *handler, ipsetInfo *ipset
 	ipsetHandler := ipHandler.ipset.GetIpset(ipsetInfo.name)
 
 	for _, address := range addresses {
+		if strings.HasPrefix(address, "!") {
+			zap.L().Error("Unexpected not prefix on address", zap.String("address", address))
+			continue
+		}
 		netIP := net.ParseIP(address)
 		if netIP == nil {
 			netIP, _, _ = net.ParseCIDR(address)
@@ -354,6 +367,10 @@ func (m *managerType) UpdateIPsets(addresses []string, serviceID string) {
 
 	process := func(ipHandler *handler) {
 		for _, address := range addresses {
+			if strings.HasPrefix(address, "!") {
+				zap.L().Error("Unexpected not prefix on address", zap.String("address", address))
+				continue
+			}
 			netIP := net.ParseIP(address)
 			if netIP == nil {
 				netIP, _, _ = net.ParseCIDR(address)

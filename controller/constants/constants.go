@@ -129,6 +129,11 @@ const (
 	PortNumberLabelString = "@sys:port"
 )
 
+// ControllerLabelString is the label to use for control planes
+const (
+	ControllerLabelString = "$controller"
+)
+
 // Token and cache default validities. These have performance implications.
 // The faster the datapath issues new tokens it affects performance. However,
 // making it too slow can potentially allow reuse of the tokens. The

@@ -83,7 +83,11 @@ func CreateCompactPKITestSecrets() (*x509.Certificate, Secrets, error) {
 		return nil, nil, err
 	}
 
-	scrts, err := NewCompactPKIWithTokenCA([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), [][]byte{[]byte(PublicPEM)}, txtToken, claimsheader.CompressionTypeNone)
+	tokenKey := &CompactPKIPublicKey{
+		PublicKey: []byte(PublicPEM),
+	}
+
+	scrts, err := NewCompactPKIWithTokenCA([]byte(PrivateKeyPEM), []byte(PublicPEM), []byte(CAPEM), []*CompactPKIPublicKey{tokenKey}, txtToken, claimsheader.CompressionTypeNone)
 	if err != nil {
 		return nil, nil, err
 	}

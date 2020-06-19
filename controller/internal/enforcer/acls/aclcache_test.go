@@ -201,3 +201,56 @@ func TestObserveContinueApplyCacheLookup(t *testing.T) {
 		})
 	})
 }
+
+func TestAcceptWithNomatchCacheLookup(t *testing.T) {
+
+	rules = policy.IPRuleList{
+		policy.IPRule{
+			Addresses: []string{"0.0.0.0/1", "!10.10.10.0/24", "128.0.0.0/1", "!10.0.0.0/8", "10.10.0.0/16"},
+			Ports:     []string{"0:65535"},
+			Protocols: []string{constants.TCPProtoNum},
+			Policy: &policy.FlowPolicy{
+				Action: policy.Accept,
+			},
+		},
+	}
+
+	Convey("Given an ACL Cache with accept policy with some nomatch addresses", t, func() {
+		c := NewACLCache()
+		So(c, ShouldNotBeNil)
+		err := c.AddRuleList(rules)
+		So(err, ShouldBeNil)
+
+		Convey("When I lookup address within nomatch outer but also within match inner, I should get accept", func() {
+			ip := net.ParseIP("10.10.2.100")
+			port := uint16(443)
+			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			So(err, ShouldBeNil)
+			So(a.Action, ShouldEqual, policy.Accept)
+			So(p.Action, ShouldEqual, policy.Accept)
+		})
+
+		Convey("When I lookup address within nomatch, I should get no match", func() {
+			ip := net.ParseIP("10.10.10.100")
+			port := uint16(443)
+			_, _, err := c.GetMatchingAction(ip.To4(), port)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I lookup address within nomatch outer and not also within match inner, I should get no match", func() {
+			ip := net.ParseIP("10.4.10.100")
+			port := uint16(443)
+			_, _, err := c.GetMatchingAction(ip.To4(), port)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I lookup address within match outer and not also within match inner, I should get accept", func() {
+			ip := net.ParseIP("192.168.10.100")
+			port := uint16(443)
+			a, p, err := c.GetMatchingAction(ip.To4(), port)
+			So(err, ShouldBeNil)
+			So(a.Action, ShouldEqual, policy.Accept)
+			So(p.Action, ShouldEqual, policy.Accept)
+		})
+	})
+}

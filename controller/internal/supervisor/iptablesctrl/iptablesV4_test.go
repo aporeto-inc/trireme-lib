@@ -67,16 +67,20 @@ func (b *baseIpt) NewChain(table, chain string) error { return nil }
 // Fake memory IPset that will tell us if we are deleting or installing
 // bad things.
 type memoryIPSet struct {
-	set map[string]struct{}
+	set map[string]bool
 }
 
 func (m *memoryIPSet) Add(entry string, timeout int) error {
-	m.set[entry] = struct{}{}
+	m.set[entry] = false
 	return nil
 }
 
 func (m *memoryIPSet) AddOption(entry string, option string, timeout int) error {
-	return nil
+	if option == "nomatch" {
+		m.set[entry] = true
+		return nil
+	}
+	return m.Add(entry, timeout)
 }
 
 func (m *memoryIPSet) Del(entry string) error {
@@ -88,17 +92,18 @@ func (m *memoryIPSet) Del(entry string) error {
 }
 
 func (m *memoryIPSet) Destroy() error {
-	m.set = map[string]struct{}{}
+	m.set = map[string]bool{}
 	return nil
 }
 
 func (m *memoryIPSet) Flush() error {
-	m.set = map[string]struct{}{}
+	m.set = map[string]bool{}
 	return nil
 }
 
 func (m *memoryIPSet) Test(entry string) (bool, error) {
 	_, ok := m.set[entry]
+	// TODO nomatch
 	return ok, nil
 }
 
@@ -119,7 +124,7 @@ func (m *memoryIPSetProvider) NewIpset(name string, hasht string, p *ipset.Param
 		return nil, fmt.Errorf("set exists")
 	}
 
-	newSet := &memoryIPSet{set: map[string]struct{}{}}
+	newSet := &memoryIPSet{set: map[string]bool{}}
 	m.sets[name] = newSet
 	return newSet, nil
 }
@@ -1891,6 +1896,65 @@ func Test_ExtensionsV4(t *testing.T) {
 					}
 				}
 			})
+		})
+	})
+}
+
+func Test_OperationNomatchIpsetsV4(t *testing.T) {
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0", "!10.10.10.0/24", "!10.0.0.0/8", "10.10.0.0/16"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) //nolint
+			So(err, ShouldBeNil)
+
+			So(ipsv4.sets, ShouldContainKey, "TRI-v4-TargetTCP")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "10.0.0.0/8")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set["10.0.0.0/8"], ShouldBeTrue)
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "10.10.0.0/16")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set["10.10.0.0/16"], ShouldBeFalse)
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "0.0.0.0/1")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "128.0.0.0/1")
+
+			// update target networks
+			cfgNew := &runtime.Configuration{
+				TCPTargetNetworks: []string{"0.0.0.0/0", "!10.10.0.0/16"},
+				UDPTargetNetworks: []string{},
+				ExcludedNetworks:  []string{"127.0.0.1"},
+			}
+			i.SetTargetNetworks(cfgNew) //nolint
+			So(err, ShouldBeNil)
+
+			So(ipsv4.sets, ShouldContainKey, "TRI-v4-TargetTCP")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldNotContainKey, "10.0.0.0/8")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "10.10.0.0/16")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set["10.10.0.0/16"], ShouldBeTrue)
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "0.0.0.0/1")
+			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "128.0.0.0/1")
 		})
 	})
 }

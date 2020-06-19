@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	connection "go.aporeto.io/trireme-lib/controller/pkg/connection"
+	pkiverifier "go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	pucontext "go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
@@ -128,12 +129,13 @@ func (mr *MockTokenAccessorMockRecorder) CreateSynAckPacketToken(context, auth, 
 
 // ParsePacketToken mocks base method
 // nolint
-func (m *MockTokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
+func (m *MockTokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, *pkiverifier.PKIControllerInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParsePacketToken", auth, data, secrets)
 	ret0, _ := ret[0].(*tokens.ConnectionClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*pkiverifier.PKIControllerInfo)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ParsePacketToken indicates an expected call of ParsePacketToken
@@ -145,12 +147,13 @@ func (mr *MockTokenAccessorMockRecorder) ParsePacketToken(auth, data, secrets in
 
 // ParseAckToken mocks base method
 // nolint
-func (m *MockTokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
+func (m *MockTokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, *pkiverifier.PKIControllerInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParseAckToken", auth, data, secrets)
 	ret0, _ := ret[0].(*tokens.ConnectionClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*pkiverifier.PKIControllerInfo)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ParseAckToken indicates an expected call of ParseAckToken

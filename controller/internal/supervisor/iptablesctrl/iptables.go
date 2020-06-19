@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -100,13 +101,18 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 		var filteredIPs []string
 
 		for _, ip := range ips {
+			prefix := ""
+			if strings.HasPrefix(ip, "!") {
+				prefix = "!"
+				ip = ip[1:]
+			}
 			netIP := net.ParseIP(ip)
 			if netIP == nil {
 				netIP, _, _ = net.ParseCIDR(ip)
 			}
 
 			if filter(netIP) {
-				filteredIPs = append(filteredIPs, ip)
+				filteredIPs = append(filteredIPs, prefix+ip)
 			}
 		}
 

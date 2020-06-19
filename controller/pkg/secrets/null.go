@@ -4,6 +4,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 )
 
 // This is a NULL secrets implementation only for performance testing
@@ -40,8 +41,8 @@ func (p *NullPKI) PublicKey() interface{} {
 }
 
 //KeyAndClaims returns both the key and any attributes associated with the public key.
-func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, error) {
-	return jwt.UnsafeAllowNoneSignatureType, []string{}, time.Now(), nil
+func (p *NullPKI) KeyAndClaims(pkey []byte) (interface{}, []string, time.Time, *pkiverifier.PKIControllerInfo, error) {
+	return jwt.UnsafeAllowNoneSignatureType, []string{}, time.Now(), nil, nil
 }
 
 // TransmittedKey returns the PEM of the public key in the case of PKI

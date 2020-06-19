@@ -695,19 +695,21 @@ func (d *Datapath) puContextDelegate(hash string) (*pucontext.PUContext, error) 
 	return pu.(*pucontext.PUContext), nil
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy, sourceController string, destinationController string) {
 
 	c := &collector.FlowRecord{
-		ContextID:   context.ID(),
-		Source:      src,
-		Destination: dst,
-		Tags:        context.Annotations(),
-		Action:      actual.Action,
-		DropReason:  mode,
-		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto(),
-		Namespace:   context.ManagementNamespace(),
-		Count:       1,
+		ContextID:             context.ID(),
+		Source:                src,
+		Destination:           dst,
+		Tags:                  context.Annotations(),
+		Action:                actual.Action,
+		DropReason:            mode,
+		PolicyID:              actual.PolicyID,
+		L4Protocol:            p.IPProto(),
+		Namespace:             context.ManagementNamespace(),
+		Count:                 1,
+		SourceController:      sourceController,
+		DestinationController: destinationController,
 	}
 
 	if report.ObserveAction.Observed() {
