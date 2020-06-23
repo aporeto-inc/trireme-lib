@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -554,6 +555,9 @@ func (i *iptables) setGlobalRules() error {
 		},
 		"Increment": func(i int) int {
 			return i + 1
+		},
+		"EnforcerPID": func() string {
+			return strconv.Itoa(os.Getpid())
 		},
 	}).Parse(globalRules))
 

@@ -18,6 +18,8 @@ var triremChains = `
 var globalRules = `
 -A  GlobalRules-INPUT -m set  --match-set {{.ExclusionsSet}} srcIP -j ACCEPT
 -A  GlobalRules-OUTPUT -m set  --match-set {{.ExclusionsSet}} dstIP -j ACCEPT
+-A  GlobalRules-INPUT -m owner --pid-owner {{EnforcerPID}} -j ACCEPT
+-A  GlobalRules-OUTPUT -m owner --pid-owner {{EnforcerPID}} -j ACCEPT
 {{if enableDNSProxy}}
 -A  GlobalRules-INPUT -p udp --sports 53 -m set --match-set TRI-WindowsDNSServer srcIP -j NFQUEUE --queue-force -j MARK 83
 {{end}}
