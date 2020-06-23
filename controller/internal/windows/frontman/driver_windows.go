@@ -60,6 +60,11 @@ const (
 	BytesMatchStartPayload
 )
 
+const (
+	ProcessMatchProcess  = iota + 1 // Match the process id
+	ProcessMatchChildren            // Match the child processes
+)
+
 type DestInfo struct {
 	IpAddr     *uint16 // WCHAR* IPAddress		Destination address allocated and will be free by FrontmanFreeDestHandle
 	Port       uint16  // USHORT Port			Destination port
@@ -130,9 +135,9 @@ type RuleSpec struct {
 	IcmpCode          uint8
 	IcmpCodeSpecified uint8
 	AleAuthConnect    uint8 // not used by us
+	ProcessFlags      uint8 // See frontmanIO.h bit mask PROCESS_MATCH_PROCESS and/or PROCESS_MATCH_CHILDREN
 	Reserved1         uint8
 	Reserved2         uint8
-	Reserved3         uint8
 	ProxyPort         uint16
 	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
 	BytesMatchOffset  int32
@@ -146,6 +151,7 @@ type RuleSpec struct {
 	DstPorts          *PortRange
 	LogPrefix         uintptr // const wchar_t*
 	Application       uintptr // const wchar_t*
+	ProcessID         uint64
 }
 
 func GetDriverHandle() (uintptr, error) {

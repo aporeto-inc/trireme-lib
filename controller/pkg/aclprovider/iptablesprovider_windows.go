@@ -101,6 +101,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		GroupId:   uint32(winRuleSpec.GroupId),
 		ProxyPort: uint16(winRuleSpec.ProxyPort),
 		Mark:      uint32(winRuleSpec.Mark),
+		ProcessID: uint64(winRuleSpec.ProcessID),
 	}
 	if winRuleSpec.Protocol > 0 && winRuleSpec.Protocol < math.MaxUint8 {
 		argRuleSpec.ProtocolSpecified = 1
@@ -130,6 +131,16 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	}
 	if winRuleSpec.LogPrefix != "" {
 		argRuleSpec.LogPrefix = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(winRuleSpec.LogPrefix)))
+	}
+	if winRuleSpec.ProcessID > 0 {
+		if winRuleSpec.ProcessIncludeChildrenOnly {
+			argRuleSpec.ProcessFlags = frontman.ProcessMatchChildren
+		} else {
+			argRuleSpec.ProcessFlags = frontman.ProcessMatchProcess
+			if winRuleSpec.ProcessIncludeChildren {
+				argRuleSpec.ProcessFlags |= frontman.ProcessMatchChildren
+			}
+		}
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.MatchSet))
 	for i, matchSet := range winRuleSpec.MatchSet {
