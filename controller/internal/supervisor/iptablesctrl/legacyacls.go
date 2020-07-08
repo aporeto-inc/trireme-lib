@@ -17,7 +17,6 @@ func (i *iptables) legacyPuChainRules(contextID, appChain string, netChain strin
 	iptableCgroupSection := appSection
 	iptableNetSection := netSection
 	rules := [][]string{}
-
 	if tcpPorts != "0" {
 		rules = append(rules, [][]string{
 			{
@@ -117,6 +116,12 @@ func (i *iptables) legacyPuChainRules(contextID, appChain string, netChain strin
 			iptableCgroupSection,
 			"-m", "comment", "--comment", "capture all outgoing traffic",
 			"-j", appChain,
+		})
+		rules = append(rules, []string{
+			netPacketIPTableContext,
+			iptableNetSection,
+			"-m", "comment", "--comment", "capture all outgoing traffic",
+			"-j", netChain,
 		})
 	}
 
