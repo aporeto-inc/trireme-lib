@@ -1047,7 +1047,7 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		return nil, counters.CounterError(counters.ErrSynUnexpectedPacket, fmt.Errorf("Received unexpected syn %s sourceport %d", p.Mark, int(p.SourcePort())))
 	}
 
-	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion && conn.(*connection.TCPConnection).GetInitialSequenceNumber() == p.TCPSequenceNumber() {
 		// return this connection only if we are not deleting this
 		// this is marked only when we see a FINACK for this l4flowhash
 		// this should not have happened for a connection while we are processing a appSyn for this connection
@@ -1120,7 +1120,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 	context, err := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolTCP)
 	if err == nil {
-		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion && conn.(*connection.TCPConnection).GetInitialSequenceNumber() == p.TCPSequenceNumber() {
 			// Only if we havent seen FINACK on this connection
 			return conn.(*connection.TCPConnection), nil
 		}
