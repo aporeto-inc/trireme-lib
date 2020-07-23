@@ -369,6 +369,14 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	}
 }
 
+// TCPSequenceNumber return the initial sequence number
+func (p *Packet) TCPSequenceNumber() uint32 {
+	if p.ipHdr.ipProto != IPProtocolTCP {
+		return 0
+	}
+	return p.tcpHdr.tcpSeq
+}
+
 // IncreaseTCPSeq increases TCP seq number by incr
 func (p *Packet) IncreaseTCPSeq(incr uint32) {
 	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]

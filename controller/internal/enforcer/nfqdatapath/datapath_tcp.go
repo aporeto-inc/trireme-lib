@@ -1041,18 +1041,30 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 // appSynRetrieveState retrieves state for the the application Syn packet.
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
+	var err error
+	var conn interface{}
 	context, err := d.contextFromIP(true, p.Mark, p.SourcePort(), packet.IPProtocolTCP)
 	if err != nil {
 		return nil, counters.CounterError(counters.ErrSynUnexpectedPacket, fmt.Errorf("Received unexpected syn %s sourceport %d", p.Mark, int(p.SourcePort())))
 	}
 
-	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+	if conn, err = d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).GetMarkForDeletion() && conn.(*connection.TCPConnection).GetInitialSequenceNumber() == p.TCPSequenceNumber() {
 		// return this connection only if we are not deleting this
 		// this is marked only when we see a FINACK for this l4flowhash
 		// this should not have happened for a connection while we are processing a appSyn for this connection
 		// The addorupdate for this cache will happen outside in processtcppacket
 		return conn.(*connection.TCPConnection), nil
+	}
+	// we came here because there is something in the cache which is dying or we have nothing
+	// Delete if we have something. Ignore error if nothing exists
+	if err == nil {
+		if err = d.appOrigConnectionTracker.Remove(p.L4FlowHash()); err != nil {
+			zap.L().Debug("Unable to remove existing connection entry for ",
+				zap.String("SrcIP", p.SourceAddress().String()),
+				zap.String("DstIP", p.DestinationAddress().String()),
+				zap.Uint16("SrcPort", p.SourcePort()),
+				zap.Uint16("DstPort", p.DestPort()))
+		}
 	}
 	return connection.NewTCPConnection(context, p), nil
 }
@@ -1117,16 +1129,29 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 // netSynRetrieveState retrieves the state for the Syn packets on the network.
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
-
+	var conn interface{}
+	var err error
 	context, err := d.contextFromIP(false, p.Mark, p.DestPort(), packet.IPProtocolTCP)
+
 	if err == nil {
-		if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).MarkForDeletion {
+		if conn, err = d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil && !conn.(*connection.TCPConnection).GetMarkForDeletion() && conn.(*connection.TCPConnection).GetInitialSequenceNumber() == p.TCPSequenceNumber() {
 			// Only if we havent seen FINACK on this connection
 			return conn.(*connection.TCPConnection), nil
 		}
+		// we came here because there is something in the cache which is dying or we have nothing
+		// Delete if we have something. Ignore error if nothing exists
+		if err == nil {
+			if err = d.netOrigConnectionTracker.Remove(p.L4FlowHash()); err != nil {
+				zap.L().Debug("Failed to remove original connection from cache",
+					zap.String("SrcIP", p.SourceAddress().String()),
+					zap.String("DstIP", p.DestinationAddress().String()),
+					zap.Uint16("SrcPort", p.SourcePort()),
+					zap.Uint16("DstPort", p.DestPort()))
+
+			}
+		}
 		return connection.NewTCPConnection(context, p), nil
 	}
-
 	//This needs to hit only for local processes never for containers
 	//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
 	if d.mode != constants.RemoteContainer {
@@ -1163,7 +1188,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 	if err != nil {
 		return nil, counters.CounterError(counters.ErrNonPUTraffic, errNonPUTraffic)
 	}
-	if conn.(*connection.TCPConnection).MarkForDeletion {
+	if conn.(*connection.TCPConnection).GetMarkForDeletion() {
 		return nil, errOutOfOrderSynAck
 	}
 	return conn.(*connection.TCPConnection), nil

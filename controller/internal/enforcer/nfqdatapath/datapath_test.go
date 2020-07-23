@@ -5307,6 +5307,111 @@ func TestCheckConnectionDeletion(t *testing.T) {
 	})
 }
 
+func TestNetSynRetrieveState(t *testing.T) {
+	synPacket := []byte{0x45, 0x00, 0x00, 0x3c, 0x43, 0x92, 0x40, 0x00, 0x40, 0x06, 0xf9, 0x27, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0xaa, 0xee, 0x23, 0x28, 0xb3, 0x78, 0xd2, 0xc2, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x02, 0xff, 0xd7, 0xfe, 0x30, 0x00, 0x00, 0x02, 0x04, 0xff, 0xd7, 0x04, 0x02, 0x08, 0x0a, 0x89, 0xcb, 0x61, 0x81, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x07}
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
+		enforcer := NewWithDefaults("serverID1", collector.NewDefaultCollector(), nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
+		contextID := "123456"
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
+		context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+		So(err, ShouldBeNil)
+		So(enforcer, ShouldNotBeNil)
+		enforcer.puFromContextID.AddOrUpdate(contextID, context)
+		enforcer.puFromMark.Add("2", context)
+		portspec, err := portspec.NewPortSpec(9000, 9000, contextID)
+		So(err, ShouldBeNil)
+		enforcer.contextIDFromTCPPort.AddPortSpec(portspec)
+		p, err := packet.New(1, synPacket, "2", false)
+		So(err, ShouldBeNil)
+		conn, err := enforcer.netSynRetrieveState(p)
+		enforcer.netOrigConnectionTracker.Add(p.L4FlowHash(), conn)
+		So(err, ShouldBeNil)
+		So(conn, ShouldNotBeNil)
+		So(conn.GetInitialSequenceNumber(), ShouldEqual, p.TCPSequenceNumber())
+		Convey("I retry the same packet", func() {
+			retryconn, err := enforcer.netSynRetrieveState(p)
+			So(err, ShouldBeNil)
+			cachedconn, err := enforcer.netOrigConnectionTracker.Get(p.L4FlowHash())
+			So(err, ShouldBeNil)
+			So(cachedconn, ShouldNotBeNil)
+			So(cachedconn.(*connection.TCPConnection).GetInitialSequenceNumber(), ShouldEqual, p.TCPSequenceNumber())
+			So(retryconn.Auth.LocalContext, ShouldResemble, conn.Auth.LocalContext)
+		})
+		Convey("Then i modify the sequence number and retry the packet", func() {
+			p.IncreaseTCPSeq(10)
+			conn1, err := enforcer.netSynRetrieveState(p)
+			So(err, ShouldBeNil)
+			So(conn1.GetInitialSequenceNumber(), ShouldNotEqual, conn.GetInitialSequenceNumber())
+			retrievedConn, err := enforcer.netOrigConnectionTracker.Get(p.L4FlowHash())
+			So(err, ShouldNotBeNil)
+			So(retrievedConn, ShouldBeNil)
+		})
+
+	})
+}
+
+func TestAppSynRetrieveState(t *testing.T) {
+	synPacket := []byte{0x45, 0x00, 0x00, 0x3c, 0x43, 0x92, 0x40, 0x00, 0x40, 0x06, 0xf9, 0x27, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0xaa, 0xee, 0x23, 0x28, 0xb3, 0x78, 0xd2, 0xc2, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x02, 0xff, 0xd7, 0xfe, 0x30, 0x00, 0x00, 0x02, 0x04, 0xff, 0xd7, 0x04, 0x02, 0x08, 0x0a, 0x89, 0xcb, 0x61, 0x81, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x07}
+	Convey("Given i setup a valid enforcer and a processing unit", t, func() {
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
+		enforcer := NewWithDefaults("serverID1", collector.NewDefaultCollector(), nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
+		contextID := "123456"
+		puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
+		context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+		So(err, ShouldBeNil)
+		So(enforcer, ShouldNotBeNil)
+		enforcer.puFromContextID.AddOrUpdate(contextID, context)
+		enforcer.puFromMark.Add("2", context)
+		portspec, err := portspec.NewPortSpec(9000, 9000, contextID)
+		So(err, ShouldBeNil)
+		enforcer.contextIDFromTCPPort.AddPortSpec(portspec)
+		markval := 2 << markconstants.MarkShift
+		p, err := packet.New(1, synPacket, strconv.Itoa(markval), false)
+		So(err, ShouldBeNil)
+		conn, err := enforcer.appSynRetrieveState(p)
+		enforcer.appOrigConnectionTracker.Add(p.L4FlowHash(), conn)
+		So(err, ShouldBeNil)
+		So(conn, ShouldNotBeNil)
+		Convey("I replay the same packet", func() {
+			retryconn, err := enforcer.appSynRetrieveState(p)
+			So(err, ShouldBeNil)
+			So(retryconn, ShouldNotBeNil)
+			So(retryconn.Auth.LocalContext, ShouldResemble, conn.Auth.LocalContext)
+
+		})
+		Convey("I modify the sequence number and retransmit the packet", func() {
+			p.IncreaseTCPSeq(10)
+			retryconn, err := enforcer.appSynRetrieveState(p)
+			So(retryconn, ShouldNotBeNil)
+			So(err, ShouldBeNil)
+			So(retryconn.Auth.LocalContext, ShouldNotResemble, conn.Auth.LocalContext)
+			cachedconn, err := enforcer.appOrigConnectionTracker.Get(p.L4FlowHash())
+			So(cachedconn, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+
+		})
+	})
+}
+
 type testFiles struct{}
 
 var mockfiles *testFiles
