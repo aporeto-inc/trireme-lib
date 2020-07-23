@@ -205,16 +205,14 @@ func (c *TCPConnection) GetState() TCPFlowState {
 // GetInitialSequenceNumber returns the initial sequence number that was found on the syn packet
 // corresponding to this TCP Connection
 func (c *TCPConnection) GetInitialSequenceNumber() uint32 {
-	c.RLock()
-	defer c.RUnlock()
 	return c.initialSequenceNumber
 }
 
-// SetInitialSequenceNumber sets the initial sequence number from the syn packet which is creating the new connection
-func (c *TCPConnection) SetInitialSequenceNumber(isn uint32) {
-	c.Lock()
-	c.initialSequenceNumber = isn
-	c.Unlock()
+// GetMarkForDeletion returns the state of markForDeletion flag
+func (c *TCPConnection) GetMarkForDeletion() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.MarkForDeletion
 }
 
 // SetState is used to setup the state for the TCP connection
