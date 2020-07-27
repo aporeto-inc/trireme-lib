@@ -589,7 +589,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Incoming packets that don't have our options are candidates to be processed
 	// as external services.
-	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil || (err == nil && tcpPacket.IsEmptyTCPPayload()) {
 
 		// If there is no auth option, attempt the ACLs
 		report, pkt, perr := context.NetworkACLPolicy(tcpPacket)
@@ -700,7 +700,7 @@ type policyPair struct {
 func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
 	// Packets with no authorization are processed as external services based on the ACLS
-	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil || (err == nil && tcpPacket.IsEmptyTCPPayload()) {
 
 		if _, err := d.puFromContextID.Get(conn.Context.ID()); err != nil {
 			// PU has been deleted. Ignore these packets
@@ -814,7 +814,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
-	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil && tcpPacket.IsEmptyTCPPayload() {
 		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidHeader, nil, nil, true)
 		return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckNoTCPAuthOption, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
