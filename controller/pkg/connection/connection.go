@@ -174,6 +174,7 @@ type TCPConnection struct {
 
 	SourceController      string
 	DestinationController string
+	initialSequenceNumber uint32
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -199,6 +200,19 @@ func (c *TCPConnection) String() string {
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
 	return c.state
+}
+
+// GetInitialSequenceNumber returns the initial sequence number that was found on the syn packet
+// corresponding to this TCP Connection
+func (c *TCPConnection) GetInitialSequenceNumber() uint32 {
+	return c.initialSequenceNumber
+}
+
+// GetMarkForDeletion returns the state of markForDeletion flag
+func (c *TCPConnection) GetMarkForDeletion() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.MarkForDeletion
 }
 
 // SetState is used to setup the state for the TCP connection
@@ -232,6 +246,7 @@ func (c *TCPConnection) IsLoopbackConnection() bool {
 // NewTCPConnection returns a TCPConnection information struct
 func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnection {
 
+	var initialSeqNumber uint32
 	nonce, err := crypto.GenerateRandomBytes(16)
 	if err != nil {
 		return nil
@@ -244,6 +259,7 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		tuple.DestinationAddress = p.DestinationAddress()
 		tuple.SourcePort = p.SourcePort()
 		tuple.DestinationPort = p.DestPort()
+		initialSeqNumber = p.TCPSequenceNumber()
 	}
 
 	return &TCPConnection{
@@ -253,7 +269,8 @@ func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnec
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
-		TCPtuple: tuple,
+		initialSequenceNumber: initialSeqNumber,
+		TCPtuple:              tuple,
 	}
 }
 
