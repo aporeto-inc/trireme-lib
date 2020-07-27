@@ -346,15 +346,18 @@ func (m *managerType) GetIPsets(extnets policy.IPRuleList, ipver int) []string {
 		ipHandler = m.ipv6Handler
 	}
 
-	var ipsets []string
+	// return value must have same length as extnets argument
+	ipsets := make([]string, len(extnets))
 
-	for _, extnet := range extnets {
+	for i, extnet := range extnets {
 		serviceID := extnet.Policy.ServiceID
 
+		name := ""
 		ipsetInfo, ok := ipHandler.serviceIDtoIPset[serviceID]
 		if ok {
-			ipsets = append(ipsets, ipsetInfo.name)
+			name = ipsetInfo.name
 		}
+		ipsets[i] = name
 	}
 
 	return ipsets
