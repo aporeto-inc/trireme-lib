@@ -38,7 +38,7 @@ type ipsetProvider struct{}
 
 type winIpSet struct {
 	handle uintptr
-	name   string // for debugging
+	name   string
 }
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
@@ -82,11 +82,13 @@ func (i *ipsetProvider) DestroyAll(prefix string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	// order important: we must call cleaner routine before telling driver to delete the ipsets
+	errCleaner := RuleCleanupInstance().DeleteRuleForIpsetByPrefix(prefix)
 	dllRet, _, err := frontman.DestroyAllIpsetsProc.Call(driverHandle, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(prefix))))
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", frontman.DestroyAllIpsetsProc.Name, dllRet, err)
 	}
-	return nil
+	return errCleaner
 }
 
 func (i *ipsetProvider) ListIPSets() ([]string, error) {
@@ -172,11 +174,12 @@ func (w *winIpSet) Destroy() error {
 	if err != nil {
 		return fmt.Errorf("failed to get driver handle: %v", err)
 	}
+	errCleaner := RuleCleanupInstance().DeleteRulesForIpset(w.name)
 	dllRet, _, err := frontman.IpsetDestroyProc.Call(driverHandle, w.handle)
 	if dllRet == 0 {
 		return fmt.Errorf("%s failed (ret=%d err=%v)", frontman.IpsetDestroyProc.Name, dllRet, err)
 	}
-	return nil
+	return errCleaner
 }
 
 func (w *winIpSet) Flush() error {
