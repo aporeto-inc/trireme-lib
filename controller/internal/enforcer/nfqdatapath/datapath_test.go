@@ -5183,7 +5183,7 @@ func Test_NOClaims(t *testing.T) {
 				Count:      1,
 				Tags:       &policy.TagStore{},
 				Action:     policy.Reject,
-				DropReason: collector.MissingToken,
+				DropReason: collector.PolicyDrop,
 			}
 
 			err = enforcer.SetTargetNetworks(&runtime.Configuration{
@@ -5409,6 +5409,115 @@ func TestAppSynRetrieveState(t *testing.T) {
 			So(err, ShouldNotBeNil)
 
 		})
+	})
+}
+
+// This test tests a subset of the networksyn code.
+// This is to ensure that if we get tcp fo packet with no payload we degrade to
+// IP ACL lookup instead of dropping it for missing identity
+func TestProcessNetworkSynPacket(t *testing.T) {
+	synWithFONoPayload := []byte{0x45, 0x00, 0x00, 0x40, 0x43, 0x92, 0x40, 0x00, 0x40, 0x06, 0xf9, 0x27, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0xaa, 0xee, 0x23, 0x28, 0xb3, 0x78, 0xd2, 0xc2, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02, 0xff, 0xd7, 0xfe, 0x30, 0x00, 0x00, 0x02, 0x04, 0xff, 0xd7, 0x04, 0x02, 0x08, 0x0a, 0x89, 0xcb, 0x61, 0x81, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x07, 0x22, 0x04, 0x00, 0x00}
+	Convey("When i setup an enforcer and a PU", t, func() {
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
+		enforcer := NewWithDefaults("serverID1", collector.NewDefaultCollector(), nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
+		So(err, ShouldBeNil)
+		So(enforcer, ShouldNotBeNil)
+		Convey("So I received a packet with tcp fast open option set but no payload", func() {
+			contextID := "dummyContext"
+			p, err := packet.New(1, synWithFONoPayload, "1", true)
+			So(err, ShouldBeNil)
+			So(p, ShouldNotBeNil)
+			err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen)
+			So(err, ShouldBeNil)
+			So(p.IsEmptyTCPPayload(), ShouldBeTrue)
+			puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
+			context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+			So(err, ShouldBeNil)
+			success := enforcer.puFromContextID.AddOrUpdate(contextID, context)
+			So(success, ShouldBeFalse)
+			//enforcer.processNetworkSynPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet)
+
+			_, _, err = enforcer.processNetworkSynPacket(context, connection.NewTCPConnection(context, p), p)
+			So(err, ShouldNotBeNil)
+			Convey("Then i add ip acl rule.", func() {
+				iprules := policy.IPRuleList{policy.IPRule{
+					Addresses: []string{"127.0.0.1/32"},
+					Ports:     []string{"9000"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:   policy.Accept,
+						PolicyID: "tcp172/8"},
+				}}
+				err = context.UpdateNetworkACLs(iprules)
+				So(err, ShouldBeNil)
+				_, _, err = enforcer.processNetworkSynPacket(context, connection.NewTCPConnection(context, p), p)
+				So(err, ShouldBeNil)
+			})
+
+		})
+
+	})
+}
+
+func TestProcessNetworkSynAckPacket(t *testing.T) {
+	synWithFONoPayload := []byte{0x45, 0x00, 0x00, 0x40, 0x43, 0x92, 0x40, 0x00, 0x40, 0x06, 0xf9, 0x27, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0xaa, 0xee, 0x23, 0x28, 0xb3, 0x78, 0xd2, 0xc2, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02, 0xff, 0xd7, 0xfe, 0x30, 0x00, 0x00, 0x02, 0x04, 0xff, 0xd7, 0x04, 0x02, 0x08, 0x0a, 0x89, 0xcb, 0x61, 0x81, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x07, 0x22, 0x04, 0x00, 0x00}
+	Convey("When i setup an enforcer and a PU", t, func() {
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+		secret, err := secrets.NewCompactPKI([]byte(secrets.PrivateKeyPEM), []byte(secrets.PublicPEM), []byte(secrets.CAPEM), secrets.CreateTxtToken(), claimsheader.CompressionTypeNone)
+		So(err, ShouldBeNil)
+		enforcer := NewWithDefaults("serverID1", collector.NewDefaultCollector(), nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
+		So(err, ShouldBeNil)
+		So(enforcer, ShouldNotBeNil)
+		Convey("So I received a packet with tcp fast open option set but no payload", func() {
+			contextID := "dummyContext"
+			p, err := packet.New(1, synWithFONoPayload, "1", true)
+			So(err, ShouldBeNil)
+			So(p, ShouldNotBeNil)
+			err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen)
+			So(err, ShouldBeNil)
+			So(p.IsEmptyTCPPayload(), ShouldBeTrue)
+			puInfo := policy.NewPUInfo(contextID, "/ns1", common.LinuxProcessPU)
+			context, err := pucontext.NewPU(contextID, puInfo, 10*time.Second)
+			So(err, ShouldBeNil)
+			success := enforcer.puFromContextID.AddOrUpdate(contextID, context)
+			So(success, ShouldBeFalse)
+			//enforcer.processNetworkSynPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet)
+
+			_, _, err = enforcer.processNetworkSynAckPacket(context, connection.NewTCPConnection(context, p), p)
+			So(err, ShouldNotBeNil)
+			Convey("Then i add ip acl rule.", func() {
+				iprules := policy.IPRuleList{policy.IPRule{
+					Addresses: []string{"127.0.0.1/32"},
+					Ports:     []string{"43758"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:   policy.Accept,
+						PolicyID: "tcp172/8"},
+				}}
+				err = context.UpdateApplicationACLs(iprules)
+				So(err, ShouldBeNil)
+				_, _, err = enforcer.processNetworkSynAckPacket(context, connection.NewTCPConnection(context, p), p)
+				So(err, ShouldBeNil)
+			})
+
+		})
+
 	})
 }
 
