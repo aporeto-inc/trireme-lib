@@ -814,7 +814,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
-	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil && tcpPacket.IsEmptyTCPPayload() {
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidHeader, nil, nil, true)
 		return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckNoTCPAuthOption, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
