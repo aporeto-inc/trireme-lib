@@ -393,11 +393,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	claimsHeader := claimsheader.NewClaimsHeader()
-	if conn.PingConfig.Type != claimsheader.PingTypeNone {
-		claimsHeader.SetPingType(conn.PingConfig.Type)
-	} else {
-		claimsHeader.SetEncrypt(conn.PacketFlowPolicy.Action.Encrypted())
-	}
+	claimsHeader.SetEncrypt(conn.PacketFlowPolicy.Action.Encrypted())
 
 	// never returns error
 	tcpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth, claimsHeader, conn.Secrets)
@@ -620,17 +616,6 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		conn.SourceController = controller.Controller
 	}
 
-	if claims.H != nil {
-		ch := claims.H.ToClaimsHeader()
-		if ch.PingType() != claimsheader.PingTypeNone {
-			err := d.processDiagnosticNetSynPacket(context, conn, tcpPacket, claims)
-			if err != nil {
-				zap.L().Error("unable to process diagnostic network syn", zap.Error(err))
-			}
-			return nil, nil, err
-		}
-	}
-
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil, false)
@@ -707,15 +692,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			return nil, nil, conn.Context.Counters().CounterError(counters.ErrInvalidSynAck, fmt.Errorf("Pu with ID delete %s", conn.Context.ID()))
 		}
 
-		// Diagnostic packet from an external network.
-		if conn.PingConfig.Type != claimsheader.PingTypeNone {
-			err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, true, false)
-			if err != nil {
-				zap.L().Error("unable to process diagnostic network synack (externalnetwork)", zap.Error(err))
-			}
-			return nil, nil, err
-		}
-
 		flowHash := tcpPacket.SourceAddress().String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort()))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc := plci.(*policyPair)
@@ -746,15 +722,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		conn.Context.Counters().IncrementCounter(counters.ErrSynAckFromExtNetAccept)
 
 		return pkt, nil, nil
-	}
-
-	// Diagnostic packet with custom information.
-	if conn.PingConfig.Type == claimsheader.PingTypeCustomIdentity {
-		err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, nil, false, true)
-		if err != nil {
-			zap.L().Error("unable to process diagnostic network synack (custompayload)", zap.Error(err))
-		}
-		return nil, nil, err
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
@@ -799,17 +766,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	if controller != nil && !controller.SameController {
 		conn.DestinationController = controller.Controller
-	}
-
-	// Diagnostic packet with default token/identity.
-	if claims.H != nil {
-		if claims.H.ToClaimsHeader().PingType() != claimsheader.PingTypeNone {
-			err := d.processDiagnosticNetSynAckPacket(context, conn, tcpPacket, claims, false, false)
-			if err != nil {
-				zap.L().Error("unable to process diagnostic network synack", zap.Error(err))
-			}
-			return nil, nil, err
-		}
 	}
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
