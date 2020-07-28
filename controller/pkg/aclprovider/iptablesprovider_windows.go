@@ -48,8 +48,7 @@ type BaseIPTables interface {
 }
 
 // BatchProvider uses iptables-restore to program ACLs
-type BatchProvider struct {
-}
+type BatchProvider struct{}
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
@@ -159,6 +158,14 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 			uintptr(unsafe.Pointer(&argRuleSpec)),
 			uintptr(unsafe.Pointer(&argIpsetRuleSpecs[0])),
 			uintptr(len(argIpsetRuleSpecs)))
+		if dllRet != 0 {
+			for _, ipsrs := range argIpsetRuleSpecs {
+				if ipsrs.IpsetName != 0 {
+					ipsetName := frontman.WideCharPointerToString((*uint16)(unsafe.Pointer(ipsrs.IpsetName))) // nolint:govet
+					RuleCleanupInstance().MapIpsetToRule(ipsetName, chain, criteriaId)
+				}
+			}
+		}
 	} else {
 		dllRet, _, err = frontman.AppendFilterCriteriaProc.Call(driverHandle,
 			uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
@@ -182,12 +189,15 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
+
 	driverHandle, err := frontman.GetDriverHandle()
 	if err != nil {
 		return err
 	}
 
 	criteriaId := strings.Join(rulespec, " ")
+	zap.L().Debug(fmt.Sprintf("delete rule %s from table/chain %s/%s", criteriaId, table, chain))
+	RuleCleanupInstance().DeleteRuleFromIpsetMap(chain, criteriaId)
 	dllRet, _, err := frontman.DeleteFilterCriteriaProc.Call(driverHandle,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(chain))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(criteriaId))))

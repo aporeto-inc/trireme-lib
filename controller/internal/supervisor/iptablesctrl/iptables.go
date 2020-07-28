@@ -531,10 +531,12 @@ func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
 	ipsets := i.aclmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
 
-	aclIPsets := make([]aclIPset, len(ipsets))
+	aclIPsets := make([]aclIPset, 0)
 
 	for i, ipset := range ipsets {
-		aclIPsets[i] = aclIPset{ipset, &ipRules[i]}
+		if len(ipset) > 0 {
+			aclIPsets = append(aclIPsets, aclIPset{ipset, &ipRules[i]})
+		}
 	}
 
 	return aclIPsets
