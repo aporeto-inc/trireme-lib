@@ -12,7 +12,6 @@ import (
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/spaolacci/murmur3"
-	"go.aporeto.io/trireme-lib/buildflags"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
@@ -127,7 +126,7 @@ func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.Fil
 		fqc:                   fqc,
 		mode:                  mode,
 		ipset:                 ips,
-		isLegacyKernel:        buildflags.IsLegacyKernel(),
+		isLegacyKernel:        !provider.IsCgroupsSupported(),
 		conntrackCmd:          flushUDPConntrack,
 		cfg:                   nil,
 		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),

@@ -74,6 +74,11 @@ func boolToUint8(b bool) uint8 {
 	return 0
 }
 
+// IsCgroupsSupported returns true ifiptables allow cgroup match
+func IsCgroupsSupported() bool {
+	return false
+}
+
 // Append will append the provided rule to the local cache or call
 // directly the iptables command depending on the table.
 func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
