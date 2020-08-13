@@ -22,7 +22,6 @@ var globalRules = `
 {{$length := len .NetSynQueues}}
 {{.MangleTable}} INPUT -m set ! --match-set {{.ExclusionsSet}} src -j {{.MainNetChain}}
 {{.MangleTable}} {{.MainNetChain}} -j {{ .MangleProxyNetChain }}
-
 {{if .IsLegacyKernel}}
 {{.MangleTable}} {{.MainNetChain}} -p udp -m set --match-set {{.TargetUDPNetSet}} src -m string --string {{.UDPSignature}} --algo bm --to 65535 -j NFQUEUE --queue-bypass --queue-balance {{.QueueBalanceNetSynAck}}	
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -j NFQUEUE --queue-balance {{.QueueBalanceNetAck}}
@@ -36,7 +35,6 @@ var globalRules = `
 {{$.MangleTable}} {{$.MainNetChain}} -m set --match-set {{$.TargetTCPNetSet}} src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark {{Increment $index}}/{{$.QueueMask}} -j NFQUEUE --queue-num {{$queuenum}}
 {{end}}
 {{end}}
-
 
 {{if isBPFEnabled}}
 {{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
@@ -74,7 +72,6 @@ var globalRules = `
 {{.MangleTable}} {{.MainAppChain}} -m mark --mark {{.RawSocketMark}} -j ACCEPT
 
 {{if isBPFEnabled}}
-{{.MangleTable}} {{.MainAppChain}} -m set --match-set {{.TargetTCPNetSet}} dst -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{else}}
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultExternalConnmark}} -j ACCEPT
 {{.MangleTable}} {{.MainAppChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK  -j ACCEPT
@@ -118,6 +115,7 @@ var globalRules = `
 // cgroupCaptureTemplate are the list of iptables commands that will hook traffic and send it to a PU specific
 // chain. The hook method depends on the type of PU.
 var cgroupCaptureTemplate = `
+
 {{if isTCPPorts}}
 {{.MangleTable}} {{.NetSection}} -p tcp -m multiport --destination-ports {{.TCPPorts}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{else}}
@@ -125,7 +123,10 @@ var cgroupCaptureTemplate = `
 {{end}}
 
 {{if isHostPU}}
-{{.MangleTable}} {{.NetSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
+{{/* UDP response traffic needs to be accepted */}}
+{{.MangleTable}} {{.NetSection}} -p udp -m udp -m state --state ESTABLISHED -j ACCEPT
+{{/* Traffic to systemd resolver/dnsmasq gets accepted */}}
+{{.MangleTable}} {{.NetSection}} -p udp -m udp --dport 53 -j ACCEPT
 {{.MangleTable}} {{.NetSection}} -m comment --comment PU-Chain -j {{.NetChain}}
 {{end}}
 
@@ -134,11 +135,8 @@ var cgroupCaptureTemplate = `
 {{end}}
 
 {{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
-{{if isHostPU}}
-{{.MangleTable}} {{.AppSection}} -p udp -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -m state --state NEW -j NFLOG --nflog-prefix {{.NFLOGAcceptPrefix}} --nflog-group 10
-{{.MangleTable}} {{.AppSection}} -p udp -m comment --comment traffic-same-pu -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m addrtype --src-type LOCAL -m addrtype --dst-type LOCAL -j ACCEPT
-{{end}}
 {{.MangleTable}} {{.AppSection}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment PU-Chain -j {{.AppChain}}
+
 `
 
 // containerChainTemplate will hook traffic towards the container specific chains.
@@ -189,9 +187,10 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -p icmpv6 -j ACCEPT
 {{end}}
 
-{{if needDnsRules}}
-{{.MangleTable}} {{.AppChain}} -p udp -m udp --dport 53 -j ACCEPT
+{{if isBPFEnabled}}
+{{.MangleTable}} {{.AppChain}} -m set --match-set {{.TargetTCPNetSet}} dst -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{end}}
+
 {{if .IsLegacyKernel}}
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK SYN -j NFQUEUE --queue-balance {{.QueueBalanceAppSyn}}	
 {{.MangleTable}} {{.AppChain}} -p tcp -m tcp --tcp-flags SYN,ACK ACK -j NFQUEUE --queue-balance {{.QueueBalanceAppAck}}
@@ -227,10 +226,6 @@ var packetCaptureTemplate = `
 
 {{if needICMP}}
 {{.MangleTable}} {{.NetChain}} -p icmpv6 -j ACCEPT
-{{end}}
-
-{{if needDnsRules}}
-{{.MangleTable}} {{.NetChain}} -p udp -m udp --sport 53 -j ACCEPT
 {{end}}
 
 {{if .IsLegacyKernel}}
