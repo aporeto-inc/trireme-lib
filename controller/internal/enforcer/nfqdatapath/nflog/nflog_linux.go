@@ -8,6 +8,7 @@ import (
 
 	"go.aporeto.io/netlink-go/nflog"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/counters"
 	"go.uber.org/zap"
 )
 
@@ -81,8 +82,8 @@ func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, _ interface{}) {
 }
 
 func (a *nfLog) nflogErrorHandler(err error) {
-
-	zap.L().Error("Error while processing nflog packet", zap.Error(err))
+	counters.IncrementCounter(counters.ErrNfLogError)
+	zap.L().Debug("Error while processing nflog packet", zap.Error(err))
 }
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {

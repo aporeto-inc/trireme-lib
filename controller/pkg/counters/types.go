@@ -182,4 +182,5 @@ const (
 	ErrInvalidNetAckState
 	ErrAppSynAckAuthOptionSet
 	ErrDuplicateAckDrop
+	ErrNfLogError
 )
