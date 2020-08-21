@@ -208,6 +208,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.aclmanager,
 			t.config.isBPFEnabled,
 			t.config.agentVersion,
+			t.config.adjustSeqNum,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
