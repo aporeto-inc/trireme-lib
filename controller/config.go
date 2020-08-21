@@ -239,6 +239,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
 			rpcwrapper.NewRPCServer(),
+			t.config.adjustSeqNum,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy

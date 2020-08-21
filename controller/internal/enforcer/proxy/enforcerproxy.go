@@ -372,6 +372,7 @@ func NewProxyEnforcer(
 	isBPFEnabled bool,
 	ipv6Enabled bool,
 	rpcServer rpcwrapper.RPCServer,
+	adjustSeqNum bool,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -389,7 +390,7 @@ func NewProxyEnforcer(
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient),
+		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient, adjustSeqNum),
 		rpchdl:                 rpcClient,
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,

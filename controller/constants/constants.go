@@ -73,6 +73,9 @@ const (
 
 	// EnvDisableLogWrite tells us if we are running in kubernetes, if true don't write the logs to a file.
 	EnvDisableLogWrite = "TRIREME_ENV_DISABLE_LOG_WRITE"
+
+	// EnvAdjustSeqNum enables seq number adjustment.
+	EnvAdjustSeqNum = "TRIREME_ENV_ADJUST_SEQ_NUM"
 )
 
 // ModeType defines the mode of the enforcement and supervisor.
