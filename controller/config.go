@@ -266,6 +266,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.aclmanager,
 			false,
 			t.config.agentVersion,
+			t.config.adjustSeqNum,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
