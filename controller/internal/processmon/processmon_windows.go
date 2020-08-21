@@ -15,7 +15,7 @@ type remoteMonitor struct {
 }
 
 // New is a method to create a new remote process monitor.
-func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
+func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient, adjustSeqNum bool) ProcessManager {
 	return &remoteMonitor{}
 }
 
