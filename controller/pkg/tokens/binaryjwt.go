@@ -55,6 +55,9 @@ const (
 	nonceLength         = 16
 )
 
+// AckPattern is added in SYN and ACK tokens.
+var AckPattern = []byte("PANWIDENTITY")
+
 type sharedSecret struct {
 	key  []byte
 	tags []string
@@ -142,6 +145,7 @@ func (c *BinaryJWTConfig) createSynToken(claims *ConnectionClaims, nonce []byte,
 
 	var sig []byte
 	if len(claims.RemoteID) == 0 {
+		buf = append(buf, AckPattern...)
 		sig, err = c.sign(buf, secrets.EncodingKey().(*ecdsa.PrivateKey))
 	} else {
 		sig, err = c.signWithSharedKey(buf, claims.RemoteID)
@@ -164,6 +168,8 @@ func (c *BinaryJWTConfig) createAckToken(claims *ConnectionClaims, header *claim
 	if err != nil {
 		return nil, logError(ErrTokenEncodeFailed, err.Error())
 	}
+
+	buf = append(buf, AckPattern...)
 
 	// Sign the buffer with the pre-shared key.
 	sig, err := c.signWithSharedKey(buf, claims.RemoteID)

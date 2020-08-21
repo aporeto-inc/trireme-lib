@@ -31,6 +31,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -47,6 +48,8 @@ var collectCounterInterval = 30 * time.Second
 
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
+
+var ackSize uint32 = 136 + uint32(len(tokens.AckPattern))
 
 type debugpacketmessage struct {
 	Mark    int

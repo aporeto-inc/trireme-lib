@@ -107,6 +107,7 @@ func Test_EncodeDecode(t *testing.T) {
 				So(outClaims.RMT, ShouldResemble, pu1Claims.RMT)
 				So(outClaims.ID, ShouldEqual, pu1Claims.ID)
 				So(len(outClaims.T.Tags), ShouldEqual, 6)
+
 				So(outClaims.T.Tags, ShouldContain, "AporetoContextID=pu1")
 			})
 
@@ -286,7 +287,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 
 			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err, ShouldBeNil)
-			So(len(token), ShouldBeLessThan, 1420)
+			So(len(token), ShouldBeLessThan, 1428)
 		})
 
 	})
