@@ -361,6 +361,7 @@ func NewWithDefaults(
 		aclmanager,
 		false,
 		semver.Version{},
+		false,
 	)
 
 	conntrackClient, err := flowtracking.NewClient(context.Background())
