@@ -617,7 +617,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 
 	adjustSeqNum, err := strconv.ParseBool(os.Getenv(constants.EnvAdjustSeqNum))
 	if err != nil {
-		zap.L().Debug("unable to parse adjust seq num: %w", err)
+		zap.L().Debug("unable to parse adjust seq num: %w", zap.Error(err))
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
