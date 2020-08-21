@@ -107,7 +107,6 @@ func Test_EncodeDecode(t *testing.T) {
 				So(outClaims.RMT, ShouldResemble, pu1Claims.RMT)
 				So(outClaims.ID, ShouldEqual, pu1Claims.ID)
 				So(len(outClaims.T.Tags), ShouldEqual, 6)
-
 				So(outClaims.T.Tags, ShouldContain, "AporetoContextID=pu1")
 			})
 
