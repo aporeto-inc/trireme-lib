@@ -53,6 +53,7 @@ type config struct {
 	aclmanager             ipsetmanager.ACLManager
 	ipv6Enabled            bool
 	agentVersion           semver.Version
+	adjustSeqNum           bool
 }
 
 // Option is provided using functional arguments.
@@ -175,6 +176,13 @@ func OptionBinaryTokens(b bool) Option {
 func OptionAgentVersion(v semver.Version) Option {
 	return func(cfg *config) {
 		cfg.agentVersion = v
+	}
+}
+
+// OptionAdjustSeqNum is an option to adjust seq num in datapath.
+func OptionAdjustSeqNum() Option {
+	return func(cfg *config) {
+		cfg.adjustSeqNum = true
 	}
 }
 

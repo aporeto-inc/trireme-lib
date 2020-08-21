@@ -138,6 +138,7 @@ type Datapath struct {
 	bpf ebpf.BPFModule
 
 	agentVersion semver.Version
+	adjustSeqNum bool
 
 	secretsLock  sync.RWMutex
 	logLevelLock sync.RWMutex
@@ -203,6 +204,7 @@ func New(
 	aclmanager ipsetmanager.ACLManager,
 	isBPFEnabled bool,
 	agentVersion semver.Version,
+	adjustSeqNum bool,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -289,6 +291,7 @@ func New(
 		aclmanager:                   aclmanager,
 		bpf:                          bpf,
 		agentVersion:                 agentVersion,
+		adjustSeqNum:                 adjustSeqNum,
 	}
 
 	removeEntryCB := getCacheEntryRemoveCB(d)
