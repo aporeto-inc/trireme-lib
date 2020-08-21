@@ -275,6 +275,7 @@ func TestInitEnforcer(t *testing.T) {
 			aclmanager ipsetmanager.ACLManager,
 			iseBPFSupported bool,
 			agentVersion semver.Version,
+			adjustSeqNum bool,
 		) (enforcer.Enforcer, error) {
 			return mockEnf, nil
 		}
@@ -380,6 +381,7 @@ func TestInitEnforcer(t *testing.T) {
 					aclmanager ipsetmanager.ACLManager,
 					iseBPFSupported bool,
 					agentVersion semver.Version,
+					adjustSeqNum bool,
 				) (enforcer.Enforcer, error) {
 					return nil, fmt.Errorf("failed enforcer")
 				}

@@ -142,6 +142,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		false,
 		false,
 		rpcwrapper.NewRPCServer(),
+		false,
 	)
 	return policyEnf
 }

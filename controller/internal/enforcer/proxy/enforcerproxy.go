@@ -49,6 +49,7 @@ type ProxyInfo struct {
 	isBPFEnabled           bool
 	ipv6Enabled            bool
 	rpcServer              rpcwrapper.RPCServer
+	adjustSeqNum           bool
 	sync.RWMutex
 }
 
@@ -346,6 +347,7 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 			BinaryTokens:           s.binaryTokens,
 			IsBPFEnabled:           s.isBPFEnabled,
 			IPv6Enabled:            s.ipv6Enabled,
+			AdjustSeqNum:           s.adjustSeqNum,
 		},
 	}
 
@@ -390,7 +392,7 @@ func NewProxyEnforcer(
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient, adjustSeqNum),
+		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient),
 		rpchdl:                 rpcClient,
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,
@@ -405,5 +407,6 @@ func NewProxyEnforcer(
 		isBPFEnabled:           isBPFEnabled,
 		ipv6Enabled:            ipv6Enabled,
 		rpcServer:              rpcServer,
+		adjustSeqNum:           adjustSeqNum,
 	}
 }

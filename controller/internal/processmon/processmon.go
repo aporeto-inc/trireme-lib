@@ -70,8 +70,6 @@ type RemoteMonitor struct {
 	rpc rpcwrapper.RPCClient
 	// DisableLogWrite flag tells if we are running in kubernetes.
 	DisableLogWrite bool
-	// adjustSeqNum enables seq num adjustment.
-	adjustSeqNum bool
 
 	sync.Mutex
 }
@@ -93,7 +91,7 @@ type exitStatus struct {
 }
 
 // New is a method to create a new remote process monitor.
-func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient, adjustSeqNum bool) ProcessManager {
+func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
 
 	m := &RemoteMonitor{
 		remoteEnforcerTempBuildPath: remoteEnforcerTempBuildPath,
@@ -109,7 +107,6 @@ func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeErr
 		compressedTags:              p.CompressedTags,
 		runtimeErrorChannel:         c,
 		rpc:                         r,
-		adjustSeqNum:                adjustSeqNum,
 	}
 
 	go m.collectChildExitStatus(ctx)
@@ -409,7 +406,6 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvLogFormat + "=" + p.logFormat,
 		constants.EnvDisableLogWrite + "=" + disableLog,
 		constants.EnvEnforcerType + "=" + enforcerType.String(),
-		constants.EnvAdjustSeqNum + "=" + strconv.FormatBool(p.adjustSeqNum),
 	}
 
 	if p.compressedTags != claimsheader.CompressionTypeNone {

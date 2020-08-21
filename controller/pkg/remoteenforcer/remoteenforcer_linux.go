@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 
@@ -61,7 +60,6 @@ func newRemoteEnforcer(
 	zapConfig zap.Config,
 	enforcerType policy.EnforcerType,
 	agentVersion semver.Version,
-	adjustSeqNum bool,
 ) (*RemoteEnforcer, error) {
 
 	var err error
@@ -116,7 +114,6 @@ func newRemoteEnforcer(
 		enforcerType:   enforcerType,
 		aclmanager:     aclmanager,
 		agentVersion:   agentVersion,
-		adjustSeqNum:   adjustSeqNum,
 	}, nil
 }
 
@@ -530,7 +527,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		s.aclmanager,
 		payload.IsBPFEnabled,
 		s.agentVersion,
-		s.adjustSeqNum,
+		payload.AdjustSeqNum,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -615,13 +612,8 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 		return err
 	}
 
-	adjustSeqNum, err := strconv.ParseBool(os.Getenv(constants.EnvAdjustSeqNum))
-	if err != nil {
-		zap.L().Debug("unable to parse adjust seq num: %w", zap.Error(err))
-	}
-
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig, enforcerType, agentVersion, adjustSeqNum)
+	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig, enforcerType, agentVersion)
 	if err != nil {
 		return err
 	}
