@@ -37,7 +37,6 @@ var globalRules = `
 {{end}}
 
 {{if isBPFEnabled}}
-{{.MangleTable}} {{.MainNetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{else}}
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultExternalConnmark}} -j ACCEPT
 {{.MangleTable}} {{.MainNetChain}} -m connmark --mark {{.DefaultConnmark}} -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT
@@ -189,6 +188,7 @@ var packetCaptureTemplate = `
 
 {{if isBPFEnabled}}
 {{.MangleTable}} {{.AppChain}} -m set --match-set {{.TargetTCPNetSet}} dst -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
+{{.MangleTable}} {{.NetChain}} -m set --match-set {{.TargetTCPNetSet}} src -p tcp --tcp-flags SYN NONE -m bpf --object-pinned {{.BPFPath}} -m state --state ESTABLISHED -j ACCEPT
 {{end}}
 
 {{if .IsLegacyKernel}}
