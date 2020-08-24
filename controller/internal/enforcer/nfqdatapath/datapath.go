@@ -49,7 +49,11 @@ var collectCounterInterval = 30 * time.Second
 // GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
 var GetUDPRawSocket = afinetrawsocket.CreateSocket
 
-var ackSize uint32 = 136 + uint32(len(tokens.AckPattern))
+// Length of of our ack token.
+const ackLength = 136
+
+// Length of of our ack token plus aporeto identity.
+var ackSize uint32 = ackLength + uint32(len(tokens.AckPattern))
 
 type debugpacketmessage struct {
 	Mark    int
