@@ -53,6 +53,7 @@ type config struct {
 	aclmanager             ipsetmanager.ACLManager
 	ipv6Enabled            bool
 	agentVersion           semver.Version
+	adjustSeqNum           bool
 }
 
 // Option is provided using functional arguments.
@@ -178,6 +179,13 @@ func OptionAgentVersion(v semver.Version) Option {
 	}
 }
 
+// OptionAdjustSeqNum is an option to adjust seq num in datapath.
+func OptionAdjustSeqNum() Option {
+	return func(cfg *config) {
+		cfg.adjustSeqNum = true
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -200,6 +208,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.aclmanager,
 			t.config.isBPFEnabled,
 			t.config.agentVersion,
+			t.config.adjustSeqNum,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
@@ -231,6 +240,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
 			rpcwrapper.NewRPCServer(),
+			t.config.adjustSeqNum,
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
 		t.enforcers[constants.RemoteContainerEnvoyAuthorizer] = enforcerProxy
@@ -256,6 +266,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.aclmanager,
 			false,
 			t.config.agentVersion,
+			t.config.adjustSeqNum,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)

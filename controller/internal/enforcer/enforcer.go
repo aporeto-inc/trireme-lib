@@ -257,6 +257,7 @@ func New(
 	aclmanager ipsetmanager.ACLManager,
 	isBPFEnabled bool,
 	agentVersion semver.Version,
+	adjustSeqNum bool,
 ) (Enforcer, error) {
 
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
@@ -288,6 +289,7 @@ func New(
 		aclmanager,
 		isBPFEnabled,
 		agentVersion,
+		adjustSeqNum,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)

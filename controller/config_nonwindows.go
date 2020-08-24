@@ -29,6 +29,7 @@ func (t *trireme) setupEnvoyAuthorizer() error {
 		t.config.aclmanager,
 		t.config.isBPFEnabled,
 		t.config.agentVersion,
+		t.config.adjustSeqNum,
 	)
 	return err
 }
