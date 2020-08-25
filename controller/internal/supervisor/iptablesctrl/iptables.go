@@ -101,18 +101,17 @@ func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configur
 		var filteredIPs []string
 
 		for _, ip := range ips {
-			prefix := ""
+			parsable := ip
 			if strings.HasPrefix(ip, "!") {
-				prefix = "!"
-				ip = ip[1:]
+				parsable = ip[1:]
 			}
-			netIP := net.ParseIP(ip)
+			netIP := net.ParseIP(parsable)
 			if netIP == nil {
-				netIP, _, _ = net.ParseCIDR(ip)
+				netIP, _, _ = net.ParseCIDR(parsable)
 			}
 
 			if filter(netIP) {
-				filteredIPs = append(filteredIPs, prefix+ip)
+				filteredIPs = append(filteredIPs, ip)
 			}
 		}
 
@@ -393,15 +392,15 @@ func (i *iptables) CleanUp() error {
 
 func (i *iptables) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration) error {
 
-	if err := i.updateTargetNetworks(i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
+	if err := ipsetmanager.ProcessIPSetUpdates(i.aclmanager, i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
 		return err
 	}
 
-	if err := i.updateTargetNetworks(i.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
+	if err := ipsetmanager.ProcessIPSetUpdates(i.aclmanager, i.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
 		return err
 	}
 
-	return i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks)
+	return ipsetmanager.ProcessIPSetUpdates(i.aclmanager, i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks)
 }
 
 // InitializeChains initializes the chains.
