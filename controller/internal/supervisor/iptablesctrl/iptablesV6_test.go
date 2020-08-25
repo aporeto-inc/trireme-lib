@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -13,7 +14,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	tacls "go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
@@ -829,6 +832,102 @@ func Test_OperationNomatchIpsetsV6(t *testing.T) {
 			So(ipsv6.sets["TRI-v6-TargetTCP"].set["::/1"], ShouldBeFalse)
 			So(ipsv6.sets["TRI-v6-TargetTCP"].set, ShouldContainKey, "8000::/1")
 			So(ipsv6.sets["TRI-v6-TargetTCP"].set["8000::/1"], ShouldBeFalse)
+		})
+	})
+}
+
+func Test_OperationNomatchIpsetsInExternalNetworksV6(t *testing.T) {
+
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"::/0", "!2001:db8:1234::/48"},
+			UDPTargetNetworks: []string{"1120::/64"},
+			ExcludedNetworks:  []string{"::1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) // nolint
+
+			So(err, ShouldBeNil)
+
+			// Setup external networks
+			appACLs := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"::/0", "!2001:db8:1234::/48"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a3",
+						PolicyID:  "1234a",
+					},
+				},
+			}
+			netACLs := policy.IPRuleList{}
+
+			policyRules := policy.NewPUPolicy("Context", "/ns1", policy.Police, appACLs, netACLs, nil, nil, nil, nil, nil, nil, nil, 20992, 0, nil, nil, []string{}, policy.EnforcerMapping)
+
+			puInfo := policy.NewPUInfo("Context", "/ns1", common.HostPU)
+			puInfo.Policy = policyRules
+			puInfo.Runtime = policy.NewPURuntimeWithDefaults()
+			puInfo.Runtime.SetPUType(common.HostPU)
+			puInfo.Runtime.SetOptions(policy.OptionsType{
+				CgroupMark: "10",
+			})
+
+			// configure rules
+			var iprules policy.IPRuleList
+			iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+			iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+			err = i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+			err = i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+
+			err = i.ConfigureRules(0, "pu1", puInfo)
+			So(err, ShouldBeNil)
+
+			// Check ipsets
+			setName := i.iptv6.aclmanager.GetIPsets(appACLs[0:1], ipsetmanager.IPsetV6)[0]
+			So(ipsv6.sets[setName].set, ShouldContainKey, "::/1")
+			So(ipsv6.sets[setName].set, ShouldContainKey, "8000::/1")
+			So(ipsv6.sets[setName].set, ShouldContainKey, "2001:db8:1234::/48")
+			So(ipsv6.sets[setName].set["::/1"], ShouldBeFalse)
+			So(ipsv6.sets[setName].set["8000::/1"], ShouldBeFalse)
+			So(ipsv6.sets[setName].set["2001:db8:1234::/48"], ShouldBeTrue)
+
+			// Configure and check acl cache
+			aclCache := tacls.NewACLCache()
+			err = aclCache.AddRuleList(puInfo.Policy.ApplicationACLs())
+			So(err, ShouldBeNil)
+
+			report, _, err := aclCache.GetMatchingAction(net.ParseIP("2001:db8:5678::"), 80)
+			So(err, ShouldBeNil)
+			So(report.Action, ShouldEqual, policy.Accept|policy.Log)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("2001:db8:1234:5678::"), 80)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject)
 		})
 	})
 }
