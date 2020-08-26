@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -209,6 +212,17 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 			continue
 		}
 
+		var ports *portspec.PortSpec
+		if k == constants.PortNumberLabelString {
+			// We should get range here
+			tagValue, servicePorts, err := parseTagValueRange(v)
+			if err != nil || servicePorts == nil {
+				continue
+			}
+			v = tagValue
+			ports = servicePorts
+		}
+
 		// Search for matches of k=v
 		if index, action := searchInMapTable(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action
@@ -243,7 +257,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	return -1, nil
 }
 
-func searchInMapTable(table []*ForwardingPolicy, count []int, skip []bool) (int, interface{}) {
+func searchInMapTable(table []*ForwardingPolicy, ports *portspec.PortSpec, count []int, skip []bool) (int, interface{}) {
 	for _, policy := range table {
 
 		// Skip the policy if we have marked it
@@ -251,8 +265,17 @@ func searchInMapTable(table []*ForwardingPolicy, count []int, skip []bool) (int,
 			continue
 		}
 
-		// Since a policy is hit, the count of remaining tags is reduced by one
-		count[policy.index]++
+		if ports != nil {
+			for _, tag := range policy.tags {
+				if tag.PortRange != nil && tag.PortRange.Intersects(ports) {
+					count[policy.index]++
+					break
+				}
+			}
+		} else {
+			// Since a policy is hit, the count of remaining tags is reduced by one
+			count[policy.index]++
+		}
 
 		// If all tags of the policy have been hit, there is a match
 		if count[policy.index] == policy.count {
@@ -302,4 +325,17 @@ func (m *PolicyDB) PrintPolicyDB() {
 		}
 	}
 
+}
+
+func parseTagValueRange(value string) (string, *portspec.PortSpec, error) {
+	index := strings.Index(value, "/")
+	if index == -1 {
+		// means there was no range
+		return value, nil, nil
+	}
+	rangeSpec, err := portspec.NewPortSpecFromString(value[index+1:], nil)
+	if err != nil {
+		return "", nil, err
+	}
+	return value[:index], rangeSpec, nil
 }
