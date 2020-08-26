@@ -204,7 +204,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	for _, t := range copiedTags {
 
 		// Search for matches of t (tag id)
-		if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
+		if index, action := searchInMapTable(m.equalIDMapTable[t], nil, count, skip); index >= 0 {
 			return index, action
 		}
 
@@ -224,14 +224,14 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 		}
 
 		// Search for matches of k=v
-		if index, action := searchInMapTable(m.equalMapTable[k][v], count, skip); index >= 0 {
+		if index, action := searchInMapTable(m.equalMapTable[k][v], ports, count, skip); index >= 0 {
 			return index, action
 		}
 
 		// Search for matches in prefixes
 		for _, i := range m.equalPrefixes[k] {
 			if i <= len(v) {
-				if index, action := searchInMapTable(m.equalMapTable[k][v[:i]], count, skip); index >= 0 {
+				if index, action := searchInMapTable(m.equalMapTable[k][v[:i]], nil, count, skip); index >= 0 {
 					return index, action
 				}
 			}
@@ -244,7 +244,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 				continue
 			}
 
-			if index, action := searchInMapTable(policies, count, skip); index >= 0 {
+			if index, action := searchInMapTable(policies, nil, count, skip); index >= 0 {
 				return index, action
 			}
 		}
