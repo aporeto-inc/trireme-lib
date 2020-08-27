@@ -110,6 +110,9 @@ func (s *PortSpec) Overlaps(p *PortSpec) bool {
 
 // Intersects returns true if the provided port spec intersect with the given one.
 func (s *PortSpec) Intersects(p *PortSpec) bool {
+	if p.Min == p.Max {
+		return s.IsIncluded(int(p.Min))
+	}
 	return s.IsIncluded(int(p.Min)) && s.IsIncluded(int(p.Max))
 }
 
