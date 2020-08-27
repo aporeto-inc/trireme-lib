@@ -16,6 +16,18 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
+// WindowsRuleRange represents a range of values for a rule
+type WindowsRuleRange struct { // nolint:golint // ignore type name stutters
+	Start int
+	End   int
+}
+
+// WindowsRuleIcmpMatch represents parameters for an ICMP match
+type WindowsRuleIcmpMatch struct { // nolint:golint // ignore type name stutters
+	IcmpType       int
+	IcmpCodeRanges []*WindowsRuleRange
+}
+
 // structure representing result of parsed --match-set
 type WindowsRuleMatchSet struct {
 	MatchSetName    string
@@ -24,12 +36,6 @@ type WindowsRuleMatchSet struct {
 	MatchSetDstPort bool
 	MatchSetSrcIp   bool
 	MatchSetSrcPort bool
-}
-
-// structure representing parsed port range
-type WindowsRulePortRange struct {
-	PortStart int
-	PortEnd   int
 }
 
 // structure representing result of parsed iptables rule
@@ -44,11 +50,12 @@ type WindowsRuleSpec struct {
 	ProcessID                  int
 	ProcessIncludeChildren     bool
 	ProcessIncludeChildrenOnly bool
-	MatchSrcPort               []*WindowsRulePortRange
-	MatchDstPort               []*WindowsRulePortRange
+	MatchSrcPort               []*WindowsRuleRange
+	MatchDstPort               []*WindowsRuleRange
 	MatchBytes                 []byte
 	MatchBytesOffset           int
 	MatchSet                   []*WindowsRuleMatchSet
+	IcmpMatch                  *WindowsRuleIcmpMatch
 }
 
 // converts a WindowsRuleSpec back into a string for an iptables rule
@@ -63,9 +70,9 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	if len(winRuleSpec.MatchSrcPort) > 0 {
 		rulespec += "--sports "
 		for i, pr := range winRuleSpec.MatchSrcPort {
-			rulespec += strconv.Itoa(pr.PortStart)
-			if pr.PortStart != pr.PortEnd {
-				rulespec += fmt.Sprintf(":%d", pr.PortEnd)
+			rulespec += strconv.Itoa(pr.Start)
+			if pr.Start != pr.End {
+				rulespec += fmt.Sprintf(":%d", pr.End)
 			}
 			if i+1 < len(winRuleSpec.MatchSrcPort) {
 				rulespec += ","
@@ -76,9 +83,9 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	if len(winRuleSpec.MatchDstPort) > 0 {
 		rulespec += "--dports "
 		for i, pr := range winRuleSpec.MatchDstPort {
-			rulespec += strconv.Itoa(pr.PortStart)
-			if pr.PortStart != pr.PortEnd {
-				rulespec += fmt.Sprintf(":%d", pr.PortEnd)
+			rulespec += strconv.Itoa(pr.Start)
+			if pr.Start != pr.End {
+				rulespec += fmt.Sprintf(":%d", pr.End)
 			}
 			if i+1 < len(winRuleSpec.MatchDstPort) {
 				rulespec += ","
@@ -111,6 +118,18 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 			}
 			rulespec += " "
 		}
+	}
+	if winRuleSpec.IcmpMatch != nil {
+		rulespec += fmt.Sprintf("--icmp-type %d", winRuleSpec.IcmpMatch.IcmpType)
+		codePrefix := "/"
+		for _, icmpCode := range winRuleSpec.IcmpMatch.IcmpCodeRanges {
+			rulespec += fmt.Sprintf("%s%d", codePrefix, icmpCode.Start)
+			if icmpCode.Start != icmpCode.End {
+				rulespec += fmt.Sprintf(":%d", icmpCode.End)
+			}
+			codePrefix = ","
+		}
+		rulespec += " "
 	}
 	switch winRuleSpec.Action {
 	case frontman.FilterActionAllow:
@@ -145,8 +164,8 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 }
 
 // parse comma-separated list of port or port ranges
-func ParsePortString(portString string) ([]*WindowsRulePortRange, error) {
-	var result []*WindowsRulePortRange
+func ParsePortString(portString string) ([]*WindowsRuleRange, error) {
+	var result []*WindowsRuleRange
 	if portString != "" {
 		portList := strings.Split(portString, ",")
 		for _, portListItem := range portList {
@@ -169,9 +188,82 @@ func ParsePortString(portString string) ([]*WindowsRulePortRange, error) {
 			if portEnd == 0 {
 				portEnd = portStart
 			}
-			result = append(result, &WindowsRulePortRange{portStart, portEnd})
+			result = append(result, &WindowsRuleRange{portStart, portEnd})
 		}
 	}
+	return result, nil
+}
+
+// TransformIcmpProtoString parses icmp/type/code string coming from ACL rule
+// and returns a rulespec subsection
+func TransformIcmpProtoString(icmpTypeCode string) []string {
+	parts := strings.SplitN(icmpTypeCode, "/", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+	typeCodeString := strings.TrimSpace(parts[1])
+	if typeCodeString == "" {
+		return nil
+	}
+	return []string{"--icmp-type", typeCodeString}
+}
+
+// ParseIcmpTypeCode parses --icmp-type option
+// string is of the form type/code:code,code,code:code
+func ParseIcmpTypeCode(icmpTypeCode string) (*WindowsRuleIcmpMatch, error) {
+
+	if icmpTypeCode == "" {
+		return nil, nil
+	}
+
+	var err error
+	result := &WindowsRuleIcmpMatch{}
+
+	parts := strings.SplitN(icmpTypeCode, "/", 2)
+	if len(parts) == 0 {
+		return nil, nil
+	}
+	result.IcmpType, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return nil, err
+	}
+	if result.IcmpType < 0 || result.IcmpType > math.MaxUint8 {
+		return nil, errors.New("ICMP type out of range")
+	}
+	if len(parts) > 1 {
+		// parse codes, comma-separated
+		for _, code := range strings.Split(parts[1], ",") {
+			// parse code range
+			var codeLower, codeUpper int
+			codeRange := strings.SplitN(code, ":", 2)
+			switch len(codeRange) {
+			case 2:
+				codeUpper, err = strconv.Atoi(codeRange[1])
+				if err != nil {
+					return nil, err
+				}
+				if codeUpper < 0 || codeUpper > math.MaxUint8 {
+					return nil, errors.New("ICMP code out of range")
+				}
+				fallthrough
+			case 1:
+				codeLower, err = strconv.Atoi(codeRange[0])
+				if err != nil {
+					return nil, err
+				}
+				if codeLower < 0 || codeLower > math.MaxUint8 {
+					return nil, errors.New("ICMP code out of range")
+				}
+				if codeUpper < codeLower {
+					codeUpper = codeLower
+				}
+			default:
+				return nil, errors.New("failed to parse icmp type/code")
+			}
+			result.IcmpCodeRanges = append(result.IcmpCodeRanges, &WindowsRuleRange{codeLower, codeUpper})
+		}
+	}
+
 	return result, nil
 }
 
@@ -197,6 +289,7 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 	groupIdOpt := opt.Int("nflog-group", 0)
 	logPrefixOpt := opt.String("nflog-prefix", "")
 	nfqForceOpt := opt.Bool("queue-force", false)
+	icmpTypeOpt := opt.String("icmp-type", "")
 
 	_, err := opt.Parse(rulespec)
 	if err != nil {
@@ -233,6 +326,11 @@ func ParseRuleSpec(rulespec ...string) (*WindowsRuleSpec, error) {
 		if result.Protocol == 0 {
 			result.Protocol = -1
 		}
+	}
+
+	result.IcmpMatch, err = ParseIcmpTypeCode(*icmpTypeOpt)
+	if err != nil {
+		return nil, fmt.Errorf("rulespec not valid: %s", err.Error())
 	}
 
 	// src/dest port: either port or port range or list of such
@@ -397,11 +495,36 @@ func (w *WindowsRuleMatchSet) Equal(other *WindowsRuleMatchSet) bool {
 }
 
 // Equal compares a WindowsRulePortRange to another for equality
-func (w *WindowsRulePortRange) Equal(other *WindowsRulePortRange) bool {
+func (w *WindowsRuleRange) Equal(other *WindowsRuleRange) bool {
 	if other == nil {
 		return false
 	}
-	return w.PortStart == other.PortStart && w.PortEnd == other.PortEnd
+	return w.Start == other.Start && w.End == other.End
+}
+
+// Equal compares a WindowsRuleIcmpMatch to another for equality
+func (w *WindowsRuleIcmpMatch) Equal(other *WindowsRuleIcmpMatch) bool {
+	if other == nil {
+		return false
+	}
+	if w.IcmpType != other.IcmpType {
+		return false
+	}
+	if len(w.IcmpCodeRanges) != len(other.IcmpCodeRanges) {
+		return false
+	}
+	for i := range w.IcmpCodeRanges {
+		if w.IcmpCodeRanges[i] == nil {
+			if other.IcmpCodeRanges[i] != nil {
+				return false
+			}
+			continue
+		}
+		if !w.IcmpCodeRanges[i].Equal(other.IcmpCodeRanges[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Equal compares a WindowsRuleSpec to another for equality
@@ -425,6 +548,13 @@ func (w *WindowsRuleSpec) Equal(other *WindowsRuleSpec) bool {
 		len(w.MatchDstPort) == len(other.MatchDstPort) &&
 		len(w.MatchSet) == len(other.MatchSet)
 	if !equalSoFar {
+		return false
+	}
+	if w.IcmpMatch != nil {
+		if !w.IcmpMatch.Equal(other.IcmpMatch) {
+			return false
+		}
+	} else if other.IcmpMatch != nil {
 		return false
 	}
 	// we checked lengths above, but now continue to compare slices for equality.

@@ -125,19 +125,22 @@ type PortRange struct {
 	PortEnd   uint16
 }
 
+type IcmpRange struct {
+	Lower uint8
+	Upper uint8
+}
+
 type RuleSpec struct {
 	Action            uint8
 	Log               uint8
 	Protocol          uint8
 	ProtocolSpecified uint8
-	IcmpType          uint8
-	IcmpTypeSpecified uint8
-	IcmpCode          uint8
-	IcmpCodeSpecified uint8
 	AleAuthConnect    uint8 // not used by us
 	ProcessFlags      uint8 // See frontmanIO.h bit mask PROCESS_MATCH_PROCESS and/or PROCESS_MATCH_CHILDREN
-	Reserved1         uint8
-	Reserved2         uint8
+	IcmpType          uint8
+	IcmpTypeSpecified uint8
+	IcmpCodeRanges    *IcmpRange
+	IcmpCodeCount     int32
 	ProxyPort         uint16
 	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
 	BytesMatchOffset  int32

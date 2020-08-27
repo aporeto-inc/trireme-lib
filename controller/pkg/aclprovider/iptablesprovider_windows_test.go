@@ -374,8 +374,8 @@ func TestParseRuleSpecSPortDPort(t *testing.T) {
 		Convey("I should accept for the given source port", func() {
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 0)
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 1)
-			So(ruleSpec.MatchSrcPort[0].PortStart, ShouldEqual, 12345)
-			So(ruleSpec.MatchSrcPort[0].PortEnd, ShouldEqual, 12345)
+			So(ruleSpec.MatchSrcPort[0].Start, ShouldEqual, 12345)
+			So(ruleSpec.MatchSrcPort[0].End, ShouldEqual, 12345)
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 		})
 	})
@@ -385,10 +385,10 @@ func TestParseRuleSpecSPortDPort(t *testing.T) {
 		So(err, ShouldBeNil)
 		Convey("I should accept for the given source port range", func() {
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 2)
-			So(ruleSpec.MatchSrcPort[0].PortStart, ShouldEqual, 80)
-			So(ruleSpec.MatchSrcPort[0].PortEnd, ShouldEqual, 80)
-			So(ruleSpec.MatchSrcPort[1].PortStart, ShouldEqual, 1024)
-			So(ruleSpec.MatchSrcPort[1].PortEnd, ShouldEqual, 65535)
+			So(ruleSpec.MatchSrcPort[0].Start, ShouldEqual, 80)
+			So(ruleSpec.MatchSrcPort[0].End, ShouldEqual, 80)
+			So(ruleSpec.MatchSrcPort[1].Start, ShouldEqual, 1024)
+			So(ruleSpec.MatchSrcPort[1].End, ShouldEqual, 65535)
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 0)
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 		})
@@ -400,8 +400,8 @@ func TestParseRuleSpecSPortDPort(t *testing.T) {
 		Convey("I should accept for the given dest port", func() {
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 0)
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 1)
-			So(ruleSpec.MatchDstPort[0].PortStart, ShouldEqual, 80)
-			So(ruleSpec.MatchDstPort[0].PortEnd, ShouldEqual, 80)
+			So(ruleSpec.MatchDstPort[0].Start, ShouldEqual, 80)
+			So(ruleSpec.MatchDstPort[0].End, ShouldEqual, 80)
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 		})
 	})
@@ -411,14 +411,14 @@ func TestParseRuleSpecSPortDPort(t *testing.T) {
 		So(err, ShouldBeNil)
 		Convey("I should accept for the given dest port range", func() {
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 4)
-			So(ruleSpec.MatchDstPort[0].PortStart, ShouldEqual, 1234)
-			So(ruleSpec.MatchDstPort[0].PortEnd, ShouldEqual, 1234)
-			So(ruleSpec.MatchDstPort[1].PortStart, ShouldEqual, 8080)
-			So(ruleSpec.MatchDstPort[1].PortEnd, ShouldEqual, 8443)
-			So(ruleSpec.MatchDstPort[2].PortStart, ShouldEqual, 65000)
-			So(ruleSpec.MatchDstPort[2].PortEnd, ShouldEqual, 65005)
-			So(ruleSpec.MatchDstPort[3].PortStart, ShouldEqual, 65530)
-			So(ruleSpec.MatchDstPort[3].PortEnd, ShouldEqual, 65530)
+			So(ruleSpec.MatchDstPort[0].Start, ShouldEqual, 1234)
+			So(ruleSpec.MatchDstPort[0].End, ShouldEqual, 1234)
+			So(ruleSpec.MatchDstPort[1].Start, ShouldEqual, 8080)
+			So(ruleSpec.MatchDstPort[1].End, ShouldEqual, 8443)
+			So(ruleSpec.MatchDstPort[2].Start, ShouldEqual, 65000)
+			So(ruleSpec.MatchDstPort[2].End, ShouldEqual, 65005)
+			So(ruleSpec.MatchDstPort[3].Start, ShouldEqual, 65530)
+			So(ruleSpec.MatchDstPort[3].End, ShouldEqual, 65530)
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 0)
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 		})
@@ -531,6 +531,94 @@ func TestParseRuleSpecMatchPid(t *testing.T) {
 	})
 }
 
+func TestParseRuleSpecMatchIcmp(t *testing.T) {
+
+	Convey("When I parse a rule with an icmp type match", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 8 -j ACCEPT", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should recognize the icmp type", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(ruleSpec.Protocol, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 8)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 0)
+		})
+
+		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/8"), " ")
+		So(rulePart, ShouldEqual, "--icmp-type 8")
+	})
+
+	Convey("When I parse a rule with an icmp type and code match", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p icmp --icmp-type 3/5 -j DROP", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should recognize the icmp type and code", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionBlock)
+			So(ruleSpec.Protocol, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 5)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 5)
+		})
+
+		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/3/5"), " ")
+		So(rulePart, ShouldEqual, "--icmp-type 3/5")
+	})
+
+	Convey("When I parse a rule with an icmp type and multiple codes match", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 3/0:4,15,6:7,14 -j ACCEPT", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should recognize the icmp type and code ranges", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(ruleSpec.Protocol, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 4)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 0)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 4)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].Start, ShouldEqual, 15)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].End, ShouldEqual, 15)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[2].Start, ShouldEqual, 6)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[2].End, ShouldEqual, 7)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[3].Start, ShouldEqual, 14)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[3].End, ShouldEqual, 14)
+		})
+
+		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/3/0:4,15,6:7,14"), " ")
+		So(rulePart, ShouldEqual, "--icmp-type 3/0:4,15,6:7,14")
+	})
+
+	Convey("When I parse a rule with an icmp v6 type and code match", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p 58 --icmp-type 140/1,2 -j ACCEPT", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should recognize the icmp v6 type and code", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(ruleSpec.Protocol, ShouldEqual, 58)
+			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 140)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 2)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].Start, ShouldEqual, 2)
+			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].End, ShouldEqual, 2)
+		})
+
+		rulePart := strings.Join(windows.TransformIcmpProtoString("icmpv6/140/1,2"), " ")
+		So(rulePart, ShouldEqual, "--icmp-type 140/1,2")
+	})
+
+	Convey("When I parse a rule with an invalid icmp type/code", t, func() {
+		// invalid range separator
+		_, err := windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 3/0:4,15,6-7,14 -j ACCEPT", " ")...)
+		So(err, ShouldNotBeNil)
+		// code out of range
+		_, err = windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 3/0:4,15,17:256 -j ACCEPT", " ")...)
+		So(err, ShouldNotBeNil)
+		// code given but no type
+		_, err = windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type /2 -j ACCEPT", " ")...)
+		So(err, ShouldNotBeNil)
+		// type out of range
+		_, err = windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 2555/1,4 -j ACCEPT", " ")...)
+		So(err, ShouldNotBeNil)
+	})
+}
+
 // test generated acl rule
 func TestParseRuleSpecACLRule(t *testing.T) {
 
@@ -541,8 +629,8 @@ func TestParseRuleSpecACLRule(t *testing.T) {
 			So(ruleSpec.Protocol, ShouldEqual, packet.IPProtocolTCP)
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 0)
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 1)
-			So(ruleSpec.MatchDstPort[0].PortStart, ShouldEqual, 1)
-			So(ruleSpec.MatchDstPort[0].PortEnd, ShouldEqual, 65535)
+			So(ruleSpec.MatchDstPort[0].Start, ShouldEqual, 1)
+			So(ruleSpec.MatchDstPort[0].End, ShouldEqual, 65535)
 			So(ruleSpec.Action, ShouldEqual, 0) // degenerate log-only rule
 			So(ruleSpec.Log, ShouldBeTrue)
 			So(ruleSpec.LogPrefix, ShouldEqual, "3617624947:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6")
@@ -570,8 +658,8 @@ func TestParseRuleSpecACLRule(t *testing.T) {
 			So(ruleSpec.Protocol, ShouldEqual, packet.IPProtocolTCP)
 			So(ruleSpec.MatchSrcPort, ShouldHaveLength, 0)
 			So(ruleSpec.MatchDstPort, ShouldHaveLength, 1)
-			So(ruleSpec.MatchDstPort[0].PortStart, ShouldEqual, 1)
-			So(ruleSpec.MatchDstPort[0].PortEnd, ShouldEqual, 65535)
+			So(ruleSpec.MatchDstPort[0].Start, ShouldEqual, 1)
+			So(ruleSpec.MatchDstPort[0].End, ShouldEqual, 65535)
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionBlock)
 			So(ruleSpec.Log, ShouldBeFalse)
 			So(ruleSpec.MatchSet, ShouldNotBeNil)
