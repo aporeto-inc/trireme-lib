@@ -142,14 +142,6 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		}
 	}
 	if winRuleSpec.IcmpMatch != nil {
-		if len(winRuleSpec.MatchSrcPort) > 0 {
-			argRuleSpec.SrcPortCount = int32(len(winRuleSpec.MatchSrcPort))
-			srcPorts := make([]frontman.PortRange, argRuleSpec.SrcPortCount)
-			for i, portRange := range winRuleSpec.MatchSrcPort {
-				srcPorts[i] = frontman.PortRange{PortStart: uint16(portRange.Start), PortEnd: uint16(portRange.End)}
-			}
-			argRuleSpec.SrcPorts = &srcPorts[0]
-		}
 		argRuleSpec.IcmpTypeSpecified = 1
 		argRuleSpec.IcmpType = uint8(winRuleSpec.IcmpMatch.IcmpType)
 		if len(winRuleSpec.IcmpMatch.IcmpCodeRanges) > 0 {
