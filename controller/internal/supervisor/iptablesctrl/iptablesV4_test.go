@@ -36,6 +36,7 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
+	icmpAllow = testICMPAllow
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
@@ -460,7 +461,7 @@ var (
 
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -592,7 +593,7 @@ var (
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -720,7 +721,7 @@ var (
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -849,7 +850,7 @@ var (
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -1117,7 +1118,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1425,7 +1426,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1609,7 +1610,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1794,7 +1795,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,

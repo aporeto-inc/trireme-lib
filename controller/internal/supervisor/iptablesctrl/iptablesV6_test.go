@@ -19,6 +19,10 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
+func testICMPAllow() string {
+	return "\"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\""
+}
+
 func TestNewInstanceV6(t *testing.T) {
 
 	Convey("When I create a new iptables instance", t, func() {
@@ -303,7 +307,7 @@ var (
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -325,9 +329,7 @@ var (
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
@@ -464,7 +466,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -485,7 +487,7 @@ var (
 
 		"TRI-App-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
@@ -589,7 +591,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"1122::/64"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmpv6"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -969,7 +971,7 @@ var (
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -992,7 +994,7 @@ var (
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",

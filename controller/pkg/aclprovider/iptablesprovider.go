@@ -167,6 +167,10 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	b.Lock()
 	defer b.Unlock()
 
+	if len(rulespec) == 0 {
+		return nil
+	}
+
 	if _, ok := b.batchTables[table]; !ok {
 		cmd := createIPtablesCommand(b.cmd, table, chain, "-A", rulespec...)
 		execCmd := exec.Command("aporeto-iptables", cmd...)
@@ -496,6 +500,10 @@ func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
 	}
 
 	for i, rule := range rulesspec {
+		if rulesspec[i][0] == '"' {
+			continue
+		}
+
 		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
 	}
 }

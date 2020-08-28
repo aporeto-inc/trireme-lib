@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
+	"go.aporeto.io/gaia/protocols"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 )
@@ -66,8 +67,7 @@ func (i *ipv4) NeedICMP() bool {
 }
 
 func (i *ipv4) ProtocolAllowed(proto string) bool {
-
-	return !(strings.ToLower(proto) == "icmpv6")
+	return !(strings.ToUpper(proto) == protocols.L4ProtocolICMP6)
 }
 
 func (i *ipv4) Append(table, chain string, rulespec ...string) error {
