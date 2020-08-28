@@ -4,50 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
-
-// updateTargetNetworks updates the set of target networks. Tries to minimize
-// read/writes to the ipset structures
-func (i *iptables) updateTargetNetworks(set provider.Ipset, old, new []string) error {
-
-	// We need to delete first, because of nomatch.
-	// For example, if old has 1.2.3.4 and new has !1.2.3.4, then we delete the 1.2.3.4 first
-	// before we can add the 1.2.3.4 with the nomatch option.
-
-	deleteMap := map[string]bool{}
-	addMap := map[string]bool{}
-	for _, net := range old {
-		deleteMap[net] = true
-	}
-	for _, net := range new {
-		if _, ok := deleteMap[net]; ok {
-			deleteMap[net] = false
-			continue
-		}
-		addMap[net] = true
-	}
-
-	for net, delete := range deleteMap {
-		if delete {
-			if err := i.aclmanager.DelFromIPset(set, net); err != nil {
-				zap.L().Debug("unable to remove network from set", zap.Error(err))
-			}
-		}
-	}
-
-	for net, add := range addMap {
-		if add {
-			if err := i.aclmanager.AddToIPset(set, net); err != nil {
-				return fmt.Errorf("unable to update target set: %s", err)
-			}
-		}
-	}
-
-	return nil
-}
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
 func (i *iptables) createProxySets(portSetName string) error {

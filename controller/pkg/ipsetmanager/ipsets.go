@@ -2,6 +2,7 @@ package ipsetmanager
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -157,17 +158,18 @@ func (m *managerType) DelFromIPset(set provider.Ipset, data string) error {
 }
 
 func (m *managerType) synchronizeIPsinIpset(ipHandler *handler, ipsetInfo *ipsetInfo, addresses []string) {
+	var addrToAdd, addrToDelete []string
 	newips := map[string]bool{}
 	ipsetHandler := ipHandler.ipset.GetIpset(ipsetInfo.name)
 
 	for _, address := range addresses {
+		parsableAddress := address
 		if strings.HasPrefix(address, "!") {
-			zap.L().Error("Unexpected not prefix on address", zap.String("address", address))
-			continue
+			parsableAddress = address[1:]
 		}
-		netIP := net.ParseIP(address)
+		netIP := net.ParseIP(parsableAddress)
 		if netIP == nil {
-			netIP, _, _ = net.ParseCIDR(address)
+			netIP, _, _ = net.ParseCIDR(parsableAddress)
 		}
 
 		if !ipHandler.ipFilter(netIP) {
@@ -177,20 +179,19 @@ func (m *managerType) synchronizeIPsinIpset(ipHandler *handler, ipsetInfo *ipset
 		newips[address] = true
 
 		if _, ok := ipsetInfo.addresses[address]; !ok {
-			if err := m.AddToIPset(ipsetHandler, address); err != nil {
-				zap.L().Error("Error adding IPs to ipset", zap.String("ipset", ipsetInfo.name), zap.String("address", address))
-			}
+			addrToAdd = append(addrToAdd, address)
 		}
 		delete(ipsetInfo.addresses, address)
 	}
 
-	// Remove the old entries
 	for address, val := range ipsetInfo.addresses {
 		if val {
-			if err := m.DelFromIPset(ipsetHandler, address); err != nil {
-				zap.L().Error("Error removing IPs from ipset", zap.String("ipset", ipsetInfo.name), zap.String("address", address))
-			}
+			addrToDelete = append(addrToDelete, address)
 		}
+	}
+
+	if err := ProcessIPSetUpdates(m, ipsetHandler, addrToDelete, addrToAdd); err != nil {
+		zap.L().Error("Error updating ipset during sync", zap.Error(err))
 	}
 
 	ipsetInfo.addresses = newips
@@ -370,13 +371,13 @@ func (m *managerType) UpdateIPsets(addresses []string, serviceID string) {
 
 	process := func(ipHandler *handler) {
 		for _, address := range addresses {
+			parsableAddress := address
 			if strings.HasPrefix(address, "!") {
-				zap.L().Error("Unexpected not prefix on address", zap.String("address", address))
-				continue
+				parsableAddress = address[1:]
 			}
-			netIP := net.ParseIP(address)
+			netIP := net.ParseIP(parsableAddress)
 			if netIP == nil {
-				netIP, _, _ = net.ParseCIDR(address)
+				netIP, _, _ = net.ParseCIDR(parsableAddress)
 			}
 
 			if !ipHandler.ipFilter(netIP) {
@@ -395,4 +396,44 @@ func (m *managerType) UpdateIPsets(addresses []string, serviceID string) {
 
 	process(m.ipv4Handler)
 	process(m.ipv6Handler)
+}
+
+// ProcessIPSetUpdates updates the set of target networks. Tries to minimize
+// read/writes to the ipset structures
+func ProcessIPSetUpdates(aclManager ACLManager, set provider.Ipset, old, new []string) error {
+
+	// We need to delete first, because of nomatch.
+	// For example, if old has 1.2.3.4 and new has !1.2.3.4, then we delete the 1.2.3.4 first
+	// before we can add the 1.2.3.4 with the nomatch option.
+
+	deleteMap := map[string]bool{}
+	addMap := map[string]bool{}
+	for _, net := range old {
+		deleteMap[net] = true
+	}
+	for _, net := range new {
+		if _, ok := deleteMap[net]; ok {
+			deleteMap[net] = false
+			continue
+		}
+		addMap[net] = true
+	}
+
+	for net, delete := range deleteMap {
+		if delete {
+			if err := aclManager.DelFromIPset(set, net); err != nil {
+				zap.L().Debug("unable to remove network from set", zap.Error(err))
+			}
+		}
+	}
+
+	for net, add := range addMap {
+		if add {
+			if err := aclManager.AddToIPset(set, net); err != nil {
+				return fmt.Errorf("unable to update target set: %s", err)
+			}
+		}
+	}
+
+	return nil
 }
