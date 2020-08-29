@@ -72,11 +72,11 @@ func getICMPv6() string {
 	return strings.Join(s, " or ")
 }
 
-var lock sync.Mutex
+var bpfLock sync.Mutex
 
 func compileExprToBPF(expr string) string {
-	lock.Lock()
-	defer lock.Unlock()
+	bpfLock.Lock()
+	defer bpfLock.Unlock()
 
 	cExpr := C.CString(expr)
 	defer C.free(unsafe.Pointer(cExpr))
