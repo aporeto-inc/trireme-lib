@@ -539,8 +539,9 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		Convey("I should recognize the icmp type", func() {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
-			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 8)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 0)
+			So(ruleSpec.IcmpMatch, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 8)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange, ShouldBeNil)
 		})
 
 		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/8"), " ")
@@ -553,10 +554,10 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		Convey("I should recognize the icmp type and code", func() {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionBlock)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
-			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 3)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 1)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 5)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 5)
+			So(ruleSpec.IcmpMatch, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 5)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 5)
 		})
 
 		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/3/5"), " ")
@@ -569,16 +570,19 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		Convey("I should recognize the icmp type and code ranges", func() {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
-			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 3)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 4)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 0)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 4)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].Start, ShouldEqual, 15)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].End, ShouldEqual, 15)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[2].Start, ShouldEqual, 6)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[2].End, ShouldEqual, 7)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[3].Start, ShouldEqual, 14)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[3].End, ShouldEqual, 14)
+			So(ruleSpec.IcmpMatch, ShouldHaveLength, 4)
+			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 0)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 4)
+			So(ruleSpec.IcmpMatch[1].IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch[1].IcmpCodeRange.Start, ShouldEqual, 15)
+			So(ruleSpec.IcmpMatch[1].IcmpCodeRange.End, ShouldEqual, 15)
+			So(ruleSpec.IcmpMatch[2].IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch[2].IcmpCodeRange.Start, ShouldEqual, 6)
+			So(ruleSpec.IcmpMatch[2].IcmpCodeRange.End, ShouldEqual, 7)
+			So(ruleSpec.IcmpMatch[3].IcmpType, ShouldEqual, 3)
+			So(ruleSpec.IcmpMatch[3].IcmpCodeRange.Start, ShouldEqual, 14)
+			So(ruleSpec.IcmpMatch[3].IcmpCodeRange.End, ShouldEqual, 14)
 		})
 
 		rulePart := strings.Join(windows.TransformIcmpProtoString("icmp/3/0:4,15,6:7,14"), " ")
@@ -591,12 +595,12 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		Convey("I should recognize the icmp v6 type and code", func() {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 58)
-			So(ruleSpec.IcmpMatch.IcmpType, ShouldEqual, 140)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges, ShouldHaveLength, 2)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].Start, ShouldEqual, 1)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[0].End, ShouldEqual, 1)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].Start, ShouldEqual, 2)
-			So(ruleSpec.IcmpMatch.IcmpCodeRanges[1].End, ShouldEqual, 2)
+			So(ruleSpec.IcmpMatch, ShouldHaveLength, 2)
+			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 140)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch[1].IcmpCodeRange.Start, ShouldEqual, 2)
+			So(ruleSpec.IcmpMatch[1].IcmpCodeRange.End, ShouldEqual, 2)
 		})
 
 		rulePart := strings.Join(windows.TransformIcmpProtoString("icmpv6/140/1,2"), " ")
@@ -616,6 +620,49 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		// type out of range
 		_, err = windows.ParseRuleSpec(strings.Split("-p 1 --icmp-type 2555/1,4 -j ACCEPT", " ")...)
 		So(err, ShouldNotBeNil)
+	})
+
+	Convey("When I handle a rule with policy restrictions", t, func() {
+
+		rulePart, err := windows.ReduceIcmpProtoString("icmp", []string{"icmp/1/1", "icmp/2/3:4"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 4)
+		So(rulePart[0], ShouldEqual, "--icmp-type")
+		So(rulePart[1], ShouldEqual, "1/1")
+		So(rulePart[3], ShouldEqual, "2/3:4")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp/3", []string{"icmp/2", "icmp", "icmp/3/0"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 4)
+		So(rulePart[1], ShouldEqual, "3")
+		So(rulePart[3], ShouldEqual, "3/0")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp/3/0:2,3:3,5:7,10:18", []string{"icmp/3/2:4,6:8,11", "icmp/3/1,2,4,6:7,9,14,16,18", "icmp/3/0,10,20:22"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 6)
+		So(rulePart[1], ShouldEqual, "3/2:2,3:3,6:7,11:11")
+		So(rulePart[3], ShouldEqual, "3/1:1,2:2,6:7,14:14,16:16,18:18")
+		So(rulePart[5], ShouldEqual, "3/0:0,10:10")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp/8/10,1:3,7", []string{"icmp/2/10", "icmp/8", "icmp/8/0,4:6,11:20,9,8"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 2)
+		So(rulePart[1], ShouldEqual, "8/10,1:3,7")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp", []string{"icmp/1/1"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 2)
+		So(rulePart[1], ShouldEqual, "1/1")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp6", []string{"icmp6/1/0:255"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 2)
+		So(rulePart[1], ShouldEqual, "1/0:255")
+
+		rulePart, err = windows.ReduceIcmpProtoString("icmp/1", []string{"icmp", "icmp6"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 2)
+		So(rulePart[1], ShouldEqual, "1")
 	})
 }
 

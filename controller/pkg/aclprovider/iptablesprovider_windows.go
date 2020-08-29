@@ -141,17 +141,22 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 			}
 		}
 	}
-	if winRuleSpec.IcmpMatch != nil {
-		argRuleSpec.IcmpTypeSpecified = 1
-		argRuleSpec.IcmpType = uint8(winRuleSpec.IcmpMatch.IcmpType)
-		if len(winRuleSpec.IcmpMatch.IcmpCodeRanges) > 0 {
-			argRuleSpec.IcmpCodeCount = int32(len(winRuleSpec.IcmpMatch.IcmpCodeRanges))
-			icmpCodeRanges := make([]frontman.IcmpRange, argRuleSpec.IcmpCodeCount)
-			for i, icmpCode := range winRuleSpec.IcmpMatch.IcmpCodeRanges {
-				icmpCodeRanges[i] = frontman.IcmpRange{Lower: uint8(icmpCode.Start), Upper: uint8(icmpCode.End)}
+	if len(winRuleSpec.IcmpMatch) > 0 {
+		argRuleSpec.IcmpRangeCount = int32(len(winRuleSpec.IcmpMatch))
+		icmpRanges := make([]frontman.IcmpRange, argRuleSpec.IcmpRangeCount)
+		for i, im := range winRuleSpec.IcmpMatch {
+			r := frontman.IcmpRange{
+				IcmpTypeSpecified: 1,
+				IcmpType:          uint8(im.IcmpType),
 			}
-			argRuleSpec.IcmpCodeRanges = &icmpCodeRanges[0]
+			if im.IcmpCodeRange != nil {
+				r.IcmpCodeSpecified = 1
+				r.IcmpCodeLower = uint8(im.IcmpCodeRange.Start)
+				r.IcmpCodeUpper = uint8(im.IcmpCodeRange.End)
+			}
+			icmpRanges[i] = r
 		}
+		argRuleSpec.IcmpRanges = &icmpRanges[0]
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.MatchSet))
 	for i, matchSet := range winRuleSpec.MatchSet {
