@@ -88,6 +88,7 @@ type PacketInfo struct {
 	RemoteAddr                   [4]uint32
 	IfIdx                        uint32
 	SubIfIdx                     uint32
+	CompartmentID                uint32
 	PacketSize                   uint32
 	Mark                         uint32
 	StartTimeReceivedFromNetwork uint64
