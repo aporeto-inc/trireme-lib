@@ -331,10 +331,11 @@ func (l IPRuleList) Copy() IPRuleList {
 
 // KeyValueOperator describes an individual matching rule
 type KeyValueOperator struct {
-	Key      string
-	Value    []string
-	Operator Operator
-	ID       string
+	Key       string
+	Value     []string
+	Operator  Operator
+	ID        string
+	PortRange *portspec.PortSpec
 }
 
 // TagSelector info describes a tag selector key Operator value

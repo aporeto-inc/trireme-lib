@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
@@ -13,11 +14,17 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	tacls "go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
+
+func testICMPAllow() string {
+	return "\"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\""
+}
 
 func TestNewInstanceV6(t *testing.T) {
 
@@ -303,7 +310,7 @@ var (
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -325,9 +332,7 @@ var (
 		"TRI-App-pu1N7uS6--0": {
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
@@ -464,7 +469,7 @@ var (
 
 		"TRI-Net-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -485,7 +490,7 @@ var (
 
 		"TRI-App-pu1N7uS6--1": {
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
@@ -589,7 +594,7 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"1122::/64"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmpv6"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -833,6 +838,102 @@ func Test_OperationNomatchIpsetsV6(t *testing.T) {
 	})
 }
 
+func Test_OperationNomatchIpsetsInExternalNetworksV6(t *testing.T) {
+
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"::/0", "!2001:db8:1234::/48"},
+			UDPTargetNetworks: []string{"1120::/64"},
+			ExcludedNetworks:  []string{"::1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) // nolint
+
+			So(err, ShouldBeNil)
+
+			// Setup external networks
+			appACLs := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"::/0", "!2001:db8:1234::/48"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a3",
+						PolicyID:  "1234a",
+					},
+				},
+			}
+			netACLs := policy.IPRuleList{}
+
+			policyRules := policy.NewPUPolicy("Context", "/ns1", policy.Police, appACLs, netACLs, nil, nil, nil, nil, nil, nil, nil, 20992, 0, nil, nil, []string{}, policy.EnforcerMapping)
+
+			puInfo := policy.NewPUInfo("Context", "/ns1", common.HostPU)
+			puInfo.Policy = policyRules
+			puInfo.Runtime = policy.NewPURuntimeWithDefaults()
+			puInfo.Runtime.SetPUType(common.HostPU)
+			puInfo.Runtime.SetOptions(policy.OptionsType{
+				CgroupMark: "10",
+			})
+
+			// configure rules
+			var iprules policy.IPRuleList
+			iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+			iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+			err = i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+			err = i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+
+			err = i.ConfigureRules(0, "pu1", puInfo)
+			So(err, ShouldBeNil)
+
+			// Check ipsets
+			setName := i.iptv6.aclmanager.GetIPsets(appACLs[0:1], ipsetmanager.IPsetV6)[0]
+			So(ipsv6.sets[setName].set, ShouldContainKey, "::/1")
+			So(ipsv6.sets[setName].set, ShouldContainKey, "8000::/1")
+			So(ipsv6.sets[setName].set, ShouldContainKey, "2001:db8:1234::/48")
+			So(ipsv6.sets[setName].set["::/1"], ShouldBeFalse)
+			So(ipsv6.sets[setName].set["8000::/1"], ShouldBeFalse)
+			So(ipsv6.sets[setName].set["2001:db8:1234::/48"], ShouldBeTrue)
+
+			// Configure and check acl cache
+			aclCache := tacls.NewACLCache()
+			err = aclCache.AddRuleList(puInfo.Policy.ApplicationACLs())
+			So(err, ShouldBeNil)
+
+			report, _, err := aclCache.GetMatchingAction(net.ParseIP("2001:db8:5678::"), 80)
+			So(err, ShouldBeNil)
+			So(report.Action, ShouldEqual, policy.Accept|policy.Log)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("2001:db8:1234:5678::"), 80)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject)
+		})
+	})
+}
+
 var (
 	expectedContainerGlobalMangleChainsV6 = map[string][]string{
 		"INPUT": {
@@ -969,7 +1070,7 @@ var (
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
 			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
 			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
@@ -992,7 +1093,7 @@ var (
 			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode \"16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0\" -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",

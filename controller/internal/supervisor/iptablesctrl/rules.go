@@ -184,7 +184,7 @@ var acls = `
 // packetCaptureTemplate are the rules that trap traffic towards the user space.
 var packetCaptureTemplate = `
 {{if needICMP}}
-{{.MangleTable}} {{.AppChain}} -p icmpv6 -j ACCEPT
+{{.MangleTable}} {{.AppChain}} -p icmpv6 -m bpf --bytecode {{.ICMPv6Allow}} -j ACCEPT
 {{end}}
 
 {{if isBPFEnabled}}
@@ -224,8 +224,8 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 {{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -j DROP
 
-{{if needICMP}}
-{{.MangleTable}} {{.NetChain}} -p icmpv6 -j ACCEPT
+{{if needICMP}
+{{.MangleTable}} {{.NetChain}} -p icmpv6 -m bpf --bytecode {{.ICMPv6Allow}} -j ACCEPT
 {{end}}
 
 {{if .IsLegacyKernel}}

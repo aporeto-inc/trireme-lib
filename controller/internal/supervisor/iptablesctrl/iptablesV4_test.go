@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	tacls "go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
@@ -36,6 +38,7 @@ func createTestInstance(ipsv4 provider.IpsetProvider, ipsv6 provider.IpsetProvid
 
 	iptInstanceV4.conntrackCmd = func([]string) {}
 	iptInstanceV6.conntrackCmd = func([]string) {}
+	icmpAllow = testICMPAllow
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
@@ -460,7 +463,7 @@ var (
 
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -592,7 +595,7 @@ var (
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -720,7 +723,7 @@ var (
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m bpf --bytecode 20,0 0 0 0,177 0 0 0,12 0 0 0,7 0 0 0,72 0 0 4,53 0 13 29,135 0 0 0,4 0 0 8,7 0 0 0,72 0 0 2,84 0 0 64655,21 0 7 0,72 0 0 4,21 0 5 1,64 0 0 6,21 0 3 0,72 0 0 10,37 1 0 1,6 0 0 0,6 0 0 65535 -j DROP",
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -849,7 +852,7 @@ var (
 			"-p TCP -m set --match-set TRI-v4-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v4-TargetTCP dst --match multiport --dports 80 -j DROP",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:2:s2:3",
 			"-p UDP -m set --match-set TRI-v4-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
+			"-m bpf --bytecode \"7,48 0 0 0,84 0 0 240,21 0 3 64,48 0 0 9,21 0 1 1,6 0 0 65535,6 0 0 0\" -p icmp -m set --match-set TRI-v4-ext-w5frVvhsnpU= dst -j ACCEPT",
 			"-p UDP -m set --match-set TRI-v4-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
 			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
@@ -1117,7 +1120,7 @@ func Test_OperationWithLinuxServicesV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1425,7 +1428,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1609,7 +1612,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1794,7 +1797,7 @@ func Test_ExtensionsV4(t *testing.T) {
 					},
 					policy.IPRule{
 						Addresses: []string{"50.0.0.0/24"},
-						Ports:     []string{"443"},
+						Ports:     []string{""},
 						Protocols: []string{"icmp"},
 						Policy: &policy.FlowPolicy{
 							Action:    policy.Accept,
@@ -1955,6 +1958,206 @@ func Test_OperationNomatchIpsetsV4(t *testing.T) {
 			So(ipsv4.sets["TRI-v4-TargetTCP"].set["10.10.0.0/16"], ShouldBeTrue)
 			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "0.0.0.0/1")
 			So(ipsv4.sets["TRI-v4-TargetTCP"].set, ShouldContainKey, "128.0.0.0/1")
+		})
+	})
+}
+
+func Test_OperationNomatchIpsetsInExternalNetworksV4(t *testing.T) {
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"0.0.0.0/0", "!10.10.10.0/24", "!10.0.0.0/8", "10.10.0.0/16"},
+			UDPTargetNetworks: []string{"10.0.0.0/8"},
+			ExcludedNetworks:  []string{"127.0.0.1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+
+		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) // nolint
+			So(err, ShouldBeNil)
+
+			// Setup external networks
+			appACLs := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"10.0.0.0/8", "!10.0.0.0/16", "!10.0.2.0/24", "10.0.2.7"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a1",
+						PolicyID:  "123a",
+					},
+				},
+			}
+			netACLs := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"0.0.0.0/0", "!10.0.0.0/8", "10.0.0.0/16", "!10.0.2.8"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a2",
+						PolicyID:  "123b",
+					},
+				},
+			}
+
+			policyRules := policy.NewPUPolicy("Context", "/ns1", policy.Police, appACLs, netACLs, nil, nil, nil, nil, nil, nil, nil, 20992, 0, nil, nil, []string{}, policy.EnforcerMapping)
+
+			puInfo := policy.NewPUInfo("Context", "/ns1", common.HostPU)
+			puInfo.Policy = policyRules
+			puInfo.Runtime = policy.NewPURuntimeWithDefaults()
+			puInfo.Runtime.SetPUType(common.HostPU)
+			puInfo.Runtime.SetOptions(policy.OptionsType{
+				CgroupMark: "10",
+			})
+
+			// configure rules
+			var iprules policy.IPRuleList
+			iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+			iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+			err = i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+
+			err = i.ConfigureRules(0, "pu1", puInfo)
+			So(err, ShouldBeNil)
+
+			// Check ipsets
+			setName := i.iptv4.aclmanager.GetIPsets(appACLs[0:1], ipsetmanager.IPsetV4)[0]
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/8")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/16")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.0/24")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.7")
+			So(ipsv4.sets[setName].set["10.0.0.0/8"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.0.0/16"], ShouldBeTrue)
+			So(ipsv4.sets[setName].set["10.0.2.0/24"], ShouldBeTrue)
+			So(ipsv4.sets[setName].set["10.0.2.7"], ShouldBeFalse)
+
+			setName = i.iptv4.aclmanager.GetIPsets(netACLs[0:1], ipsetmanager.IPsetV4)[0]
+			So(ipsv4.sets[setName].set, ShouldContainKey, "0.0.0.0/1")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "128.0.0.0/1")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/8")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/16")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.8")
+			So(ipsv4.sets[setName].set["0.0.0.0/1"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["128.0.0.0/1"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.0.0/8"], ShouldBeTrue)
+			So(ipsv4.sets[setName].set["10.0.0.0/16"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.2.8"], ShouldBeTrue)
+
+			// Reconfigure external networks
+			appACLs = policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"10.0.0.0/8", "!10.0.0.0/16", "10.0.2.0/24", "!10.0.2.7"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a1",
+						PolicyID:  "123a",
+					},
+				},
+			}
+			netACLs = policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"0.0.0.0/0", "10.0.0.0/8", "!10.0.2.0/24"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a2",
+						PolicyID:  "123b",
+					},
+				},
+			}
+
+			policyRules = policy.NewPUPolicy("Context", "/ns1", policy.Police, appACLs, netACLs, nil, nil, nil, nil, nil, nil, nil, 20992, 0, nil, nil, []string{}, policy.EnforcerMapping)
+
+			puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.HostPU)
+			puInfoUpdated.Policy = policyRules
+			puInfoUpdated.Runtime = policy.NewPURuntimeWithDefaults()
+			puInfoUpdated.Runtime.SetPUType(common.HostPU)
+			puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
+				CgroupMark: "10",
+			})
+
+			// Reconfigure rules
+			iprules = nil
+			iprules = append(iprules, puInfoUpdated.Policy.ApplicationACLs()...)
+			iprules = append(iprules, puInfoUpdated.Policy.NetworkACLs()...)
+			err = i.iptv4.aclmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+
+			err = i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+			So(err, ShouldBeNil)
+
+			i.iptv4.aclmanager.DestroyUnusedIPsets()
+
+			// Check ipsets again
+			setName = i.iptv4.aclmanager.GetIPsets(appACLs[0:1], ipsetmanager.IPsetV4)[0]
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/8")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/16")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.0/24")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.7")
+			So(ipsv4.sets[setName].set["10.0.0.0/8"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.0.0/16"], ShouldBeTrue)
+			So(ipsv4.sets[setName].set["10.0.2.0/24"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.2.7"], ShouldBeTrue)
+
+			setName = i.iptv4.aclmanager.GetIPsets(netACLs[0:1], ipsetmanager.IPsetV4)[0]
+			So(ipsv4.sets[setName].set, ShouldContainKey, "0.0.0.0/1")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "128.0.0.0/1")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.0.0/8")
+			So(ipsv4.sets[setName].set, ShouldContainKey, "10.0.2.0/24")
+			So(ipsv4.sets[setName].set, ShouldNotContainKey, "10.0.2.8")
+			So(ipsv4.sets[setName].set["0.0.0.0/1"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["128.0.0.0/1"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.0.0/8"], ShouldBeFalse)
+			So(ipsv4.sets[setName].set["10.0.2.0/24"], ShouldBeTrue)
+
+			// Configure and check acl cache
+			aclCache := tacls.NewACLCache()
+			err = aclCache.AddRuleList(puInfoUpdated.Policy.ApplicationACLs())
+			So(err, ShouldBeNil)
+
+			report, _, err := aclCache.GetMatchingAction(net.ParseIP("10.0.2.7"), 80)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("10.0.2.8"), 80)
+			So(err, ShouldBeNil)
+			So(report.Action, ShouldEqual, policy.Accept|policy.Log)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("10.0.3.1"), 80)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("10.1.3.1"), 80)
+			So(err, ShouldBeNil)
+			So(report.Action, ShouldEqual, policy.Accept|policy.Log)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("11.1.3.1"), 80)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject)
+
 		})
 	})
 }

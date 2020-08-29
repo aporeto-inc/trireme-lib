@@ -118,6 +118,9 @@ const (
 	AllProtoString = "ALL"
 )
 
+//MaxICMPCodes constant puts the maximum number of codes that can be put in a single string
+const MaxICMPCodes = 25
+
 // sockets
 const (
 	StatsChannel = "/var/run/statschannel.sock"
