@@ -378,31 +378,26 @@ func ParseIcmpTypeCode(icmpTypeCode string) ([]*WindowsRuleIcmpMatch, error) {
 		// parse codes, comma-separated
 		for _, code := range strings.Split(parts[1], ",") {
 			// parse code range
-			var codeLower, codeUpper int
+			codeLower, codeUpper := -1, -1
 			codeRange := strings.SplitN(code, ":", 2)
-			switch len(codeRange) {
-			case 2:
-				codeUpper, err = strconv.Atoi(codeRange[1])
-				if err != nil {
-					return nil, err
-				}
-				if codeUpper < 0 || codeUpper > math.MaxUint8 {
-					return nil, errors.New("ICMP code out of range")
-				}
-				fallthrough
-			case 1:
+			if len(codeRange) > 0 {
 				codeLower, err = strconv.Atoi(codeRange[0])
 				if err != nil {
 					return nil, err
 				}
-				if codeLower < 0 || codeLower > math.MaxUint8 {
-					return nil, errors.New("ICMP code out of range")
+				codeUpper = codeLower
+			}
+			if len(codeRange) > 1 {
+				codeUpper, err = strconv.Atoi(codeRange[1])
+				if err != nil {
+					return nil, err
 				}
-				if codeUpper < codeLower {
-					codeUpper = codeLower
-				}
-			default:
-				return nil, errors.New("failed to parse icmp type/code")
+			}
+			if codeLower < 0 || codeLower > math.MaxUint8 {
+				return nil, errors.New("ICMP code out of range")
+			}
+			if codeUpper < 0 || codeUpper > math.MaxUint8 || codeUpper < codeLower {
+				return nil, errors.New("ICMP code out of range")
 			}
 			result = append(result, &WindowsRuleIcmpMatch{
 				IcmpType:      icmpType,
