@@ -6,7 +6,7 @@ package iptablesctrl
 #cgo linux LDFLAGS: -L/tmp -lpcap
 #include<string.h>
 #include<stdlib.h>
-#include<pcap.h>
+#include"pcap.h"
 
 char bpf_program[1500];
 
