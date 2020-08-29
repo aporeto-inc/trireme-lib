@@ -6,7 +6,7 @@ package iptablesctrl
 #cgo linux LDFLAGS: -L/tmp -lpcap
 #include<string.h>
 #include<stdlib.h>
-#include<pcap.h>
+#include<pcap/pcap.h>
 
 char bpf_program[1500];
 
@@ -48,7 +48,6 @@ import (
 	"unsafe"
 
 	"go.aporeto.io/gaia/protocols"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl/pcap"
 )
 
 func getICMPv6() string {
@@ -205,8 +204,4 @@ var icmpAllow = func() string {
 
 func allowICMPv6(cfg *ACLInfo) {
 	cfg.ICMPv6Allow = icmpAllow()
-}
-
-func test() {
-	pcap.Test()
 }

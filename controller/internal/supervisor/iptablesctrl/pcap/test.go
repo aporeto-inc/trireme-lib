@@ -1,4 +1,0 @@
-package pcap
-
-func Test() {
-}
