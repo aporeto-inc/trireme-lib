@@ -1,4 +1,4 @@
-package test
+package pcap
 
-func test() {
+func Test() {
 }

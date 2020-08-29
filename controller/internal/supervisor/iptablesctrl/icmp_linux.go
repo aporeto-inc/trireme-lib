@@ -41,12 +41,14 @@ char *compileBPF(const char *expr) {
 }
 */
 import "C"
+
 import (
 	"strings"
 	"sync"
 	"unsafe"
 
 	"go.aporeto.io/gaia/protocols"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl/pcap"
 )
 
 func getICMPv6() string {
@@ -203,4 +205,8 @@ var icmpAllow = func() string {
 
 func allowICMPv6(cfg *ACLInfo) {
 	cfg.ICMPv6Allow = icmpAllow()
+}
+
+func test() {
+	pcap.Test()
 }
