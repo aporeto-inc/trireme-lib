@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/mattn/go-shellwords"
+	"go.aporeto.io/gaia/protocols"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
@@ -299,12 +300,25 @@ func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, 
 	contextID := cfg.ContextID
 
 	baseRule := func(proto string) []string {
-		iptRule := []string{
-			appPacketIPTableContext,
-			chain,
+
+		iptRule := []string{appPacketIPTableContext,
+			chain}
+
+		if splits := strings.Split(proto, "/"); strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP || strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP6 {
+
+			iptRule = append(iptRule, icmpRule(proto, rule.Ports)...)
+
+			if strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP6 {
+				proto = "icmpv6"
+			} else {
+				proto = "icmp"
+			}
+		}
+
+		iptRule = append(iptRule, []string{
 			"-p", proto,
 			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		}
+		}...)
 
 		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
 			stateMatch := []string{"-m", "state", "--state", "NEW"}

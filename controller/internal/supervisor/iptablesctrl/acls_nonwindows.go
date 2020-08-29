@@ -122,3 +122,8 @@ func (i *iptables) cleanACLs() error { // nolint
 	// Always return nil here. No reason to block anything if cleans fail.
 	return nil
 }
+
+func icmpRule(icmpTypeCode string, policyRestrictions []string) []string {
+	bytecode := getBPFCode(icmpTypeCode, policyRestrictions)
+	return []string{"-m", "bpf", "--bytecode", bytecode}
+}

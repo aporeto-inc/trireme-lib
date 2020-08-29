@@ -26,8 +26,31 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 	}
 
 	rules := [][]string{}
+
+	var splitString func(string) []string
+
+	splitString = func(m string) []string {
+
+		rule := []string{}
+
+		if m == "" {
+			return rule
+		}
+
+		index := strings.Index(m, "\"")
+
+		if index == -1 {
+			return strings.Fields(m)
+		}
+
+		secondIndex := index + 2 + strings.Index(m[index+1:], "\"")
+
+		return append(append(strings.Fields(m[:index-1]), m[index:secondIndex]), splitString(m[secondIndex:])...)
+	}
+
 	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Fields(m)
+
+		rule := splitString(m)
 		// ignore empty lines in the buffer
 		if len(rule) <= 1 {
 			continue
@@ -128,6 +151,8 @@ type ACLInfo struct {
 	NFLOGPrefix            string
 	NFLOGAcceptPrefix      string
 	DefaultNFLOGDropPrefix string
+	// icmpv6 allow bytecode
+	ICMPv6Allow string
 }
 
 func chainName(contextID string, version int) (app, net string, err error) {
@@ -308,6 +333,8 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		NFLOGAcceptPrefix:      policy.DefaultAcceptLogPrefix(contextID),
 		DefaultNFLOGDropPrefix: policy.DefaultDroppedPacketLogPrefix(contextID),
 	}
+
+	allowICMPv6(cfg)
 
 	if i.bpf != nil {
 		cfg.BPFPath = i.bpf.GetBPFPath()
