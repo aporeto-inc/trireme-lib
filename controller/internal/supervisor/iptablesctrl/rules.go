@@ -224,7 +224,7 @@ var packetCaptureTemplate = `
 {{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix {{.DefaultNFLOGDropPrefix}}
 {{.MangleTable}} {{.AppChain}} -d {{.DefaultIP}} -j DROP
 
-{{if needICMP}
+{{if needICMP}}
 {{.MangleTable}} {{.NetChain}} -p icmpv6 -m bpf --bytecode {{.ICMPv6Allow}} -j ACCEPT
 {{end}}
 
