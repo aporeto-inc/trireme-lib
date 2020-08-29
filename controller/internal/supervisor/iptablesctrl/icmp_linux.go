@@ -41,6 +41,7 @@ char *compileBPF(const char *expr) {
 }
 */
 import "C"
+
 import (
 	"strings"
 	"sync"
