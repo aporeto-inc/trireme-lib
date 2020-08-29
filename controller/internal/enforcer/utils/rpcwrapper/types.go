@@ -66,6 +66,7 @@ type InitRequestPayload struct {
 	BinaryTokens           bool                   `json:",omitempty"`
 	IsBPFEnabled           bool                   `json:",omitempty"`
 	IPv6Enabled            bool                   `json:",omitempty"`
+	AdjustSeqNum           bool                   `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers

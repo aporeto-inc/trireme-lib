@@ -331,7 +331,15 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+
 	// Attach the tags to the packet and accept the packet
+	if d.adjustSeqNum {
+		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)) + (ackSize))
+		err = tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+		tcpPacket.UpdateTCPChecksum()
+		return nil, err
+	}
+
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 }
 
@@ -405,6 +413,14 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	conn.SetState(connection.TCPSynAckSend)
 
 	// Attach the tags to the packet
+	if d.adjustSeqNum {
+		tcpPacket.DecreaseTCPAck(uint32(ackSize))
+		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)))
+		err = tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+		tcpPacket.UpdateTCPChecksum()
+		return err
+	}
+
 	return tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 }
 
@@ -436,6 +452,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Attach the tags to the packet
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
 			return err
+		}
+
+		if d.adjustSeqNum {
+			tcpPacket.DecreaseTCPSeq(uint32(ackSize))
+			tcpPacket.UpdateTCPChecksum()
 		}
 
 		conn.SetState(connection.TCPAckSend)
@@ -622,6 +643,11 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynDroppedTCPOption, fmt.Errorf("contextID %s SourceAddress %s DestPort %d", context.ManagementID(), tcpPacket.SourceAddress().String(), int(tcpPacket.DestPort())))
 	}
 
+	if d.adjustSeqNum {
+		payloadSize := len(tcpPacket.ReadTCPData())
+		tcpPacket.IncreaseTCPSeq(uint32(payloadSize) + (ackSize))
+	}
+
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
@@ -630,6 +656,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	}
 
 	tcpPacket.DropTCPDetachedBytes()
+	if d.adjustSeqNum {
+		tcpPacket.UpdateTCPChecksum()
+	}
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
@@ -775,6 +804,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, conn.Context.Counters().CounterError(counters.ErrSynAckNoTCPAuthOption, fmt.Errorf("contextID %s SourceAddress %s", context.ManagementID(), tcpPacket.SourceAddress().String()))
 	}
 
+	if d.adjustSeqNum {
+		payloadSize := len(tcpPacket.ReadTCPData())
+		tcpPacket.IncreaseTCPSeq(uint32(payloadSize))
+		tcpPacket.IncreaseTCPAck(ackSize)
+	}
+
 	// Remove any of our data
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidPayload, nil, nil, true)
@@ -783,6 +818,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	tcpPacket.DropTCPDetachedBytes()
+	if d.adjustSeqNum {
+		tcpPacket.UpdateTCPChecksum()
+	}
 
 	if !d.mutualAuthorization {
 		// If we dont do mutual authorization, dont lookup txt rules.
@@ -919,6 +957,10 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, conn.Context.Counters().CounterError(netAckCounterFromError(err), fmt.Errorf("contextID %s destPort %d", context.ManagementID(), int(tcpPacket.DestPort())))
 		}
 
+		if d.adjustSeqNum {
+			tcpPacket.IncreaseTCPSeq(ackSize)
+		}
+
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidPayload, nil, nil, false)
@@ -927,6 +969,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		}
 
 		tcpPacket.DropTCPDetachedBytes()
+		if d.adjustSeqNum {
+			tcpPacket.UpdateTCPChecksum()
+		}
 
 		if conn.PacketFlowPolicy != nil && conn.PacketFlowPolicy.Action.Rejected() {
 			if !conn.PacketFlowPolicy.ObserveAction.Observed() {

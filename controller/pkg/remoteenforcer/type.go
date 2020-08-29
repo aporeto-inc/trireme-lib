@@ -45,4 +45,5 @@ type RemoteEnforcer struct {
 	enforcerType   policy.EnforcerType
 	aclmanager     ipsetmanager.ACLManager
 	agentVersion   semver.Version
+	adjustSeqNum   bool
 }

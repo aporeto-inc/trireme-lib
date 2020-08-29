@@ -238,7 +238,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 
 			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err, ShouldBeNil)
-			So(len(token), ShouldBeLessThan, 1420)
+			So(len(token), ShouldBeLessThan, 1428)
 		})
 
 	})
@@ -286,7 +286,7 @@ func Test_BinaryTokenLengths(t *testing.T) {
 
 			token, err := t.CreateAndSign(false, claims, pu1nonce, claimsheader.NewClaimsHeader(), scrts)
 			So(err, ShouldBeNil)
-			So(len(token), ShouldBeLessThan, 1420)
+			So(len(token), ShouldBeLessThan, 1428)
 		})
 
 	})
