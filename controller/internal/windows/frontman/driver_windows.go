@@ -88,6 +88,7 @@ type PacketInfo struct {
 	RemoteAddr                   [4]uint32
 	IfIdx                        uint32
 	SubIfIdx                     uint32
+	CompartmentID                uint32
 	PacketSize                   uint32
 	Mark                         uint32
 	StartTimeReceivedFromNetwork uint64
@@ -125,19 +126,24 @@ type PortRange struct {
 	PortEnd   uint16
 }
 
+type IcmpRange struct {
+	IcmpTypeSpecified uint8
+	IcmpType          uint8
+	IcmpCodeSpecified uint8
+	IcmpCodeLower     uint8
+	IcmpCodeUpper     uint8
+}
+
 type RuleSpec struct {
 	Action            uint8
 	Log               uint8
 	Protocol          uint8
 	ProtocolSpecified uint8
-	IcmpType          uint8
-	IcmpTypeSpecified uint8
-	IcmpCode          uint8
-	IcmpCodeSpecified uint8
 	AleAuthConnect    uint8 // not used by us
 	ProcessFlags      uint8 // See frontmanIO.h bit mask PROCESS_MATCH_PROCESS and/or PROCESS_MATCH_CHILDREN
-	Reserved1         uint8
-	Reserved2         uint8
+	Reserved          [2]uint8
+	IcmpRanges        *IcmpRange
+	IcmpRangeCount    int32
 	ProxyPort         uint16
 	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
 	BytesMatchOffset  int32

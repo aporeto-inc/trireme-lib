@@ -110,7 +110,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.SrcPortCount = int32(len(winRuleSpec.MatchSrcPort))
 		srcPorts := make([]frontman.PortRange, argRuleSpec.SrcPortCount)
 		for i, portRange := range winRuleSpec.MatchSrcPort {
-			srcPorts[i] = frontman.PortRange{uint16(portRange.PortStart), uint16(portRange.PortEnd)}
+			srcPorts[i] = frontman.PortRange{uint16(portRange.Start), uint16(portRange.End)}
 		}
 		argRuleSpec.SrcPorts = &srcPorts[0]
 	}
@@ -118,7 +118,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.DstPortCount = int32(len(winRuleSpec.MatchDstPort))
 		dstPorts := make([]frontman.PortRange, argRuleSpec.DstPortCount)
 		for i, portRange := range winRuleSpec.MatchDstPort {
-			dstPorts[i] = frontman.PortRange{uint16(portRange.PortStart), uint16(portRange.PortEnd)}
+			dstPorts[i] = frontman.PortRange{uint16(portRange.Start), uint16(portRange.End)}
 		}
 		argRuleSpec.DstPorts = &dstPorts[0]
 	}
@@ -140,6 +140,23 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 				argRuleSpec.ProcessFlags |= frontman.ProcessMatchChildren
 			}
 		}
+	}
+	if len(winRuleSpec.IcmpMatch) > 0 {
+		argRuleSpec.IcmpRangeCount = int32(len(winRuleSpec.IcmpMatch))
+		icmpRanges := make([]frontman.IcmpRange, argRuleSpec.IcmpRangeCount)
+		for i, im := range winRuleSpec.IcmpMatch {
+			r := frontman.IcmpRange{
+				IcmpTypeSpecified: 1,
+				IcmpType:          uint8(im.IcmpType),
+			}
+			if im.IcmpCodeRange != nil {
+				r.IcmpCodeSpecified = 1
+				r.IcmpCodeLower = uint8(im.IcmpCodeRange.Start)
+				r.IcmpCodeUpper = uint8(im.IcmpCodeRange.End)
+			}
+			icmpRanges[i] = r
+		}
+		argRuleSpec.IcmpRanges = &icmpRanges[0]
 	}
 	argIpsetRuleSpecs := make([]frontman.IpsetRuleSpec, len(winRuleSpec.MatchSet))
 	for i, matchSet := range winRuleSpec.MatchSet {
