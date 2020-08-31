@@ -137,6 +137,13 @@ var cgroupCaptureTemplate = `
 {{.MangleTable}} {{.AppSection}} -m cgroup --cgroup {{.Mark}} -m comment --comment PU-Chain -j MARK --set-mark {{.PacketMark}}/{{.MarkMask}}
 {{.MangleTable}} {{.AppSection}} -m mark --mark {{.PacketMark}}/{{.MarkMask}} -m comment --comment PU-Chain -j {{.AppChain}}
 
+{{if isHostPU}}
+{{if isIPV6Enabled}}
+{{.MangleTable}} {{.AppSection}} -p icmpv6 -j {{.AppChain}}
+{{else}}
+{{.MangleTable}} {{.AppSection}} -p icmp -j {{.AppChain}}
+{{end}}
+{{end}}
 `
 
 // containerChainTemplate will hook traffic towards the container specific chains.

@@ -70,6 +70,10 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 		"isHostPU": func() bool {
 			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
 		},
+		"isIPV6Enabled": func() bool {
+			// icmpv6 rules are needed for ipv6
+			return cfg.needICMPRules
+		},
 	}).Parse(cgroupCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
