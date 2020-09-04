@@ -540,6 +540,7 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
 			So(ruleSpec.IcmpMatch, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch[0].Nomatch, ShouldBeFalse)
 			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 8)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange, ShouldBeNil)
 		})
@@ -555,6 +556,7 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionBlock)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
 			So(ruleSpec.IcmpMatch, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch[0].Nomatch, ShouldBeFalse)
 			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 3)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 5)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 5)
@@ -571,6 +573,7 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 1)
 			So(ruleSpec.IcmpMatch, ShouldHaveLength, 4)
+			So(ruleSpec.IcmpMatch[0].Nomatch, ShouldBeFalse)
 			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 3)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 0)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 4)
@@ -596,6 +599,7 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(ruleSpec.Protocol, ShouldEqual, 58)
 			So(ruleSpec.IcmpMatch, ShouldHaveLength, 2)
+			So(ruleSpec.IcmpMatch[0].Nomatch, ShouldBeFalse)
 			So(ruleSpec.IcmpMatch[0].IcmpType, ShouldEqual, 140)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 1)
 			So(ruleSpec.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 1)
@@ -605,6 +609,17 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 
 		rulePart := strings.Join(windows.TransformIcmpProtoString("icmpv6/140/1,2"), " ")
 		So(rulePart, ShouldEqual, "--icmp-type 140/1,2")
+	})
+
+	Convey("When I parse a rule with an icmp nomatch", t, func() {
+		ruleSpec, err := windows.ParseRuleSpec(strings.Split("-p icmp --icmp-type nomatch -j ACCEPT", " ")...)
+		So(err, ShouldBeNil)
+		Convey("I should recognize that it should never match", func() {
+			So(ruleSpec.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(ruleSpec.Protocol, ShouldEqual, 1)
+			So(ruleSpec.IcmpMatch, ShouldHaveLength, 1)
+			So(ruleSpec.IcmpMatch[0].Nomatch, ShouldBeTrue)
+		})
 	})
 
 	Convey("When I parse a rule with an invalid icmp type/code", t, func() {
@@ -663,6 +678,15 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(rulePart, ShouldHaveLength, 2)
 		So(rulePart[1], ShouldEqual, "1")
+
+		// proto match without type/code should return empty
+		rulePart, err = windows.ReduceIcmpProtoString("icmp", []string{"icmp"})
+		So(err, ShouldBeNil)
+		So(rulePart, ShouldHaveLength, 0)
+
+		// proto match with type/code conflict should return error
+		rulePart, err = windows.ReduceIcmpProtoString("icmp/0", []string{"icmp/1"})
+		So(err, ShouldNotBeNil)
 	})
 }
 

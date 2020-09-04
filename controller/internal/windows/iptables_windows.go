@@ -27,6 +27,7 @@ type WindowsRuleRange struct { // nolint:golint // ignore type name stutters
 type WindowsRuleIcmpMatch struct { // nolint:golint // ignore type name stutters
 	IcmpType      int
 	IcmpCodeRange *WindowsRuleRange
+	Nomatch       bool
 }
 
 // structure representing result of parsed --match-set
@@ -122,11 +123,15 @@ func MakeRuleSpecText(winRuleSpec *WindowsRuleSpec, validate bool) (string, erro
 	}
 	if len(winRuleSpec.IcmpMatch) > 0 {
 		for _, im := range winRuleSpec.IcmpMatch {
-			rulespec += fmt.Sprintf("--icmp-type %d", im.IcmpType)
-			if im.IcmpCodeRange != nil {
-				rulespec += fmt.Sprintf("/%d", im.IcmpCodeRange.Start)
-				if im.IcmpCodeRange.Start != im.IcmpCodeRange.End {
-					rulespec += fmt.Sprintf(":%d", im.IcmpCodeRange.End)
+			if im.Nomatch {
+				rulespec += "--icmp-type nomatch"
+			} else {
+				rulespec += fmt.Sprintf("--icmp-type %d", im.IcmpType)
+				if im.IcmpCodeRange != nil {
+					rulespec += fmt.Sprintf("/%d", im.IcmpCodeRange.Start)
+					if im.IcmpCodeRange.Start != im.IcmpCodeRange.End {
+						rulespec += fmt.Sprintf(":%d", im.IcmpCodeRange.End)
+					}
 				}
 			}
 			rulespec += " "
@@ -196,7 +201,9 @@ func ParsePortString(portString string) ([]*WindowsRuleRange, error) {
 }
 
 // ReduceIcmpProtoString will look at policyRestrictions and return a rulespec substring for matching.
-// represents the logic: "icmpProtoTypeCode and (policyRestrictions[0] or policyRestrictions[1] or...)""
+// represents the logic: "icmpProtoTypeCode and (policyRestrictions[0] or policyRestrictions[1] or...)"
+// can return empty list if there is a proto match with no restriction.
+// will return error if there is no intersection.
 func ReduceIcmpProtoString(icmpProtoTypeCode string, policyRestrictions []string) ([]string, error) {
 
 	if len(policyRestrictions) == 0 {
@@ -236,6 +243,7 @@ func ReduceIcmpProtoString(icmpProtoTypeCode string, policyRestrictions []string
 		return nil, err
 	}
 
+	var positiveMatch bool
 	result := make([]string, 0, len(policyRestrictions))
 	for _, restriction := range policyRestrictions {
 		protoR, criteriaR, err := splitIt(restriction)
@@ -249,11 +257,13 @@ func ReduceIcmpProtoString(icmpProtoTypeCode string, policyRestrictions []string
 		if len(criteriaR) == 0 {
 			// no restriction
 			result = append(result, TransformIcmpProtoString(icmpProtoTypeCode)...)
+			positiveMatch = true
 			continue
 		}
 		if len(criteria) == 0 {
 			// restriction takes effect
 			result = append(result, TransformIcmpProtoString(restriction)...)
+			positiveMatch = true
 			continue
 		}
 
@@ -277,11 +287,13 @@ func ReduceIcmpProtoString(icmpProtoTypeCode string, policyRestrictions []string
 		if len(rangesR) == 0 {
 			// no code restriction
 			result = append(result, TransformIcmpProtoString(icmpProtoTypeCode)...)
+			positiveMatch = true
 			continue
 		}
 		if len(ranges) == 0 {
 			// use restriction
 			result = append(result, TransformIcmpProtoString(restriction)...)
+			positiveMatch = true
 			continue
 		}
 
@@ -332,10 +344,14 @@ func ReduceIcmpProtoString(icmpProtoTypeCode string, policyRestrictions []string
 			}
 			codeString += fmt.Sprintf("%d:%d", c.Start, c.End)
 		}
-		blah := fmt.Sprintf("%s/%d/%s", proto, criteria[0].IcmpType, codeString)
-		result = append(result, TransformIcmpProtoString(blah)...)
+		combinedString := fmt.Sprintf("%s/%d/%s", proto, criteria[0].IcmpType, codeString)
+		result = append(result, TransformIcmpProtoString(combinedString)...)
+		positiveMatch = true
 	}
 
+	if !positiveMatch {
+		return nil, errors.New("policy restrictions do not match")
+	}
 	return result, nil
 }
 
@@ -353,12 +369,21 @@ func TransformIcmpProtoString(icmpProtoTypeCode string) []string {
 	return []string{"--icmp-type", typeCodeString}
 }
 
+// GetIcmpNoMatch returns a rulespec subsection to indicate that there should be no match
+func GetIcmpNoMatch() []string {
+	return []string{"--icmp-type", "nomatch"}
+}
+
 // ParseIcmpTypeCode parses --icmp-type option
 // string is of the form type/code:code,code,code:code
 func ParseIcmpTypeCode(icmpTypeCode string) ([]*WindowsRuleIcmpMatch, error) {
 
 	if icmpTypeCode == "" {
 		return nil, nil
+	}
+
+	if strings.EqualFold(icmpTypeCode, "nomatch") {
+		return []*WindowsRuleIcmpMatch{{Nomatch: true}}, nil
 	}
 
 	var result []*WindowsRuleIcmpMatch
@@ -653,6 +678,9 @@ func (w *WindowsRuleRange) Equal(other *WindowsRuleRange) bool {
 // Equal compares a WindowsRuleIcmpMatch to another for equality
 func (w *WindowsRuleIcmpMatch) Equal(other *WindowsRuleIcmpMatch) bool {
 	if other == nil {
+		return false
+	}
+	if w.Nomatch != other.Nomatch {
 		return false
 	}
 	if w.IcmpType != other.IcmpType {

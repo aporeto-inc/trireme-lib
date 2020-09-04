@@ -145,14 +145,15 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 		argRuleSpec.IcmpRangeCount = int32(len(winRuleSpec.IcmpMatch))
 		icmpRanges := make([]frontman.IcmpRange, argRuleSpec.IcmpRangeCount)
 		for i, im := range winRuleSpec.IcmpMatch {
-			r := frontman.IcmpRange{
-				IcmpTypeSpecified: 1,
-				IcmpType:          uint8(im.IcmpType),
-			}
-			if im.IcmpCodeRange != nil {
-				r.IcmpCodeSpecified = 1
-				r.IcmpCodeLower = uint8(im.IcmpCodeRange.Start)
-				r.IcmpCodeUpper = uint8(im.IcmpCodeRange.End)
+			r := frontman.IcmpRange{}
+			if !im.Nomatch {
+				r.IcmpTypeSpecified = 1
+				r.IcmpType = uint8(im.IcmpType)
+				if im.IcmpCodeRange != nil {
+					r.IcmpCodeSpecified = 1
+					r.IcmpCodeLower = uint8(im.IcmpCodeRange.Start)
+					r.IcmpCodeUpper = uint8(im.IcmpCodeRange.End)
+				}
 			}
 			icmpRanges[i] = r
 		}
