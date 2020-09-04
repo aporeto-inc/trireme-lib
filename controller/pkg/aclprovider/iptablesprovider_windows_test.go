@@ -685,7 +685,7 @@ func TestParseRuleSpecMatchIcmp(t *testing.T) {
 		So(rulePart, ShouldHaveLength, 0)
 
 		// proto match with type/code conflict should return error
-		rulePart, err = windows.ReduceIcmpProtoString("icmp/0", []string{"icmp/1"})
+		_, err = windows.ReduceIcmpProtoString("icmp/0", []string{"icmp/1"})
 		So(err, ShouldNotBeNil)
 	})
 }
