@@ -14,8 +14,9 @@ func allowICMPv6(cfg *ACLInfo) {
 func icmpRule(icmpTypeCode string, policyRestrictions []string) []string {
 	ruleSub, err := windows.ReduceIcmpProtoString(icmpTypeCode, policyRestrictions)
 	if err != nil {
-		// TODO would be better to be able to return an error so that the whole rule is discarded
-		zap.L().Error("could not formulate ICMP rule", zap.Error(err))
+		zap.L().Debug("could not formulate ICMP rule", zap.Error(err))
+		// we cannot return empty because it will match all icmp
+		ruleSub = windows.GetIcmpNoMatch()
 	}
 	return ruleSub
 }
