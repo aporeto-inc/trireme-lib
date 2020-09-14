@@ -7,10 +7,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"syscall"
+	"time"
 
-	"github.com/chifflier/nfqueue-go/nfqueue"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
+	nfqueue "github.com/florianl/go-nfqueue"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
@@ -20,33 +19,58 @@ func errorCallback(err error, _ interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
 
-func callback(packet *nfqueue.Payload) {
-	mark := packet.GetNFMark()
-	if mark == 5679 {
-		d.(*Datapath).processNetworkPacketsFromNFQ(packet)
-		return
+var nf *nfqueue.Nfqueue
+
+func (d *Datapath) callback(a nfqueue.Attribute) int {
+	fn := func(a nfqueue.Attribute) int {
+		id := *a.PacketID
+		// Just print out the id and payload of the nfqueue packet
+		fmt.Printf("[%d]\t%v\n", id, *a.Payload)
+		nf.SetVerdict(id, nfqueue.NfAccept)
+		return 0
 	}
 
-	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
+	mark := *a.Mark
+
+	if mark == 5679 {
+		d.processNetworkPacketsFromNFQ(packet)
+		return 0
+	}
+
+	d.processApplicationPacketsFromNFQ(packet)
+	return 0
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startInterceptor(ctx context.Context) {
+	config := nfqueue.Config{
+		NfQueue:      0,
+		MaxPacketLen: 0xFFFF,
+		MaxQueueLen:  500,
+		Copymode:     nfqueue.NfQnlCopyPacket,
+		ReadTimeout:  10 * time.Millisecond,
+		WriteTimeout: 15 * time.Millisecond,
+	}
 
-	q := new(nfqueue.Queue)
-	q.SetCallback(callback)
-	q.Init()
-	q.Unbind(syscall.AF_INET)
-	q.Bind(syscall.AF_INET)
-	q.CreateQueue(0)
-	q.SetMode(nfqueue.NFQNL_COPY_PACKET)
+	nf, err = nfqueue.Open(&config)
+	if err != nil {
+		fmt.Println("could not open nfqueue socket:", err)
+		return
+	}
+
+	ctx := context.Background()
+
+	err = nf.Register(ctx, d.callback)
+	if err != nil {
+		fmt.Println("fsfdsfsdfsdfdsfsdfsdfdsf")
+	}
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
+func (d *Datapath) processNetworkPacketsFromNFQ(a nfqueue.Attribute) {
 	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(p.Mark), true)
+	netPacket, err := packet.New(packet.PacketTypeNetwork, *a.Payload, strconv.Itoa(int(*a.Mark)), true)
 	var processError error
 	var tcpConn *connection.TCPConnection
 	var udpConn *connection.UDPConnection
@@ -72,12 +96,12 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			zap.Int("Protocol", int(netPacket.IPProto())),
 			zap.String("Flags", packet.TCPFlagsToStr(netPacket.GetTCPFlags())),
 		)
-		length := uint32(len(p.Buffer))
-		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+
+		nf.SetVerdict(*a.PacketID, nfqueue.NfDrop)
+
 		if netPacket.IPProto() == packet.IPProtocolTCP {
 			d.collectTCPPacket(&debugpacketmessage{
-				Mark:    p.Mark,
+				Mark:    int(*a.Mark),
 				p:       netPacket,
 				tcpConn: tcpConn,
 				udpConn: nil,
@@ -86,7 +110,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			})
 		} else if netPacket.IPProto() == packet.IPProtocolUDP {
 			d.collectUDPPacket(&debugpacketmessage{
-				Mark:    p.Mark,
+				Mark:    int(*a.Mark),
 				p:       netPacket,
 				tcpConn: nil,
 				udpConn: udpConn,
@@ -98,12 +122,12 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		return
 	}
 
-	v := uint32(1)
-	if tcpConn != nil {
-		if !tcpConn.PingConfig.Passthrough && tcpConn.PingConfig.Type != claimsheader.PingTypeNone {
-			v = uint32(0)
-		}
-	}
+	// v := uint32(1)
+	// if tcpConn != nil {
+	// 	if !tcpConn.PingConfig.Passthrough && tcpConn.PingConfig.Type != claimsheader.PingTypeNone {
+	// 		v = uint32(0)
+	// 	}
+	// }
 
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		// // Accept the packet
@@ -112,14 +136,14 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
 
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), v, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
+		nf.SetVerdictModPacket(*a.PacketID, nfqueue.NF_ACCEPT, buffer)
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), v, uint32(p.Mark), uint32(len(netPacket.GetBuffer(0))), uint32(p.ID), netPacket.GetBuffer(0))
+		nf.SetVerdictModPacket(*a.PacketID, nfqueue.NF_ACCEPT, netPacket.GetBuffer(0))
 	}
 
 	if netPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
-			Mark:    p.Mark,
+			Mark:    int(*a.Mark),
 			p:       netPacket,
 			tcpConn: tcpConn,
 			udpConn: nil,
@@ -128,7 +152,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		})
 	} else if netPacket.IPProto() == packet.IPProtocolUDP {
 		d.collectUDPPacket(&debugpacketmessage{
-			Mark:    p.Mark,
+			Mark:    int(*a.Mark),
 			p:       netPacket,
 			tcpConn: nil,
 			udpConn: udpConn,
@@ -136,16 +160,15 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 			network: true,
 		})
 	}
-
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
+func (d *Datapath) processApplicationPacketsFromNFQ(a nfqueue.Attribute) {
 
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
-	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, strconv.Itoa(p.Mark), true)
+	appPacket, err := packet.New(packet.PacketTypeApplication, p.Data, strconv.Itoa(int(*a.Mark)), true)
 
 	var processError error
 	var tcpConn *connection.TCPConnection
@@ -159,6 +182,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else {
 		processError = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto())
 	}
+
 	if processError != nil {
 		zap.L().Debug("Dropping packet on app path",
 			zap.Error(processError),
@@ -170,13 +194,12 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			zap.String("Flags", packet.TCPFlagsToStr(appPacket.GetTCPFlags())),
 		)
 
-		length := uint32(len(p.Buffer))
-		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		p.SetVerdictModPacket(*a.PacketID, nfqueue.NfDrop)
+
 		if appPacket.IPProto() == packet.IPProtocolTCP {
 
 			d.collectTCPPacket(&debugpacketmessage{
-				Mark:    p.Mark,
+				Mark:    int(*a.Mark),
 				p:       appPacket,
 				tcpConn: tcpConn,
 				udpConn: nil,
@@ -185,7 +208,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			})
 		} else if appPacket.IPProto() == packet.IPProtocolUDP {
 			d.collectUDPPacket(&debugpacketmessage{
-				Mark:    p.Mark,
+				Mark:    int(*a.Mark),
 				p:       appPacket,
 				tcpConn: nil,
 				udpConn: udpConn,
@@ -203,15 +226,14 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
-
+		nf.SetVerdictModPacket(*a.PacketID, nfqueue.NF_ACCEPT, buffer)
 	} else {
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(len(appPacket.GetBuffer(0))), uint32(p.ID), appPacket.GetBuffer(0))
+		nf.SetVerdictModPacket(*a.PacketID, nfqueue.NF_ACCEPT, appPacket.GetBuffer(0))
 	}
 
 	if appPacket.IPProto() == packet.IPProtocolTCP {
 		d.collectTCPPacket(&debugpacketmessage{
-			Mark:    p.Mark,
+			Mark:    int(*a.Mark),
 			p:       appPacket,
 			tcpConn: tcpConn,
 			udpConn: nil,
@@ -220,7 +242,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		})
 	} else if appPacket.IPProto() == packet.IPProtocolUDP {
 		d.collectUDPPacket(&debugpacketmessage{
-			Mark:    p.Mark,
+			Mark:    int(*a.Mark),
 			p:       appPacket,
 			tcpConn: nil,
 			udpConn: udpConn,
@@ -228,7 +250,6 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 			network: false,
 		})
 	}
-
 }
 
 func (d *Datapath) cleanupPlatform() {}
