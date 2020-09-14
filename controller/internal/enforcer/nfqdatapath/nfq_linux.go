@@ -7,8 +7,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"syscall"
 
-	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"github.com/chifflier/nfqueue-go/nfqueue"
 	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -19,8 +20,9 @@ func errorCallback(err error, _ interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
 
-func callback(packet *nfqueue.NFPacket, d interface{}) {
-	if packet.Mark == 5679 {
+func callback(packet *nfqueue.Payload) {
+	mark := packet.GetNFMark()
+	if mark == 5679 {
 		d.(*Datapath).processNetworkPacketsFromNFQ(packet)
 		return
 	}
@@ -28,22 +30,17 @@ func callback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
 }
 
-func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
-	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
-}
-
-func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
-	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
-}
-
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startInterceptor(ctx context.Context) {
 
-	for i := uint16(0); i < d.filterQueue.GetNumQueues(); i++ {
-		// Initialize all the queues
-		nfqueue.CreateAndStartNfQueue(ctx, i, 500, nfqueue.NfDefaultPacketSize, callback, errorCallback, d)
-	}
+	q := new(nfqueue.Queue)
+	q.SetCallback(callback)
+	q.Init()
+	q.Unbind(syscall.AF_INET)
+	q.Bind(syscall.AF_INET)
+	q.CreateQueue(0)
+	q.SetMode(nfqueue.NFQNL_COPY_PACKET)
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
