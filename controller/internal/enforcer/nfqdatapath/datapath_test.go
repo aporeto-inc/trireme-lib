@@ -1,5 +1,3 @@
-// +build linux
-
 package nfqdatapath
 
 import (
@@ -39,7 +37,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/runtime"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	markconstants "go.aporeto.io/trireme-lib/utils/constants"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -1462,8 +1459,7 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the mark exists", func() {
-				markVal := strconv.Itoa(100 << markconstants.MarkShift)
-				ctx, err := enforcer.contextFromIP(true, markVal, 0, packet.IPProtocolTCP)
+				ctx, err := enforcer.contextFromIP(true, "100", 0, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)

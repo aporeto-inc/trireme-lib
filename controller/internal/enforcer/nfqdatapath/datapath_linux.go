@@ -37,6 +37,5 @@ func (d *Datapath) ignoreFlow(pkt *packet.Packet) error {
 }
 
 func (d *Datapath) startInterceptors(ctx context.Context) {
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	d.startInterceptor(ctx)
 }

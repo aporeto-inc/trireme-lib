@@ -2,9 +2,13 @@
 
 package cgnetcls
 
+<<<<<<< HEAD
 import (
 	"sync/atomic"
 )
+=======
+import "sync/atomic"
+>>>>>>> parent of 77bab191... nfqueue balance (#1007)
 
 // MarkVal returns a new Mark Value
 func MarkVal() uint64 {

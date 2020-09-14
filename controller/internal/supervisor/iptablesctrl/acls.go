@@ -3,7 +3,6 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -47,7 +46,7 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 			cfg.ContextID,
 			cfg.AppChain,
 			cfg.NetChain,
-			cfg.PacketMark,
+			"1",
 			cfg.TCPPorts,
 			cfg.UDPPorts,
 			cfg.ProxyPort,
@@ -160,9 +159,6 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		},
 		"isHostPU": func() bool {
 			return isHostPU
-		},
-		"Increment": func(i int) int {
-			return i + 1
 		},
 	}).Parse(packetCaptureTemplate))
 
@@ -570,12 +566,6 @@ func (i *iptables) setGlobalRules() error {
 		},
 		"enableDNSProxy": func() bool {
 			return cfg.DNSServerIP != ""
-		},
-		"Increment": func(i int) int {
-			return i + 1
-		},
-		"EnforcerPID": func() string {
-			return strconv.Itoa(os.Getpid())
 		},
 	}).Parse(globalRules))
 
