@@ -332,7 +332,8 @@ func (d *DockerMonitor) Resync(ctx context.Context) error {
 }
 
 func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types.Container) error {
-
+	d.config.ResyncLock.RLock()
+	defer d.config.ResyncLock.RUnlock()
 	// resync containers that share host network first.
 	if err := d.resyncContainersByOrder(ctx, containers, true); err != nil {
 		zap.L().Error("Unable to sync container", zap.Error(err))

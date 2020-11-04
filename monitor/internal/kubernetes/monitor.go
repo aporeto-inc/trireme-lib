@@ -124,5 +124,7 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
+	m.handlers.ResyncLock.RLock()
+	m.handlers.ResyncLock.RUnlock()
 	return m.dockerMonitor.Resync(ctx)
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/policy"
@@ -45,9 +46,10 @@ func (c *MonitorConfig) String() string {
 
 // ProcessorConfig holds configuration for the processors
 type ProcessorConfig struct {
-	Collector collector.EventCollector
-	Policy    policy.Resolver
-	MergeTags []string
+	Collector  collector.EventCollector
+	Policy     policy.Resolver
+	MergeTags  []string
+	ResyncLock *sync.RWMutex
 }
 
 // IsComplete checks if configuration is complete
@@ -60,6 +62,8 @@ func (c *ProcessorConfig) IsComplete() error {
 	if c.Policy == nil {
 		return fmt.Errorf("Missing configuration: puHandler")
 	}
-
+	if c.ResyncLock == nil {
+		return fmt.Errorf("Missing resyncLock: puHandler")
+	}
 	return nil
 }

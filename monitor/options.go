@@ -1,6 +1,8 @@
 package monitor
 
 import (
+	"sync"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
@@ -336,6 +338,13 @@ func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
 		cfg.MergeTags = tags
 		cfg.Common.MergeTags = tags
+	}
+}
+
+// OptionResyncLock provide a shared lock between monitors if the monitor desires to sync with other components during PU resync at startup
+func OptionResyncLock(resyncLock *sync.RWMutex) Options {
+	return func(cfg *config.MonitorConfig) {
+		cfg.Common.ResyncLock = resyncLock
 	}
 }
 

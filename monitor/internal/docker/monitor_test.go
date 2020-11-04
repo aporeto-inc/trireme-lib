@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -233,8 +234,9 @@ func setupDockerMonitor(ctrl *gomock.Controller) (*DockerMonitor, *mockpolicy.Mo
 	mockPolicy := mockpolicy.NewMockResolver(ctrl)
 
 	dm.SetupHandlers(&config.ProcessorConfig{
-		Collector: eventCollector(),
-		Policy:    mockPolicy,
+		Collector:  eventCollector(),
+		Policy:     mockPolicy,
+		ResyncLock: &sync.RWMutex{},
 	})
 	err := dm.SetupConfig(nil, &Config{
 		EventMetadataExtractor: testDockerMetadataExtractor,
@@ -269,8 +271,9 @@ func TestStopDockerContainer(t *testing.T) {
 		Convey("When I try to stop a container", func() {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventStop, gomock.Any()).Times(1).Return(nil)
 			dm.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 
 			err := dm.handleDieEvent(context.Background(), &events.Message{ID: "74cc486f9ec3"})
@@ -295,8 +298,9 @@ func TestHandleCreateEvent(t *testing.T) {
 
 		Convey("When I try to handle create event", func() {
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 
 			dmi.dockerClient().(*mockdocker.MockCommonAPIClient).EXPECT().
@@ -313,8 +317,9 @@ func TestHandleCreateEvent(t *testing.T) {
 
 		Convey("When I try to handle create event with failed container ", func() {
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 
 			dmi.dockerClient().(*mockdocker.MockCommonAPIClient).EXPECT().
@@ -348,8 +353,9 @@ func TestHandleStartEvent(t *testing.T) {
 		})
 
 		dmi.SetupHandlers(&config.ProcessorConfig{
-			Collector: eventCollector(),
-			Policy:    mockPU,
+			Collector:  eventCollector(),
+			Policy:     mockPU,
+			ResyncLock: &sync.RWMutex{},
 		})
 
 		Convey("When I try to handle start event with a valid container", func() {
@@ -416,8 +422,9 @@ func TestHandleDieEvent(t *testing.T) {
 		Convey("When I try to handle die event", func() {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventStop, gomock.Any()).Times(1).Return(nil)
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 			err := dmi.handleDieEvent(context.Background(), initTestMessage(ID))
 
@@ -446,8 +453,9 @@ func TestHandleDestroyEvent(t *testing.T) {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventDestroy, gomock.Any()).Times(1).Return(nil)
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 			dmi.netcls = mockCG
 			err := dmi.handleDestroyEvent(context.Background(), initTestMessage(ID))
@@ -482,8 +490,9 @@ func TestHandlePauseEvent(t *testing.T) {
 		Convey("When I try to handle pause event", func() {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventPause, gomock.Any()).Times(1).Return(nil)
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 			err := dmi.handlePauseEvent(context.Background(), initTestMessage(ID))
 
@@ -517,8 +526,9 @@ func TestHandleUnpauseEvent(t *testing.T) {
 		Convey("When I try to handle unpause event", func() {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventUnpause, gomock.Any()).Times(1).Return(nil)
 			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
+				Collector:  eventCollector(),
+				Policy:     mockPU,
+				ResyncLock: &sync.RWMutex{},
 			})
 			err := dmi.handleUnpauseEvent(context.Background(), initTestMessage(ID))
 
@@ -568,8 +578,9 @@ func TestSyncContainers(t *testing.T) {
 
 		dmi, mockPU := setupDockerMonitor(ctrl)
 		dmi.SetupHandlers(&config.ProcessorConfig{
-			Collector: eventCollector(),
-			Policy:    mockPU,
+			Collector:  eventCollector(),
+			Policy:     mockPU,
+			ResyncLock: &sync.RWMutex{},
 		})
 
 		Convey("Then docker monitor should not be nil", func() {
