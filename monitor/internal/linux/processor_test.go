@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -21,8 +22,9 @@ import (
 func testLinuxProcessor(puHandler policy.Resolver) *linuxProcessor {
 	l := New()
 	l.SetupHandlers(&config.ProcessorConfig{
-		Collector: &collector.DefaultCollector{},
-		Policy:    puHandler,
+		Collector:  &collector.DefaultCollector{},
+		Policy:     puHandler,
+		ResyncLock: &sync.RWMutex{},
 	})
 	if err := l.SetupConfig(nil, &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
