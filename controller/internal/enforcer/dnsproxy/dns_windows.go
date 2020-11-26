@@ -57,6 +57,10 @@ func (p *Proxy) HandleDNSResponsePacket(dnsPacketData []byte, serverIP net.IP, p
 		return err
 	}
 
+	if len(msg.Question) <= 0 {
+		return nil
+	}
+
 	var ips []string
 	for _, ans := range msg.Answer {
 		if ans.Header().Rrtype == dns.TypeA {
