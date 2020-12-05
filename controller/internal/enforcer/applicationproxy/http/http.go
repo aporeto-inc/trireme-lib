@@ -156,7 +156,7 @@ func (p *Config) newBaseTLSConfig() *tls.Config {
 		NextProtos:               []string{"h2"},
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
-		ClientAuth:               tls.VerifyClientCertIfGiven,
+		ClientAuth:               tls.RequireAndVerifyClientCert,
 		ClientCAs:                p.ca,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
