@@ -7,6 +7,7 @@ import (
 	"github.com/aporeto-inc/go-ipset/ipset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
+	"go.uber.org/zap"
 )
 
 const (
@@ -103,6 +104,7 @@ func (i *ipv6) NewChain(table, chain string) error {
 		return nil
 	}
 
+	zap.L().Debug("new chain")
 	return i.ipt.NewChain(table, chain)
 }
 
@@ -111,6 +113,7 @@ func (i *ipv6) Commit() error {
 		return nil
 	}
 
+	zap.L().Debug("ipv6 commit")
 	return i.ipt.Commit()
 }
 
