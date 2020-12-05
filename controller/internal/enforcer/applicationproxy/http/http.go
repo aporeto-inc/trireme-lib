@@ -186,16 +186,16 @@ func (p *Config) newBaseTLSClientConfig() *tls.Config {
 func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	p.RLock()
 	defer p.RUnlock()
-	if p.cert != nil {
+	if p.cert != nil && len(p.cert.Certificate) > 0 {
 		cert, err := x509.ParseCertificate(p.cert.Certificate[0])
 		if err != nil {
-			zap.L().Error("http: Cannot build the cert chain")
+			zap.L().Error("http: client-certs: cannot build the cert chain: failed to parse cert[0]", zap.Error(err))
 		}
 		if cert != nil {
 			by, _ := x509CertToPem(cert)
 			pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
 			if err != nil {
-				zap.L().Error("http: Cannot build the cert chain")
+				zap.L().Error("http: client-certs: cannot build the cert chain", zap.Error(err))
 			}
 			var certChain tls.Certificate
 			var certDERBlock *pem.Block
@@ -493,7 +493,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 }
 
 func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	zap.L().Debug("http:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
+	zap.L().Debug("http: buildCertChain() call", zap.String("certPEM", string(certPEM)), zap.String("caPEM", string(caPEM)))
 	certChain := []*x509.Certificate{}
 	clientPEMBlock := certPEM
 
@@ -525,9 +525,9 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 			return nil, fmt.Errorf("invalid pem block type: %s", certDERBlock.Type)
 		}
 	}
-	by, _ := x509CertChainToPem(certChain)
-	zap.L().Debug("http: After building the cert chain: ", zap.String("certChain: ", string(by)))
-	return x509CertChainToPem(certChain)
+	certChainBytes, err := x509CertChainToPem(certChain)
+	zap.L().Debug("http: buildCertChain() return", zap.String("certChainBytes", string(certChainBytes)), zap.Error(err))
+	return certChainBytes, err
 }
 
 // x509CertChainToPem converts chain of x509 certs to byte.
