@@ -70,6 +70,7 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 				if err != nil {
 					continue
 				}
+				zap.L().Info("autoport: Add ports to the spec", zap.Any("portSpec", portSpec))
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
 				err = iptablesInstance.AddPortToPortSet(k, v)
 				if err != nil {
