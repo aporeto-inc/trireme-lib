@@ -696,7 +696,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	conn.PacketFlowPolicy = pkt
 
 	if txLabel == context.ManagementID() {
-		zap.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash())
+		zap.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
 		conn.SetLoopbackConnection(true)
 	}
 
