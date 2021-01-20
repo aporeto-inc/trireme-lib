@@ -696,7 +696,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	conn.PacketFlowPolicy = pkt
 
 	if txLabel == context.ManagementID() {
-		zap.L().Debug("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash()))
+		zap.L().Info("Traffic to the same pu", zap.String("flow", tcpPacket.L4FlowHash())
 		conn.SetLoopbackConnection(true)
 	}
 
@@ -845,6 +845,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Report and release traffic belonging to the same pu
 	if conn.Auth.RemoteContextID == context.ManagementID() {
+		zap.L().Info("**** ABHI **** the conn ID are same", zap.String("ctxtID", conn.Auth.RemoteContextID), zap.Any("pkt", tcpPacket.L4FlowHash()))
 		conn.SetState(connection.TCPData)
 		conn.SetLoopbackConnection(true)
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, nil, nil, true)
