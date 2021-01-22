@@ -120,7 +120,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client,
 		if errors.IsNotFound(err) {
 			// this is the normal case: a pod is gone
 			// so just send a destroy event
-			zap.L().Warn("DeleteController: the pod is deleted in the cluster, so call the destroy PU")
+			zap.L().Info("DeleteController: the pod is deleted in the Kubernetes API, sending destroy event for the PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
 				podUID,
