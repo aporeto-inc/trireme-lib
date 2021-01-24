@@ -117,5 +117,10 @@ mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.
 goimport_sanitize monitor/internal/pod/mockinformer_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
 goimport_sanitize monitor/internal/pod/mockmanager_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockkubeclient_test.go k8s.io/client-go/kubernetes Interface
+goimport_sanitize monitor/internal/pod/mockkubeclient_test.go
+mockgen -package podmonitor -destination monitor/internal/pod/mockkubeclientcore_test.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,PodInterface
+goimport_sanitize monitor/internal/pod/mockkubeclientcore_test.go
+
 
 echo >&2 "OK"
