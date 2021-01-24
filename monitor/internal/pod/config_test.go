@@ -9,13 +9,14 @@ import (
 func TestConfig(t *testing.T) {
 	Convey("SetupDefaultConfig should just return the config as is", t, func() {
 		c := SetupDefaultConfig(&Config{
-			Kubeconfig:        "test",
-			Nodename:          "test",
-			EnableHostPods:    true,
-			MetadataExtractor: nil,
-			NetclsProgrammer:  nil,
-			ResetNetcls:       nil,
-			Workers:           6,
+			Kubeconfig:                      "test",
+			Nodename:                        "test",
+			EnableHostPods:                  true,
+			MetadataExtractor:               nil,
+			NetclsProgrammer:                nil,
+			ResetNetcls:                     nil,
+			Workers:                         6,
+			DeleteControllerGetRetryCounter: 3,
 		})
 		So(c.Kubeconfig, ShouldEqual, "test")
 		So(c.Nodename, ShouldEqual, "test")
@@ -24,6 +25,7 @@ func TestConfig(t *testing.T) {
 		So(c.NetclsProgrammer, ShouldBeNil)
 		So(c.ResetNetcls, ShouldBeNil)
 		So(c.Workers, ShouldEqual, 6)
+		So(c.DeleteControllerGetRetryCounter, ShouldEqual, 3)
 	})
 
 	Convey("DefaultConfig should always return a pointer to a config", t, func() {

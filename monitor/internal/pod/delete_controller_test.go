@@ -15,9 +15,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
@@ -37,7 +37,12 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				NodeName: nodeName,
 			},
 		}
-		c := fakeclient.NewFakeClient(pod1)
+		c := NewMockInterface(ctrl)
+		cc := NewMockCoreV1Interface(ctrl)
+		ccpod := NewMockPodInterface(ctrl)
+		c.EXPECT().CoreV1().AnyTimes().Return(cc)
+		cc.EXPECT().Pods(gomock.Any()).AnyTimes().Return(ccpod)
+		ccpod.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(pod1, nil)
 		eventsCh := make(chan event.GenericEvent)
 		go func() {
 			for {
@@ -58,7 +63,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		Convey("then no destroy events should be sent if there is nothing in the state right now", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), common.EventDestroy, gomock.Any()).Return(nil).Times(0)
 			m := make(map[string]DeleteObject)
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -70,7 +75,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldHaveLength, 1)
 		})
 
@@ -82,7 +87,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, "test2", pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, "test2", pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -94,7 +99,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -107,7 +112,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -120,7 +125,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -133,7 +138,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -150,7 +155,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, sandboxExtractor, eventsCh)
+			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, sandboxExtractor, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 	})
@@ -167,13 +172,13 @@ func TestDeleteController(t *testing.T) {
 			<-eventsCh
 		}()
 		//nolint:unparam
-		reconcileFunc := func(ctx context.Context, c client.Client, nodeName string, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent) {
+		reconcileFunc := func(ctx context.Context, c kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent, maxGetRetryCount uint8) {
 			for k, v := range m {
 				testMap[k] = v
 			}
 		}
 
-		dc := NewDeleteController(nil, nodeName, nil, nil, eventsCh)
+		dc := NewDeleteController(nil, nodeName, nil, nil, eventsCh, 0)
 		dc.deleteCh = make(chan DeleteEvent)
 		dc.reconcileCh = make(chan struct{})
 		dc.tickerPeriod = 1 * time.Second
