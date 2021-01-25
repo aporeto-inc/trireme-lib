@@ -264,7 +264,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c kubernetes.Int
 
 		// 2c compare the oldSandboxID and currentSandboxID, if they differ then destroy the PU
 		if oldSandboxID != currentSandboxID {
-			zap.L().Warn("DeleteController: pod sandbox differs. Sending destroy event for PU", zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
+			zap.L().Warn("DeleteController: pod sandbox differs. Sending destroy event for PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.String("currentSandboxID", currentSandboxID), zap.String("oldSandboxID", oldSandboxID))
 			if err := pc.Policy.HandlePUEvent(
 				ctx,
 				podUID,
@@ -277,7 +277,7 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c kubernetes.Int
 			// we only fire events away, we don't really care about the error anyway
 			// it is up to the policy engine to make sense of that
 			delete(m, podUID)
-			zap.L().Warn("DeleteController: PU destroyed, now send an event to the pod-controller to reconcile and recreate a new PU", zap.String("namespacedName", req.String()))
+			zap.L().Warn("DeleteController: sent PU destroy event, now send an event to the pod-controller to reconcile and recreate a new PU", zap.String("puID", podUID), zap.String("namespacedName", req.String()))
 			// below we send event to the main pod-controller to reconcile again and to create a PU if it is not created yet.
 			eventCh <- event.GenericEvent{
 				Object: pod,
