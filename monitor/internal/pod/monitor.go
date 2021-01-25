@@ -12,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -27,19 +28,21 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type PodMonitor struct {
-	localNode                 string
-	handlers                  *config.ProcessorConfig
-	metadataExtractor         extractors.PodMetadataExtractor
-	netclsProgrammer          extractors.PodNetclsProgrammer
-	pidsSetMaxProcsProgrammer extractors.PodPidsSetMaxProcsProgrammer
-	resetNetcls               extractors.ResetNetclsKubepods
-	sandboxExtractor          extractors.PodSandboxExtractor
-	enableHostPods            bool
-	workers                   int
-	kubeCfg                   *rest.Config
-	kubeClient                client.Client
-	eventsCh                  chan event.GenericEvent
-	resyncInfo                *ResyncInfoChan
+	localNode                       string
+	handlers                        *config.ProcessorConfig
+	metadataExtractor               extractors.PodMetadataExtractor
+	netclsProgrammer                extractors.PodNetclsProgrammer
+	pidsSetMaxProcsProgrammer       extractors.PodPidsSetMaxProcsProgrammer
+	resetNetcls                     extractors.ResetNetclsKubepods
+	sandboxExtractor                extractors.PodSandboxExtractor
+	enableHostPods                  bool
+	workers                         int
+	kubeCfg                         *rest.Config
+	kubeClient                      client.Client
+	vanillaKubeClient               kubernetes.Interface
+	eventsCh                        chan event.GenericEvent
+	resyncInfo                      *ResyncInfoChan
+	deleteControllerGetRetryCounter uint8
 }
 
 // New returns a new kubernetes monitor.
@@ -112,6 +115,7 @@ func (m *PodMonitor) SetupConfig(_ registerer.Registerer, cfg interface{}) error
 	m.sandboxExtractor = kubernetesconfig.SandboxExtractor
 	m.resetNetcls = kubernetesconfig.ResetNetcls
 	m.workers = kubernetesconfig.Workers
+	m.deleteControllerGetRetryCounter = kubernetesconfig.DeleteControllerGetRetryCounter
 
 	return nil
 }
@@ -176,14 +180,16 @@ const (
 )
 
 var (
-	retrySleep          = time.Second * 3
-	warningMessageSleep = time.Second * 5
-	warningTimeout      = time.Second * 5
-	managerNew          = manager.New
+	retrySleep             = time.Second * 3
+	warningMessageSleep    = time.Second * 5
+	warningTimeout         = time.Second * 5
+	managerNew             = manager.New
+	kubernetesNewForConfig = kubernetes.NewForConfig
 )
 
 func (m *PodMonitor) startManager(ctx context.Context) {
 	var mgr manager.Manager
+	var vanillaKubeClient kubernetes.Interface
 
 	startTimestamp := time.Now()
 	controllerStarted := make(chan struct{})
@@ -201,8 +207,20 @@ func (m *PodMonitor) startManager(ctx context.Context) {
 			break
 		}
 
+		// instantiate a vanilla kube client, we'll use it in the delete controller
+		for {
+			var err error
+			vanillaKubeClient, err = kubernetesNewForConfig(m.kubeCfg)
+			if err != nil {
+				zap.L().Error("pod: failed to instantiate new vanilla Kubernetes client. Retrying in 3s...", zap.Error(err))
+				time.Sleep(retrySleep)
+				continue
+			}
+			break
+		}
+
 		// Create the delete event controller first
-		dc := NewDeleteController(mgr.GetClient(), m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh)
+		dc := NewDeleteController(vanillaKubeClient, m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh, m.deleteControllerGetRetryCounter)
 		for {
 			if err := mgr.Add(dc); err != nil {
 				zap.L().Error("pod: adding delete controller failed. Retrying in 3s...", zap.Error(err))
@@ -262,6 +280,7 @@ waitLoop:
 			zap.L().Warn(startupWarningMessage)
 		case <-controllerStarted:
 			m.kubeClient = mgr.GetClient()
+			m.vanillaKubeClient = vanillaKubeClient
 			t := time.Since(startTimestamp)
 			if t > warningTimeout {
 				zap.L().Warn("pod: controller startup finished, but took longer than expected", zap.Duration("duration", t))

@@ -172,9 +172,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 					return nil
 				}).Times(1)
 
-				// after start, we call GetClient as well to assign it to the monitor
-				mgr.EXPECT().GetClient().Times(1).Return(c)
-
 				// on successful startup, we only expect one debug message at the end
 				// we setup everything here to ensure that *only* this log will appear
 				// we are additionally testing if the logic of the if condition worked
@@ -283,9 +280,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 					go r.Start(z) //nolint
 					return nil
 				}).Times(1)
-
-				// after start, we call GetClient as well to assign it to the monitor
-				mgr.EXPECT().GetClient().Times(1).Return(c)
 
 				// on successful startup, we only expect one debug message at the end
 				// we setup everything here to ensure that *only* this log will appear
@@ -435,9 +429,6 @@ func TestPodMonitor_startManager(t *testing.T) {
 					go r.Start(z) //nolint
 					return nil
 				}).Times(2)
-
-				// after start, we call GetClient as well to assign it to the monitor
-				mgr.EXPECT().GetClient().Times(1).Return(c)
 
 				// on successful startup, we only expect one debug message at the end
 				// we setup everything here to ensure that *only* this log will appear

@@ -16,20 +16,23 @@ type Config struct { // nolint
 	PidsSetMaxProcsProgrammer extractors.PodPidsSetMaxProcsProgrammer
 	ResetNetcls               extractors.ResetNetclsKubepods
 	SandboxExtractor          extractors.PodSandboxExtractor
+
+	DeleteControllerGetRetryCounter uint8
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		MetadataExtractor:         nil,
-		NetclsProgrammer:          nil,
-		PidsSetMaxProcsProgrammer: nil,
-		ResetNetcls:               nil,
-		SandboxExtractor:          nil,
-		EnableHostPods:            false,
-		Kubeconfig:                "",
-		Nodename:                  "",
-		Workers:                   4,
+		MetadataExtractor:               nil,
+		NetclsProgrammer:                nil,
+		PidsSetMaxProcsProgrammer:       nil,
+		ResetNetcls:                     nil,
+		SandboxExtractor:                nil,
+		EnableHostPods:                  false,
+		Kubeconfig:                      "",
+		Nodename:                        "",
+		Workers:                         4,
+		DeleteControllerGetRetryCounter: 0,
 	}
 }
 
