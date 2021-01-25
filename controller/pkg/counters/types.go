@@ -17,6 +17,7 @@ const (
 // CounterType custom counter error type.
 type CounterType int
 
+//go:generate stringer -type=CounterType -trimprefix Err
 // WARNING: Append any new counters at the end of the list.
 // DO NOT CHANGE EXISTING ORDER.
 // Also ensure that the list doesn't exceed current totalCounters,
@@ -183,4 +184,5 @@ const (
 	ErrAppSynAckAuthOptionSet
 	ErrDuplicateAckDrop
 	ErrNfLogError
+	errMax
 )

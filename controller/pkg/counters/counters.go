@@ -10,8 +10,18 @@ import (
 func NewCounters() *Counters {
 
 	return &Counters{
-		counters: make([]uint32, totalCounters),
+		counters: make([]uint32, errMax+1),
 	}
+}
+
+// CounterNames returns an array of names
+func CounterNames() []string {
+	names := make([]string, errMax+1)
+	var ct CounterType
+	for ct = 0; ct <= errMax; ct++ {
+		names[ct] = ct.String()
+	}
+	return names[:errMax]
 }
 
 // CounterError is a convinence function which returns error as well as increments the counter.
