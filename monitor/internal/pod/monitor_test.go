@@ -134,7 +134,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 
 				// delete controller
 				mgr.EXPECT().Add(gomock.AssignableToTypeOf(&DeleteController{})).Times(1).Return(nil)
-				mgr.EXPECT().GetClient().Times(1).Return(c)
+				mgr.EXPECT().GetClient().Times(2).Return(c)
 
 				// main controller
 				// newReconciler calls these
@@ -241,7 +241,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 
 				// delete controller
 				mgr.EXPECT().Add(gomock.AssignableToTypeOf(&DeleteController{})).Times(1).Return(nil)
-				mgr.EXPECT().GetClient().Times(1).Return(c)
+				mgr.EXPECT().GetClient().Times(2).Return(c)
 
 				// main controller
 				// newReconciler calls these
@@ -377,7 +377,7 @@ func TestPodMonitor_startManager(t *testing.T) {
 					}
 					return nil
 				})
-				mgr.EXPECT().GetClient().Times(1).Return(c)
+				mgr.EXPECT().GetClient().Times(2).Return(c)
 
 				// main controller
 				// newReconciler calls these
