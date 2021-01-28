@@ -20,7 +20,7 @@ import (
 )
 
 // deleteControllerReconcileFunc is the reconciler function signature for the DeleteController
-type deleteControllerReconcileFunc func(context.Context, kubernetes.Interface, string, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent, uint8)
+type deleteControllerReconcileFunc func(context.Context, client.Client, kubernetes.Interface, string, *config.ProcessorConfig, time.Duration, map[string]DeleteObject, extractors.PodSandboxExtractor, chan event.GenericEvent, uint8)
 
 // DeleteController is responsible for cleaning up after Kubernetes because we
 // are missing our native ID on the last reconcile event where the pod has already
@@ -29,7 +29,9 @@ type deleteControllerReconcileFunc func(context.Context, kubernetes.Interface, s
 // It pretty much facilitates the work of a finalizer without needing a finalizer and
 // also only kicking in once a pod has *really* been deleted.
 type DeleteController struct {
-	client   kubernetes.Interface
+	client        client.Client
+	vanillaClient kubernetes.Interface
+
 	nodeName string
 	handler  *config.ProcessorConfig
 
@@ -52,9 +54,10 @@ type DeleteObject struct {
 }
 
 // NewDeleteController creates a new DeleteController.
-func NewDeleteController(c kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent, initialGetRetryCount uint8) *DeleteController {
+func NewDeleteController(c client.Client, vc kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, sandboxExtractor extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent, initialGetRetryCount uint8) *DeleteController {
 	return &DeleteController{
 		client:             c,
+		vanillaClient:      vc,
 		nodeName:           nodeName,
 		handler:            pc,
 		deleteCh:           make(chan DeleteEvent, 1000),
@@ -94,9 +97,9 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 				m[ev.PodUID] = obj
 			}
 		case <-c.reconcileCh:
-			c.reconcileFunc(backgroundCtx, c.client, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh, c.retryCounter)
+			c.reconcileFunc(backgroundCtx, c.client, c.vanillaClient, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh, c.retryCounter)
 		case <-t.C:
-			c.reconcileFunc(backgroundCtx, c.client, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh, c.retryCounter)
+			c.reconcileFunc(backgroundCtx, c.client, c.vanillaClient, c.nodeName, c.handler, c.itemProcessTimeout, m, c.sandboxExtractor, c.eventsCh, c.retryCounter)
 		case <-z:
 			t.Stop()
 			return nil
@@ -105,13 +108,13 @@ func (c *DeleteController) Start(z <-chan struct{}) error {
 }
 
 // deleteControllerReconcile is the real reconciler implementation for the DeleteController
-func deleteControllerReconcile(backgroundCtx context.Context, c kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent, maxGetRetryCount uint8) {
+func deleteControllerReconcile(backgroundCtx context.Context, c client.Client, vc kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent, maxGetRetryCount uint8) {
 	for podUID, req := range m {
-		deleteControllerProcessItem(backgroundCtx, c, nodeName, pc, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh, maxGetRetryCount)
+		deleteControllerProcessItem(backgroundCtx, c, vc, nodeName, pc, itemProcessTimeout, m, podUID, req.podName, sandboxExtractor, eventCh, maxGetRetryCount)
 	}
 }
 
-func deleteControllerProcessItem(backgroundCtx context.Context, c kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent, maxGetRetryCount uint8) {
+func deleteControllerProcessItem(backgroundCtx context.Context, c client.Client, vc kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, itemProcessTimeout time.Duration, m map[string]DeleteObject, podUID string, req client.ObjectKey, sandboxExtractor extractors.PodSandboxExtractor, eventCh chan event.GenericEvent, maxGetRetryCount uint8) {
 	var ok bool
 	var delObj DeleteObject
 	if delObj, ok = m[podUID]; !ok {
@@ -130,11 +133,20 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c kubernetes.Int
 	// the case.
 	ctx, cancel := context.WithTimeout(backgroundCtx, itemProcessTimeout)
 	defer cancel()
-	getPod := func(ctx context.Context) (*corev1.Pod, error) {
+
+	getControllerRuntimePod := func(ctx context.Context) (*corev1.Pod, error) {
+		pod := &corev1.Pod{}
+		if err := c.Get(ctx, req, pod); err != nil {
+			return nil, err
+		}
+		return pod, nil
+	}
+
+	getVanillaClientPod := func(ctx context.Context) (*corev1.Pod, error) {
 		chPod := make(chan *corev1.Pod)
 		chErr := make(chan error)
 		go func() {
-			pod, err := c.CoreV1().Pods(req.Namespace).Get(req.Name, metav1.GetOptions{})
+			pod, err := vc.CoreV1().Pods(req.Namespace).Get(req.Name, metav1.GetOptions{})
 			if err != nil {
 				chErr <- err
 			}
@@ -149,6 +161,24 @@ func deleteControllerProcessItem(backgroundCtx context.Context, c kubernetes.Int
 			return pod, nil
 		}
 	}
+
+	getPod := func(ctx context.Context) (*corev1.Pod, error) {
+		pod, err := getControllerRuntimePod(ctx)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// double-check by using the vanilla client as well
+				pod, err2 := getVanillaClientPod(ctx)
+				if err2 != nil {
+					return nil, err2
+				}
+				zap.L().Warn("DeleteController: pod not found in Kubernetes API using controller-runtime client, but found with vanilla client", zap.String("puID", podUID), zap.String("namespacedName", req.String()), zap.Error(err))
+				return pod, nil
+			}
+			return nil, err
+		}
+		return pod, nil
+	}
+
 	pod, err := getPod(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) {

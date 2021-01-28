@@ -220,7 +220,7 @@ func (m *PodMonitor) startManager(ctx context.Context) {
 		}
 
 		// Create the delete event controller first
-		dc := NewDeleteController(vanillaKubeClient, m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh, m.deleteControllerGetRetryCounter)
+		dc := NewDeleteController(mgr.GetClient(), vanillaKubeClient, m.localNode, m.handlers, m.sandboxExtractor, m.eventsCh, m.deleteControllerGetRetryCounter)
 		for {
 			if err := mgr.Add(dc); err != nil {
 				zap.L().Error("pod: adding delete controller failed. Retrying in 3s...", zap.Error(err))

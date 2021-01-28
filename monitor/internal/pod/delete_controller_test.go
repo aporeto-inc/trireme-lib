@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -40,12 +41,17 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				NodeName: nodeName,
 			},
 		}
+		crc := NewMockClient(ctrl)
 		c := NewMockInterface(ctrl)
 		cc := NewMockCoreV1Interface(ctrl)
 		ccpod := NewMockPodInterface(ctrl)
 		c.EXPECT().CoreV1().AnyTimes().Return(cc)
 		cc.EXPECT().Pods(gomock.Any()).AnyTimes().Return(ccpod)
 		ccpod.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(pod1, nil)
+		crc.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.Context, _ types.NamespacedName, obj runtime.Object) error {
+			*obj.(*corev1.Pod) = *pod1
+			return nil
+		})
 		eventsCh := make(chan event.GenericEvent)
 		go func() {
 			for {
@@ -66,7 +72,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		Convey("then no destroy events should be sent if there is nothing in the state right now", func() {
 			handler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), common.EventDestroy, gomock.Any()).Return(nil).Times(0)
 			m := make(map[string]DeleteObject)
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -78,7 +84,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldHaveLength, 1)
 		})
 
@@ -90,7 +96,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, "test2", pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, "test2", pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -102,7 +108,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -115,7 +121,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["bbbb"] = DeleteObject{podUID: "", sandboxID: "", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -132,7 +138,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, sandboxExtractor, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, sandboxExtractor, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
@@ -141,9 +147,11 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		Convey("then a destroy event should be sent if the pod does not exist in the Kubernetes API", func() {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			crc := NewMockClient(ctrl)
 			c := NewMockInterface(ctrl)
 			cc := NewMockCoreV1Interface(ctrl)
 			ccpod := NewMockPodInterface(ctrl)
+			crc.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.NewNotFound(schema.GroupResource{Resource: "Pod"}, "pod2"))
 			c.EXPECT().CoreV1().AnyTimes().Return(cc)
 			cc.EXPECT().Pods(gomock.Eq("default")).Times(1).Return(ccpod)
 			ccpod.EXPECT().Get(gomock.Eq("pod2"), gomock.Any()).Times(1).Return(nil, errors.NewNotFound(schema.GroupResource{Resource: "Pod"}, "pod2"))
@@ -160,16 +168,18 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 0)
 			So(m, ShouldBeEmpty)
 		})
 
 		Convey("then a counter should be decreased if the pod does not exist in the Kubernetes API", func() {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			crc := NewMockClient(ctrl)
 			c := NewMockInterface(ctrl)
 			cc := NewMockCoreV1Interface(ctrl)
 			ccpod := NewMockPodInterface(ctrl)
+			crc.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.NewNotFound(schema.GroupResource{Resource: "Pod"}, "pod2"))
 			c.EXPECT().CoreV1().AnyTimes().Return(cc)
 			cc.EXPECT().Pods(gomock.Eq("default")).Times(1).Return(ccpod)
 			ccpod.EXPECT().Get(gomock.Eq("pod2"), gomock.Any()).Times(1).Return(nil, errors.NewNotFound(schema.GroupResource{Resource: "Pod"}, "pod2"))
@@ -185,7 +195,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn, getRetryCounter: 3}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 3)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 3)
 			So(m, ShouldNotBeEmpty)
 			So(m, ShouldContainKey, "aaaa")
 			So(m["aaaa"].getRetryCounter, ShouldEqual, 2)
@@ -194,9 +204,11 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 		Convey("then a counter should be reset if a pod reappears in the Kubernetes API", func() {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			crc := NewMockClient(ctrl)
 			c := NewMockInterface(ctrl)
 			cc := NewMockCoreV1Interface(ctrl)
 			ccpod := NewMockPodInterface(ctrl)
+			crc.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.NewNotFound(schema.GroupResource{Resource: "Pod"}, "pod2"))
 			c.EXPECT().CoreV1().AnyTimes().Return(cc)
 			cc.EXPECT().Pods(gomock.Eq("default")).Times(1).Return(ccpod)
 			ccpod.EXPECT().Get(gomock.Eq("pod1"), gomock.Any()).Times(1).Return(pod1, nil)
@@ -212,7 +224,7 @@ func TestDeleteControllerFunctionality(t *testing.T) {
 				Namespace: "default",
 			}
 			m["aaaa"] = DeleteObject{podUID: "aaaa", sandboxID: "sandbox", podName: nn, getRetryCounter: 2}
-			deleteControllerReconcile(ctx, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 3)
+			deleteControllerReconcile(ctx, crc, c, nodeName, pc, itemProcessTimeout, m, nil, eventsCh, 3)
 			So(m, ShouldNotBeEmpty)
 			So(m, ShouldContainKey, "aaaa")
 			So(m["aaaa"].getRetryCounter, ShouldEqual, 3)
@@ -231,13 +243,13 @@ func TestDeleteController(t *testing.T) {
 			<-eventsCh
 		}()
 		//nolint:unparam
-		reconcileFunc := func(ctx context.Context, c kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent, maxGetRetryCount uint8) {
+		reconcileFunc := func(ctx context.Context, c client.Client, vc kubernetes.Interface, nodeName string, pc *config.ProcessorConfig, t time.Duration, m map[string]DeleteObject, s extractors.PodSandboxExtractor, eventsCh chan event.GenericEvent, maxGetRetryCount uint8) {
 			for k, v := range m {
 				testMap[k] = v
 			}
 		}
 
-		dc := NewDeleteController(nil, nodeName, nil, nil, eventsCh, 0)
+		dc := NewDeleteController(nil, nil, nodeName, nil, nil, eventsCh, 0)
 		dc.deleteCh = make(chan DeleteEvent)
 		dc.reconcileCh = make(chan struct{})
 		dc.tickerPeriod = 1 * time.Second
