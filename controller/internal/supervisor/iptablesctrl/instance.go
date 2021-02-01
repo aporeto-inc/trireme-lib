@@ -130,6 +130,39 @@ func (i *Instance) CleanUp() error {
 	return nil
 }
 
+// CreateCustomRulesChain creates a custom rules chain if it doesnt exist
+func (i *Instance) CreateCustomRulesChain() error {
+	nonbatchedv4tableprovider, _ := provider.NewGoIPTablesProviderV4([]string{}, CustomQOSChain)
+	nonbatchedv6tableprovider, _ := provider.NewGoIPTablesProviderV6([]string{}, CustomQOSChain)
+	err := nonbatchedv4tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
+
+	} else {
+		if err := nonbatchedv4tableprovider.Insert(customQOSChainTable, customQOSChainNFHook, 1,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv4 custom rule", zap.Error(err))
+		}
+	}
+	err = nonbatchedv6tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
+	} else {
+		if err := nonbatchedv6tableprovider.Append(customQOSChainTable, customQOSChainNFHook,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv6 custom rule", zap.Error(err))
+		}
+	}
+
+	return nil
+}
+
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ipv6Enabled bool, ebpf ebpf.BPFModule) (*Instance, error) {
 

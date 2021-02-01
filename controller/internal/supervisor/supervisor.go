@@ -119,6 +119,9 @@ func (s *Config) Run(ctx context.Context) error {
 	if s.service != nil {
 		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
 	}
+	if err := s.impl.CreateCustomRulesChain(); err != nil {
+		return err
+	}
 
 	return nil
 }

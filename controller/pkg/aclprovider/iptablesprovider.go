@@ -52,7 +52,8 @@ type BatchProvider struct {
 	batchTables map[string]bool
 
 	// Allowing for custom commit functions for testing
-	commitFunc func(buf *bytes.Buffer) error
+	commitFunc  func(buf *bytes.Buffer) error
+	customChain string
 	sync.Mutex
 	cmd        string
 	restoreCmd string
@@ -88,7 +89,7 @@ func TestIptablesPinned(bpf string) error {
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string, customChain string) (IptablesProvider, error) {
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {
@@ -101,6 +102,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
 		saveCmd:     saveCmdV4,
+		customChain: customChain,
 		quote:       true,
 	}
 
@@ -111,7 +113,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string, customChain string) (IptablesProvider, error) {
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {
@@ -124,6 +126,7 @@ func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV6,
 		saveCmd:     saveCmdV6,
+		customChain: customChain,
 		quote:       true,
 	}
 
@@ -469,6 +472,8 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 				}
 			}
 		}
+		customChainRules, _ := b.saveCustomChainRules()
+		fmt.Fprintf(buf, "%s\n", customChainRules.String())
 		if _, err := fmt.Fprintf(buf, "COMMIT\n"); err != nil {
 			return nil, err
 		}
@@ -537,4 +542,31 @@ func (b *BatchProvider) ResetRules(subs string) error {
 	buf := bytes.NewBufferString(combineRules)
 
 	return b.commitFunc(buf)
+}
+
+func (b *BatchProvider) saveCustomChainRules() (*bytes.Buffer, error) {
+	var out []byte
+	var err error
+
+	cmd := exec.Command("aporeto-iptables", b.saveCmd)
+	if out, err = cmd.CombinedOutput(); err != nil {
+		zap.L().Error("Failed to get iptables-save command", zap.Error(err),
+			zap.String("Output", string(out)))
+		return nil, err
+	}
+
+	s := string(out)
+	rules := strings.Split(s, "\n")
+
+	var filterRules []string
+
+	for _, rule := range rules {
+		if strings.Contains(rule, b.customChain) {
+			filterRules = append(filterRules, rule)
+		}
+	}
+
+	combineRules := strings.Join(filterRules, "\n")
+	return bytes.NewBufferString(combineRules), nil
+
 }

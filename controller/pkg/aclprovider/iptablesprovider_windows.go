@@ -52,13 +52,13 @@ type BatchProvider struct{}
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string, customChain string) (IptablesProvider, error) {
 	return &BatchProvider{}, nil
 }
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string, customChain string) (IptablesProvider, error) {
 	return &BatchProvider{}, nil
 }
 

@@ -54,4 +54,7 @@ type Implementor interface {
 
 	// ACLProvider returns the ACL provider used by the implementor
 	ACLProvider() []provider.IptablesProvider
+
+	// CreateCustomRulesChain creates a custom rules chain if it doesnt exist
+	CreateCustomRulesChain() error
 }
