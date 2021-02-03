@@ -3,14 +3,13 @@ package extractors
 import (
 	"crypto/md5"
 	"io"
-	"net"
 	"os"
-	"strings"
 	"time"
 
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/fqdn"
 )
 
 // ComputeFileMd5 computes the Md5 of a file
@@ -41,26 +40,7 @@ func findFQDN(expiration time.Duration) string {
 	// Try to find FQDN
 	globalHostname := make(chan string, 1)
 	go func() {
-		addrs, err := net.LookupIP(hostname)
-		if err != nil {
-			globalHostname <- hostname
-			return
-		}
-
-		for _, addr := range addrs {
-			ip, err := addr.MarshalText()
-			if err != nil {
-				globalHostname <- hostname
-				return
-			}
-			hosts, err := net.LookupAddr(string(ip))
-			if err != nil || len(hosts) == 0 {
-				globalHostname <- hostname
-				return
-			}
-			fqdn := hosts[0]
-			globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
-		}
+		globalHostname <- fqdn.Find()
 	}()
 
 	// Use OS hostname if we dont hear back in a second
