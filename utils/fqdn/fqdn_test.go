@@ -42,13 +42,6 @@ func TestFind(t *testing.T) {
 			},
 		},
 		{
-			name: "os.Hostname does not error but returns empty",
-			want: unknownHostname,
-			osHostname: func() (string, error) {
-				return "", nil
-			},
-		},
-		{
 			name: "net.LookupIP errors",
 			want: constMyhostname,
 			osHostname: func() (string, error) {
@@ -90,22 +83,6 @@ func TestFind(t *testing.T) {
 			},
 		},
 		{
-			name: "net.LookupIP returns one address which can be reversed looked up",
-			want: "myhostname.local",
-			osHostname: func() (string, error) {
-				return constMyhostname, nil
-			},
-			netLookupIP: func(string) ([]net.IP, error) {
-				return []net.IP{ip41, ip42}, nil
-			},
-			netLookupAddr: func(addr string) ([]string, error) {
-				if addr == "192.0.2.2" {
-					return []string{"myhostname.local."}, nil
-				}
-				return nil, nil
-			},
-		},
-		{
 			name: "net.LookupIP returns IPv6 addresses which cannot be reversed looked up",
 			want: constMyhostname,
 			osHostname: func() (string, error) {
@@ -113,22 +90,6 @@ func TestFind(t *testing.T) {
 			},
 			netLookupIP: func(string) ([]net.IP, error) {
 				return []net.IP{ip61, ip62}, nil
-			},
-		},
-		{
-			name: "net.LookupIP returns one IPv6 address which can be reversed looked up",
-			want: "myhostname.local",
-			osHostname: func() (string, error) {
-				return constMyhostname, nil
-			},
-			netLookupIP: func(string) ([]net.IP, error) {
-				return []net.IP{ip61, ip62}, nil
-			},
-			netLookupAddr: func(addr string) ([]string, error) {
-				if addr == "2001:db8::69" {
-					return []string{"myhostname.local."}, nil
-				}
-				return nil, nil
 			},
 		},
 		{
