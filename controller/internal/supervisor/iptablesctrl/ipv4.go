@@ -109,3 +109,7 @@ func (i *ipv4) RetrieveTable() map[string]map[string][]string {
 func (i *ipv4) ResetRules(subs string) error {
 	return i.ipt.ResetRules(subs)
 }
+
+func (i *ipv4) ListRules(table, chain string) ([]string, error) {
+	return i.ipt.ListRules(table, chain)
+}

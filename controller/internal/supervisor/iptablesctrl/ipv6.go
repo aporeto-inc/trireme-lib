@@ -134,3 +134,7 @@ func (i *ipv6) ResetRules(subs string) error {
 
 	return i.ipt.ResetRules(subs)
 }
+
+func (i *ipv6) ListRules(table, chain string) ([]string, error) {
+	return i.ipt.ListRules(table, chain)
+}
