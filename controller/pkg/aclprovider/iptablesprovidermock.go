@@ -101,6 +101,13 @@ func (m *testIptablesProvider) Append(table, chain string, rulespec ...string) e
 	return nil
 }
 
+func (m *testIptablesProvider) ListRules(table, chain string) ([]string, error) {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.listRulesMock != nil {
+		return mock.listRulesMock(table, chain)
+	}
+	return []string{}, nil
+}
+
 func (m *testIptablesProvider) Insert(table, chain string, pos int, rulespec ...string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.insertMock != nil {
 		return mock.insertMock(table, chain, pos, rulespec...)
