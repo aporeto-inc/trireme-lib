@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -138,7 +139,20 @@ func (i *Instance) CreateCustomRulesChain() error {
 	if err != nil {
 		zap.L().Debug("Chain already exists", zap.Error(err))
 
-	} else {
+	}
+	postroutingchainrulesv4, err := nonbatchedv4tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		return err
+	}
+	checkCustomRulesv4 := func() bool {
+		for _, rule := range postroutingchainrulesv4 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv4() {
 		if err := nonbatchedv4tableprovider.Insert(customQOSChainTable, customQOSChainNFHook, 1,
 			"-m", "addrtype",
 			"--src-type", "LOCAL",
@@ -147,10 +161,24 @@ func (i *Instance) CreateCustomRulesChain() error {
 			zap.L().Debug("Unable to create ipv4 custom rule", zap.Error(err))
 		}
 	}
+
 	err = nonbatchedv6tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
 	if err != nil {
 		zap.L().Debug("Chain already exists", zap.Error(err))
-	} else {
+	}
+	postroutingchainrulesv6, err := nonbatchedv6tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		return err
+	}
+	checkCustomRulesv6 := func() bool {
+		for _, rule := range postroutingchainrulesv6 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv6() {
 		if err := nonbatchedv6tableprovider.Append(customQOSChainTable, customQOSChainNFHook,
 			"-m", "addrtype",
 			"--src-type", "LOCAL",

@@ -16,6 +16,7 @@ type iptablesProviderMockedMethods struct {
 	commitMock        func() error
 	retrieveTableMock func() map[string]map[string][]string
 	resetMock         func(subs string) error
+	listRulesMock     func(table, chain string) ([]string, error)
 }
 
 // TestIptablesProvider is a test implementation for IptablesProvider
@@ -30,6 +31,7 @@ type TestIptablesProvider interface {
 	MockNewChain(t *testing.T, impl func(table, chain string) error)
 	MockCommit(t *testing.T, impl func() error)
 	MockReset(t *testing.T, impl func(subs string) error)
+	MockListRules(t *testing.T, impl func(table, chain string) ([]string, error))
 }
 
 // A testIptablesProvider is an empty TransactionalManipulator that can be easily mocked.
@@ -44,6 +46,9 @@ func NewTestIptablesProvider() TestIptablesProvider {
 	return &testIptablesProvider{lock: &sync.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
 }
 
+func (m *testIptablesProvider) MockListRules(t *testing.T, impl func(table, chain string) ([]string, error)) {
+	m.currentMocks(t).listRulesMock = impl
+}
 func (m *testIptablesProvider) MockAppend(t *testing.T, impl func(table, chain string, rulespec ...string) error) {
 
 	m.currentMocks(t).appendMock = impl

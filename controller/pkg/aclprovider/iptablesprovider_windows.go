@@ -45,6 +45,8 @@ type BaseIPTables interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
+	// ListRules lists the rules in the table/chain passed to it
+	ListRules(table, chain string) ([]string, error)
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -337,4 +339,10 @@ func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
 func (b *BatchProvider) ResetRules(subs string) error {
 	// does nothing
 	return nil
+}
+
+// ListRules lists the rules in the table/chain passed to it
+func (b *BatchProvider) ListRules(table, chain string) ([]string, error) {
+	// Unimplemented on windows
+	return []string{}, nil
 }

@@ -41,6 +41,8 @@ type BaseIPTables interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
+	// ListRules lists the rules in the table/chain passed to it
+	ListRules(table, chain string) ([]string, error)
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -568,5 +570,24 @@ func (b *BatchProvider) saveCustomChainRules() (*bytes.Buffer, error) {
 
 	combineRules := strings.Join(filterRules, "\n")
 	return bytes.NewBufferString(combineRules), nil
+
+}
+
+// ListRules lists the rules in the table/chain passed to it
+func (b *BatchProvider) ListRules(table, chain string) ([]string, error) {
+	var cmd *exec.Cmd
+
+	if chain != "" {
+		cmd = exec.Command("aporeto-iptables", "iptables", "-t", table, "-L", chain)
+	} else {
+		cmd = exec.Command("aporeto-iptables", "iptables", "-t", table, "-L")
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		zap.L().Error("Failed to get rules", zap.Error(err), zap.String("table", table), zap.String("chain", chain))
+		return []string{}, err
+	}
+	rules := strings.Split(string(out), "\n")
+	return rules, nil
 
 }
