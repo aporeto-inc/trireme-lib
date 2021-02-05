@@ -578,9 +578,9 @@ func (b *BatchProvider) ListRules(table, chain string) ([]string, error) {
 	var cmd *exec.Cmd
 
 	if chain != "" {
-		cmd = exec.Command("aporeto-iptables", "iptables", "-t", table, "-L", chain)
+		cmd = exec.Command("aporeto-iptables", "iptables", "--wait", "-t", table, "-L", chain)
 	} else {
-		cmd = exec.Command("aporeto-iptables", "iptables", "-t", table, "-L")
+		cmd = exec.Command("aporeto-iptables", "iptables", "--wait", "-t", table, "-L")
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
