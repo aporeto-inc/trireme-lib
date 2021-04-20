@@ -5,3 +5,4 @@ coverage.txt
 controller/internal/processmon/testbinary/testbinary
 Gopkg.lock
 profile.out
+/scripts/codecov

@@ -6,21 +6,21 @@ go_import_path: go.aporeto.io/trireme-lib
 
 matrix:
   include:
-  - go: "1.13.x"
-  - go: "1.14.x"
-  - go: master
+    - go: "1.13.x"
+    - go: "1.14.x"
+    - go: master
   allow_failures:
-  - go: master
+    - go: master
   fast_finish: true
 
 addons:
-   apt:
-     packages:
-       - libnetfilter-queue-dev
-       - libnetfilter-log-dev
-       - iptables
-       - ipset
-       - wine-stable
+  apt:
+    packages:
+      - libnetfilter-queue-dev
+      - libnetfilter-log-dev
+      - iptables
+      - ipset
+      - wine-stable
 
 env:
   global:
@@ -45,4 +45,4 @@ script:
   - GO111MODULE=off ./.test.windows.sh
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - bash ./scripts/run-codecov

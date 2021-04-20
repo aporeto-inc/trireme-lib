@@ -1,0 +1,22 @@
+#!/bin/bash
+set -o errexit
+set -o nounset
+set -o pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pushd "$HERE"
+
+# download codecov to ./codecov
+curl --silent --show-error -o "codecov" https://codecov.io/bash
+VERSION="$(grep 'VERSION=\"[0-9\.]*\"' codecov | cut -d'"' -f2)"
+echo "codecov version: $VERSION"
+
+# download its hash (from another source) and print it for future reference
+curl --silent --show-error "https://raw.githubusercontent.com/codecov/codecov-bash/${VERSION}/SHA512SUM" | grep codecov > codecov.sha
+cat -v codecov.sha
+
+# verify it has the hash published on GitHub
+shasum --algorithm 512 --check codecov.sha
+
+# run it
+bash codecov
