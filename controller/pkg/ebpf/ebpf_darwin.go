@@ -3,18 +3,21 @@
 package ebpf
 
 import (
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
 )
 
+// BPFPath holds the BPF path
 var BPFPath = "/sys/fs/bpf/app-ack"
 
 type ebpfDarwin struct {
 }
 
-func ISeBPFSupported() bool {
+// IsEBPFSupported returns false for Darwin.
+func IsEBPFSupported() bool {
 	return false
 }
 
+// LoadBPF is not supported on Darwin.
 func LoadBPF() BPFModule {
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 
 // ExpirationNotifier is a function which will be called every time a cache
 // expires an item
-type ExpirationNotifier func(c DataStore, id interface{}, item interface{})
+type ExpirationNotifier func(id interface{}, item interface{})
 
 // DataStore is the interface to a datastore.
 type DataStore interface {
@@ -298,23 +298,22 @@ func (c *Cache) KeyList() []interface{} {
 func (c *Cache) removeNotify(u interface{}, notify bool) (err error) {
 
 	c.Lock()
-	defer c.Unlock()
 
 	val, ok := c.data[u]
 	if !ok {
+		c.Unlock()
 		return errors.New("not found")
 	}
 
 	if val.timer != nil {
 		val.timer.Stop()
 	}
+	delete(c.data, u)
+	c.Unlock()
 
 	if notify && val.expirer != nil {
-		val.expirer(c, u, val.value)
+		val.expirer(u, val.value)
 	}
-
-	delete(c.data, u)
-
 	return nil
 }
 

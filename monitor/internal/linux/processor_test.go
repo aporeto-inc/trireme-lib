@@ -7,24 +7,26 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls/mockcgnetcls"
 )
 
 func testLinuxProcessor(puHandler policy.Resolver) *linuxProcessor {
-	l := New()
+	l := New(context.Background())
 	l.SetupHandlers(&config.ProcessorConfig{
-		Collector: &collector.DefaultCollector{},
-		Policy:    puHandler,
+		Collector:  &collector.DefaultCollector{},
+		Policy:     puHandler,
+		ResyncLock: &sync.RWMutex{},
 	})
 	if err := l.SetupConfig(nil, &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
@@ -101,9 +103,9 @@ func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	dummyPUPath := "/var/run/trireme/linux/1234"
-	ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
+	ioutil.WriteFile(dummyPUPath, []byte{}, 0644) // nolint
 
-	defer os.RemoveAll(dummyPUPath) //nolint
+	defer os.RemoveAll(dummyPUPath) // nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
 

@@ -2,10 +2,6 @@
 
 package cgnetcls
 
-//This package does not use interfaces/objects from other trireme component so we don't need to mock anything here
-//We will create actual system objects
-//This can be tested only on linux since the directory structure will not exist anywhere else
-//Tests here will be skipped if you don't run as root
 import (
 	"fmt"
 	"io/ioutil"
@@ -16,7 +12,14 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	markconstants "go.aporeto.io/enforcerd/trireme-lib/utils/constants"
 )
+
+// This package does not use interfaces/objects from other trireme component so we don't need to mock anything here
+// We will create actual system objects
+// This can be tested only on linux since the directory structure will not exist anywhere else
+// Tests here will be skipped if you don't run as root
 
 const (
 	testcgroupname       = "/test"
@@ -26,10 +29,10 @@ const (
 )
 
 func cleanupnetclsgroup() {
-	data, _ := ioutil.ReadFile(filepath.Join(basePath, testcgroupname, procs))
+	data, _ := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, testcgroupname, procs))
 	fmt.Println(string(data))
-	_ = ioutil.WriteFile(filepath.Join(basePath, procs), data, 0644)
-	_ = os.RemoveAll(filepath.Join(basePath, testcgroupname))
+	_ = ioutil.WriteFile(filepath.Join(cgroupNetClsPath, procs), data, 0644)
+	_ = os.RemoveAll(filepath.Join(cgroupNetClsPath, testcgroupname))
 }
 
 func TestCreategroup(t *testing.T) {
@@ -46,14 +49,14 @@ func TestCreategroup(t *testing.T) {
 
 	defer cleanupnetclsgroup()
 
-	if _, err := ioutil.ReadFile(filepath.Join(basePath, releaseAgentConfFile)); err != nil {
+	if _, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, releaseAgentConfFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("ReleaseAgentConf File does not exist.Cgroup mount failed")
 			t.SkipNow()
 		}
 	}
 
-	if val, err := ioutil.ReadFile(filepath.Join(basePath, notifyOnReleaseFile)); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -65,7 +68,7 @@ func TestCreategroup(t *testing.T) {
 		}
 	}
 
-	if val, err := ioutil.ReadFile(filepath.Join(basePath, notifyOnReleaseFile)); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -77,7 +80,7 @@ func TestCreategroup(t *testing.T) {
 		}
 	}
 
-	if val, err := ioutil.ReadFile(filepath.Join(basePath, testcgroupname, notifyOnReleaseFile)); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, testcgroupname, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -111,7 +114,7 @@ func TestAssignMark(t *testing.T) {
 		t.Errorf("Failed to assign mark error = %s", err.Error())
 		t.SkipNow()
 	} else {
-		data, _ := ioutil.ReadFile(filepath.Join(basePath, testcgroupname, markFile))
+		data, _ := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, testcgroupname, markFile))
 		u, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err != nil {
 			t.Errorf("Non Integer mark value in classid file")
@@ -163,7 +166,7 @@ func TestAddProcess(t *testing.T) {
 		t.SkipNow()
 	} else {
 		//This directory structure should not be delete
-		if err := os.RemoveAll(filepath.Join(basePath, testcgroupname)); err == nil {
+		if err := os.RemoveAll(filepath.Join(cgroupNetClsPath, testcgroupname)); err == nil {
 			t.Errorf("Process not added to cgroup")
 			t.SkipNow()
 		}
@@ -238,7 +241,7 @@ func TestDeleteBasePath(t *testing.T) {
 	defer cleanupnetclsgroup()
 
 	cg.Deletebasepath(testcgroupnameformat)
-	_, err := os.Stat(filepath.Join(basePath, testcgroupname))
+	_, err := os.Stat(filepath.Join(cgroupNetClsPath, testcgroupname))
 	if err == nil {
 		t.Errorf("Delete of cgroup from system failed")
 		t.SkipNow()
@@ -285,7 +288,7 @@ func TestListCgroupProcesses(t *testing.T) {
 		t.SkipNow()
 	} else {
 		//This directory structure should not be delete
-		if err = os.RemoveAll(filepath.Join(basePath, testcgroupname)); err == nil {
+		if err = os.RemoveAll(filepath.Join(cgroupNetClsPath, testcgroupname)); err == nil {
 			t.Errorf("Process not added to cgroup")
 			t.SkipNow()
 		}
@@ -294,5 +297,44 @@ func TestListCgroupProcesses(t *testing.T) {
 	procs, err := cg.ListCgroupProcesses(testcgroupname)
 	if procs[0] != "1" && err != nil {
 		t.Errorf("No process found %d", err)
+	}
+}
+
+func TestMarkVal(t *testing.T) {
+	type test struct {
+		name string
+		want uint64
+	}
+	// this is kind of silly, but as this is an atomic counter,
+	// there is no other way than to really count up and compare
+	generateTests := func() []test {
+		ret := []test{}
+		i := 1
+		for {
+			want := i + markconstants.Initialmarkval
+			// this is the exception, in this case we should get plus one
+			if want >= markconstants.EnforcerCgroupMark {
+				want++
+			}
+			ret = append(ret, test{
+				name: strconv.Itoa(i + markconstants.Initialmarkval),
+				want: uint64(want),
+			})
+			// abort a couple tests after that
+			if want == markconstants.EnforcerCgroupMark+2 {
+				break
+			}
+			i++
+		}
+		return ret
+	}
+	for _, tt := range generateTests() {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MarkVal()
+			t.Logf("test %s, markVal %d", tt.name, got)
+			if got != tt.want {
+				t.Errorf("MarkVal() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

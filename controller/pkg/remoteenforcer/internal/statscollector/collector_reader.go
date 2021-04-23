@@ -1,7 +1,7 @@
 package statscollector
 
 import (
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
 )
 
 // Count returns the current number of records collected.
@@ -13,7 +13,7 @@ func (c *collectorImpl) Count() int {
 }
 
 // GetFlowRecords should return all flow records stashed so far.
-func (c *collectorImpl) GetFlowRecords() map[string]*collector.FlowRecord {
+func (c *collectorImpl) GetFlowRecords() map[uint64]*collector.FlowRecord {
 	c.Lock()
 	defer c.Unlock()
 
@@ -22,7 +22,7 @@ func (c *collectorImpl) GetFlowRecords() map[string]*collector.FlowRecord {
 	}
 
 	retval := c.Flows
-	c.Flows = make(map[string]*collector.FlowRecord)
+	c.Flows = make(map[uint64]*collector.FlowRecord)
 	return retval
 }
 

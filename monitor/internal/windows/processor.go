@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/pkitokens"
+
+	"go.uber.org/zap"
 )
 
 // Verifier is a generic JWT verifier interface. Different implementations
@@ -23,7 +25,7 @@ type Verifier interface {
 
 // NewVerifier initializes data structures based on the interface that
 // is transmitted over the RPC between main and remote enforcers.
-func NewVerifier(v Verifier) (Verifier, error) {
+func NewVerifier(ctx context.Context, v Verifier) (Verifier, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -37,11 +39,12 @@ func NewVerifier(v Verifier) (Verifier, error) {
 		return v, nil
 	case common.OIDC:
 		p := v.(*oidc.TokenVerifier)
-		verifier, err := oidc.NewClient(context.Background(), p)
+		verifier, err := oidc.NewClient(ctx, p)
 		if err != nil {
+			zap.L().Debug("usertokens: oidc.NewClient() failed", zap.Error(err))
 			return nil, err
 		}
 		return verifier, nil
 	}
-	return nil, fmt.Errorf("uknown verifier type")
+	return nil, fmt.Errorf("unknown verifier type")
 }

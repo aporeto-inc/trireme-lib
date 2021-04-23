@@ -5,12 +5,14 @@
 package mocktokens
 
 import (
+	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	claimsheader "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/claimsheader"
+	pkiverifier "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pkiverifier"
+	secrets "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	tokens "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/tokens"
 )
 
 // MockTokenEngine is a mock of TokenEngine interface
@@ -42,9 +44,9 @@ func (m *MockTokenEngine) EXPECT() *MockTokenEngineMockRecorder {
 
 // CreateAndSign mocks base method
 // nolint
-func (m *MockTokenEngine) CreateAndSign(isAck bool, claims *tokens.ConnectionClaims, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
+func (m *MockTokenEngine) CreateAndSign(isAck bool, claims *tokens.ConnectionClaims, encodedBuf, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateAndSign", isAck, claims, nonce, claimsHeader, secrets)
+	ret := m.ctrl.Call(m, "CreateAndSign", isAck, claims, encodedBuf, nonce, claimsHeader, secrets)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -52,28 +54,45 @@ func (m *MockTokenEngine) CreateAndSign(isAck bool, claims *tokens.ConnectionCla
 
 // CreateAndSign indicates an expected call of CreateAndSign
 // nolint
-func (mr *MockTokenEngineMockRecorder) CreateAndSign(isAck, claims, nonce, claimsHeader, secrets interface{}) *gomock.Call {
+func (mr *MockTokenEngineMockRecorder) CreateAndSign(isAck, claims, encodedBuf, nonce, claimsHeader, secrets interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAndSign", reflect.TypeOf((*MockTokenEngine)(nil).CreateAndSign), isAck, claims, nonce, claimsHeader, secrets)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAndSign", reflect.TypeOf((*MockTokenEngine)(nil).CreateAndSign), isAck, claims, encodedBuf, nonce, claimsHeader, secrets)
 }
 
-// Decode mocks base method
+// DecodeSyn mocks base method
 // nolint
-func (m *MockTokenEngine) Decode(isAck bool, data []byte, previousCert interface{}, secrets secrets.Secrets) (*tokens.ConnectionClaims, []byte, interface{}, error) {
+func (m *MockTokenEngine) DecodeSyn(isSynAck bool, data []byte, privateKey *ecdsa.PrivateKey, secrets secrets.Secrets, connClaims *tokens.ConnectionClaims) (*claimsheader.ClaimsHeader, []byte, interface{}, *pkiverifier.PKIControllerInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decode", isAck, data, previousCert, secrets)
-	ret0, _ := ret[0].(*tokens.ConnectionClaims)
+	ret := m.ctrl.Call(m, "DecodeSyn", isSynAck, data, privateKey, secrets, connClaims)
+	ret0, _ := ret[0].(*claimsheader.ClaimsHeader)
 	ret1, _ := ret[1].([]byte)
 	ret2, _ := ret[2].(interface{})
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret3, _ := ret[3].(*pkiverifier.PKIControllerInfo)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
-// Decode indicates an expected call of Decode
+// DecodeSyn indicates an expected call of DecodeSyn
 // nolint
-func (mr *MockTokenEngineMockRecorder) Decode(isAck, data, previousCert, secrets interface{}) *gomock.Call {
+func (mr *MockTokenEngineMockRecorder) DecodeSyn(isSynAck, data, privateKey, secrets, connClaims interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockTokenEngine)(nil).Decode), isAck, data, previousCert, secrets)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecodeSyn", reflect.TypeOf((*MockTokenEngine)(nil).DecodeSyn), isSynAck, data, privateKey, secrets, connClaims)
+}
+
+// DecodeAck mocks base method
+// nolint
+func (m *MockTokenEngine) DecodeAck(data []byte, connClaims *tokens.ConnectionClaims) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecodeAck", data, connClaims)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DecodeAck indicates an expected call of DecodeAck
+// nolint
+func (mr *MockTokenEngineMockRecorder) DecodeAck(data, connClaims interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecodeAck", reflect.TypeOf((*MockTokenEngine)(nil).DecodeAck), data, connClaims)
 }
 
 // Randomize mocks base method
@@ -90,4 +109,21 @@ func (m *MockTokenEngine) Randomize(arg0, arg1 []byte) error {
 func (mr *MockTokenEngineMockRecorder) Randomize(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Randomize", reflect.TypeOf((*MockTokenEngine)(nil).Randomize), arg0, arg1)
+}
+
+// Sign mocks base method
+// nolint
+func (m *MockTokenEngine) Sign(arg0 []byte, arg1 *ecdsa.PrivateKey) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sign", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Sign indicates an expected call of Sign
+// nolint
+func (mr *MockTokenEngineMockRecorder) Sign(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockTokenEngine)(nil).Sign), arg0, arg1)
 }

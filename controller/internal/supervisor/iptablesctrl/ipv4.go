@@ -6,12 +6,11 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/gaia/protocols"
 )
 
 const (
-	ipv4String = "v4-"
 	// IPv4DefaultIP is the default ip address of ipv4 subnets
 	IPv4DefaultIP = "0.0.0.0/0"
 )
@@ -29,7 +28,7 @@ func init() {
 // GetIPv4Impl creates the instance of ipv4 struct which implements the interface
 // ipImpl
 func GetIPv4Impl() (IPImpl, error) {
-	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
+	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"}, CustomQOSChain)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
@@ -37,16 +36,8 @@ func GetIPv4Impl() (IPImpl, error) {
 	return &ipv4{ipt: ipt}, nil
 }
 
-func (i *ipv4) GetIPSetPrefix() string {
-	return chainPrefix + ipv4String
-}
-
-func (i *ipv4) IPsetVersion() int {
-	return ipsetmanager.IPsetV4
-}
-
-func (i *ipv4) GetIPSetParam() *ipset.Params {
-	return ipsetV4Param
+func (i *ipv4) IPVersion() int {
+	return IPV4
 }
 
 func (i *ipv4) IPFilter() func(net.IP) bool {
@@ -67,7 +58,7 @@ func (i *ipv4) NeedICMP() bool {
 
 func (i *ipv4) ProtocolAllowed(proto string) bool {
 
-	return !(strings.ToLower(proto) == "icmpv6")
+	return !(strings.ToUpper(proto) == protocols.L4ProtocolICMP6)
 }
 
 func (i *ipv4) Append(table, chain string, rulespec ...string) error {
@@ -104,4 +95,12 @@ func (i *ipv4) Delete(table, chain string, rulespec ...string) error {
 
 func (i *ipv4) RetrieveTable() map[string]map[string][]string {
 	return i.ipt.RetrieveTable()
+}
+
+func (i *ipv4) ResetRules(subs string) error {
+	return i.ipt.ResetRules(subs)
+}
+
+func (i *ipv4) ListRules(table, chain string) ([]string, error) {
+	return i.ipt.ListRules(table, chain)
 }

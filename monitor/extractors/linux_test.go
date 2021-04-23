@@ -10,10 +10,10 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
-	portspec "go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	portspec "go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 func TestComputeFileMd5(t *testing.T) {
@@ -159,7 +159,7 @@ func Test_policyExtensions(t *testing.T) {
 		runtime policy.RuntimeReader
 	}
 
-	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, policy.None, nil)
 	em1 := policy.ExtendedMap{
 		"Key": "Value",
 	}
@@ -168,12 +168,12 @@ func Test_policyExtensions(t *testing.T) {
 	pur1.SetOptions(options)
 
 	// 2nd Runtime
-	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, policy.None, nil)
 	options = pur2.Options()
 	pur2.SetOptions(options)
 
 	// 3rd runtime
-	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, policy.None, nil)
 	options = pur3.Options()
 	options.PolicyExtensions = nil
 	pur3.SetOptions(options)
@@ -228,13 +228,13 @@ func TestIsHostmodePU(t *testing.T) {
 		mode    constants.ModeType
 	}
 
-	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.HostPU, nil)
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.HostPU, policy.None, nil)
 
 	// 2nd Runtime
-	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostNetworkPU, nil)
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostNetworkPU, policy.None, nil)
 
 	// 3rd runtime
-	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, policy.None, nil)
 
 	tests := []struct {
 		name string
@@ -298,13 +298,13 @@ func TestIsHostPU(t *testing.T) {
 		mode    constants.ModeType
 	}
 
-	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.HostPU, nil)
+	pur1 := policy.NewPURuntime("", 0, "", nil, nil, common.HostPU, policy.None, nil)
 
 	// 2nd Runtime
-	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostNetworkPU, nil)
+	pur2 := policy.NewPURuntime("", 0, "", nil, nil, common.HostNetworkPU, policy.None, nil)
 
 	// 3rd runtime
-	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, nil)
+	pur3 := policy.NewPURuntime("", 0, "", nil, nil, common.LinuxProcessPU, policy.None, nil)
 
 	tests := []struct {
 		name string

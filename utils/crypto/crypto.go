@@ -13,10 +13,53 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
+	mrand "math/rand"
+	"sync"
+	"time"
 
+	"github.com/ugorji/go/codec"
 	"go.aporeto.io/tg/tglib/windowscertbug"
 	"go.uber.org/zap"
 )
+
+type nonce struct {
+	r *mrand.Rand
+	sync.Mutex
+}
+
+// PublicKey is an intermediate structure to create gobs
+type PublicKey struct {
+	X *big.Int
+	Y *big.Int
+}
+
+//Nonce16Byte interface generates 16 byte nonce
+type Nonce16Byte interface {
+	GenerateNonce16Bytes([]byte)
+}
+
+var doOnce sync.Once
+var n nonce
+
+// Nonce initializes and returns nonce of type Nonce16Byte.
+func Nonce() Nonce16Byte {
+	doOnce.Do(func() {
+		n.r = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+	})
+
+	return &n
+}
+
+func (n *nonce) GenerateNonce16Bytes(b []byte) {
+	n.Lock()
+	low := n.r.Uint64()
+	high := n.r.Uint64()
+	n.Unlock()
+
+	binary.LittleEndian.PutUint64(b[:8], low)
+	binary.LittleEndian.PutUint64(b[8:], high)
+}
 
 // ComputeHmac256 computes the HMAC256 of the message
 func ComputeHmac256(tags []byte, key []byte) ([]byte, error) {
@@ -52,9 +95,8 @@ func VerifyHmac(tags []byte, expectedMAC []byte, key []byte) bool {
 // case the caller should not continue.
 func GenerateRandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
-	_, err := rand.Read(b)
 
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		zap.L().Debug("GenerateRandomBytes failed", zap.Error(err))
 		return nil, err
 	}
@@ -184,4 +226,64 @@ func LoadCertificate(certPEM []byte) (*x509.Certificate, error) {
 	}
 
 	return cert, nil
+}
+
+//EncodePublicKeyV1 encodes the public key to a byte slice
+func EncodePublicKeyV1(publicKey *ecdsa.PublicKey) []byte {
+
+	p := &PublicKey{X: publicKey.X, Y: publicKey.Y}
+
+	buf := make([]byte, 0, 1400)
+	var h codec.Handle = new(codec.CborHandle)
+	enc := codec.NewEncoderBytes(&buf, h)
+
+	if err := enc.Encode(p); err != nil {
+		return nil
+	}
+
+	return buf
+
+}
+
+// DecodePublicKeyV1 decodes the provided public key
+func DecodePublicKeyV1(key []byte) (*ecdsa.PublicKey, error) {
+	var p PublicKey
+
+	var h codec.Handle = new(codec.CborHandle)
+
+	dec := codec.NewDecoderBytes(key, h)
+	if err := dec.Decode(&p); err != nil {
+		return nil, err
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     p.X,
+		Y:     p.Y,
+	}, nil
+}
+
+//EncodePublicKeyV2 encodes the public key to a byte slice
+func EncodePublicKeyV2(publicKey *ecdsa.PublicKey) []byte {
+	return elliptic.Marshal(publicKey.Curve, publicKey.X, publicKey.Y)
+}
+
+// DecodePublicKeyV2 decodes the provided public key
+func DecodePublicKeyV2(key []byte) (*ecdsa.PublicKey, error) {
+
+	x, y := elliptic.Unmarshal(elliptic.P256(), key)
+	if x == nil || y == nil {
+		return nil, fmt.Errorf("Failed to decode public key")
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     x,
+		Y:     y,
+	}, nil
+}
+
+//EncodePrivateKey encodes the private key to a byte slice.
+func EncodePrivateKey(privateKey *ecdsa.PrivateKey) []byte {
+	return elliptic.Marshal(privateKey.PublicKey.Curve, privateKey.D, privateKey.PublicKey.X)
 }

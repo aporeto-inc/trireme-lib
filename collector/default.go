@@ -2,11 +2,9 @@ package collector
 
 import (
 	"encoding/binary"
-	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/cespare/xxhash"
+	"go.aporeto.io/underwater/core/policy/services"
 )
 
 // DefaultCollector implements a default collector infrastructure to syslog
@@ -41,55 +39,62 @@ func (d *DefaultCollector) CollectDNSRequests(report *DNSRequestReport) {}
 // CollectPingEvent collects ping events from the datapath
 func (d *DefaultCollector) CollectPingEvent(report *PingReport) {}
 
-// StatsFlowHash is a hash function to hash flows
-func StatsFlowHash(r *FlowRecord) string {
+// CollectConnectionExceptionReport collects the connection exception report
+func (d *DefaultCollector) CollectConnectionExceptionReport(report *ConnectionExceptionReport) {}
+
+// StatsFlowHash is a hash function to hash flows. Ignores source ports. Returns two hashes
+// flowhash - minimal with SIP/DIP/Dport
+// contenthash - hash with all contents to compare quickly and report when changes are observed
+func StatsFlowHash(r *FlowRecord) (flowhash, contenthash uint64) {
+
 	hash := xxhash.New()
-	hash.Write([]byte(r.Source.ID))      // nolint errcheck
-	hash.Write([]byte(r.Destination.ID)) // nolint errcheck
-	hash.Write([]byte(r.Source.IP))      // nolint errcheck
-	hash.Write([]byte(r.Destination.IP)) // nolint errcheck
+	hash.Write([]byte(r.Source.ID))       // nolint errcheck
+	hash.Write([]byte(r.Destination.ID))  // nolint errcheck
+	hash.Write([]byte(r.Destination.URI)) // nolint errcheck
+	hash.Write([]byte(r.Source.IP))       // nolint errcheck
+	hash.Write([]byte(r.Destination.IP))  // nolint errcheck
 	port := make([]byte, 2)
 	binary.BigEndian.PutUint16(port, r.Destination.Port)
-	hash.Write(port)                              // nolint errcheck
+	hash.Write(port) // nolint errcheck
+	flowhash = hash.Sum64()
+
 	hash.Write([]byte(r.Action.String()))         // nolint errcheck
 	hash.Write([]byte(r.ObservedAction.String())) // nolint errcheck
 	hash.Write([]byte(r.DropReason))              // nolint errcheck
-	hash.Write([]byte(r.Destination.URI))         // nolint errcheck
+	hash.Write([]byte(r.PolicyID))                // nolint errcheck
+	return flowhash, hash.Sum64()
+}
 
-	return fmt.Sprintf("%d", hash.Sum64())
+// StatsFlowContentHash is a hash function to hash flows. Ignores source ports. Returns
+// contenthash - hash with all contents to compare quickly and report when changes are observed
+func StatsFlowContentHash(r *FlowRecord) (contenthash uint64) {
+
+	_, contenthash = StatsFlowHash(r)
+	return contenthash
 }
 
 // StatsUserHash is a hash function to hash user records.
 func StatsUserHash(r *UserRecord) error {
-	// Order matters for the hash function loop
-	sort.Strings(r.Claims)
-	hash := xxhash.New()
-	for i := 0; i < len(r.Claims); i++ {
-		if strings.HasPrefix(r.Claims[i], "sub") {
-			continue
-		}
-		if _, err := hash.Write([]byte(r.Claims[i])); err != nil {
-			return fmt.Errorf("unable to create hash: %v", err)
-		}
-	}
-
-	hashWithNS, err := HashHashWithNamespace(fmt.Sprintf("%d", hash.Sum64()), r.Namespace)
+	hash, err := services.HashClaims(r.Claims, r.Namespace)
 	if err != nil {
 		return err
 	}
-
-	r.ID = hashWithNS
-
+	r.ID = hash
 	return nil
 }
 
-// HashHashWithNamespace hash the given claim hash with the given namespace.
-func HashHashWithNamespace(claimsHash string, namespace string) (string, error) {
+// ConnectionExceptionReportHash is a hash function to hash connection exception reports.
+func ConnectionExceptionReportHash(r *ConnectionExceptionReport) uint64 {
 
 	hash := xxhash.New()
-	if _, err := hash.Write(append([]byte(claimsHash), []byte(namespace)...)); err != nil {
-		return "", fmt.Errorf("unable to create namespace hash: %v", err)
-	}
+	hash.Write([]byte(r.PUID))          // nolint errcheck
+	hash.Write([]byte(r.SourceIP))      // nolint errcheck
+	hash.Write([]byte(r.DestinationIP)) // nolint errcheck
+	hash.Write([]byte(r.Reason))        // nolint errcheck
+	hash.Write([]byte(r.State))         // nolint errcheck
+	port := make([]byte, 2)
+	binary.BigEndian.PutUint16(port, r.DestinationPort)
+	hash.Write(port) // nolint errcheck
 
-	return fmt.Sprintf("%d", hash.Sum64()), nil
+	return hash.Sum64()
 }

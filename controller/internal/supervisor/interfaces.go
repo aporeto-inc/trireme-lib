@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // A Supervisor is implementing the node control plane that captures the packets.
@@ -54,4 +54,7 @@ type Implementor interface {
 
 	// ACLProvider returns the ACL provider used by the implementor
 	ACLProvider() []provider.IptablesProvider
+
+	// CreateCustomRulesChain creates a custom rules chain if it doesnt exist
+	CreateCustomRulesChain() error
 }

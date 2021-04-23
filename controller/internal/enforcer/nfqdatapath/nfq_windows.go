@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"unsafe"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/frontman"
 	"go.uber.org/zap"
 )
 
@@ -23,8 +23,8 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 
 	packetCallback := func(packetInfoPtr, dataPtr uintptr) uintptr {
 
-		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))                                   //nolint:govet
-		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize] //nolint:govet
+		packetInfo := *(*frontman.PacketInfo)(unsafe.Pointer(packetInfoPtr))                                   // nolint:govet
+		packetBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:packetInfo.PacketSize:packetInfo.PacketSize] // nolint:govet
 
 		var packetType int
 		if packetInfo.Outbound != 0 {
@@ -39,7 +39,7 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 
 		if parsedPacket.IPProto() == packet.IPProtocolUDP && parsedPacket.SourcePort() == 53 {
 			// notify PUs of DNS results
-			err := d.dnsProxy.HandleDNSResponsePacket(parsedPacket.GetUDPData(), parsedPacket.SourceAddress(), func(id string) (*pucontext.PUContext, error) {
+			err := d.dnsProxy.HandleDNSResponsePacket(parsedPacket.GetUDPData(), parsedPacket.SourceAddress(), parsedPacket.SourcePort(), parsedPacket.DestinationAddress(), parsedPacket.DestPort(), func(id string) (*pucontext.PUContext, error) {
 				puCtx, err1 := d.puFromContextID.Get(id)
 				if err1 != nil {
 					return nil, err1
@@ -47,7 +47,7 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 				return puCtx.(*pucontext.PUContext), nil
 			})
 			if err != nil {
-				zap.L().Error("Failed to handle DNS response", zap.Error(err))
+				zap.L().Debug("Failed to handle DNS response", zap.Error(err))
 			}
 			// forward packet
 			err = frontman.Wrapper.PacketFilterForward(&packetInfo, packetBytes)
@@ -57,15 +57,26 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 			return 0
 		}
 
-		parsedPacket.PlatformMetadata = &afinetrawsocket.PacketMetadata{PacketInfo: packetInfo, IgnoreFlow: false}
+		parsedPacket.PlatformMetadata = &afinetrawsocket.WindowPlatformMetadata{
+			PacketInfo: packetInfo,
+			IgnoreFlow: false,
+			Drop:       false,
+			SetMark:    0,
+		}
+
 		var processError error
 		var tcpConn *connection.TCPConnection
 		var udpConn *connection.UDPConnection
+		var f func()
+
 		if err != nil {
 			parsedPacket.Print(packet.PacketFailureCreate, d.packetLogs)
 		} else if parsedPacket.IPProto() == packet.IPProtocolTCP {
 			if packetType == packet.PacketTypeNetwork {
-				tcpConn, processError = d.processNetworkTCPPackets(parsedPacket)
+				tcpConn, f, processError = d.processNetworkTCPPackets(parsedPacket)
+				if f != nil {
+					f()
+				}
 			} else {
 				tcpConn, processError = d.processApplicationTCPPackets(parsedPacket)
 			}
@@ -105,21 +116,23 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 		}
 
 		// accept the (modified) packet by forwarding it
-		var modifiedPacketBytes []byte
-		if parsedPacket.IPProto() == packet.IPProtocolTCP {
-			modifiedPacketBytes = make([]byte, parsedPacket.IPTotalLen())
-			copyIndex := copy(modifiedPacketBytes, parsedPacket.GetBuffer(0))
-			copyIndex += copy(modifiedPacketBytes[copyIndex:], parsedPacket.GetTCPOptions())
-			copyIndex += copy(modifiedPacketBytes[copyIndex:], parsedPacket.GetTCPData())
-			packetInfo.PacketSize = uint32(copyIndex)
-		} else {
-			modifiedPacketBytes = parsedPacket.GetBuffer(0)
-			packetInfo.PacketSize = uint32(len(modifiedPacketBytes))
+		modifiedPacketBytes := parsedPacket.GetBuffer(0)
+		packetInfo.PacketSize = uint32(parsedPacket.IPTotalLen())
+
+		platformMetadata := parsedPacket.PlatformMetadata.(*afinetrawsocket.WindowPlatformMetadata)
+		if platformMetadata.IgnoreFlow {
+			packetInfo.IgnoreFlow = 1
+		} else if platformMetadata.DropFlow {
+			packetInfo.DropFlow = 1
+		}
+		if platformMetadata.Drop {
+			packetInfo.Drop = 1
+		}
+		if platformMetadata.SetMark != 0 {
+			packetInfo.SetMark = 1
+			packetInfo.SetMarkValue = platformMetadata.SetMark
 		}
 
-		if parsedPacket.PlatformMetadata.(*afinetrawsocket.PacketMetadata).IgnoreFlow {
-			packetInfo.IgnoreFlow = 1
-		}
 		if err := frontman.Wrapper.PacketFilterForward(&packetInfo, modifiedPacketBytes); err != nil {
 			zap.L().Error("failed to forward packet", zap.Error(err))
 		}
@@ -149,7 +162,7 @@ func (d *Datapath) startFrontmanPacketFilter(_ context.Context, nflogger nflog.N
 
 	logCallback := func(logPacketInfoPtr, dataPtr uintptr) uintptr {
 
-		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr)) //nolint:govet
+		logPacketInfo := *(*frontman.LogPacketInfo)(unsafe.Pointer(logPacketInfoPtr)) // nolint:govet
 		packetHeaderBytes := (*[1 << 30]byte)(unsafe.Pointer(dataPtr))[:logPacketInfo.PacketSize:logPacketInfo.PacketSize]
 
 		err := nflogWin.NfLogHandler(&logPacketInfo, packetHeaderBytes)

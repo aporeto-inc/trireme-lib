@@ -292,7 +292,7 @@ func TestCacheWithExpirationNotifier(t *testing.T) {
 	finished := make(chan bool)
 
 	Convey("Given a cache with an expiration notitifier ", t, func() {
-		c := NewCacheWithExpirationNotifier("cache", 2*time.Second, func(s DataStore, id interface{}, item interface{}) {
+		c := NewCacheWithExpirationNotifier("cache", 2*time.Second, func(id interface{}, item interface{}) {
 			if id.(string) == "test" && item.(string) == "test" {
 				finished <- true
 			} else {

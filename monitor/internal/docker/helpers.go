@@ -1,9 +1,9 @@
 package dockermonitor
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/constants"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 

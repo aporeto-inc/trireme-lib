@@ -10,11 +10,11 @@ import (
 	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/servicetokens"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/urisearch"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -119,17 +119,18 @@ func (p *Processor) DecodeUserClaims(ctx context.Context, name, userToken string
 }
 
 // DecodeAporetoClaims decodes the Aporeto claims
-func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string, error) {
+func (p *Processor) DecodeAporetoClaims(aporetoToken string, publicKey string) (string, []string, *policy.PingPayload, error) {
 	if len(aporetoToken) == 0 || p.aporetoJWT == nil {
-		return "", []string{}, nil
+		return "", []string{}, nil, nil
 	}
 
 	// Finally we can parse the Aporeto token.
-	id, scopes, profile, err := p.aporetoJWT.ParseToken(aporetoToken, publicKey)
+	id, scopes, profile, pingPayload, err := p.aporetoJWT.ParseToken(aporetoToken, publicKey)
 	if err != nil {
-		return "", []string{}, fmt.Errorf("Invalid Aporeto Token: %s", err)
+		return "", []string{}, nil, fmt.Errorf("Invalid Aporeto Token: %s", err)
 	}
-	return id, append(profile, scopes...), nil
+
+	return id, append(profile, scopes...), pingPayload, nil
 }
 
 // Callback is function called by and IDP auth provider will exchange the provided

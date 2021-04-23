@@ -6,17 +6,16 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/apiauth"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // Client is a metadata client.
 type Client struct {
 	puContext   string
-	registry    *serviceregistry.Registry
 	tokenIssuer common.ServiceTokenIssuer
 	certPEM     []byte
 	keyPEM      []byte
@@ -25,10 +24,9 @@ type Client struct {
 }
 
 // NewClient returns a new metadata client
-func NewClient(puContext string, r *serviceregistry.Registry, t common.ServiceTokenIssuer) *Client {
+func NewClient(puContext string, t common.ServiceTokenIssuer) *Client {
 	return &Client{
 		puContext:   puContext,
-		registry:    r,
 		tokenIssuer: t,
 	}
 }
@@ -62,7 +60,7 @@ func (c *Client) GetPrivateKey() []byte {
 // the marshalled policy as well as the original object for any farther processing.
 func (c *Client) GetCurrentPolicy() ([]byte, *policy.PUPolicyPublic, error) {
 
-	sctx, err := c.registry.RetrieveServiceByID(c.puContext)
+	sctx, err := serviceregistry.Instance().RetrieveServiceByID(c.puContext)
 	if err != nil {
 		return nil, nil, err
 	}

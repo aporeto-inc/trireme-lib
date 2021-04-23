@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
 )
 
 // WindowsMonitor hold state for the windows monitor
@@ -18,7 +18,7 @@ type WindowsMonitor struct {
 }
 
 // New returns a new implmentation of a monitor implmentation
-func New() *WindowsMonitor {
+func New(context.Context) *WindowsMonitor {
 	return &WindowsMonitor{
 		proc: &windowsProcessor{},
 	}
@@ -27,7 +27,7 @@ func New() *WindowsMonitor {
 // Run implements Implementation interface
 func (w *WindowsMonitor) Run(ctx context.Context) error {
 	if err := w.proc.config.IsComplete(); err != nil {
-		return fmt.Errorf("linux %t: %s", w.proc.host, err)
+		return fmt.Errorf("windows %t: %s", w.proc.host, err)
 	}
 
 	return w.Resync(ctx)
@@ -57,7 +57,9 @@ func (w *WindowsMonitor) SetupConfig(registerer registerer.Registerer, cfg inter
 		if err := registerer.RegisterProcessor(common.HostNetworkPU, w.proc); err != nil {
 			return err
 		}
-
+		if err := registerer.RegisterProcessor(common.WindowsProcessPU, w.proc); err != nil {
+			return err
+		}
 	}
 	windowsConfig = SetupDefaultConfig(windowsConfig)
 	w.proc.host = windowsConfig.Host

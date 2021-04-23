@@ -3,32 +3,30 @@ package iptablesctrl
 import (
 	"context"
 	"fmt"
-	"sync"
+	"os"
+	"strings"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
+)
+
+const (
+	//IPV4 version for ipv4
+	IPV4 = iota
+	//IPV6 version for ipv6
+	IPV6
 )
 
 //Instance is the structure holding the ipv4 and ipv6 handles
 type Instance struct {
 	iptv4 *iptables
 	iptv6 *iptables
-}
-
-var instance *Instance
-var lock sync.RWMutex
-
-// GetInstance returns the instance of the iptables object.
-func GetInstance() *Instance {
-	lock.Lock()
-	defer lock.Unlock()
-	return instance
 }
 
 // SetTargetNetworks updates ths target networks. There are three different
@@ -130,22 +128,93 @@ func (i *Instance) CleanUp() error {
 	return nil
 }
 
-// NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ipv6Enabled bool, ebpf ebpf.BPFModule) (*Instance, error) {
+// CreateCustomRulesChain creates a custom rules chain if it doesnt exist
+func (i *Instance) CreateCustomRulesChain() error {
+	nonbatchedv4tableprovider, _ := provider.NewGoIPTablesProviderV4([]string{}, CustomQOSChain)
+	nonbatchedv6tableprovider, _ := provider.NewGoIPTablesProviderV6([]string{}, CustomQOSChain)
+	err := nonbatchedv4tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
 
-	ips := provider.NewGoIPsetProvider()
+	}
+	postroutingchainrulesv4, err := nonbatchedv4tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		zap.L().Error("ListRules returned error", zap.Error(err))
+		return err
+	}
+	checkCustomRulesv4 := func() bool {
+		for _, rule := range postroutingchainrulesv4 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv4() {
+		if err := nonbatchedv4tableprovider.Insert(customQOSChainTable, customQOSChainNFHook, 1,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv4 custom rule", zap.Error(err))
+		}
+	}
+
+	err = nonbatchedv6tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
+	}
+	postroutingchainrulesv6, err := nonbatchedv6tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		return err
+	}
+	checkCustomRulesv6 := func() bool {
+		for _, rule := range postroutingchainrulesv6 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv6() {
+		if err := nonbatchedv6tableprovider.Append(customQOSChainTable, customQOSChainNFHook,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv6 custom rule", zap.Error(err))
+		}
+	}
+
+	return nil
+}
+
+// NewInstance creates a new iptables controller instance
+func NewInstance(fqc fqconfig.FilterQueue, mode constants.ModeType, ipv6Enabled bool, ebpf ebpf.BPFModule, iptablesLockfile string, serviceMeshType policy.ServiceMesh) (*Instance, error) {
+
+	// our iptables binary `aporeto-iptables` uses the environment variable XT_LOCK_NAME
+	// to set the iptables lockfile. Standard iptables does not look at this environment variable
+	if iptablesLockfile != "" {
+		if err := os.Setenv("XT_LOCK_NAME", iptablesLockfile); err != nil {
+			return nil, fmt.Errorf("unable to set XT_LOCK_NAME: %s", err)
+		}
+	}
 
 	ipv4Impl, err := GetIPv4Impl()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv4 instance: %s", err)
 	}
-	iptInstanceV4 := createIPInstance(ipv4Impl, ips, fqc, mode, aclmanager, ebpf)
+
+	ipsetV4 := ipsetmanager.V4()
+	iptInstanceV4 := createIPInstance(ipv4Impl, ipsetV4, fqc, mode, ebpf, serviceMeshType)
 
 	ipv6Impl, err := GetIPv6Impl(ipv6Enabled)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ipv6 instance: %s", err)
 	}
-	iptInstanceV6 := createIPInstance(ipv6Impl, ips, fqc, mode, aclmanager, ebpf)
+
+	ipsetV6 := ipsetmanager.V6()
+	iptInstanceV6 := createIPInstance(ipv6Impl, ipsetV6, fqc, mode, ebpf, serviceMeshType)
 
 	return newInstanceWithProviders(iptInstanceV4, iptInstanceV6)
 }
@@ -158,10 +227,6 @@ func newInstanceWithProviders(iptv4 *iptables, iptv6 *iptables) (*Instance, erro
 		iptv4: iptv4,
 		iptv6: iptv6,
 	}
-
-	lock.Lock()
-	instance = i
-	defer lock.Unlock()
 
 	return i, nil
 }

@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/constants"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 // A DockerMetadataExtractor is a function used to extract a *policy.PURuntime from a given
@@ -26,9 +26,6 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 
 	// trigger new build
 	tags := policy.NewTagStore()
-	// TODO: Remove OLDTAGS
-	tags.AppendKeyValue("@sys:image", info.Config.Image)
-	tags.AppendKeyValue("@sys:name", info.Name)
 	tags.AppendKeyValue("@app:image", info.Config.Image)
 	tags.AppendKeyValue("@app:extractor", "docker")
 	tags.AppendKeyValue("@app:docker:name", info.Name)
@@ -41,8 +38,8 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 		if len(v) == 0 {
 			value = "<empty>"
 		}
-		if !strings.HasPrefix(k, UserLabelPrefix) {
-			tags.AppendKeyValue(UserLabelPrefix+k, value)
+		if !strings.HasPrefix(k, constants.UserLabelPrefix) {
+			tags.AppendKeyValue(constants.UserLabelPrefix+k, value)
 		} else {
 			tags.AppendKeyValue(k, value)
 		}
@@ -53,10 +50,10 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 	}
 
 	if info.HostConfig.NetworkMode == constants.DockerHostMode {
-		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.LinuxProcessPU, hostModeOptions(info)), nil
+		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.LinuxProcessPU, policy.None, hostModeOptions(info)), nil
 	}
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.ContainerPU, nil), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.ContainerPU, policy.None, nil), nil
 }
 
 // hostModeOptions creates the default options for a host-mode container. This is done

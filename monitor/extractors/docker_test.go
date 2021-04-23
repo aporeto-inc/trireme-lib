@@ -10,7 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/constants"
 )
 
 func TestDefaultMetadataExtractor(t *testing.T) {
@@ -42,7 +42,7 @@ func TestDefaultMetadataExtractor(t *testing.T) {
 		t.Error(err)
 	}
 	var foundEmptyTag bool
-	for _, tag := range pu.Tags().Tags {
+	for _, tag := range pu.Tags().GetSlice() {
 		if tag == "@usr:empty-label=<empty>" {
 			foundEmptyTag = true
 			break
@@ -79,7 +79,7 @@ func createFileTest(destination string) error {
 	}
 	writer := bufio.NewWriter(fileHandle)
 	fmt.Fprintln(writer, testfile)
-	writer.Flush() // nolint : errcheck
+	writer.Flush() // nolint: errcheck
 	return nil
 }
 

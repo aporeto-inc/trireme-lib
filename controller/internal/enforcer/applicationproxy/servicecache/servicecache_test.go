@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 func TestEntries(t *testing.T) {
@@ -81,31 +81,29 @@ func TestEntries(t *testing.T) {
 }
 
 func createServices() (*common.Service, *common.Service, *common.Service) {
-	_, n1, err1 := net.ParseCIDR("172.17.1.0/24")
-	So(err1, ShouldBeNil)
-	_, n2, err2 := net.ParseCIDR("192.168.0.0/16")
-	So(err2, ShouldBeNil)
-	_, n3, err3 := net.ParseCIDR("20.1.1.1/32")
-	So(err3, ShouldBeNil)
+	n1 := "172.17.1.0/24"
+	n2 := "192.168.0.0/16"
+	n3 := "20.1.1.1/32"
+
 	s1 := &common.Service{
 		Ports: &portspec.PortSpec{
 			Min: uint16(0),
 			Max: uint16(100),
 		},
 		Protocol:  6,
-		Addresses: []*net.IPNet{n1, n2, n3},
+		Addresses: map[string]struct{}{n1: struct{}{}, n2: struct{}{}, n3: struct{}{}},
 		FQDNs:     []string{"host1", "host2", "host3"},
 	}
 
-	_, n4, err4 := net.ParseCIDR("10.1.1.0/28")
-	So(err4, ShouldBeNil)
+	n4 := "10.1.1.0/28"
+
 	s2 := &common.Service{
 		Ports: &portspec.PortSpec{
 			Min: uint16(150),
 			Max: uint16(200),
 		},
 		Protocol:  6,
-		Addresses: []*net.IPNet{n4},
+		Addresses: map[string]struct{}{n4: struct{}{}},
 		FQDNs:     []string{"host4"},
 	}
 
@@ -115,7 +113,7 @@ func createServices() (*common.Service, *common.Service, *common.Service) {
 			Max: uint16(2000),
 		},
 		Protocol:  6,
-		Addresses: []*net.IPNet{},
+		Addresses: map[string]struct{}{},
 	}
 
 	return s1, s2, s3
@@ -154,15 +152,14 @@ func TestServiceCache(t *testing.T) {
 			cerr = c.Add(s3, "3", "third data", true)
 			So(cerr, ShouldBeNil)
 
-			_, n5, err5 := net.ParseCIDR("10.1.1.0/28")
-			So(err5, ShouldBeNil)
+			n5 := "10.1.1.0/28"
 			s4 := &common.Service{
 				Ports: &portspec.PortSpec{
 					Min: uint16(100),
 					Max: uint16(300),
 				},
 				Protocol:  6,
-				Addresses: []*net.IPNet{n5},
+				Addresses: map[string]struct{}{n5: struct{}{}},
 			}
 			cerr = c.Add(s4, "4", "failed data", true)
 			So(cerr, ShouldNotBeNil)

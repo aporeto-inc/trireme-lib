@@ -10,8 +10,8 @@ import (
 
 	nat "github.com/docker/go-connections/nat"
 	gomock "github.com/golang/mock/gomock"
-	common "go.aporeto.io/trireme-lib/common"
-	policy "go.aporeto.io/trireme-lib/policy"
+	common "go.aporeto.io/enforcerd/trireme-lib/common"
+	policy "go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // MockRuntimeReader is a mock of RuntimeReader interface

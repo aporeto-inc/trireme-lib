@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/gaia"
 )
 
 // Flow event description
@@ -104,6 +104,9 @@ type EventCollector interface {
 
 	// CollectPingEvent collects the ping events
 	CollectPingEvent(report *PingReport)
+
+	// CollectConnectionExceptionReport collects the connection exception report
+	CollectConnectionExceptionReport(report *ConnectionExceptionReport)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -112,10 +115,10 @@ type EndPointType byte
 const (
 	// EndPointTypeExternalIP indicates that the endpoint is an external IP address
 	EndPointTypeExternalIP EndPointType = iota
-	// EnpointTypePU indicates that the endpoint is a PU.
-	EnpointTypePU
-	// EndpointTypeClaims indicates that the endpoint is of type claims.
-	EndpointTypeClaims
+	// EndPointTypePU indicates that the endpoint is a PU.
+	EndPointTypePU
+	// EndPointTypeClaims indicates that the endpoint is of type claims.
+	EndPointTypeClaims
 )
 
 func (e *EndPointType) String() string {
@@ -123,9 +126,9 @@ func (e *EndPointType) String() string {
 	switch *e {
 	case EndPointTypeExternalIP:
 		return "ext"
-	case EnpointTypePU:
+	case EndPointTypePU:
 		return "pu"
-	case EndpointTypeClaims:
+	case EndPointTypeClaims:
 		return "claims"
 	}
 
@@ -145,20 +148,24 @@ type EndPoint struct {
 
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
-	ContextID        string
-	Namespace        string
-	Source           *EndPoint
-	Destination      *EndPoint
-	Tags             *policy.TagStore
-	DropReason       string
-	PolicyID         string
-	ObservedPolicyID string
-	ServiceType      policy.ServiceType
-	ServiceID        string
-	Count            int
-	Action           policy.ActionType
-	ObservedAction   policy.ActionType
-	L4Protocol       uint8
+	ContextID             string
+	Namespace             string
+	Source                EndPoint
+	Destination           EndPoint
+	Tags                  []string
+	DropReason            string
+	PolicyID              string
+	ObservedPolicyID      string
+	ServiceType           policy.ServiceType
+	ServiceID             string
+	Count                 int
+	Action                policy.ActionType
+	ObservedAction        policy.ActionType
+	ObservedActionType    policy.ObserveActionType
+	L4Protocol            uint8
+	SourceController      string
+	DestinationController string
+	RuleName              string
 }
 
 func (f *FlowRecord) String() string {
@@ -210,17 +217,21 @@ type PacketReport struct {
 	SourceIP        string
 	SourcePort      int
 	TriremePacket   bool
+	Timestamp       int64
 	Payload         []byte
 }
 
 // DNSRequestReport object is used to report dns requests being made by PU's
 type DNSRequestReport struct {
-	Namespace  string
-	Source     *EndPoint
-	NameLookup string
-	Error      string
-	Count      int
-	Ts         time.Time
+	ContextID   string
+	Namespace   string
+	Source      *EndPoint
+	Destination *EndPoint
+	NameLookup  string
+	Error       string
+	Count       int
+	Ts          time.Time
+	IPs         []string
 }
 
 // Counters represent a single entry with name and current val
@@ -236,39 +247,77 @@ type CounterReport struct {
 
 // PingReport represents a single ping report from datapath.
 type PingReport struct {
-	SourceID             string
-	SourceNamespace      string
-	DestinationID        string
-	DestinationNamespace string
-	FlowTuple            string
-	Latency              string
-	AgentVersion         string
+	PingID               string
+	IterationID          int
+	Type                 gaia.PingProbeTypeValue
+	PUID                 string
+	Namespace            string
+	FourTuple            string
+	RTT                  string
 	Protocol             int
 	ServiceType          string
 	PayloadSize          int
-	Request              int
-	Type                 claimsheader.PingType
-	Stage                Stage
-	SessionID            string
+	PayloadSizeType      gaia.PingProbePayloadSizeTypeValue
+	PolicyID             string
+	PolicyAction         policy.ActionType
+	AgentVersion         string
+	ApplicationListening bool
+	SeqNum               uint32
+	TargetTCPNetworks    bool
+	ExcludedNetworks     bool
+	Error                string
+	Claims               []string
+	ClaimsType           gaia.PingProbeClaimsTypeValue
+	ACLPolicyID          string
+	ACLPolicyAction      policy.ActionType
+	PeerCertIssuer       string
+	PeerCertSubject      string
+	PeerCertExpiry       time.Time
+	IsServer             bool
+	ServiceID            string
+
+	// Remote pu fields.
+	RemoteController    string
+	RemotePUID          string
+	RemoteEndpointType  EndPointType
+	RemoteNamespace     string
+	RemoteNamespaceType gaia.PingProbeRemoteNamespaceTypeValue
 }
 
-// Stage represents the checkpoint when the report is sent.
-type Stage int
+// IPTablesTrace is a bundle of iptables trace records
+type IPTablesTrace struct {
+	Namespace string
+	Timestamp int64
+	Records   []*IPTablesTraceRecord
+}
 
-// Stage options.
-const (
-	Origin Stage = iota
-	Reply
-)
+// IPTablesTraceRecord is the info parsed out from a trace event message
+type IPTablesTraceRecord struct {
+	TTL                  int
+	Chain                string
+	DestinationIP        string
+	DestinationInterface string
+	DestinationPort      int
+	Length               int
+	PacketID             int
+	Protocol             int
+	RuleID               int
+	SourceIP             string
+	SourceInterface      string
+	SourcePort           int
+	TableName            string
+}
 
-func (s Stage) String() string {
-
-	switch s {
-	case Origin:
-		return "origin"
-	case Reply:
-		return "reply"
-	default:
-		return "unknown"
-	}
+// ConnectionExceptionReport represents a single connection exception report from datapath.
+type ConnectionExceptionReport struct {
+	Timestamp       time.Time
+	PUID            string
+	Namespace       string
+	Protocol        int
+	SourceIP        string
+	DestinationIP   string
+	DestinationPort uint16
+	State           string
+	Reason          string
+	Value           uint32
 }

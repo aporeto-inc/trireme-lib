@@ -9,16 +9,18 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/servicetokens"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
 const (
-	defaultValidity = 60 * time.Second
+	// DefaultValidity is default service token validity.
+	DefaultValidity = 60 * time.Second
 
 	// TriremeOIDCCallbackURI is the callback URI that must be presented by
 	// any OIDC provider.
@@ -28,7 +30,6 @@ const (
 // Processor is an API Authorization processor.
 type Processor struct {
 	puContext string
-	registry  *serviceregistry.Registry
 
 	issuer  string // the issuer ID .. need to get rid of that part with the new tokens
 	secrets secrets.Secrets
@@ -36,22 +37,21 @@ type Processor struct {
 }
 
 // New will create a new authorization processor.
-func New(contextID string, r *serviceregistry.Registry, s secrets.Secrets) *Processor {
+func New(contextID string, s secrets.Secrets) *Processor {
 	return &Processor{
 		puContext: contextID,
-		registry:  r,
 		secrets:   s,
 	}
 }
 
 func (p *Processor) retrieveNetworkContext(originalIP *net.TCPAddr) (*serviceregistry.PortContext, error) {
 
-	return p.registry.RetrieveExposedServiceContext(originalIP.IP, originalIP.Port, "")
+	return serviceregistry.Instance().RetrieveExposedServiceContext(originalIP.IP, originalIP.Port, "")
 }
 
 func (p *Processor) retrieveApplicationContext(address *net.TCPAddr) (*serviceregistry.ServiceContext, *serviceregistry.DependentServiceData, error) {
 
-	return p.registry.RetrieveServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
+	return serviceregistry.Instance().RetrieveDependentServiceDataByIDAndNetwork(p.puContext, address.IP, address.Port, "")
 }
 
 // UpdateSecrets is called to update the authorizer secrets.
@@ -85,7 +85,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 	d.ServiceID = serviceData.APICache.ID
 
 	// First we process network type rules (L3 based decision)
-	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(r.OriginalDestination.IP, uint16(r.OriginalDestination.Port))
+	_, netaction, noNetAccesPolicy := sctx.PUContext.ApplicationACLPolicyFromAddr(r.OriginalDestination.IP, uint16(r.OriginalDestination.Port), uint8(packet.IPProtocolTCP))
 	d.NetworkPolicyID = netaction.PolicyID
 	d.NetworkServiceID = netaction.ServiceID
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
@@ -113,7 +113,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 		if !rule.Public {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
-			if !serviceData.APICache.MatchClaims(rule.ClaimMatchingRules, append(sctx.PUContext.Identity().Tags, sctx.PUContext.Scopes()...)) {
+			if !serviceData.APICache.MatchClaims(rule.ClaimMatchingRules, append(sctx.PUContext.Identity().GetSlice(), sctx.PUContext.Scopes()...)) {
 				return d, &AuthError{
 					status:  http.StatusForbidden,
 					message: "Unauthorized service: rejected by policy",
@@ -121,7 +121,7 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 			}
 		}
 
-		d.Action = policy.Accept
+		d.Action = policy.Accept | policy.Log
 		if !serviceData.ServiceObject.NoTLSExternalService {
 			d.Action = d.Action | policy.Encrypt
 		}
@@ -137,11 +137,12 @@ func (p *Processor) ApplicationRequest(r *Request) (*AppAuthResponse, error) {
 
 	token, err := servicetokens.CreateAndSign(
 		p.issuer,
-		sctx.PUContext.Identity().Tags,
+		sctx.PUContext.Identity().GetSlice(),
 		sctx.PUContext.Scopes(),
 		sctx.PUContext.ManagementID(),
-		defaultValidity,
+		DefaultValidity,
 		secret.EncodingKey(),
+		nil,
 	)
 	if err != nil {
 		return d, &AuthError{
@@ -189,12 +190,12 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 	if strings.HasPrefix(r.RequestURI, TriremeOIDCCallbackURI) {
 		callbackResponse, err := pctx.Authorizer.Callback(ctx, r.URL)
 		if err == nil {
-			d.Action = policy.Accept | policy.Encrypt
+			d.Action = policy.Accept | policy.Encrypt | policy.Log
 			d.Redirect = true
 			d.RedirectURI = callbackResponse.OriginURL
 			d.Cookie = callbackResponse.Cookie
 			d.Data = callbackResponse.Data
-			d.SourceType = collector.EndpointTypeClaims
+			d.SourceType = collector.EndPointTypeClaims
 			d.NetworkPolicyID = "default"
 			d.NetworkServiceID = "default"
 		}
@@ -213,13 +214,24 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 	// know what to do until after we decode all the incoming claims.
 	// We perform this function early so that we don't waste CPU cycles with
 	// processing tokens if the network policy does not allow the connection.
-	_, aclPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(
+	aclReportPolicy, aclActualPolicy, noNetAccessPolicy := pctx.PUContext.NetworkACLPolicyFromAddr(
 		r.SourceAddress.IP,
 		uint16(r.OriginalDestination.Port),
+		uint8(packet.IPProtocolTCP),
 	)
-	d.NetworkPolicyID = aclPolicy.PolicyID
-	d.NetworkServiceID = aclPolicy.ServiceID
-	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
+	d.NetworkPolicyID = aclActualPolicy.PolicyID
+	d.NetworkServiceID = aclActualPolicy.ServiceID
+
+	if aclActualPolicy.Action.Logged() {
+		d.Action = d.Action | policy.Log
+	}
+
+	if aclReportPolicy.ObserveAction.Observed() {
+		d.ObservedPolicyID = aclReportPolicy.PolicyID
+		d.ObservedAction = aclReportPolicy.Action
+	}
+
+	if noNetAccessPolicy == nil && aclActualPolicy.Action.Rejected() {
 		d.DropReason = collector.PolicyDrop
 		d.SourceType = collector.EndPointTypeExternalIP
 		return d, &AuthError{
@@ -243,7 +255,8 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 	// Calculate the Aporeto PU claims by parsing the token if it exists. If the token
 	// is empty the DecodeAporetoClaims method will return no error.
 	var aporetoClaims []string
-	d.SourcePUID, aporetoClaims, err = pctx.Authorizer.DecodeAporetoClaims(token, key)
+	var pingPayload *policy.PingPayload
+	d.SourcePUID, aporetoClaims, pingPayload, err = pctx.Authorizer.DecodeAporetoClaims(token, key)
 	if err != nil {
 		d.DropReason = collector.PolicyDrop
 		return d, &AuthError{
@@ -252,26 +265,44 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		}
 	}
 
+	if pingPayload != nil && pingPayload.PingID != "" {
+		d.PingConfig = &PingConfig{
+			PingID:      pingPayload.PingID,
+			IterationID: pingPayload.IterationID,
+			Claims:      aporetoClaims,
+			PayloadSize: len(token) + len(key),
+		}
+	}
+
 	// If the other side is a PU we will always put the source type as PU.
 	isPUSource := false
 	if len(aporetoClaims) > 0 {
 		isPUSource = true
-		d.SourceType = collector.EnpointTypePU
+		d.SourceType = collector.EndPointTypePU
 	}
 
 	// We need to verify network policy, before validating the API policy. If a network
 	// policy has given us an accept because of IP address based ACLs we proceed anyway.
 	// This is rather convoluted, but a user might choose to implement network
 	// policies with ACLs only, and we have to cover this case.
-	if noNetAccessPolicy != nil {
+	if noNetAccessPolicy != nil || aclReportPolicy.ObserveAction.ObserveApply() {
 
 		// If we have not found an IP based access policy and the other side
 		// is a PU we can visit the network rules based on tag authorization.
-		if len(aporetoClaims) > 0 {
-			_, netPolicyAction := pctx.PUContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
-			d.NetworkPolicyID = netPolicyAction.PolicyID
-			d.NetworkServiceID = aclPolicy.ServiceID
-			if netPolicyAction.Action.Rejected() {
+		if isPUSource {
+			netReportPolicy, netActualPolicy := pctx.PUContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
+
+			d.NetworkPolicyID = netActualPolicy.PolicyID
+			d.NetworkServiceID = aclActualPolicy.ServiceID
+			d.ObservedPolicyID = ""
+			d.ObservedAction = policy.ActionType(0)
+
+			if netReportPolicy.ObserveAction.Observed() {
+				d.ObservedPolicyID = netReportPolicy.PolicyID
+				d.ObservedAction = netReportPolicy.Action
+			}
+
+			if netActualPolicy.Action.Rejected() {
 				d.DropReason = collector.PolicyDrop
 				return d, &AuthError{
 					message: "Access not authorized by network policy",
@@ -286,11 +317,10 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 				message: "Access denied by network policy: no policy found",
 				status:  http.StatusNetworkAuthenticationRequired,
 			}
-
 		}
 	} else {
-		if aclPolicy.Action.Accepted() {
-			aporetoClaims = append(aporetoClaims, aclPolicy.Labels...)
+		if aclActualPolicy.Action.Accepted() {
+			aporetoClaims = append(aporetoClaims, aclActualPolicy.Labels...)
 		}
 	}
 
@@ -306,6 +336,7 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 		// We need to process the redirects here. The reject might be forcing
 		// us to issue a redirect. Redirects are valid only if the source
 		// is a user. It doesn't make sense to redirect a PU.
+		// If the source is not a PU, then ping cannot be enabled.
 		if !isPUSource {
 			authError := &AuthError{
 				message: "No token presented or invalid token: Please authenticate first",
@@ -336,6 +367,11 @@ func (p *Processor) NetworkRequest(ctx context.Context, r *Request) (*NetworkAut
 	if r.TLS != nil {
 		d.Action = d.Action | policy.Encrypt
 	}
+
+	if aclActualPolicy.Action.Logged() {
+		d.Action = d.Action | policy.Log
+	}
+
 	// We update the request headers with the claims and pass back
 	// the information.
 	pctx.Authorizer.UpdateRequestHeaders(r.Header, d.UserAttributes)
@@ -374,7 +410,7 @@ func userCredentials(ctx context.Context, pctx *serviceregistry.PortContext, r *
 	}
 
 	if len(userAttributes) > 0 {
-		d.SourceType = collector.EndpointTypeClaims
+		d.SourceType = collector.EndPointTypeClaims
 	}
 
 	if refreshedToken != userToken {

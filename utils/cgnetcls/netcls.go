@@ -9,22 +9,27 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/constants"
 	"go.uber.org/zap"
 )
 
 // receiver definition.
 type netCls struct {
-	markchan         chan uint64
+	markchan         chan uint64 // nolint: structcheck
 	ReleaseAgentPath string
 	TriremePath      string
 }
 
 var (
-	basePath        = "/sys/fs/cgroup/net_cls"
-	markval  uint64 = constants.Initialmarkval
+	cgroupNetClsPath string
+	markval          uint64 = constants.Initialmarkval // nolint: varcheck
 )
+
+// ConfigureNetClsPath updates the cgroupNetCls path
+func ConfigureNetClsPath(path string) {
+	cgroupNetClsPath = path
+}
 
 // GetCgroupList geta list of all cgroup names
 // TODO: only used in autoport detection, and a bad usage as well
@@ -32,8 +37,8 @@ func GetCgroupList() []string {
 	var cgroupList []string
 
 	// iterate over our different base paths from the different cgroup base paths
-	for _, baseCgroupPath := range []string{common.TriremeCgroupPath, common.TriremeUIDCgroupPath, common.TriremeDockerHostNetwork} {
-		filelist, err := ioutil.ReadDir(filepath.Join(basePath, baseCgroupPath))
+	for _, baseCgroupPath := range []string{common.TriremeCgroupPath, common.TriremeDockerHostNetwork} {
+		filelist, err := ioutil.ReadDir(filepath.Join(cgroupNetClsPath, baseCgroupPath))
 		if err == nil {
 			for _, file := range filelist {
 				if file.IsDir() {
@@ -49,12 +54,11 @@ func GetCgroupList() []string {
 // TODO: only used in autoport detection, and a bad usage as well
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
-	_, err := os.Stat(filepath.Join(basePath, cgroupname))
-	if os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cgroupNetClsPath, cgroupname)); os.IsNotExist(err) {
 		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(basePath, cgroupname, "cgroup.procs"))
+	data, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, cgroupname, "cgroup.procs"))
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot read procs file: %s", err)
 	}
@@ -73,7 +77,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 // GetAssignedMarkVal -- returns the mark val assigned to the group
 // TODO: looks like dead code
 func GetAssignedMarkVal(cgroupName string) string {
-	mark, err := ioutil.ReadFile(filepath.Join(basePath, cgroupName, markFile))
+	mark, err := ioutil.ReadFile(filepath.Join(cgroupNetClsPath, cgroupName, markFile))
 
 	if err != nil || len(mark) < 1 {
 		zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))

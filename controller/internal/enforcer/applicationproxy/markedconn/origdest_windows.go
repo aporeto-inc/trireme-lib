@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"go.aporeto.io/trireme-lib/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/frontman"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +31,7 @@ func getOriginalDestPlatform(rawConn passFD, v4Proto bool) (net.IP, int, *Platfo
 		destHandle = destInfo.DestHandle
 		port = int(destInfo.Port)
 		// convert allocated wchar_t* to golang string
-		ipAddrStr := windows.WideCharPointerToString(destInfo.IPAddr)
+		ipAddrStr := frontman.WideCharPointerToString(destInfo.IPAddr)
 		netIP = net.ParseIP(ipAddrStr)
 		if netIP == nil {
 			err = fmt.Errorf("GetDestInfo failed to get valid IP (%s)", ipAddrStr)

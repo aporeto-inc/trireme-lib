@@ -1,6 +1,6 @@
 package policy
 
-import "go.aporeto.io/trireme-lib/common"
+import "go.aporeto.io/enforcerd/trireme-lib/common"
 
 // PUInfo  captures all policy information related to a connection as well as runtime.
 // It makes passing data around simpler.
@@ -15,8 +15,8 @@ type PUInfo struct {
 
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID, namespace string, puType common.PUType) *PUInfo {
-	policy := NewPUPolicy(contextID, namespace, AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
-	runtime := NewPURuntime("", 0, "", nil, nil, puType, nil)
+	policy := NewPUPolicy(contextID, namespace, AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping, Reject|Log, Reject|Log)
+	runtime := NewPURuntime("", 0, "", nil, nil, puType, None, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }
 

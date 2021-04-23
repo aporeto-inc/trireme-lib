@@ -9,13 +9,12 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"syscall"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/remoteapi/client"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 // ExecuteCommandFromArguments processes the command from the arguments
@@ -63,8 +62,6 @@ type CLIRequest struct {
 	HostPolicy bool
 	// NetworkOnly indicates that the request is only for traffic coming from the network
 	NetworkOnly bool
-	// UIDPOlicy indicates that the request is for a UID policy
-	UIDPolicy bool
 	// AutoPort indicates that auto port feature is enabled for the PU
 	AutoPort bool
 }
@@ -145,10 +142,6 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		c.HostPolicy = value.(bool)
 	}
 
-	if value, ok := arguments["--uidpolicy"]; ok && value != nil {
-		c.UIDPolicy = value.(bool)
-	}
-
 	// If the command is remove use hostpolicy and service-id
 	if arguments["rm"].(bool) {
 		c.Request = DeleteServiceRequest
@@ -214,7 +207,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		}
 	}
 
-	puType := common.LinuxProcessPU
+	puType := getPUType()
 	if c.NetworkOnly {
 		puType = common.HostNetworkPU
 	} else if c.HostPolicy {
@@ -249,21 +242,17 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	env := os.Environ()
 	env = append(env, "APORETO_WRAP=1")
-	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), env)
+	return execve(c, env)
 }
 
 // DeleteService will issue a delete command
 func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 
 	request := &common.EventInfo{
-		PUType:      common.LinuxProcessPU,
+		PUType:      getPUType(),
 		PUID:        c.ServiceName,
 		EventType:   common.EventStop,
 		HostService: c.HostPolicy,
-	}
-
-	if c.UIDPolicy {
-		request.PUType = common.UIDLoginPU
 	}
 
 	// Send Stop request
@@ -281,23 +270,16 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 // This is used mainly by the cleaner.
 func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
 	regexCgroup := regexp.MustCompile(`^/trireme/(ssh-)?[a-zA-Z0-9_\-:.$%]{1,64}$`)
-	regexUser := regexp.MustCompile(`^/trireme_uid/[a-zA-Z0-9_\-]{1,32}(/[0-9]{1,32}){0,1}$`)
 
-	if !regexCgroup.Match([]byte(c.Cgroup)) && !regexUser.Match([]byte(c.Cgroup)) {
+	if !regexCgroup.Match([]byte(c.Cgroup)) {
 		return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 	}
 
 	var eventPUID string
 	var eventType common.PUType
 
-	if strings.HasPrefix(c.Cgroup, common.TriremeUIDCgroupPath) {
-		eventType = common.UIDLoginPU
-		eventPUID = c.Cgroup[len(common.TriremeUIDCgroupPath):]
-	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath+"ssh-") {
-		eventType = common.SSHSessionPU
-		eventPUID = c.Cgroup[len(common.TriremeCgroupPath)+4:]
-	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
-		eventType = common.LinuxProcessPU
+	if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
+		eventType = getPUType()
 		eventPUID = c.Cgroup[len(common.TriremeCgroupPath):]
 	} else {
 		// Not our Cgroup
@@ -352,12 +334,12 @@ func executableTags(c *CLIRequest) []string {
 	tags := []string{}
 
 	if fileMd5, err := extractors.ComputeFileMd5(c.Executable); err == nil {
-		tags = append(tags, fmt.Sprintf("@app:linux:filechecksum=%s", hex.EncodeToString(fileMd5)))
+		tags = append(tags, fmt.Sprintf("@app:%s:filechecksum=%s", extractors.OSHostString, hex.EncodeToString(fileMd5)))
 	}
 
 	depends := extractors.Libs(c.ServiceName)
 	for _, lib := range depends {
-		tags = append(tags, fmt.Sprintf("@app:linux:lib:%s=true", lib))
+		tags = append(tags, fmt.Sprintf("@app:%s:lib:%s=true", extractors.OSHostString, lib))
 	}
 
 	return tags

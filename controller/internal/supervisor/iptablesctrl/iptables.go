@@ -2,91 +2,76 @@ package iptablesctrl
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"text/template"
 
-	"github.com/aporeto-inc/go-ipset/ipset"
-	"github.com/spaolacci/murmur3"
-	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
-	markconstants "go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
 const (
-	chainPrefix         = "TRI-"
-	mainAppChain        = chainPrefix + "App"
-	mainNetChain        = chainPrefix + "Net"
-	uidchain            = chainPrefix + "UID-App"
-	uidInput            = chainPrefix + "UID-Net"
-	appChainPrefix      = chainPrefix + "App-"
-	netChainPrefix      = chainPrefix + "Net-"
-	natProxyOutputChain = chainPrefix + "Redir-App"
-	natProxyInputChain  = chainPrefix + "Redir-Net"
-	proxyOutputChain    = chainPrefix + "Prx-App"
-	proxyInputChain     = chainPrefix + "Prx-Net"
+	mainAppChain        = constants.ChainPrefix + "App"
+	mainNetChain        = constants.ChainPrefix + "Net"
+	appChainPrefix      = constants.ChainPrefix + "App-"
+	netChainPrefix      = constants.ChainPrefix + "Net-"
+	natProxyOutputChain = constants.ChainPrefix + "Redir-App"
+	natProxyInputChain  = constants.ChainPrefix + "Redir-Net"
+	proxyOutputChain    = constants.ChainPrefix + "Prx-App"
+	proxyInputChain     = constants.ChainPrefix + "Prx-Net"
+	istioChain          = constants.ChainPrefix + "Istio"
 
-	targetTCPNetworkSet  = "TargetTCP"
-	targetUDPNetworkSet  = "TargetUDP"
-	excludedNetworkSet   = "Excluded"
-	uidPortSetPrefix     = "UID-Port-"
-	processPortSetPrefix = "ProcPort-"
-	proxyPortSetPrefix   = "Proxy-"
 	// TriremeInput represent the chain that contains pu input rules.
-	TriremeInput = chainPrefix + "Pid-Net"
+	TriremeInput = constants.ChainPrefix + "Pid-Net"
 	// TriremeOutput represent the chain that contains pu output rules.
-	TriremeOutput = chainPrefix + "Pid-App"
+	TriremeOutput = constants.ChainPrefix + "Pid-App"
 
 	// NetworkSvcInput represent the chain that contains NetworkSvc input rules.
-	NetworkSvcInput = chainPrefix + "Svc-Net"
+	NetworkSvcInput = constants.ChainPrefix + "Svc-Net"
 
 	// NetworkSvcOutput represent the chain that contains NetworkSvc output rules.
-	NetworkSvcOutput = chainPrefix + "Svc-App"
+	NetworkSvcOutput = constants.ChainPrefix + "Svc-App"
 
 	// HostModeInput represent the chain that contains Hostmode input rules.
-	HostModeInput = chainPrefix + "Hst-Net"
+	HostModeInput = constants.ChainPrefix + "Hst-Net"
 
 	// HostModeOutput represent the chain that contains Hostmode output rules.
-	HostModeOutput = chainPrefix + "Hst-App"
-
-	proxyMark = "0x40"
+	HostModeOutput = constants.ChainPrefix + "Hst-App"
+	// NfqueueOutput represents the chain that contains the nfqueue output rules
+	NfqueueOutput = constants.ChainPrefix + "Nfq-OUT"
+	// NfqueueInput represents the chain that contains the nfqueue input rules
+	NfqueueInput = constants.ChainPrefix + "Nfq-IN"
+	// IstioUID is the UID of the istio-proxy(envoy) that is used in the iptables to identify the
+	// envoy generated traffic
+	IstioUID = "1337"
+	// IstioRedirPort is the port where the App traffic from the output chain
+	// is redirected into Istio-proxy, we need to accept this traffic as we don't to come in between
+	// APP --> Envoy traffic.
+	IstioRedirPort = "15001"
 )
 
 type iptables struct {
-	impl                  IPImpl
-	fqc                   *fqconfig.FilterQueue
-	mode                  constants.ModeType
-	isLegacyKernel        bool
-	conntrackCmd          func([]string)
-	ipset                 provider.IpsetProvider
-	targetTCPSet          provider.Ipset
-	targetUDPSet          provider.Ipset
-	excludedNetworksSet   provider.Ipset
-	cfg                   *runtime.Configuration
-	contextIDToPortSetMap cache.DataStore
-	aclmanager            ipsetmanager.ACLManager
-	bpf                   ebpf.BPFModule
+	impl            IPImpl
+	fqc             fqconfig.FilterQueue
+	mode            constants.ModeType
+	ipsetmanager    ipsetmanager.IPSetManager
+	bpf             ebpf.BPFModule
+	serviceMeshType policy.ServiceMesh
 }
 
 // IPImpl interface is to be used by the iptable implentors like ipv4 and ipv6.
 type IPImpl interface {
 	provider.IptablesProvider
-	GetIPSetPrefix() string
-	IPsetVersion() int
-	GetIPSetParam() *ipset.Params
+	IPVersion() int
 	ProtocolAllowed(proto string) bool
 	IPFilter() func(net.IP) bool
 	GetDefaultIP() string
@@ -95,44 +80,15 @@ type IPImpl interface {
 
 type ipFilter func(net.IP) bool
 
-func filterNetworks(c *runtime.Configuration, filter ipFilter) *runtime.Configuration {
-	filterIPs := func(ips []string) []string {
-		var filteredIPs []string
-
-		for _, ip := range ips {
-			netIP := net.ParseIP(ip)
-			if netIP == nil {
-				netIP, _, _ = net.ParseCIDR(ip)
-			}
-
-			if filter(netIP) {
-				filteredIPs = append(filteredIPs, ip)
-			}
-		}
-
-		return filteredIPs
-	}
-
-	return &runtime.Configuration{
-		TCPTargetNetworks: filterIPs(c.TCPTargetNetworks),
-		UDPTargetNetworks: filterIPs(c.UDPTargetNetworks),
-		ExcludedNetworks:  filterIPs(c.ExcludedNetworks),
-	}
-}
-
-func createIPInstance(impl IPImpl, ips provider.IpsetProvider, fqc *fqconfig.FilterQueue, mode constants.ModeType, aclmanager ipsetmanager.ACLManager, ebpf ebpf.BPFModule) *iptables {
+func createIPInstance(impl IPImpl, ipsetmanager ipsetmanager.IPSetManager, fqc fqconfig.FilterQueue, mode constants.ModeType, ebpf ebpf.BPFModule, ServiceMeshType policy.ServiceMesh) *iptables {
 
 	return &iptables{
-		impl:                  impl,
-		fqc:                   fqc,
-		mode:                  mode,
-		ipset:                 ips,
-		isLegacyKernel:        buildflags.IsLegacyKernel(),
-		conntrackCmd:          flushUDPConntrack,
-		cfg:                   nil,
-		contextIDToPortSetMap: cache.NewCache("contextIDToPortSetMap"),
-		aclmanager:            aclmanager,
-		bpf:                   ebpf,
+		impl:            impl,
+		fqc:             fqc,
+		mode:            mode,
+		ipsetmanager:    ipsetmanager,
+		bpf:             ebpf,
+		serviceMeshType: ServiceMeshType,
 	}
 }
 
@@ -141,34 +97,19 @@ func (i *iptables) SetTargetNetworks(c *runtime.Configuration) error {
 		return nil
 	}
 
+	tcp := c.TCPTargetNetworks
+	udp := c.UDPTargetNetworks
+	excluded := c.ExcludedNetworks
+
 	// If there are no target networks, capture all traffic
-	if len(c.TCPTargetNetworks) == 0 {
-		c.TCPTargetNetworks = []string{IPv4DefaultIP, IPv6DefaultIP}
-	}
-	cfg := filterNetworks(c, i.impl.IPFilter())
-	var oldConfig *runtime.Configuration
-
-	if i.cfg == nil {
-		oldConfig = &runtime.Configuration{}
-	} else {
-		oldConfig = i.cfg.DeepCopy()
+	if len(tcp) == 0 {
+		tcp = []string{IPv4DefaultIP, IPv6DefaultIP}
 	}
 
-	if err := i.updateAllTargetNetworks(cfg, oldConfig); err != nil {
-		return err
-	}
-
-	i.cfg = cfg
-	return nil
+	return i.ipsetmanager.UpdateIPsetsForTargetAndExcludedNetworks(tcp, udp, excluded)
 }
 
 func (i *iptables) Run(ctx context.Context) error {
-
-	go func() {
-		<-ctx.Done()
-		zap.L().Debug("Cleaning the iptable rules")
-		i.CleanUp() // nolint
-	}()
 
 	// Clean any previous ACLs. This is needed in case we crashed at some
 	// earlier point or there are other ACLs that create conflicts. We
@@ -177,19 +118,16 @@ func (i *iptables) Run(ctx context.Context) error {
 		return fmt.Errorf("Unable to clean previous acls while starting the supervisor: %s", err)
 	}
 
-	// Create all the basic target sets. These are the global target sets
-	// that do not depend on policy configuration. If they already exist
-	// we will delete them and start again.
-	targetTCPSet, targetUDPSet, excludedSet, err := createGlobalSets(i.impl.GetIPSetPrefix(), i.ipset, i.impl.GetIPSetParam())
-	if err != nil {
-		return fmt.Errorf("unable to create global sets: %s", err)
+	if err := i.ipsetmanager.DestroyAllIPsets(); err != nil {
+		zap.L().Debug("ipset destroy all ipset returned error", zap.Error(err))
 	}
-	if err = targetTCPSet.Flush(); err != nil {
-		return fmt.Errorf("unable to flush target TCP set: %s", err)
+
+	if err := i.ipsetmanager.CreateIPsetsForTargetAndExcludedNetworks(); err != nil {
+		if err1 := i.ipsetmanager.DestroyAllIPsets(); err1 != nil {
+			zap.L().Debug("ipset destroy all ipset returned error", zap.Error(err1))
+		}
+		return fmt.Errorf("unable to create target network ipsets: %s", err)
 	}
-	i.targetTCPSet = targetTCPSet
-	i.targetUDPSet = targetUDPSet
-	i.excludedNetworksSet = excludedSet
 
 	// Windows needs to initialize some ipsets
 	if err := i.platformInit(); err != nil {
@@ -222,7 +160,6 @@ func (i *iptables) Run(ctx context.Context) error {
 }
 
 func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUInfo) error {
-
 	var err error
 	var cfg *ACLInfo
 
@@ -230,15 +167,10 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// applies to Linux type PUs. A port set is associated with every PU,
 	// and packets matching this destination get associated with the context
 	// of the PU.
-
-	if err = i.createPortSet(contextID, pu.Runtime.Options().UserID); err != nil {
-		return err
-	}
-
-	// We create the generic ACL object that is used for all the templates.
-	cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
-	if err != nil {
-		return err
+	if i.mode != constants.RemoteContainer {
+		if err = i.ipsetmanager.CreateServerPortSet(contextID); err != nil {
+			return err
+		}
 	}
 
 	// Create the proxy sets. These are the target sets that will match
@@ -247,8 +179,16 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 	// The outgoing sets capture all traffic towards specific destinations
 	// as proxied traffic. Incoming sets correspond to the listening
 	// services.
+	// create proxySets only if there is no serviceMesh.
+	if i.serviceMeshType == policy.None {
+		if err := i.ipsetmanager.CreateProxySets(contextID); err != nil {
+			return err
+		}
+	}
 
-	if err = i.createProxySets(cfg.ProxySetName); err != nil {
+	// We create the generic ACL object that is used for all the templates.
+	cfg, err = i.newACLInfo(version, contextID, pu, pu.Runtime.PUType())
+	if err != nil {
 		return err
 	}
 
@@ -267,7 +207,6 @@ func (i *iptables) ConfigureRules(version int, contextID string, pu *policy.PUIn
 		return err
 	}
 
-	i.conntrackCmd(i.cfg.UDPTargetNetworks)
 	return nil
 }
 
@@ -278,19 +217,13 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		return err
 	}
 	if i.mode == constants.LocalServer {
-		markIntVal, err := strconv.Atoi(mark)
-		if err != nil {
-			zap.L().Error("mark Conversion error", zap.Error(err))
-			return err
-		}
-		cfg.PacketMark = strconv.Itoa(markIntVal << markconstants.MarkShift)
+		cfg.PacketMark = mark
 	}
 	cfg.UDPPorts = udpPorts
 	cfg.TCPPorts = tcpPorts
 	cfg.CgroupMark = mark
 	cfg.Mark = mark
 
-	cfg.UID = username
 	cfg.PUType = containerInfo.Runtime.PUType()
 	cfg.ProxyPort = containerInfo.Policy.ServicesListeningPort()
 	cfg.DNSProxyPort = containerInfo.Policy.DNSProxyPort()
@@ -303,7 +236,7 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 	// We can now delete the chains we have created for this PU. Note that
 	// in every case we only create two chains for every PU. All other
 	// chains are global.
-	if err = i.deletePUChains(cfg, containerInfo); err != nil {
+	if err = i.deletePUChains(cfg); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
@@ -313,17 +246,19 @@ func (i *iptables) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
-	// We delete the set that captures all destination ports of the
-	// PU. This only holds for Linux PUs.
-	if err := i.deletePortSet(contextID); err != nil {
-		zap.L().Warn("Failed to remove port set")
+	if i.mode != constants.RemoteContainer {
+		// We delete the set that captures all destination ports of the
+		// PU. This only holds for Linux PUs.
+		if err := i.ipsetmanager.DestroyServerPortSet(contextID); err != nil {
+			zap.L().Warn("Failed to remove port set")
+		}
 	}
 
-	// We delete the proxy port sets that were created for this PU.
-	if err := i.deleteProxySets(cfg.ProxySetName); err != nil {
-		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
+	// if serviceMesh is enabled then don't detroy the proxySets as we have not create them.
+	if i.serviceMeshType == policy.None {
+		// We delete the proxy port sets that were created for this PU.
+		i.ipsetmanager.DestroyProxySets(contextID)
 	}
-
 	return nil
 }
 
@@ -349,7 +284,6 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	// Install all the new rules. The hooks to the new chains are appended
 	// and do not take effect yet.
 	if err := i.installRules(newCfg, containerInfo); err != nil {
-		zap.L().Error("unable to install rules on update", zap.Error(err))
 		return err
 	}
 
@@ -360,7 +294,7 @@ func (i *iptables) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Delete the old chains, since there are not references any more.
-	if err := i.deletePUChains(oldCfg, oldContainerInfo); err != nil {
+	if err := i.deletePUChains(oldCfg); err != nil {
 		return err
 	}
 
@@ -378,24 +312,13 @@ func (i *iptables) CleanUp() error {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
 
-	if err := i.ipset.DestroyAll(i.impl.GetIPSetPrefix()); err != nil {
+	if err := i.ipsetmanager.DestroyAllIPsets(); err != nil {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
+	i.ipsetmanager.Reset()
+
 	return nil
-}
-
-func (i *iptables) updateAllTargetNetworks(cfg, oldConfig *runtime.Configuration) error {
-
-	if err := i.updateTargetNetworks(i.targetTCPSet, oldConfig.TCPTargetNetworks, cfg.TCPTargetNetworks); err != nil {
-		return err
-	}
-
-	if err := i.updateTargetNetworks(i.targetUDPSet, oldConfig.UDPTargetNetworks, cfg.UDPTargetNetworks); err != nil {
-		return err
-	}
-
-	return i.updateTargetNetworks(i.excludedNetworksSet, oldConfig.ExcludedNetworks, cfg.ExcludedNetworks)
 }
 
 // InitializeChains initializes the chains.
@@ -405,10 +328,12 @@ func (i *iptables) initializeChains() error {
 	if err != nil {
 		return err
 	}
-
 	tmpl := template.Must(template.New(triremChains).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
+		},
+		"isIstioEnabled": func() bool {
+			return i.serviceMeshType == policy.Istio
 		},
 	}).Parse(triremChains))
 
@@ -416,7 +341,6 @@ func (i *iptables) initializeChains() error {
 	if err != nil {
 		return fmt.Errorf("unable to create trireme chains:%s", err)
 	}
-
 	for _, rule := range rules {
 		if len(rule) != 4 {
 			continue
@@ -452,70 +376,6 @@ func (i *iptables) configureLinuxRules(cfg *ACLInfo) error {
 	return i.addChainRules(cfg)
 }
 
-func (i *iptables) deleteProxySets(proxyPortSetName string) error { // nolint
-
-	dstPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
-	ips := i.ipset.GetIpset(dstPortSetName)
-	if err := ips.Destroy(); err != nil {
-		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", dstPortSetName), zap.Error(err))
-	}
-	ips = i.ipset.GetIpset(srvPortSetName)
-	if err := ips.Destroy(); err != nil {
-		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srvPortSetName), zap.Error(err))
-	}
-	return nil
-}
-
-func createGlobalSets(ipsetPrefix string, ips provider.IpsetProvider, params *ipset.Params) (provider.Ipset, provider.Ipset, provider.Ipset, error) {
-
-	var err error
-
-	defer func() {
-		if err != nil {
-			ips.DestroyAll(ipsetPrefix) // nolint errcheck
-		}
-	}()
-
-	targetTCPSet := ipsetPrefix + targetTCPNetworkSet
-	targetUDPSet := ipsetPrefix + targetUDPNetworkSet
-	excludedSet := ipsetPrefix + excludedNetworkSet
-
-	targetSetNames := []string{targetTCPSet, targetUDPSet, excludedSet}
-
-	targetSets := map[string]provider.Ipset{}
-
-	existingSets, err := ips.ListIPSets()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to read current sets: %s", err)
-	}
-
-	setIndex := map[string]struct{}{}
-	for _, s := range existingSets {
-		setIndex[s] = struct{}{}
-	}
-
-	for _, t := range targetSetNames {
-		_, ok := setIndex[t]
-
-		createdSet, err := ips.NewIpset(t, "hash:net", params)
-
-		if err != nil {
-			if !ok {
-				return nil, nil, nil, err
-			}
-
-			createdSet = ips.GetIpset(t)
-		}
-		if err = createdSet.Flush(); err != nil {
-			return nil, nil, nil, err
-		}
-
-		targetSets[t] = createdSet
-	}
-
-	return targetSets[targetTCPSet], targetSets[targetUDPSet], targetSets[excludedSet], nil
-}
-
 type aclIPset struct {
 	ipset string
 	*policy.IPRule
@@ -523,12 +383,14 @@ type aclIPset struct {
 
 func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
-	ipsets := i.aclmanager.GetIPsets(ipRules, i.impl.IPsetVersion())
+	ipsets := i.ipsetmanager.GetACLIPsetsNames(ipRules)
 
-	aclIPsets := make([]aclIPset, len(ipsets))
+	aclIPsets := make([]aclIPset, 0)
 
 	for i, ipset := range ipsets {
-		aclIPsets[i] = aclIPset{ipset, &ipRules[i]}
+		if len(ipset) > 0 {
+			aclIPsets = append(aclIPsets, aclIPset{ipset, &ipRules[i]})
+		}
 	}
 
 	return aclIPsets
@@ -536,10 +398,14 @@ func (i *iptables) getACLIPSets(ipRules policy.IPRuleList) []aclIPset {
 
 // Install rules will install all the rules and update the port sets.
 func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
+
 	policyrules := containerInfo.Policy
 
-	if err := i.updateProxySet(containerInfo.Policy, cfg.ProxySetName); err != nil {
-		return err
+	// update the proxy set only if there is no serviceMesh enabled.
+	if i.serviceMeshType == policy.None {
+		if err := i.updateProxySet(cfg.ContextID, containerInfo.Policy); err != nil {
+			return err
+		}
 	}
 
 	appACLIPset := i.getACLIPSets(policyrules.ApplicationACLs())
@@ -551,7 +417,7 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	}
 
 	// If its a remote and thus container, configure container rules.
-	if i.mode == constants.RemoteContainer || i.mode == constants.Sidecar {
+	if i.mode == constants.RemoteContainer {
 		if err := i.configureContainerRules(cfg); err != nil {
 			return err
 		}
@@ -565,6 +431,10 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	}
 
 	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
+
+	if err := i.addPreNetworkACLRules(cfg); err != nil {
+		return err
+	}
 
 	if err := i.addExternalACLs(cfg, cfg.AppChain, cfg.NetChain, appACLIPset, true); err != nil {
 		return err
@@ -582,40 +452,42 @@ func (i *iptables) installRules(cfg *ACLInfo, containerInfo *policy.PUInfo) erro
 	return i.addPacketTrap(cfg, isHostPU, appAnyRules, netAnyRules)
 }
 
-// puPortSetName returns the name of the pu portset.
-func puPortSetName(contextID string, prefix string) string {
-	hash := murmur3.New64()
+func (i *iptables) updateProxySet(contextID string, policy *policy.PUPolicy) error {
+	i.ipsetmanager.FlushProxySets(contextID)
 
-	if _, err := io.WriteString(hash, contextID); err != nil {
-		return ""
+	for _, dependentService := range policy.DependentServices() {
+		addresses := dependentService.NetworkInfo.Addresses
+		min, max := dependentService.NetworkInfo.Ports.Range()
+
+		for addrS := range addresses {
+			_, addr, _ := net.ParseCIDR(addrS)
+			for port := int(min); port <= int(max); port++ {
+				if err := i.ipsetmanager.AddIPPortToDependentService(contextID, addr, strconv.Itoa(port)); err != nil {
+					return fmt.Errorf("unable to add dependent ip %v to dependent networks ipset: %v", port, err)
+				}
+			}
+		}
 	}
 
-	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	for _, exposedService := range policy.ExposedServices() {
+		min, max := exposedService.PrivateNetworkInfo.Ports.Range()
+		for port := int(min); port <= int(max); port++ {
+			if err := i.ipsetmanager.AddPortToExposedService(contextID, strconv.Itoa(port)); err != nil {
+				zap.L().Error("Failed to add vip", zap.Error(err))
+				return fmt.Errorf("unable to add port %d to exposed ports ipset: %s", port, err)
+			}
+		}
 
-	if len(contextID) > 4 {
-		contextID = contextID[:4] + output[:4]
-	} else {
-		contextID = contextID + output[:4]
+		if exposedService.PublicNetworkInfo != nil {
+			min, max := exposedService.PublicNetworkInfo.Ports.Range()
+			for port := int(min); port <= int(max); port++ {
+				if err := i.ipsetmanager.AddPortToExposedService(contextID, strconv.Itoa(port)); err != nil {
+					zap.L().Error("Failed to VIP for public network", zap.Error(err))
+					return fmt.Errorf("Failed to program VIP: %s", err)
+				}
+			}
+		}
 	}
 
-	if len(prefix) > 16 {
-		prefix = prefix[:16]
-	}
-
-	return (prefix + contextID)
-}
-
-// flushUDPConntrack will flush the UDP conntrack table that matches our networks.
-func flushUDPConntrack(networks []string) {
-	// TODD: Add proper UDP connection flash for Linux processes
-	// make sure that we only flush for the initiating process.
-	// cmd := "conntrack"
-	// for _, n := range networks {
-	// 	if _, err := exec.Command(cmd, "-D", "-p", "udp", "--src", n).Output(); err != nil && err.Error() != "exit status 1" {
-	// 		zap.L().Warn("Failed to remove source conntrack entries for UDP target network", zap.Error(err))
-	// 	}
-	// 	if _, err := exec.Command(cmd, "-D", "-p", "udp", "--dst", n).Output(); err != nil && err.Error() != "exit status 1" {
-	// 		zap.L().Warn("Failed to remove destination conntrack entries for UDP target network", zap.Error(err))
-	// 	}
-	// }
+	return nil
 }

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -39,17 +39,17 @@ func (d *Datapath) autoPortDiscovery() {
 
 // resync adds new port for the PU and removes the stale ports
 func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
-	iptablesInstance := iptablesctrl.GetInstance()
-	if iptablesInstance == nil {
-		return
-	}
 
 	for k, vs := range d.puToPortsMap {
 		m := newPortMap[k]
 
 		for v := range vs {
 			if m == nil || !m[v] {
-				err := iptablesInstance.DeletePortFromPortSet(k, v)
+				err := ipsetmanager.V4().DeletePortFromServerPortSet(k, v)
+				if err != nil {
+					zap.L().Debug("autoPortDiscovery: Delete port set returned error", zap.Error(err))
+				}
+				err = ipsetmanager.V6().DeletePortFromServerPortSet(k, v)
 				if err != nil {
 					zap.L().Debug("autoPortDiscovery: Delete port set returned error", zap.Error(err))
 				}
@@ -71,7 +71,11 @@ func (d *Datapath) resync(newPortMap map[string]map[string]bool) {
 					continue
 				}
 				d.contextIDFromTCPPort.AddPortSpec(portSpec)
-				err = iptablesInstance.AddPortToPortSet(k, v)
+				err = ipsetmanager.V4().AddPortToServerPortSet(k, v)
+				if err != nil {
+					zap.L().Error("autoPortDiscovery: Failed to add port to portset", zap.String("context", k), zap.String("port", v))
+				}
+				err = ipsetmanager.V6().AddPortToServerPortSet(k, v)
 				if err != nil {
 					zap.L().Error("autoPortDiscovery: Failed to add port to portset", zap.String("context", k), zap.String("port", v))
 				}
@@ -98,7 +102,7 @@ func (d *Datapath) findPorts() {
 	cgroupList := readFiles.getCgroupList()
 
 	newPUToPortsMap := map[string]map[string]bool{}
-	inodeMap, userMap, err := readFiles.readProcNetTCP()
+	inodeMap, _, err := readFiles.readProcNetTCP()
 	if err != nil {
 		zap.L().Error("autoPortDiscovery: /proc/net/tcp read failed with error", zap.Error(err))
 		return
@@ -139,18 +143,6 @@ func (d *Datapath) findPorts() {
 		}
 
 		newPUToPortsMap[cgroup] = newMap
-	}
-
-	for user, portMap := range userMap {
-		if pu, err := d.puFromUser.Get(user); err == nil {
-			contextID := pu.(*pucontext.PUContext).ID()
-			newMap := map[string]bool{}
-
-			for port := range portMap {
-				newMap[port] = true
-			}
-			newPUToPortsMap[contextID] = newMap
-		}
 	}
 
 	d.resync(newPUToPortsMap)

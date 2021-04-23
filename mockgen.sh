@@ -5,9 +5,10 @@ go get github.com/golang/mock/mockgen/model
 go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
-  goimports $1 > $1.bk
-  cat $1.bk | sed  $'s/^func /\/\/ nolint\\\nfunc /g' | sed  $'s/^type /\/\/ nolint\\\ntype /g' > $1
-  rm -f $1.bk
+  tmp=$(mktemp)
+  goimports "$1" > "$tmp"
+  sed  $'s/^func /\/\/ nolint\\\nfunc /g' < "$tmp" | sed  $'s/^type /\/\/ nolint\\\ntype /g' > "$1"
+  rm -f "$tmp"
 }
 
 echo "Cgnetcls Mocks"
@@ -24,6 +25,12 @@ echo "Enforcer Mocks"
 mkdir -p controller/internal/enforcer/mockenforcer
 mockgen -source controller/internal/enforcer/enforcer.go -destination controller/internal/enforcer/mockenforcer/mockenforcer.go -package mockenforcer
 goimport_sanitize controller/internal/enforcer/mockenforcer/mockenforcer.go
+
+echo "DNSProxy Mocks"
+mkdir -p controller/internal/enforcer/dnsproxy/mockdnsproxy
+mockgen -source controller/internal/enforcer/dnsproxy/dnsproxy.go -destination controller/internal/enforcer/dnsproxy/mockdnsproxy/mockdnsproxy.go -package mockdnsproxy
+goimport_sanitize controller/internal/enforcer/dnsproxy/mockdnsproxy/mockdnsproxy.go
+
 
 echo "Controller/Processmon Mocks"
 mkdir -p controller/internal/processmon/mockprocessmon
@@ -52,13 +59,18 @@ mockgen \
 -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go \
 -package mockstatscollector \
 -aux_files collector=collector/interfaces.go \
--imports statscollector=go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector
+-imports statscollector=go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
 
 echo "controller/pkg/usertokens Mocks"
 mkdir -p controller/pkg/usertokens/mockusertokens
 mockgen -source controller/pkg/usertokens/usertokens.go -destination controller/pkg/usertokens/mockusertokens/mockusertokens.go -package mockusertokens
 goimport_sanitize controller/pkg/usertokens/mockusertokens/mockusertokens.go
+
+echo "controller/pkg/flowtracking Mocks"
+mkdir -p controller/pkg/flowtracking/mockflowclient
+mockgen -source controller/pkg/flowtracking/interfaces.go -destination controller/pkg/flowtracking/mockflowclient/mockflowclient.go -package mockflowclient
+goimport_sanitize controller/pkg/flowtracking/mockflowclient/mockflowclient.go
 
 echo "Collector Mocks"
 mkdir -p collector/mockcollector
@@ -84,6 +96,11 @@ echo "controller/internal/enforcer/nfqdatapath/tokenaccessor Mocks"
 mkdir -p controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor
 mockgen -source controller/internal/enforcer/nfqdatapath/tokenaccessor/interfaces.go -destination controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor/mocktokenaccessor.go -package mocktokenaccessor
 goimport_sanitize controller/internal/enforcer/nfqdatapath/tokenaccessor/mocktokenaccessor/mocktokenaccessor.go
+
+echo "controller/internal/enforcer/utils/ephemeralkeys Mocks"
+mkdir -p controller/internal/enforcer/utils/ephemeralkeys/mockephemeralkeys
+mockgen -source controller/internal/enforcer/utils/ephemeralkeys/interfaces.go -destination controller/internal/enforcer/utils/ephemeralkeys/mockephemeralkeys/mockephemeralkeys.go -package mockephemeralkeys
+goimport_sanitize controller/internal/enforcer/utils/ephemeralkeys/mockephemeralkeys/mockephemeralkeys.go
 
 echo "controller/pkg/tokens Mocks"
 mkdir -p controller/pkg/tokens/mocktokens
@@ -113,8 +130,10 @@ mockgen -package podmonitor -destination monitor/internal/pod/mockclient_test.go
 goimport_sanitize monitor/internal/pod/mockclient_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockcache_test.go sigs.k8s.io/controller-runtime/pkg/cache Cache
 goimport_sanitize monitor/internal/pod/mockcache_test.go
-mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go sigs.k8s.io/controller-runtime/pkg/cache Informer
 goimport_sanitize monitor/internal/pod/mockinformer_test.go
+# mockgen -package podmonitor -destination monitor/internal/pod/mockinformer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+# goimport_sanitize monitor/internal/pod/mockinformer_test.go
 mockgen -package podmonitor -destination monitor/internal/pod/mockmanager_test.go sigs.k8s.io/controller-runtime/pkg/manager Manager
 goimport_sanitize monitor/internal/pod/mockmanager_test.go
 

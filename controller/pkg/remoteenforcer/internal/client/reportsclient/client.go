@@ -5,10 +5,10 @@ import (
 	"errors"
 	"os"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
 
@@ -107,6 +107,8 @@ func reportTypeToPayloadType(rtype statscollector.ReportType) (ptype rpcwrapper.
 		ptype = rpcwrapper.DNSReport
 	case statscollector.PingReport:
 		ptype = rpcwrapper.PingReport
+	case statscollector.ConnectionExceptionReport:
+		ptype = rpcwrapper.ConnectionExceptionReport
 	default:
 		return
 	}

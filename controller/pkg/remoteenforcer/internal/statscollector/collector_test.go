@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
 )
 
 func TestNewCollector(t *testing.T) {
@@ -22,84 +21,84 @@ func TestNewCollector(t *testing.T) {
 func TestCollectFlowEvent(t *testing.T) {
 	Convey("Given a stats collector", t, func() {
 		c := &collectorImpl{
-			Flows: map[string]*collector.FlowRecord{},
+			Flows: map[uint64]*collector.FlowRecord{},
 		}
 
 		Convey("When I add a flow event", func() {
 			r := &collector.FlowRecord{
 				ContextID: "1",
-				Source: &collector.EndPoint{
+				Source: collector.EndPoint{
 					ID:   "A",
 					IP:   "1.1.1.1",
-					Type: collector.EnpointTypePU,
+					Type: collector.EndPointTypePU,
 				},
-				Destination: &collector.EndPoint{
+				Destination: collector.EndPoint{
 					ID:   "B",
 					IP:   "2.2.2.2",
-					Type: collector.EnpointTypePU,
+					Type: collector.EndPointTypePU,
 					Port: 80,
 				},
 				Count:      0,
-				Tags:       policy.NewTagStore(),
+				Tags:       []string{},
 				L4Protocol: packet.IPProtocolTCP,
 			}
 			c.CollectFlowEvent(r)
 
 			Convey("The flow should be in the cache", func() {
 				So(len(c.Flows), ShouldEqual, 1)
-				So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-				So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 1)
+				So(c.Flows[collector.StatsFlowContentHash(r)], ShouldNotBeNil)
+				So(c.Flows[collector.StatsFlowContentHash(r)].Count, ShouldEqual, 1)
 			})
 
 			Convey("When I add a second flow that matches", func() {
 				r := &collector.FlowRecord{
 					ContextID: "1",
-					Source: &collector.EndPoint{
+					Source: collector.EndPoint{
 						ID:   "A",
 						IP:   "1.1.1.1",
-						Type: collector.EnpointTypePU,
+						Type: collector.EndPointTypePU,
 					},
-					Destination: &collector.EndPoint{
+					Destination: collector.EndPoint{
 						ID:   "B",
 						IP:   "2.2.2.2",
-						Type: collector.EnpointTypePU,
+						Type: collector.EndPointTypePU,
 						Port: 80,
 					},
 					Count:      10,
-					Tags:       policy.NewTagStore(),
+					Tags:       []string{},
 					L4Protocol: packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
 					So(len(c.Flows), ShouldEqual, 1)
-					So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-					So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 11)
+					So(c.Flows[collector.StatsFlowContentHash(r)], ShouldNotBeNil)
+					So(c.Flows[collector.StatsFlowContentHash(r)].Count, ShouldEqual, 11)
 				})
 			})
 
 			Convey("When I add a third flow that doesn't  matche the previous flows ", func() {
 				r := &collector.FlowRecord{
 					ContextID: "1",
-					Source: &collector.EndPoint{
+					Source: collector.EndPoint{
 						ID:   "C",
 						IP:   "3.3.3.3",
-						Type: collector.EnpointTypePU,
+						Type: collector.EndPointTypePU,
 					},
-					Destination: &collector.EndPoint{
+					Destination: collector.EndPoint{
 						ID:   "D",
 						IP:   "4.4.4.4",
-						Type: collector.EnpointTypePU,
+						Type: collector.EndPointTypePU,
 						Port: 80,
 					},
 					Count:      33,
-					Tags:       policy.NewTagStore(),
+					Tags:       []string{},
 					L4Protocol: packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
 					So(len(c.Flows), ShouldEqual, 2)
-					So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-					So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 33)
+					So(c.Flows[collector.StatsFlowContentHash(r)], ShouldNotBeNil)
+					So(c.Flows[collector.StatsFlowContentHash(r)].Count, ShouldEqual, 33)
 				})
 			})
 		})

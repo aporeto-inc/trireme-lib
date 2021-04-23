@@ -6,16 +6,13 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	cnimonitor "go.aporeto.io/trireme-lib/monitor/internal/cni"
-	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
-	kubernetesmonitor "go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
-	linuxmonitor "go.aporeto.io/trireme-lib/monitor/internal/linux"
-	podmonitor "go.aporeto.io/trireme-lib/monitor/internal/pod"
-	uidmonitor "go.aporeto.io/trireme-lib/monitor/internal/uid"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	dockermonitor "go.aporeto.io/enforcerd/trireme-lib/monitor/internal/docker"
+	k8smonitor "go.aporeto.io/enforcerd/trireme-lib/monitor/internal/k8s"
+	linuxmonitor "go.aporeto.io/enforcerd/trireme-lib/monitor/internal/linux"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/remoteapi/server"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +24,7 @@ type monitors struct {
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
-func NewMonitors(opts ...Options) (Monitor, error) {
+func NewMonitors(ctx context.Context, opts ...Options) (Monitor, error) {
 
 	var err error
 
@@ -59,69 +56,37 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 
 	for k, v := range c.Monitors {
 		switch k {
-		case config.CNI:
-			mon := cnimonitor.New()
-			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.registerer, v); err != nil {
-				return nil, fmt.Errorf("CNI: %s", err.Error())
-			}
-			m.monitors[config.CNI] = mon
-
 		case config.Docker:
-			mon := dockermonitor.New()
+			mon := dockermonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
 			m.monitors[config.Docker] = mon
 
-		case config.Kubernetes:
-			mon := kubernetesmonitor.New()
+		case config.K8s:
+			mon := k8smonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(nil, v); err != nil {
-				return nil, fmt.Errorf("kubernetes: %s", err.Error())
+				return nil, fmt.Errorf("K8s: %s", err.Error())
 			}
-			m.monitors[config.Kubernetes] = mon
-
-		case config.Pod:
-			mon := podmonitor.New()
-			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(nil, v); err != nil {
-				return nil, fmt.Errorf("pod: %s", err.Error())
-			}
-			m.monitors[config.Pod] = mon
+			m.monitors[config.K8s] = mon
 
 		case config.LinuxProcess:
-			mon := linuxmonitor.New()
+			mon := linuxmonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
 			m.monitors[config.LinuxProcess] = mon
 
-		case config.SSH:
-			mon := linuxmonitor.New()
-			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.registerer, v); err != nil {
-				return nil, fmt.Errorf("Process: %s", err.Error())
-			}
-			m.monitors[config.SSH] = mon
-
 		case config.LinuxHost:
-			mon := linuxmonitor.New()
+			mon := linuxmonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
 			m.monitors[config.LinuxHost] = mon
-
-		case config.UID:
-			mon := uidmonitor.New()
-			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.registerer, v); err != nil {
-				return nil, fmt.Errorf("UID: %s", err.Error())
-			}
-			m.monitors[config.UID] = mon
 
 		default:
 			return nil, fmt.Errorf("Unsupported type %d", k)

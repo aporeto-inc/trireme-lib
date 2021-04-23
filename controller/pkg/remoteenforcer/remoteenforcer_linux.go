@@ -12,28 +12,29 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
-	reports "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/reportsclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client/statsclient"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/internal/diagnostics"
+	"go.aporeto.io/enforcerd/internal/logging/remotelog"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	_ "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client"
+	reports "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client/reportsclient"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client/statsclient"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/rpc"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sys/unix"
 )
 
@@ -49,15 +50,16 @@ var cmdLock sync.Mutex
 // newRemoteEnforcer starts a new server
 func newRemoteEnforcer(
 	ctx context.Context,
-	cancel context.CancelFunc,
-	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	secret string,
 	statsClient client.Reporter,
 	collector statscollector.Collector,
 	reportsClient client.Reporter,
 	tokenIssuer tokenissuer.TokenClient,
-	zapConfig zap.Config,
+	logLevel string,
+	logFormat string,
+	logID string,
+	numQueues int,
 	enforcerType policy.EnforcerType,
 	agentVersion semver.Version,
 ) (*RemoteEnforcer, error) {
@@ -95,25 +97,25 @@ func newRemoteEnforcer(
 		procMountPoint = constants.DefaultProcMountPoint
 	}
 
-	ips := provider.NewGoIPsetProvider()
-	aclmanager := ipsetmanager.CreateIPsetManager(ips, ips)
+	fqConfig := fqconfig.NewFilterQueue(
+		numQueues,
+		[]string{"0.0.0.0/0"},
+	)
 
 	return &RemoteEnforcer{
 		collector:      collector,
-		service:        service,
 		rpcSecret:      secret,
 		rpcHandle:      rpcHandle,
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
 		reportsClient:  reportsClient,
 		ctx:            ctx,
-		cancel:         cancel,
 		exit:           make(chan bool),
-		zapConfig:      zapConfig,
 		tokenIssuer:    tokenIssuer,
 		enforcerType:   enforcerType,
-		aclmanager:     aclmanager,
 		agentVersion:   agentVersion,
+		config:         logConfig{logLevel: logLevel, logFormat: logFormat, logID: logID},
+		fqConfig:       fqConfig,
 	}, nil
 }
 
@@ -124,7 +126,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	zap.L().Debug("Configuring remote enforcer")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("init message authentication failed")
+		resp.Status = fmt.Sprintf("init message authentication failed") // nolint:gosimple
 		return fmt.Errorf(resp.Status)
 	}
 	cmdLock.Lock()
@@ -132,12 +134,12 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	payload, ok := req.Payload.(rpcwrapper.InitRequestPayload)
 	if !ok {
-		resp.Status = fmt.Sprintf("invalid request payload")
+		resp.Status = fmt.Sprintf("invalid request payload") // nolint:gosimple
 		return fmt.Errorf(resp.Status)
 	}
 
 	if s.supervisor != nil || s.enforcer != nil {
-		resp.Status = fmt.Sprintf("remote enforcer is already initialized")
+		resp.Status = fmt.Sprintf("remote enforcer is already initialized") // nolint:gosimple
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -206,15 +208,17 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return fmt.Errorf(resp.Status)
 	}
 
-	plc, err := payload.Policy.ToPrivatePolicy(true)
+	plc, err := payload.Policy.ToPrivatePolicy(s.ctx, true)
 	if err != nil {
 		return err
 	}
 
+	runtime := policy.NewPURuntimeWithDefaults()
+
 	puInfo := &policy.PUInfo{
 		ContextID: payload.ContextID,
 		Policy:    plc,
-		Runtime:   policy.NewPURuntimeWithDefaults(),
+		Runtime:   runtime,
 	}
 
 	if s.enforcer == nil || s.supervisor == nil {
@@ -235,7 +239,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return err
 	}
 
-	if err = s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
+	if err = s.enforcer.Enforce(s.ctx, payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -256,7 +260,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	s.statsClient.Send() // nolint:errcheck
+	s.statsClient.Send() // nolint: errcheck
 
 	payload, ok := req.Payload.(rpcwrapper.UnEnforcePayload)
 	if !ok {
@@ -279,7 +283,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		return fmt.Errorf("unable to clean supervisor: %s", err)
 	}
 
-	if err = s.enforcer.Unenforce(payload.ContextID); err != nil {
+	if err = s.enforcer.Unenforce(s.ctx, payload.ContextID); err != nil {
 		resp.Status = err.Error()
 		return fmt.Errorf("unable to stop enforcer: %s", err)
 	}
@@ -292,7 +296,7 @@ func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrap
 
 	var err error
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "SetTargetNetworks message auth failed" //nolint
+		resp.Status = "SetTargetNetworks message auth failed" // nolint
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -356,7 +360,7 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	}()
 
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
-	s.secrets, err = secrets.NewSecrets(payload.Secrets)
+	s.secrets, err = rpc.NewSecrets(payload.Secrets)
 	if err != nil {
 		return err
 	}
@@ -379,7 +383,7 @@ func (s *RemoteEnforcer) EnableDatapathPacketTracing(req rpcwrapper.Request, res
 
 	payload := req.Payload.(rpcwrapper.EnableDatapathPacketTracingPayLoad)
 
-	if err := s.enforcer.EnableDatapathPacketTracing(context.TODO(), payload.ContextID, payload.Direction, payload.Interval); err != nil {
+	if err := s.enforcer.EnableDatapathPacketTracing(s.ctx, payload.ContextID, payload.Direction, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -401,7 +405,7 @@ func (s *RemoteEnforcer) EnableIPTablesPacketTracing(req rpcwrapper.Request, res
 
 	payload := req.Payload.(rpcwrapper.EnableIPTablesPacketTracingPayLoad)
 
-	if err := s.supervisor.EnableIPTablesPacketTracing(context.Background(), payload.ContextID, payload.Interval); err != nil {
+	if err := s.supervisor.EnableIPTablesPacketTracing(s.ctx, payload.ContextID, payload.Interval); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
@@ -423,12 +427,67 @@ func (s *RemoteEnforcer) Ping(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	payload := req.Payload.(rpcwrapper.PingPayload)
 
-	if err := s.enforcer.Ping(context.TODO(), payload.ContextID, payload.PingConfig); err != nil {
+	if err := s.enforcer.Ping(s.ctx, payload.ContextID, payload.PingConfig); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
 
 	resp.Status = ""
+	return nil
+}
+
+// DebugCollect collects the desired debug information
+func (s *RemoteEnforcer) DebugCollect(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "debug collect auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	payload := req.Payload.(rpcwrapper.DebugCollectPayload)
+
+	var commandOutput string
+	var pid int
+
+	if payload.CommandExec != "" {
+		if values := strings.Split(payload.CommandExec, " "); len(values) >= 1 {
+			cmd := exec.CommandContext(s.ctx, values[0], values[1:]...)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				resp.Status = err.Error()
+				return err
+			}
+			commandOutput = string(output)
+		}
+	} else if payload.PcapFilePath != "" {
+		cmd, err := diagnostics.StartTcpdump(s.ctx, payload.PcapFilePath, payload.PcapFilter)
+		if err != nil {
+			resp.Status = err.Error()
+			return err
+		}
+
+		// spawn goroutine to call Wait() so we don't have defunct child process
+		go func() {
+			if err := cmd.Wait(); err != nil {
+				zap.L().Warn("DebugCollect Wait failed on tcpdump process", zap.Error(err))
+			}
+		}()
+
+		pid = cmd.Process.Pid
+	} else {
+		// otherwise, return pid of remote enforcer
+		pid = os.Getpid()
+	}
+
+	resp.Status = ""
+	resp.Payload = rpcwrapper.DebugCollectResponsePayload{
+		ContextID:     payload.ContextID,
+		PID:           pid,
+		CommandOutput: commandOutput,
+	}
 	return nil
 }
 
@@ -448,8 +507,10 @@ func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Re
 
 	payload := req.Payload.(rpcwrapper.SetLogLevelPayload)
 
-	if payload.Level != "" && s.logLevel != payload.Level {
-		s.configureZapLogLevel(payload.Level)
+	newLevel := triremeLogLevelToString(payload.Level)
+	if payload.Level != "" && s.config.logLevel != newLevel {
+		remotelog.SetupRemoteLogger(newLevel, s.config.logFormat, s.config.logID) // nolint: errcheck
+		s.config.logLevel = newLevel
 
 		if err := s.enforcer.SetLogLevel(payload.Level); err != nil {
 			resp.Status = err.Error()
@@ -461,34 +522,20 @@ func (s *RemoteEnforcer) SetLogLevel(req rpcwrapper.Request, resp *rpcwrapper.Re
 	return nil
 }
 
-func (s *RemoteEnforcer) configureZapLogLevel(level constants.LogLevel) {
-
-	zapLogLevel := triremeLogLevelToZapLogLevel(level)
-	s.zapConfig.Level = zap.NewAtomicLevelAt(zapLogLevel)
-	l, err := s.zapConfig.Build()
-	if err != nil {
-		zap.L().Warn("unable to build logger", zap.Error(err))
-		return
-	}
-
-	zap.ReplaceGlobals(l)
-	s.logLevel = level
-}
-
-// triremeLogLevelToZapLogLevel converts trireme log level to zap log level.
-func triremeLogLevelToZapLogLevel(level constants.LogLevel) zapcore.Level {
-
+func triremeLogLevelToString(level constants.LogLevel) string {
 	switch level {
-	case constants.Debug, constants.Trace:
-		return zap.DebugLevel
+	case constants.Debug:
+		return "debug"
+	case constants.Trace:
+		return "trace"
 	case constants.Error:
-		return zap.ErrorLevel
+		return "error"
 	case constants.Info:
-		return zap.InfoLevel
+		return "info"
 	case constants.Warn:
-		return zap.WarnLevel
+		return "warn"
 	default:
-		return zap.InfoLevel
+		return "info"
 	}
 }
 
@@ -497,7 +544,7 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 	var err error
 
-	s.secrets, err = secrets.NewSecrets(payload.Secrets)
+	s.secrets, err = rpc.NewSecrets(payload.Secrets)
 	if err != nil {
 		return err
 	}
@@ -511,9 +558,8 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 
 	if s.enforcer, err = createEnforcer(
 		payload.MutualAuth,
-		payload.FqConfig,
+		s.fqConfig,
 		s.collector,
-		s.service,
 		s.secrets,
 		payload.ServerID,
 		payload.Validity,
@@ -523,10 +569,9 @@ func (s *RemoteEnforcer) setupEnforcer(payload *rpcwrapper.InitRequestPayload) e
 		payload.PacketLogs,
 		payload.Configuration,
 		s.tokenIssuer,
-		payload.BinaryTokens,
-		s.aclmanager,
 		payload.IsBPFEnabled,
 		s.agentVersion,
+		payload.ServiceMeshType,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -548,9 +593,8 @@ func (s *RemoteEnforcer) setupSupervisor(payload *rpcwrapper.InitRequestPayload)
 		s.enforcer,
 		mode,
 		payload.Configuration,
-		s.service,
-		s.aclmanager,
 		payload.IPv6Enabled,
+		payload.IPTablesLockfile,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to setup supervisor: %s", err)
@@ -580,26 +624,22 @@ func (s *RemoteEnforcer) cleanup() {
 			zap.L().Error("unable to clean service state", zap.Error(err))
 		}
 	}
-
-	s.cancel()
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config, agentVersion semver.Version) error {
+func LaunchRemoteEnforcer(ctx context.Context, logLevel, logFormat, logID string, numQueues int, agentVersion semver.Version) error {
 
 	// Before doing anything validate that we are in the right namespace.
 	if err := validateNamespace(); err != nil {
 		return err
 	}
 
-	ctx, cancelMainCtx := context.WithCancel(context.Background())
-	defer cancelMainCtx()
-
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)
 	if secret == "" {
 		zap.L().Fatal("No secret found")
 	}
+	os.Setenv(constants.EnvRPCClientSecret, "") // nolint: errcheck
 
 	flag := unix.SIGHUP
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
@@ -612,14 +652,14 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	re, err := newRemoteEnforcer(ctx, cancelMainCtx, service, rpcHandle, secret, nil, nil, nil, nil, zapConfig, enforcerType, agentVersion)
+	re, err := newRemoteEnforcer(ctx, rpcHandle, secret, nil, nil, nil, nil, logLevel, logFormat, logID, numQueues, enforcerType, agentVersion)
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		if err := rpcHandle.StartServer(ctx, "unix", namedPipe, re); err != nil {
-			zap.L().Fatal("Failed to start the server", zap.Error(err))
+			zap.L().Fatal("Failed to start the RPC server", zap.Error(err))
 		}
 	}()
 
@@ -628,11 +668,16 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap
 
 	select {
 
-	case <-c:
-		re.cleanup()
-
 	case <-re.exit:
 		zap.L().Info("Remote enforcer exiting ...")
+
+	case sig := <-c:
+		zap.L().Warn("Remote enforcer received a signal. exiting ...", zap.Any("signal", sig))
+		re.cleanup()
+		// TODO would be useful to set and return an exit code (instead of nil) to indicate the signal received
+
+	case <-ctx.Done():
+		re.cleanup()
 	}
 
 	return nil
