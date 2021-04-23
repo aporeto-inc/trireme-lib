@@ -6,24 +6,24 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/envoyauthorizer"
+	"go.aporeto.io/gaia"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/secretsproxy"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/ephemeralkeys"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -32,13 +32,13 @@ import (
 type Enforcer interface {
 
 	// Enforce starts enforcing policies for the given policy.PUInfo.
-	Enforce(contextID string, puInfo *policy.PUInfo) error
+	Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error
 
 	// Unenforce stops enforcing policy for the given IP.
-	Unenforce(contextID string) error
+	Unenforce(ctx context.Context, contextID string) error
 
 	// GetFilterQueue returns the current FilterQueueConfig.
-	GetFilterQueue() *fqconfig.FilterQueue
+	GetFilterQueue() fqconfig.FilterQueue
 
 	// GetBPFObject returns the bpf pobject
 	GetBPFObject() ebpf.BPFModule
@@ -58,6 +58,9 @@ type Enforcer interface {
 	// Cleanup request a clean up of the controllers.
 	CleanUp() error
 
+	// GetServiceMeshType returns the serviceMeshType
+	GetServiceMeshType() policy.ServiceMesh
+
 	DebugInfo
 }
 
@@ -71,13 +74,15 @@ type DebugInfo interface {
 
 	// Ping runs ping based on the given config.
 	Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error
+
+	// DebugCollect collects debug information, such as packet capture
+	DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error
 }
 
 // enforcer holds all the active implementations of the enforcer
 type enforcer struct {
 	proxy     *applicationproxy.AppProxy
 	transport *nfqdatapath.Datapath
-	secrets   *secretsproxy.SecretsProxy
 }
 
 // Run implements the run interfaces and runs the individual data paths
@@ -95,32 +100,21 @@ func (e *enforcer) Run(ctx context.Context) error {
 		}
 	}
 
-	if e.secrets != nil {
-		if err := e.secrets.Run(ctx); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 // Enforce implements the enforce interface by sending the event to all the enforcers.
-func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (e *enforcer) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
 	if e.transport != nil {
-		if err := e.transport.Enforce(contextID, puInfo); err != nil {
+		if err := e.transport.Enforce(ctx, contextID, puInfo); err != nil {
 			return fmt.Errorf("unable to enforce in nfq: %s", err)
 		}
 	}
 
 	if e.proxy != nil {
+		// NOTE: Passing ctx here breaks proxy. Root cause unknown for now
 		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
 			return fmt.Errorf("unable to enforce in proxy: %s", err)
-		}
-	}
-
-	if e.secrets != nil {
-		if err := e.secrets.Enforce(puInfo); err != nil {
-			return fmt.Errorf("unable to enforce in secrets proxy: %s", err)
 		}
 	}
 
@@ -128,11 +122,12 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 }
 
 // Unenforce implements the Unenforce interface by sending the event to all the enforcers.
-func (e *enforcer) Unenforce(contextID string) error {
+func (e *enforcer) Unenforce(ctx context.Context, contextID string) error {
 
 	var perr, nerr, serr error
+
 	if e.proxy != nil {
-		if perr = e.proxy.Unenforce(context.Background(), contextID); perr != nil {
+		if perr = e.proxy.Unenforce(ctx, contextID); perr != nil {
 			zap.L().Error("Failed to unenforce contextID in proxy",
 				zap.String("ContextID", contextID),
 				zap.Error(perr),
@@ -141,16 +136,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 	}
 
 	if e.transport != nil {
-		if nerr = e.transport.Unenforce(contextID); nerr != nil {
-			zap.L().Error("Failed to unenforce contextID in transport",
-				zap.String("ContextID", contextID),
-				zap.Error(nerr),
-			)
-		}
-	}
-
-	if e.secrets != nil {
-		if serr = e.secrets.Unenforce(contextID); nerr != nil {
+		if nerr = e.transport.Unenforce(ctx, contextID); nerr != nil {
 			zap.L().Error("Failed to unenforce contextID in transport",
 				zap.String("ContextID", contextID),
 				zap.Error(nerr),
@@ -159,7 +145,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 	}
 
 	if perr != nil || nerr != nil || serr != nil {
-		return fmt.Errorf("Failed to unenforce %s %s", perr, nerr)
+		return fmt.Errorf("Failed to unenforce. proxy: %s transport: %s secret: %s", perr, nerr, serr)
 	}
 
 	return nil
@@ -179,12 +165,6 @@ func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 
 	if e.transport != nil {
 		if err := e.transport.UpdateSecrets(secrets); err != nil {
-			return err
-		}
-	}
-
-	if e.secrets != nil {
-		if err := e.secrets.UpdateSecrets(secrets); err != nil {
 			return err
 		}
 	}
@@ -217,8 +197,13 @@ func (e *enforcer) GetBPFObject() ebpf.BPFModule {
 	return e.transport.GetBPFObject()
 }
 
+// GetServiceMeshType returns the serviceMesh type
+func (e *enforcer) GetServiceMeshType() policy.ServiceMesh {
+	return e.transport.GetServiceMeshType()
+}
+
 // GetFilterQueue returns the current FilterQueueConfig of the transport path.
-func (e *enforcer) GetFilterQueue() *fqconfig.FilterQueue {
+func (e *enforcer) GetFilterQueue() fqconfig.FilterQueue {
 	return e.transport.GetFilterQueue()
 }
 
@@ -235,15 +220,47 @@ func (e *enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 
 // Ping runs ping to the given config.
 func (e *enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
-	return e.transport.Ping(ctx, contextID, pingConfig)
+
+	srv := policy.ServiceL3
+	sctx, sdata, err := e.proxy.ServiceData(
+		contextID,
+		pingConfig.IP,
+		int(pingConfig.Port),
+		pingConfig.ServiceAddresses)
+	if err == nil {
+		srv = sdata.ServiceObject.Type
+	}
+
+	switch pingConfig.Mode {
+	case gaia.ProcessingUnitRefreshPingModeAuto:
+		switch srv {
+		case policy.ServiceHTTP, policy.ServiceTCP:
+			return e.proxy.Ping(ctx, contextID, sctx, sdata, pingConfig)
+		default:
+			return e.transport.Ping(ctx, contextID, pingConfig)
+		}
+
+	case gaia.ProcessingUnitRefreshPingModeL3:
+		return e.transport.Ping(ctx, contextID, pingConfig)
+
+	case gaia.ProcessingUnitRefreshPingModeL4, gaia.ProcessingUnitRefreshPingModeL7:
+		return e.proxy.Ping(ctx, contextID, sctx, sdata, pingConfig)
+
+	default:
+		return e.transport.Ping(ctx, contextID, pingConfig)
+	}
+}
+
+func (e *enforcer) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
+	// this is handled in remoteenforcer
+	return nil
 }
 
 // New returns a new policy enforcer that implements both the data paths.
 func New(
 	mutualAuthorization bool,
-	fqConfig *fqconfig.FilterQueue,
+	fqConfig fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
@@ -253,19 +270,23 @@ func New(
 	packetLogs bool,
 	cfg *runtime.Configuration,
 	tokenIssuer common.ServiceTokenIssuer,
-	binaryTokens bool,
-	aclmanager ipsetmanager.ACLManager,
 	isBPFEnabled bool,
 	agentVersion semver.Version,
+	serviceMeshType policy.ServiceMesh,
 ) (Enforcer, error) {
-
 	if mode == constants.RemoteContainerEnvoyAuthorizer || mode == constants.LocalEnvoyAuthorizer {
 		return envoyauthorizer.NewEnvoyAuthorizerEnforcer(mode, collector, externalIPCacheTimeout, secrets, tokenIssuer)
 	}
 
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets, binaryTokens)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
+
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
+	}
+
+	datapathKeypair, err := ephemeralkeys.NewWithRenewal()
+	if err != nil {
+		zap.L().Fatal("Cannot create a ephemeral key pair", zap.Error(err))
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
@@ -276,7 +297,6 @@ func New(
 		collector,
 		serverID,
 		validity,
-		service,
 		secrets,
 		mode,
 		procMountPoint,
@@ -285,42 +305,21 @@ func New(
 		tokenAccessor,
 		puFromContextID,
 		cfg,
-		aclmanager,
 		isBPFEnabled,
 		agentVersion,
+		serviceMeshType,
 	)
+	var appProxy *applicationproxy.AppProxy
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets, tokenIssuer)
-	if err != nil {
-		return nil, fmt.Errorf("App proxy %s", err)
+	if serviceMeshType == policy.None {
+		appProxy, err = applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, secrets, tokenIssuer, datapathKeypair, agentVersion)
+		if err != nil {
+			return nil, fmt.Errorf("App proxy %s", err)
+		}
 	}
 
 	return &enforcer{
-		proxy:     tcpProxy,
+		proxy:     appProxy,
 		transport: transport,
-		secrets:   secretsproxy.NewSecretsProxy(),
 	}, nil
-}
-
-// NewWithDefaults create a new data path with most things used by default
-func NewWithDefaults(
-	serverID string,
-	collector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
-	secrets secrets.Secrets,
-	mode constants.ModeType,
-	procMountPoint string,
-	targetNetworks []string,
-	aclmanager ipsetmanager.ACLManager,
-) Enforcer {
-	return nfqdatapath.NewWithDefaults(
-		serverID,
-		collector,
-		service,
-		secrets,
-		mode,
-		procMountPoint,
-		targetNetworks,
-		aclmanager,
-	)
 }

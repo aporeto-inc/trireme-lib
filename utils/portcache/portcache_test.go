@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 func TestNewPortCache(t *testing.T) {
@@ -98,9 +98,9 @@ func TestSearch(t *testing.T) {
 				So(s.(string), ShouldResemble, "range3")
 			})
 
-			Convey("Last number is not included ", func() {
+			Convey("Last number is included ", func() {
 				_, err := p.GetSpecValueFromPort(20)
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeNil)
 			})
 		})
 	})

@@ -1,6 +1,18 @@
 package common
 
-import "context"
+import (
+	"context"
+)
+
+// TriremeSocket is the standard API server Trireme socket path
+// it is set via ConfigureTriremeSocketPath() and canonicalized with
+// utils.GetPathOnHostViaProcRoot() at point of use
+var TriremeSocket = "/var/run/trireme.sock"
+
+// ConfigureTriremeSocketPath updates the TriremeSocket path
+func ConfigureTriremeSocketPath(path string) {
+	TriremeSocket = path
+}
 
 // PUType defines the PU type
 type PUType int
@@ -10,16 +22,14 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// WindowsProcessPU indicates that this is Windows process
+	WindowsProcessPU
 	// HostPU is a host wrapping PU
 	HostPU
 	// HostNetworkPU is a PU for a network service in a host
 	HostNetworkPU
 	// KubernetesPU indicates that this is KubernetesPod
 	KubernetesPU
-	// UIDLoginPU -- PU representing a user session
-	UIDLoginPU
-	// SSHSessionPU -- PU representing a ssh session
-	SSHSessionPU
 	// TransientPU PU -- placeholder to run processing. This should not
 	// be inserted in any cache. This is valid only for processing a packet
 	TransientPU
@@ -29,14 +39,8 @@ const (
 	// TriremeCgroupPath is the standard Trireme cgroup path
 	TriremeCgroupPath = "/trireme/"
 
-	// TriremeUIDCgroupPath is the standard path for UID based activations
-	TriremeUIDCgroupPath = "/trireme_uid/"
-
 	// TriremeDockerHostNetwork is the path for Docker HostNetwork container based activations
 	TriremeDockerHostNetwork = "/trireme_docker_hostnet/"
-
-	// TriremeSocket is the standard API server Trireme socket path
-	TriremeSocket = "/var/run/trireme.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.

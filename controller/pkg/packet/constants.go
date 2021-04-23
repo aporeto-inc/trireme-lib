@@ -6,8 +6,15 @@ const (
 
 	// minIPPacketLen is the min ip packet size for UDP packet
 	minUDPIPPacketLen = 8
+
+	// minICMPPacketLen is the min ip packet size for ICMP packet
+	minICMPIPPacketLen = 8
+
 	// minIPHdrSize
 	minIPv4HdrSize = 20
+
+	// minTCPHeaderLen is the min TCP header length
+	minTCPHeaderLen = 20
 )
 
 // IP Header field position constants
@@ -37,6 +44,9 @@ const (
 const (
 	// ipv6HeaderLen is the length of the ipv6 header
 	ipv6HeaderLen = 40
+
+	// ipv6VersionPos is the position in the buffer where the version is stored
+	ipv6VersionPos = 0
 
 	// ipv6PayloadLenPos is the position in the buffer where the size of the payload is stored
 	ipv6PayloadLenPos = 4
@@ -149,6 +159,8 @@ const (
 	UDPAckMask = 0x30
 	// UDPFinAckMask mask that identifies the FinAck packets
 	UDPFinAckMask = 0x40
+	// UDPPolicyRejectMask mask that identifies a policy reject info from the remote end
+	UDPPolicyRejectMask = 0x50
 	// UDPDataPacket is a simple data packet
 	UDPDataPacket = 0x80
 	// UDPPacketMask identifies type of UDP packet.
@@ -166,6 +178,15 @@ const (
 	udpAuthMarkerOffset = 10
 	// UDPSignatureEnd is the end of UDPSignature.
 	udpSignatureEnd = UDPDataPos + UDPSignatureLen
-	// UDPJwtTokenOffset is beginning of Jwt Token.
-	udpJwtTokenOffset = 28
+)
+
+const (
+	// UDPAporetoOption is the option kind for Aporeto option
+	UDPAporetoOption = uint8(34)
+	// UDPAporetoOptionLengthFirstByte is the first if length is greater than 255
+	UDPAporetoOptionLengthFirstByte = uint8(0xff)
+	// UDPAporetoOptionShortLength is the length of the option header if payload length is less than UDPAporetoOptionLengthFirstByte
+	UDPAporetoOptionShortLength = 2
+	// UDPAporetoOptionLongLength is the length of the option header if payload length is greater than UDPAporetoOptionLengthFirstByte
+	UDPAporetoOptionLongLength = 6
 )

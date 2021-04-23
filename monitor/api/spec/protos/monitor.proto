@@ -1,0 +1,45 @@
+syntax = "proto3";
+option go_package = ".;protos";
+package protos;
+
+import "google/protobuf/empty.proto";
+
+// RunCClient is the API between runc-proxy  and  enforcerd
+service RunC {
+    // RuncProxyStarted is called by the PCC agent once the runc proxy has been started
+    rpc RuncProxyStarted (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+ 
+    // ContainerEvent will be invoked by the runc proxy on the following events at this point:
+    // - ‘runc start’
+    // - 'runc delete'
+    rpc RunCContainerEvent (RunCContainerEventRequest) returns (ContainerEventResponse) {} 
+}
+
+// CNIClient is the API between cni-plugin  and  enforcerd
+service CNI {
+    // ContainerEvent will be invoked by the CNI plugin on the following events at this point:
+    // - ‘cmdADD start’
+    // - 'cmdDEL delete'
+    rpc CNIContainerEvent (CNIContainerEventRequest) returns (ContainerEventResponse) {} 
+}
+
+message RunCContainerEventRequest {
+    repeated string commandLine = 1; // the full commandline of the runc command incl. flags, etc. - this is expected to come from `os.Args`
+}
+
+message CNIContainerEventRequest {
+    enum Type {
+        ADD = 0;
+        DELETE = 1;
+    }
+    Type type = 1;
+    string containerID	= 2;
+    string netnsPath = 3;
+    string podName = 4;
+    string podNamespace = 5;
+}
+
+message ContainerEventResponse {
+    string errorMessage = 1; // errorMessage will be empty on success, and have an error message set only on an error
+}

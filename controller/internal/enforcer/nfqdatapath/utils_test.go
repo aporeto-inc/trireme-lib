@@ -1,22 +1,22 @@
-// +build !windows
+// +build linux
 
 package nfqdatapath
 
 import (
+	"crypto/ecdsa"
 	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/collector/mockcollector"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector/mockcollector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/mocksecrets"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 var (
@@ -28,20 +28,16 @@ var (
 	dstID             = "dst4545"
 )
 
-func setupDatapath(collector collector.EventCollector) *Datapath {
+func setupDatapath(ctrl *gomock.Controller, collector collector.EventCollector) *Datapath {
 
-	_, secret, err := secrets.CreateCompactPKITestSecrets()
-	So(err, ShouldBeNil)
+	defer MockGetUDPRawSocket()()
 
-	// mock the call
-	prevRawSocket := GetUDPRawSocket
-	defer func() {
-		GetUDPRawSocket = prevRawSocket
-	}()
-	GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
-		return nil, nil
-	}
-	return NewWithDefaults("serverID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1._,1.1.1/31"}, nil)
+	secrets := mocksecrets.NewMockSecrets(ctrl)
+	secrets.EXPECT().AckSize().Return(uint32(300)).AnyTimes()
+	secrets.EXPECT().EncodingKey().Return(&ecdsa.PrivateKey{}).AnyTimes()
+	secrets.EXPECT().TransmittedKey().Return([]byte("dummy")).AnyTimes()
+
+	return newWithDefaults(ctrl, "serverID", collector, secrets, constants.RemoteContainer, []string{"1._,1.1.1/31"}, false)
 }
 
 func generateCommonTestData(action policy.ActionType, oaction policy.ObserveActionType) (*packet.Packet, *connection.TCPConnection, *connection.UDPConnection, *pucontext.PUContext, *policy.FlowPolicy) { // nolint
@@ -84,7 +80,7 @@ func TestReportAcceptedFlow(t *testing.T) {
 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	Convey("Given I setup datapath", t, func() {
-		dp := setupDatapath(mockCollector)
+		dp := setupDatapath(ctrl, mockCollector)
 
 		Convey("Then datapath should not be nil", func() {
 			So(dp, ShouldNotBeNil)
@@ -96,8 +92,8 @@ func TestReportAcceptedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Accept,
 			}
 
@@ -114,14 +110,14 @@ func TestReportAcceptedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
-				Action:      policy.Accept,
+				Source:      *src,
+				Destination: *dst,
+				Action:      policy.Accept | policy.Log,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
+			p, conn, _, context, policy := generateCommonTestData(policy.Accept|policy.Log, policy.ObserveNone)
 
 			dp.reportAcceptedFlow(p, conn, srcID, srcID, context, policy, policy, false)
 		})
@@ -132,8 +128,8 @@ func TestReportAcceptedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Accept,
 			}
 
@@ -154,7 +150,7 @@ func TestReportExternalServiceFlow(t *testing.T) {
 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	Convey("Given I setup datapath", t, func() {
-		dp := setupDatapath(mockCollector)
+		dp := setupDatapath(ctrl, mockCollector)
 
 		Convey("Then datapath should not be nil", func() {
 			So(dp, ShouldNotBeNil)
@@ -166,8 +162,8 @@ func TestReportExternalServiceFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Accept,
 			}
 
@@ -184,8 +180,8 @@ func TestReportExternalServiceFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      dst,
-				Destination: src,
+				Source:      *dst,
+				Destination: *src,
 				Action:      policy.Reject,
 				DropReason:  collector.PolicyDrop,
 			}
@@ -207,7 +203,7 @@ func TestReportUDPAcceptedFlow(t *testing.T) {
 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	Convey("Given I setup datapath", t, func() {
-		dp := setupDatapath(mockCollector)
+		dp := setupDatapath(ctrl, mockCollector)
 
 		Convey("Then datapath should not be nil", func() {
 			So(dp, ShouldNotBeNil)
@@ -219,8 +215,8 @@ func TestReportUDPAcceptedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Accept,
 			}
 
@@ -237,8 +233,8 @@ func TestReportUDPAcceptedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Accept,
 			}
 
@@ -259,7 +255,7 @@ func TestReportRejectedFlow(t *testing.T) {
 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	Convey("Given I setup datapath", t, func() {
-		dp := setupDatapath(mockCollector)
+		dp := setupDatapath(ctrl, mockCollector)
 
 		Convey("Then datapath should not be nil", func() {
 			So(dp, ShouldNotBeNil)
@@ -271,8 +267,8 @@ func TestReportRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Reject,
 				DropReason:  collector.PolicyDrop,
 			}
@@ -290,15 +286,15 @@ func TestReportRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
-				Action:      policy.Reject,
+				Source:      *src,
+				Destination: *dst,
+				Action:      policy.Reject | policy.Log,
 				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, conn, _, context, _ := generateCommonTestData(policy.Reject, policy.ObserveNone)
+			p, conn, _, context, _ := generateCommonTestData(policy.Reject|policy.Log, policy.ObserveNone)
 
 			dp.reportRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, nil, nil, false)
 		})
@@ -309,8 +305,8 @@ func TestReportRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Reject,
 				DropReason:  collector.PolicyDrop,
 			}
@@ -332,7 +328,7 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	Convey("Given I setup datapath", t, func() {
-		dp := setupDatapath(mockCollector)
+		dp := setupDatapath(ctrl, mockCollector)
 
 		Convey("Then datapath should not be nil", func() {
 			So(dp, ShouldNotBeNil)
@@ -344,8 +340,8 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Reject,
 				DropReason:  collector.PolicyDrop,
 			}
@@ -363,15 +359,15 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
-				Action:      policy.Reject,
+				Source:      *src,
+				Destination: *dst,
+				Action:      policy.Reject | policy.Log,
 				DropReason:  collector.PolicyDrop,
 			}
 
 			mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-			p, _, conn, context, _ := generateCommonTestData(policy.Reject, policy.ObserveNone)
+			p, _, conn, context, _ := generateCommonTestData(policy.Reject|policy.Log, policy.ObserveNone)
 
 			dp.reportUDPRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, nil, nil, false)
 		})
@@ -382,8 +378,8 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 
 			flowRecord := collector.FlowRecord{
 				Count:       1,
-				Source:      src,
-				Destination: dst,
+				Source:      *src,
+				Destination: *dst,
 				Action:      policy.Reject,
 				DropReason:  collector.PolicyDrop,
 			}
@@ -393,6 +389,65 @@ func TestReportUDPRejectedFlow(t *testing.T) {
 			p, _, conn, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
 
 			dp.reportUDPRejectedFlow(p, conn, srcID, dstID, context, collector.PolicyDrop, policy, policy, true)
+		})
+	})
+}
+
+func TestReportDefaultEndpoint(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
+
+	Convey("Given I setup datapath", t, func() {
+		dp := setupDatapath(ctrl, mockCollector)
+
+		Convey("Then datapath should not be nil", func() {
+			So(dp, ShouldNotBeNil)
+		})
+
+		Convey("Then check reportRejectedFlow with dest ID set to default", func() {
+
+			src, dst := generateTestEndpoints(false)
+			src.Type = collector.EndPointTypePU
+			dst.ID = collector.DefaultEndPoint
+			dst.Type = collector.EndPointTypeExternalIP
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      *src,
+				Destination: *dst,
+				Action:      policy.Reject,
+				DropReason:  collector.PolicyDrop,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(EndpointTypeMatcher(&flowRecord)).Times(1)
+
+			p, conn, _, context, policy := generateCommonTestData(policy.Reject, policy.ObserveNone)
+
+			dp.reportRejectedFlow(p, conn, src.ID, dst.ID, context, collector.PolicyDrop, policy, policy, false)
+		})
+
+		Convey("Then check reportAcceptedFlow with src ID set to default", func() {
+
+			src, dst := generateTestEndpoints(false)
+			dst.Type = collector.EndPointTypePU
+			src.ID = collector.DefaultEndPoint
+			src.Type = collector.EndPointTypeExternalIP
+
+			flowRecord := collector.FlowRecord{
+				Count:       1,
+				Source:      *src,
+				Destination: *dst,
+				Action:      policy.Accept,
+			}
+
+			mockCollector.EXPECT().CollectFlowEvent(EndpointTypeMatcher(&flowRecord)).Times(1)
+
+			p, conn, _, context, policy := generateCommonTestData(policy.Accept, policy.ObserveNone)
+
+			dp.reportAcceptedFlow(p, conn, src.ID, dst.ID, context, policy, policy, false)
 		})
 	})
 }

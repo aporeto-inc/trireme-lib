@@ -5,17 +5,20 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/ephemeralkeys"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/counters"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pingconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/tokens"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -51,7 +54,7 @@ const (
 	// TCPData indicates that the packets are now data packets
 	TCPData
 
-	// UnknownState indicates that this an existing connection in the uknown state.
+	// UnknownState indicates that this an existing connection in the unknown state.
 	UnknownState
 )
 
@@ -93,6 +96,9 @@ const (
 
 	// UDPData is the state where data is being transmitted.
 	UDPData
+
+	// UDPRST is the state when we received rst from peer. This connection is dead
+	UDPRST
 )
 
 // MaximumUDPQueueLen is the maximum number of UDP packets buffered.
@@ -100,14 +106,21 @@ const MaximumUDPQueueLen = 50
 
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
-	LocalContext         []byte
-	RemoteContext        []byte
-	RemoteContextID      string
-	RemotePublicKey      interface{}
-	RemoteIP             string
-	RemotePort           string
-	LocalServiceContext  []byte
-	RemoteServiceContext []byte
+	Nonce                        [tokens.NonceLength]byte
+	RemoteNonce                  []byte
+	RemoteContextID              string
+	RemoteIP                     string
+	RemotePort                   string
+	LocalDatapathPrivateKey      *ephemeralkeys.PrivateKey
+	SecretKey                    []byte
+	LocalDatapathPublicKeyV1     []byte
+	LocalDatapathPublicKeySignV1 []byte
+	LocalDatapathPublicKeyV2     []byte
+	LocalDatapathPublicKeySignV2 []byte
+	ConnectionClaims             tokens.ConnectionClaims
+	SynAckToken                  []byte
+	AckToken                     []byte
+	Proto314                     bool
 }
 
 //TCPTuple contains the 4 tuple for tcp connection
@@ -116,15 +129,6 @@ type TCPTuple struct {
 	DestinationAddress net.IP
 	SourcePort         uint16
 	DestinationPort    uint16
-}
-
-// PingConfig holds ping configuration per connection.
-type PingConfig struct {
-	StartTime   time.Time
-	Type        claimsheader.PingType
-	Passthrough bool
-	SessionID   string
-	Request     int
 }
 
 // TCPConnection is information regarding TCP Connection
@@ -167,21 +171,46 @@ type TCPConnection struct {
 	// TCPtuple is tcp tuple
 	TCPtuple *TCPTuple
 
-	// PingConfig is the config of the enforcer ping diagnostic feature
-	PingConfig *PingConfig
+	// PingConfig is the config that holds ping related information.
+	PingConfig *pingconfig.PingConfig
 
 	Secrets secrets.Secrets
+
+	SourceController      string
+	DestinationController string
+	initialSequenceNumber uint32
+	timer                 *time.Timer
+	counter               uint32
+	reportReason          string
+	connectionTimeout     time.Duration
+	EncodedBuf            [tokens.ClaimsEncodedBufSize]byte
 }
 
-// TCPConnectionExpirationNotifier handles processing the expiration of an element
-func TCPConnectionExpirationNotifier(c cache.DataStore, _ interface{}, item interface{}) {
+//DefaultConnectionTimeout is used as the timeout for connection in the cache.
+var DefaultConnectionTimeout = 24 * time.Second
 
-	conn, ok := item.(*TCPConnection)
-	if !ok {
-		return
+//StartTimer starts the timer for 24 seconds and
+//on expiry will call the function passed in the argument.
+func (c *TCPConnection) StartTimer(f func()) {
+	if c.timer == nil {
+		c.timer = time.AfterFunc(c.connectionTimeout, f)
+	} else {
+		c.timer.Reset(c.connectionTimeout)
 	}
+}
 
-	conn.Cleanup()
+//StopTimer will stop the timer in the connection object.
+func (c *TCPConnection) StopTimer() {
+	if c.timer != nil {
+		c.timer.Stop()
+	}
+}
+
+//ResetTimer resets the timer
+func (c *TCPConnection) ResetTimer(newTimeout time.Duration) {
+	if c.timer != nil {
+		c.timer.Reset(newTimeout)
+	}
 }
 
 func (tcpTuple *TCPTuple) String() string {
@@ -193,9 +222,84 @@ func (c *TCPConnection) String() string {
 	return fmt.Sprintf("state:%d auth: %+v", c.state, c.Auth)
 }
 
+// PingEnabled returns true if ping is enabled for this connection
+func (c *TCPConnection) PingEnabled() bool {
+	return c.PingConfig != nil
+}
+
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
 	return c.state
+}
+
+// GetStateString is used to return the state as string
+func (c *TCPConnection) GetStateString() string {
+
+	switch c.state {
+	case TCPSynSend:
+		return "TCPSynSend"
+
+	case TCPSynReceived:
+		return "TCPSynReceived"
+
+	case TCPSynAckSend:
+		return "TCPSynAckSend"
+
+	case TCPSynAckReceived:
+		return "TCPSynAckReceived"
+
+	case TCPAckSend:
+		return "TCPAckSend"
+
+	case TCPAckProcessed:
+		return "TCPAckProcessed"
+
+	case TCPData:
+		return "TCPData"
+
+	default:
+		return "UnknownState"
+	}
+}
+
+// GetInitialSequenceNumber returns the initial sequence number that was found on the syn packet
+// corresponding to this TCP Connection
+func (c *TCPConnection) GetInitialSequenceNumber() uint32 {
+	return c.initialSequenceNumber
+}
+
+// GetMarkForDeletion returns the state of markForDeletion flag
+func (c *TCPConnection) GetMarkForDeletion() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.MarkForDeletion
+}
+
+// IncrementCounter increments counter for this connection
+func (c *TCPConnection) IncrementCounter() {
+	atomic.AddUint32(&c.counter, 1)
+}
+
+// GetCounterAndReset returns the counter and resets it to zero
+func (c *TCPConnection) GetCounterAndReset() uint32 {
+	return atomic.SwapUint32(&c.counter, 0)
+}
+
+// GetReportReason returns the reason for reporting this connection
+func (c *TCPConnection) GetReportReason() string {
+
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.reportReason
+}
+
+// SetReportReason sets the reason for reporting this connection
+func (c *TCPConnection) SetReportReason(reason string) {
+
+	c.Lock()
+	c.reportReason = reason
+	c.Unlock()
 }
 
 // SetState is used to setup the state for the TCP connection
@@ -209,7 +313,9 @@ func (c *TCPConnection) Cleanup() {
 	c.Lock()
 	if !c.expiredConnection && c.state != TCPData {
 		c.expiredConnection = true
-		c.Context.Counters().IncrementCounter(counters.ErrTCPConnectionsExpired)
+		if c.Context != nil {
+			c.Context.Counters().IncrementCounter(counters.ErrTCPConnectionsExpired)
+		}
 	}
 	c.Unlock()
 }
@@ -226,32 +332,46 @@ func (c *TCPConnection) IsLoopbackConnection() bool {
 	return c.loopbackConnection
 }
 
+// SetLoopbackConnection sets LoopbackConnection field.
+func (c *UDPConnection) SetLoopbackConnection(isLoopback bool) {
+	// Logging information
+	c.loopbackConnection = isLoopback
+}
+
+// IsLoopbackConnection sets LoopbackConnection field.
+func (c *UDPConnection) IsLoopbackConnection() bool {
+	// Logging information
+	return c.loopbackConnection
+}
+
 // NewTCPConnection returns a TCPConnection information struct
 func NewTCPConnection(context *pucontext.PUContext, p *packet.Packet) *TCPConnection {
 
-	nonce, err := crypto.GenerateRandomBytes(16)
-	if err != nil {
-		return nil
-	}
+	var initialSeqNumber uint32
 
 	// Default tuple in case the packet is nil.
 	tuple := &TCPTuple{}
+
 	if p != nil {
 		tuple.SourceAddress = p.SourceAddress()
 		tuple.DestinationAddress = p.DestinationAddress()
 		tuple.SourcePort = p.SourcePort()
 		tuple.DestinationPort = p.DestPort()
+		initialSeqNumber = p.TCPSequenceNumber()
 	}
 
-	return &TCPConnection{
-		PingConfig: &PingConfig{},
-		state:      TCPSynSend,
-		Context:    context,
-		Auth: AuthInfo{
-			LocalContext: nonce,
-		},
-		TCPtuple: tuple,
+	tcp := &TCPConnection{
+		state:                 TCPSynSend,
+		Context:               context,
+		Auth:                  AuthInfo{},
+		initialSequenceNumber: initialSeqNumber,
+		TCPtuple:              tuple,
+		connectionTimeout:     DefaultConnectionTimeout,
 	}
+
+	crypto.Nonce().GenerateNonce16Bytes(tcp.Auth.Nonce[:])
+	return tcp
+
 }
 
 // ProxyConnection is a record to keep state of proxy auth
@@ -267,18 +387,19 @@ type ProxyConnection struct {
 }
 
 // NewProxyConnection returns a new Proxy Connection
-func NewProxyConnection() *ProxyConnection {
-	nonce, err := crypto.GenerateRandomBytes(16)
-	if err != nil {
-		return nil
-	}
+func NewProxyConnection(keyPair ephemeralkeys.KeyAccessor) *ProxyConnection {
 
-	return &ProxyConnection{
+	p := &ProxyConnection{
 		state: ClientTokenSend,
 		Auth: AuthInfo{
-			LocalContext: nonce,
+			LocalDatapathPublicKeyV1: keyPair.DecodingKeyV1(),
+			LocalDatapathPrivateKey:  keyPair.PrivateKey(),
 		},
 	}
+
+	crypto.Nonce().GenerateNonce16Bytes(p.Auth.Nonce[:])
+
+	return p
 }
 
 // GetState returns the state of a proxy connection
@@ -316,7 +437,8 @@ type UDPConnection struct {
 	Writer      afinetrawsocket.SocketWriter
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
-
+	// LoopbackConnection indicates that this connections is within the same pu context.
+	loopbackConnection bool
 	// Stop channels for restransmissions
 	synStop    chan bool
 	synAckStop chan bool
@@ -327,29 +449,29 @@ type UDPConnection struct {
 	expiredConnection    bool
 
 	Secrets secrets.Secrets
+
+	SourceController      string
+	DestinationController string
+	EncodedBuf            [tokens.ClaimsEncodedBufSize]byte
 }
 
 // NewUDPConnection returns UDPConnection struct.
 func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.SocketWriter) *UDPConnection {
 
-	nonce, err := crypto.GenerateRandomBytes(16)
-	if err != nil {
-		return nil
-	}
-
-	return &UDPConnection{
+	u := &UDPConnection{
 		state:       UDPStart,
 		Context:     context,
 		PacketQueue: make(chan *packet.Packet, MaximumUDPQueueLen),
 		Writer:      writer,
-		Auth: AuthInfo{
-			LocalContext: nonce,
-		},
-		synStop:    make(chan bool),
-		synAckStop: make(chan bool),
-		ackStop:    make(chan bool),
-		TestIgnore: true,
+		Auth:        AuthInfo{},
+		synStop:     make(chan bool),
+		synAckStop:  make(chan bool),
+		ackStop:     make(chan bool),
+		TestIgnore:  true,
 	}
+
+	crypto.Nonce().GenerateNonce16Bytes(u.Auth.Nonce[:])
+	return u
 }
 
 // SynStop issues a stop on the synStop channel.
@@ -417,6 +539,10 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 		return fmt.Errorf("Unable to copy packets to queue:%s", err)
 	}
 
+	if udpPacket.PlatformMetadata != nil {
+		copyPacket.PlatformMetadata = udpPacket.PlatformMetadata.Clone()
+	}
+
 	select {
 	case c.PacketQueue <- copyPacket:
 	default:
@@ -450,7 +576,9 @@ func (c *UDPConnection) Cleanup() {
 	c.Lock()
 	if !c.expiredConnection && c.state != UDPData {
 		c.expiredConnection = true
-		c.Context.Counters().IncrementCounter(counters.ErrUDPConnectionsExpired)
+		if c.Context != nil {
+			c.Context.Counters().IncrementCounter(counters.ErrUDPConnectionsExpired)
+		}
 	}
 	c.Unlock()
 }
@@ -467,4 +595,11 @@ func UDPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item int
 	if conn, ok := item.(*UDPConnection); ok {
 		conn.Cleanup()
 	}
+}
+
+// ChangeConnectionTimeout is used by test code to change the default
+// connection timeout
+func (c *TCPConnection) ChangeConnectionTimeout(t time.Duration) {
+	// Logging information
+	c.connectionTimeout = t
 }

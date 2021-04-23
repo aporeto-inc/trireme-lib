@@ -1,5 +1,11 @@
 package nfqdatapath
 
+import (
+	"net"
+
+	"github.com/ghedo/go.pkt/packet"
+)
+
 // ContextProcessor is an interface to provide context checks
 type ContextProcessor interface {
 	DoesContextExist(contextID string) bool
@@ -18,4 +24,12 @@ type RuleProcessor interface {
 type Accessor interface {
 	ContextProcessor
 	RuleProcessor
+}
+
+// PingConn is an interface to send ping packets/data to network.
+// Also implements io.Writer interface.
+type PingConn interface {
+	ConstructWirePacket(srcIP, dstIP net.IP, transport packet.Packet, payload packet.Packet) ([]byte, error)
+	Write(data []byte) (int, error)
+	Close() error
 }

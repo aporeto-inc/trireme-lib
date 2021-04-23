@@ -3,6 +3,7 @@
 package dnsproxy
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"net"
@@ -11,13 +12,12 @@ import (
 	"time"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/collector"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 )
 
 func addDNSNamePolicy(context *pucontext.PUContext) {
@@ -57,6 +57,9 @@ func (d *DNSCollector) CollectCounterEvent(report *collector.CounterReport) {}
 // CollectPingEvent collects ping events from the datapath
 func (d *DNSCollector) CollectPingEvent(report *collector.PingReport) {}
 
+// CollectConnectionExceptionReport collects the connection exception report
+func (d *DNSCollector) CollectConnectionExceptionReport(_ *collector.ConnectionExceptionReport) {}
+
 var r collector.DNSRequestReport
 var l sync.Mutex
 
@@ -85,7 +88,7 @@ func TestDNS(t *testing.T) {
 		Runtime: policy.NewPURuntimeWithDefaults(),
 		Policy:  policy.NewPUPolicyWithDefaults(),
 	}
-	pu, _ := pucontext.NewPU("pu1", fp, 24*time.Hour) // nolint
+	pu, _ := pucontext.NewPU("pu1", fp, nil, 24*time.Hour) // nolint
 
 	findPU := func(id string) (*pucontext.PUContext, error) {
 		if id == "pu1" {
@@ -99,16 +102,17 @@ func TestDNS(t *testing.T) {
 	puIDcache.AddOrUpdate("pu1", pu)
 	collector := &DNSCollector{}
 
-	ips := provider.NewTestIpsetProvider()
-	proxy := New(puIDcache, nil, collector, ipsetmanager.CreateIPsetManager(ips, ips))
+	ips := ipsetmanager.NewTestIpsetProvider()
+	ipsetmanager.SetIpsetTestInstance(ips)
+	proxy := New(context.Background(), puIDcache, nil, collector)
 
-	err := proxy.StartDNSServer("pu1", "53001")
+	err := proxy.StartDNSServer(context.Background(), "pu1", "53001")
 	assert.Equal(t, err == nil, true, "start dns server")
 
-	err = proxy.HandleDNSResponsePacket(parsedPacket1.GetUDPData(), parsedPacket1.SourceAddress(), findPU)
+	err = proxy.HandleDNSResponsePacket(parsedPacket1.GetUDPData(), parsedPacket1.SourceAddress(), parsedPacket1.SourcePort(), parsedPacket1.DestinationAddress(), parsedPacket1.DestPort(), findPU)
 	assert.Equal(t, err == nil, true, "dns packet 1 failed")
 
-	err = proxy.HandleDNSResponsePacket(parsedPacket2.GetUDPData(), parsedPacket2.SourceAddress(), findPU)
+	err = proxy.HandleDNSResponsePacket(parsedPacket2.GetUDPData(), parsedPacket2.SourceAddress(), parsedPacket2.SourcePort(), parsedPacket2.DestinationAddress(), parsedPacket2.DestPort(), findPU)
 	assert.Equal(t, err == nil, true, "dns packet 2 failed")
 
 	// wait a sec for report delivered via channel, and then expect one report since the next will be time-delayed
@@ -118,15 +122,31 @@ func TestDNS(t *testing.T) {
 	assert.Equal(t, r.Count == 1, true, "count should be 1")
 	l.Unlock()
 
+	defaultFlowPolicy := &policy.FlowPolicy{Action: policy.Reject | policy.Log, PolicyID: "default", ServiceID: "default"}
+
 	// test acls updated
-	rpt, pkt, err := pu.ApplicationACLs.GetMatchingAction(net.ParseIP("172.217.13.14"), 80)
+	rpt, pkt, err := pu.ApplicationACLs.GetMatchingAction(net.ParseIP("172.217.13.14"), 80, packet.IPProtocolTCP, defaultFlowPolicy)
 	assert.Equal(t, err == nil, true, "GetMatchingAction failed")
 	assert.Equal(t, rpt.Action.Accepted(), true, "should be accepted (report)")
 	assert.Equal(t, pkt.Action.Accepted(), true, "should be accepted (packet)")
-	rpt, pkt, err = pu.ApplicationACLs.GetMatchingAction(net.ParseIP("2607:f8b0:4002:c03::66"), 80)
+	rpt, pkt, err = pu.ApplicationACLs.GetMatchingAction(net.ParseIP("2607:f8b0:4002:c03::66"), 80, packet.IPProtocolTCP, defaultFlowPolicy)
 	assert.Equal(t, err == nil, true, "GetMatchingAction failed")
 	assert.Equal(t, rpt.Action.Accepted(), true, "should be accepted (report)")
 	assert.Equal(t, pkt.Action.Accepted(), true, "should be accepted (packet)")
+
+	// test SyncWithPlatformCache
+	clearWindowsDNSCacheFunc = func() error {
+		return errors.New("error from unit test")
+	}
+	defer func() {
+		clearWindowsDNSCacheFunc = clearWindowsDNSCache
+	}()
+	err = proxy.SyncWithPlatformCache(context.Background(), pu)
+	assert.Equal(t, err != nil, true, "clearWindowsDNSCache not called with DNSACLs present")
+	assert.Matches(t, err.Error(), "error from unit test")
+	pu.DNSACLs = policy.DNSRuleList{}
+	err = proxy.SyncWithPlatformCache(context.Background(), pu)
+	assert.Equal(t, err == nil, true, "clearWindowsDNSCache called without DNSACLs present")
 
 	proxy.ShutdownDNS("pu1")
 }

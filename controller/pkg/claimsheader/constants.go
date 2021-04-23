@@ -7,4 +7,6 @@ const (
 	zeroBit = 0x00
 	// encryptionEnabledBit that is set in the bytes
 	encryptionEnabledBit = 0x01
+	// pingEnabledBit that is set in the bytes
+	pingEnabledBit = 0x02
 )

@@ -14,15 +14,16 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	triremecommon "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/mockusertokens"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	triremecommon "go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/testhelper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/servicetokens"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/mockusertokens"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 const (
@@ -36,8 +37,6 @@ const (
 
 func newBaseApplicationServices(ctrl *gomock.Controller, id string, ipAddr string, exposedPortValue, publicPortValue, privatePortValue uint16, external bool) *policy.ApplicationService {
 
-	_, exposedIP, err := net.ParseCIDR(ipAddr)
-	So(err, ShouldBeNil)
 	exposedPort, err := portspec.NewPortSpec(exposedPortValue, exposedPortValue, nil)
 	So(err, ShouldBeNil)
 	publicPort, err := portspec.NewPortSpec(publicPortValue, publicPortValue, nil)
@@ -48,27 +47,23 @@ func newBaseApplicationServices(ctrl *gomock.Controller, id string, ipAddr strin
 	return &policy.ApplicationService{
 		ID: id,
 		NetworkInfo: &triremecommon.Service{
-			Ports:    exposedPort,
-			Protocol: 6,
-			Addresses: []*net.IPNet{
-				exposedIP,
-			},
+			Ports:     exposedPort,
+			Protocol:  6,
+			Addresses: map[string]struct{}{ipAddr: struct{}{}},
 		},
 		PublicNetworkInfo: &triremecommon.Service{
-			Ports:    publicPort,
-			Protocol: 6,
-			Addresses: []*net.IPNet{
-				exposedIP,
-			},
+			Ports:     publicPort,
+			Protocol:  6,
+			Addresses: map[string]struct{}{ipAddr: struct{}{}},
 		},
 		PrivateNetworkInfo: &triremecommon.Service{
 			Ports:     privatePort,
 			Protocol:  6,
-			Addresses: []*net.IPNet{},
+			Addresses: map[string]struct{}{},
 		},
-		Type:               policy.ServiceHTTP,
-		PublicServiceNoTLS: false,
-		External:           external,
+		Type:                 policy.ServiceHTTP,
+		PublicServiceTLSType: policy.ServiceTLSTypeAporeto,
+		External:             external,
 		HTTPRules: []*policy.HTTPRule{
 			{
 				URIs:    []string{"/admin"},
@@ -135,10 +130,11 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 			Ports:     []string{"80"},
 			Protocols: []string{"6"},
 			Policy: &policy.FlowPolicy{
-				Action:    policy.Reject,
-				PolicyID:  rejectPolicyID,
-				ServiceID: rejectServiceID,
-				Labels:    []string{"service=external"},
+				Action:        policy.Reject,
+				PolicyID:      rejectPolicyID,
+				ServiceID:     rejectServiceID,
+				ObserveAction: policy.ObserveApply,
+				Labels:        []string{"service=external"},
 			},
 		},
 	}
@@ -176,9 +172,10 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 					},
 				},
 				Policy: &policy.FlowPolicy{
-					Action:    policy.Accept,
-					ServiceID: "pu" + serviceID,
-					PolicyID:  "pu" + policyID,
+					Action:        policy.Accept,
+					ServiceID:     "pu" + serviceID,
+					PolicyID:      "pu" + policyID,
+					ObserveAction: policy.ObserveApply,
 				},
 			},
 			policy.TagSelector{
@@ -206,15 +203,17 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 		dependentServices,
 		[]string{appLabel},
 		policy.EnforcerMapping,
+		policy.Reject|policy.Log,
+		policy.Reject|policy.Log,
 	)
 
 	puInfo := policy.NewPUInfo(contextID, namespace, triremecommon.ContainerPU)
 	puInfo.Policy = plc
-	pctx, err := pucontext.NewPU(contextID, puInfo, time.Second*1000)
+	pctx, err := pucontext.NewPU(contextID, puInfo, nil, time.Second*1000)
 	So(err, ShouldBeNil)
-	_, s, _ := secrets.CreateCompactPKITestSecrets()
+	_, s, _ := testhelper.NewTestCompactPKISecrets()
 
-	r := serviceregistry.NewServiceRegistry()
+	r := serviceregistry.Instance()
 	_, err = r.Register(contextID, puInfo, pctx, s)
 	So(err, ShouldBeNil)
 
@@ -224,11 +223,10 @@ func newAPIAuthProcessor(ctrl *gomock.Controller) (*serviceregistry.Registry, *p
 func Test_New(t *testing.T) {
 	Convey("When I create a new processor it should be correctly propulated", t, func() {
 		ctrl := gomock.NewController(t)
-		r, _, s := newAPIAuthProcessor(ctrl)
-		p := New("test", r, s)
+		_, _, s := newAPIAuthProcessor(ctrl)
+		p := New("test", s)
 
 		So(p.puContext, ShouldEqual, "test")
-		So(p.registry, ShouldEqual, r)
 		So(p.secrets, ShouldEqual, s)
 	})
 }
@@ -236,8 +234,8 @@ func Test_New(t *testing.T) {
 func Test_ApplicationRequest(t *testing.T) {
 	Convey("Given a valid authorization processor", t, func() {
 		ctrl := gomock.NewController(t)
-		serviceRegistry, pctx, s := newAPIAuthProcessor(ctrl)
-		p := New("test", serviceRegistry, s)
+		_, pctx, s := newAPIAuthProcessor(ctrl)
+		p := New("test", s)
 
 		Convey("Given a request without context, it should error", func() {
 
@@ -427,8 +425,8 @@ func Test_NetworkRequest(t *testing.T) {
 		defer cancel()
 
 		ctrl := gomock.NewController(t)
-		serviceRegistry, pctx, s := newAPIAuthProcessor(ctrl)
-		p := New("test", serviceRegistry, s)
+		_, pctx, s := newAPIAuthProcessor(ctrl)
+		p := New("test", s)
 
 		Convey("Requests for bad context should return errors", func() {
 			u, _ := url.Parse("http://www.foo.com/public") // nolint
@@ -527,11 +525,12 @@ func Test_NetworkRequest(t *testing.T) {
 			u, _ := url.Parse("http://www.foo.com/public") // nolint
 			token, err := servicetokens.CreateAndSign(
 				"somenode",
-				pctx.Identity().Tags,
+				pctx.Identity().GetSlice(),
 				pctx.Scopes(),
 				pctx.ManagementID(),
-				defaultValidity,
+				DefaultValidity,
 				s.EncodingKey(),
+				nil,
 			)
 			So(err, ShouldBeNil)
 
@@ -559,18 +558,19 @@ func Test_NetworkRequest(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(response.NetworkPolicyID, ShouldEqual, policyID)
 			So(response.NetworkServiceID, ShouldEqual, serviceID)
-			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+			So(response.SourceType, ShouldEqual, collector.EndPointTypePU)
 		})
 
 		Convey("Requests a valid context with a valid Aporeto token based on PU network policy it should succeed", func() {
 			u, _ := url.Parse("http://www.foo.com/public") // nolint
 			token, err := servicetokens.CreateAndSign(
 				"somenode",
-				pctx.Identity().Tags,
+				pctx.Identity().GetSlice(),
 				pctx.Scopes(),
 				pctx.ManagementID(),
-				defaultValidity,
+				DefaultValidity,
 				s.EncodingKey(),
+				nil,
 			)
 			So(err, ShouldBeNil)
 
@@ -596,8 +596,10 @@ func Test_NetworkRequest(t *testing.T) {
 			}
 			response, err := p.NetworkRequest(ctx, r)
 			So(err, ShouldBeNil)
+			So(response.ObservedPolicyID, ShouldEqual, "pu"+policyID)
+			So(response.ObservedAction, ShouldEqual, policy.Accept)
 			So(response.NetworkPolicyID, ShouldEqual, "pu"+policyID)
-			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+			So(response.SourceType, ShouldEqual, collector.EndPointTypePU)
 		})
 
 		Convey("Requests a valid context with no Aporeto claims and no network policy, it should be dropped", func() {
@@ -630,14 +632,15 @@ func Test_NetworkRequest(t *testing.T) {
 
 		Convey("Requests a valid context with a valid Aporeto token but network reject, it should be rejected", func() {
 			u, _ := url.Parse("http://www.foo.com/public") // nolint
-			badTags := append(pctx.Identity().Tags, "app=bad")
+			badTags := append(pctx.Identity().GetSlice(), "app=bad")
 			token, err := servicetokens.CreateAndSign(
 				"badnode",
 				badTags,
 				pctx.Scopes(),
 				"badnodeID",
-				defaultValidity,
+				DefaultValidity,
 				s.EncodingKey(),
+				nil,
 			)
 			So(err, ShouldBeNil)
 
@@ -664,18 +667,19 @@ func Test_NetworkRequest(t *testing.T) {
 			response, err := p.NetworkRequest(ctx, r)
 			So(err, ShouldNotBeNil)
 			So(response.NetworkPolicyID, ShouldEqual, "reject"+policyID)
-			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+			So(response.SourceType, ShouldEqual, collector.EndPointTypePU)
 		})
 
 		Convey("Requests a valid context with a valid Aporeto token to a private URL it should succeed", func() {
 			u, _ := url.Parse("http://www.foo.com/admin") // nolint
 			token, err := servicetokens.CreateAndSign(
 				"somenode",
-				pctx.Identity().Tags,
+				pctx.Identity().GetSlice(),
 				pctx.Scopes(),
 				pctx.ManagementID(),
-				defaultValidity,
+				DefaultValidity,
 				s.EncodingKey(),
+				nil,
 			)
 			So(err, ShouldBeNil)
 
@@ -703,18 +707,19 @@ func Test_NetworkRequest(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(response.NetworkPolicyID, ShouldEqual, policyID)
 			So(response.NetworkServiceID, ShouldEqual, serviceID)
-			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+			So(response.SourceType, ShouldEqual, collector.EndPointTypePU)
 		})
 
 		Convey("Requests a valid context with a valid Aporeto token to a forbidden URL it should return error", func() {
 			u, _ := url.Parse("http://www.foo.com/forbidden") // nolint
 			token, err := servicetokens.CreateAndSign(
 				"somenode",
-				pctx.Identity().Tags,
+				pctx.Identity().GetSlice(),
 				pctx.Scopes(),
 				"forbiddennode",
-				defaultValidity,
+				DefaultValidity,
 				s.EncodingKey(),
+				nil,
 			)
 			So(err, ShouldBeNil)
 
@@ -745,7 +750,7 @@ func Test_NetworkRequest(t *testing.T) {
 			So(authError.Status(), ShouldEqual, http.StatusUnauthorized)
 			So(response.NetworkPolicyID, ShouldEqual, policyID)
 			So(response.NetworkServiceID, ShouldEqual, serviceID)
-			So(response.SourceType, ShouldEqual, collector.EnpointTypePU)
+			So(response.SourceType, ShouldEqual, collector.EndPointTypePU)
 		})
 	})
 }
@@ -758,7 +763,7 @@ func Test_UserCredentials(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		serviceRegistry, _, s := newAPIAuthProcessor(ctrl)
-		p := New("test", serviceRegistry, s)
+		p := New("test", s)
 		So(p, ShouldNotBeNil)
 
 		portContext, err := serviceRegistry.RetrieveExposedServiceContext(net.ParseIP("10.1.1.1"), 80, "")
@@ -815,7 +820,7 @@ func Test_UserCredentials(t *testing.T) {
 			userCredentials(ctx, portContext, r, d)
 			So(len(d.UserAttributes), ShouldEqual, 1)
 			So(d.UserAttributes[0], ShouldEqual, "user=flash")
-			So(d.SourceType, ShouldEqual, collector.EndpointTypeClaims)
+			So(d.SourceType, ShouldEqual, collector.EndPointTypeClaims)
 			So(d.Redirect, ShouldBeFalse)
 		})
 

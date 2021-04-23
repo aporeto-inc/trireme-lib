@@ -458,14 +458,6 @@ func TestNewPacketFunctions(t *testing.T) {
 	pkt := getTestPacket(t, synGoodTCPChecksum)
 	pkt.Print(123456, true)
 
-	if pkt.TCPOptionLength() != 0 {
-		t.Error("Test packet option length")
-	}
-
-	if pkt.TCPDataLength() != 0 {
-		t.Error("Test packet IP checksum failed")
-	}
-
 	if pkt.SourcePort() != 35968 {
 		t.Error("Test packet source ip didnt match")
 	}
@@ -542,15 +534,61 @@ func TestReverseFlowPacket(t *testing.T) {
 func TestUDPTokenAttach(t *testing.T) {
 	bytes, _ := hex.DecodeString(ipv6UDPPacket)
 	pkt, _ := New(0, bytes, "0", true)
-
+	data := []byte("helloworld")
 	// Create UDP Option
-	udpOptions := CreateUDPAuthMarker(UDPSynAckMask)
+	udpOptions := CreateUDPAuthMarker(UDPSynAckMask, uint16(len(data)))
 
 	pkt.CreateReverseFlowPacket()
 
 	// Attach the UDP data and token
-	pkt.UDPTokenAttach(udpOptions, []byte("helloworld"))
+	pkt.UDPTokenAttach(udpOptions, data)
 
 	assert.Equal(t, string(pkt.ReadUDPToken()), "helloworld", "token should match helloworld")
 
+}
+
+func TestNewIpv4TCPPacket(t *testing.T) {
+
+	srcIP := "10.0.0.30"
+	dstIP := "10.0.0.25"
+	srcPort := uint16(3000)
+	dstPort := uint16(80)
+	tcpFlags := uint8(0x2)
+	context := uint64(100)
+
+	p, err := NewIpv4TCPPacket(context, tcpFlags, srcIP, dstIP, srcPort, dstPort)
+	assert.NoError(t, err)
+	if p != nil {
+		assert.Equal(t, V4, p.ipHdr.version, "Version should equal")
+		assert.Equal(t, context, p.context, "Context should equal")
+		assert.Equal(t, uint8(IPProtocolTCP), p.ipHdr.ipProto, "Protocol should equal")
+		assert.Equal(t, srcIP, p.ipHdr.sourceAddress.String(), "Source address should equal")
+		assert.Equal(t, dstIP, p.ipHdr.destinationAddress.String(), "Destination address should equal")
+		assert.Equal(t, srcPort, p.tcpHdr.sourcePort, "Source port should equal")
+		assert.Equal(t, dstPort, p.tcpHdr.destinationPort, "Destination port should equal")
+		assert.Equal(t, tcpFlags, p.tcpHdr.tcpFlags, "TCP flags should equal")
+	}
+}
+
+func TestNewIpv6TCPPacket(t *testing.T) {
+
+	srcIP := "2001:db8:5002::8a2e:370:7334"
+	dstIP := "2002:db9:5002::8a2b:370:7335"
+	srcPort := uint16(3000)
+	dstPort := uint16(80)
+	tcpFlags := uint8(0x2)
+	context := uint64(100)
+
+	p, err := NewIpv6TCPPacket(context, tcpFlags, srcIP, dstIP, srcPort, dstPort)
+	assert.NoError(t, err)
+	if p != nil {
+		assert.Equal(t, V6, p.ipHdr.version, "Version should equal")
+		assert.Equal(t, context, p.context, "Context should equal")
+		assert.Equal(t, uint8(IPProtocolTCP), p.ipHdr.ipProto, "Protocol should equal")
+		assert.Equal(t, srcIP, p.ipHdr.sourceAddress.String(), "Source address should equal")
+		assert.Equal(t, dstIP, p.ipHdr.destinationAddress.String(), "Destination address should equal")
+		assert.Equal(t, srcPort, p.tcpHdr.sourcePort, "Source port should equal")
+		assert.Equal(t, dstPort, p.tcpHdr.destinationPort, "Destination port should equal")
+		assert.Equal(t, tcpFlags, p.tcpHdr.tcpFlags, "TCP flags should equal")
+	}
 }

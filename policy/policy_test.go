@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
+			p := NewPUPolicy("id1", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping, Reject|Log, Reject|Log)
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.applicationACLs, ShouldNotBeNil)
@@ -23,6 +23,8 @@ func TestNewPolicy(t *testing.T) {
 				So(p.receiverRules, ShouldNotBeNil)
 				So(p.identity, ShouldNotBeNil)
 				So(p.ips, ShouldNotBeNil)
+				ShouldEqual(p.appDefaultPolicyAction, Reject|Log)
+				ShouldEqual(p.netDefaultPolicyAction, Reject|Log)
 			})
 		})
 
@@ -94,6 +96,8 @@ func TestNewPolicy(t *testing.T) {
 				nil,
 				[]string{},
 				EnforcerMapping,
+				Reject|Log,
+				Reject|Log,
 			)
 
 			Convey("Then I should get the right policy", func() {
@@ -196,6 +200,8 @@ func TestFuncClone(t *testing.T) {
 			nil,
 			[]string{},
 			EnforcerMapping,
+			Reject|Log,
+			Reject|Log,
 		)
 		Convey("If I clone the policy", func() {
 			p := d.Clone()
@@ -283,6 +289,8 @@ func TestAllLockedSetGet(t *testing.T) {
 			nil,
 			[]string{},
 			EnvoyAuthorizerEnforcer,
+			Reject|Log,
+			Reject|Log,
 		)
 
 		Convey("I should be able to retrieve the management ID ", func() {
@@ -382,8 +390,8 @@ func TestAllLockedSetGet(t *testing.T) {
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
 		puInfor := NewPUInfo("123", "/abc", common.ContainerPU)
-		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
-		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
+		policy := NewPUPolicy("123", "/abc", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping, Reject|Log, Reject|Log)
+		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, None, nil)
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")
 			So(puInfor.Policy, ShouldResemble, policy)

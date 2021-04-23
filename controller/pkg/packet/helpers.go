@@ -69,11 +69,22 @@ func (p *Packet) ConvertAcktoFinAck() error {
 	p.updateTCPFlags(tcpFlags)
 	p.tcpHdr.tcpFlags = tcpFlags
 
-	if err := p.TCPDataDetach(0); err != nil {
-		return fmt.Errorf("ack packet in wrong format")
-	}
-	p.DropTCPDetachedBytes()
+	p.TCPDataDetach(0)
+
 	return nil
+}
+
+// ConvertToRst function converts the packet to
+// a RST packet
+func (p *Packet) ConvertToRst() {
+	var tcpFlags uint8
+
+	tcpFlags = tcpFlags | TCPRstMask
+
+	p.updateTCPFlags(tcpFlags)
+	p.tcpHdr.tcpFlags = tcpFlags
+
+	p.TCPDataDetach(0)
 }
 
 //PacketToStringTCP returns a string representation of fields contained in this packet.
@@ -120,7 +131,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	var csum uint32
 	var buf [2]byte
 	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
-	tcpBufSize := uint16(len(buffer) + len(p.tcpHdr.tcpData) + len(p.tcpHdr.tcpOptions))
+	tcpBufSize := uint16(len(buffer))
 
 	oldCsumLow := buffer[tcpChecksumPos]
 	oldCsumHigh := buffer[tcpChecksumPos+1]
@@ -147,8 +158,6 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	csum = partialChecksum(csum, buf[:])
 
 	csum = partialChecksum(csum, buffer)
-	csum = partialChecksum(csum, p.tcpHdr.tcpOptions)
-	csum = partialChecksum(csum, p.tcpHdr.tcpData)
 
 	csum16 := finalizeChecksum(csum)
 
@@ -244,7 +253,8 @@ func (p *Packet) updateUDPv6Checksum() {
 func (p *Packet) fixupUDPHdr() {
 	// checksum set to 0, ignored by the stack
 	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
-	binary.BigEndian.PutUint16(buffer[udpLengthPos:udpLengthPos+2], uint16(len(buffer)))
+	//binary.BigEndian.PutUint16(buffer[udpLengthPos:udpLengthPos+2], uint16(len(buffer)))
+	binary.BigEndian.PutUint16(buffer[udpLengthPos:udpLengthPos+2], 8)
 }
 
 func (p *Packet) fixupUDPChecksum() {
@@ -258,35 +268,69 @@ func (p *Packet) fixupUDPChecksum() {
 	}
 }
 
-// ReadUDPToken returnthe UDP token. Gets called only during the handshake process.
+// ReadUDPToken Parsing using format specified in https://tools.ietf.org/html/draft-ietf-tsvwg-udp-options-08
+// ReadUDPToken return the UDP token. Gets called only during the handshake process.
 func (p *Packet) ReadUDPToken() []byte {
-	buffer := p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:]
-	// 8 byte udp header, 20 byte udp marker
-	if len(buffer) <= udpJwtTokenOffset {
-		return []byte{}
+	// length of options .. skip udp data
+	udpOptions := p.ipHdr.Buffer[uint16(p.ipHdr.ipHeaderLen)+8 : p.ipHdr.ipTotalLength]
+	// zap.L().Error("Received Packet", zap.String("IP\n", hex.Dump(p.ipHdr.Buffer)))
+	// zap.L().Error("UDP Options", zap.String("UDP\n", hex.Dump(udpOptions)))
+	for i := 0; i < len(udpOptions); i++ {
+		if udpOptions[i] == 0 || udpOptions[i] == 1 {
+			i++
+			continue
+		}
+		if udpOptions[i] != UDPAporetoOption {
+			if len(udpOptions) < i+2 {
+				return []byte{}
+			}
+			if udpOptions[i+1] != 0xff {
+				i = i + int(udpOptions[i+1])
+				continue
+			} else {
+				i = i + int(binary.LittleEndian.Uint16(udpOptions[i+2:]))
+				continue
+			}
+		} else {
+			if len(udpOptions) < i+2 {
+				return []byte{}
+			}
+			if udpOptions[i+1] != 0xff {
+
+				if len(udpOptions[i:]) >= int(udpOptions[i+1]) {
+					return udpOptions[i+UDPSignatureLen+2:]
+				}
+			} else {
+				if len(udpOptions[i:]) >= int(binary.LittleEndian.Uint16(udpOptions[i+2:])) {
+					return udpOptions[i+4+UDPSignatureLen:]
+				}
+
+			}
+		}
 	}
-	return buffer[udpJwtTokenOffset:]
+	return []byte{}
 }
 
 // UDPTokenAttach attached udp packet signature and tokens.
 func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
+	if udpdata[0] == 0x22 && udpdata[1] == 0xff {
+		copy(udpdata[4+UDPSignatureLen:], udptoken)
+	} else {
+		copy(udpdata[2+UDPSignatureLen:], udptoken)
+	}
+	//p.udpHdr.udpData = append([]byte("APORETO!"), udpdata...)
 
-	udpData := []byte{}
-	udpData = append(udpData, udpdata...)
-	udpData = append(udpData, udptoken...)
-
-	p.udpHdr.udpData = udpData
-
-	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
-
+	p.udpHdr.udpLength = 0
+	packetLenIncrease := uint16(len(udpdata))
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.ipHdr.ipTotalLength, p.ipHdr.ipTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpData...)
+	p.ipHdr.Buffer = append(p.ipHdr.Buffer, udpdata...)
 
 	p.fixupUDPHdr()
 	p.fixupUDPChecksum()
+
 }
 
 // UDPDataAttach Attaches UDP data post encryption.
@@ -347,6 +391,7 @@ func (p *Packet) CreateReverseFlowPacket() {
 
 // GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {
+	var offset uint8
 	// Every UDP control packet has a 20 byte packet signature. The
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
@@ -355,7 +400,14 @@ func (p *Packet) GetUDPType() byte {
 	//          Bit 7 represents encryption. (currently unused).
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.
-	return GetUDPTypeFromBuffer(p.ipHdr.Buffer[p.ipHdr.ipHeaderLen:])
+	//zap.L().Error("Packet", zap.String("P/n", hex.Dump(p.ipHdr.Buffer)))
+	if p.ipHdr.ipTotalLength > uint16(p.IPHeaderLen())+8+255 {
+		offset = 4
+	} else {
+		offset = 2
+	}
+
+	return GetUDPTypeFromBuffer(p.ipHdr.Buffer[p.ipHdr.ipHeaderLen+offset:])
 }
 
 // GetUDPTypeFromBuffer gets the UDP packet from a raw buffer.,
@@ -386,8 +438,8 @@ func (p *Packet) SetTCPFlags(flags uint8) {
 }
 
 // CreateUDPAuthMarker creates a UDP auth marker.
-func CreateUDPAuthMarker(packetType uint8) []byte {
-
+func CreateUDPAuthMarker(packetType uint8, payloadLength uint16) []byte {
+	var options []byte
 	// Every UDP control packet has a 20 byte packet signature. The
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
@@ -396,12 +448,31 @@ func CreateUDPAuthMarker(packetType uint8) []byte {
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.
 
-	marker := make([]byte, UDPSignatureLen)
+	//marker := make([]byte, UDPSignatureLen)
 	// ignore version info as of now.
-	marker[0] |= packetType // byte 0
-	marker[1] = 0           // byte 1
-	// byte 2 - 19
-	copy(marker[2:], []byte(UDPAuthMarker))
+	if payloadLength < uint16(UDPAporetoOptionLengthFirstByte) {
+		options = make([]byte, int(payloadLength)+UDPAporetoOptionShortLength+UDPSignatureLen)
+		options[0] = UDPAporetoOption
+		options[1] = uint8(payloadLength) + UDPAporetoOptionShortLength + UDPSignatureLen
 
-	return marker
+		options[2] |= packetType // byte 0
+		options[3] = 0           // byte 1
+		copy(options[4:], []byte(UDPAuthMarker))
+	} else {
+		options = make([]byte, int(payloadLength)+UDPAporetoOptionLongLength+len(UDPAuthMarker))
+		options[0] = UDPAporetoOption
+		options[1] = UDPAporetoOptionLengthFirstByte
+		binary.LittleEndian.PutUint16(options[2:], payloadLength+20)
+		options[4] |= packetType // byte 0
+		options[5] = 0           // byte 1
+		copy(options[UDPAporetoOptionLongLength:], []byte(UDPAuthMarker))
+
+	}
+
+	return options
+}
+
+// GetICMPTypeCode returns the icmp type and icmp code
+func (p *Packet) GetICMPTypeCode() (int8, int8) {
+	return p.icmpHdr.icmpType, p.icmpHdr.icmpCode
 }

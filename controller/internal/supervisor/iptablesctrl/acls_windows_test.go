@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"go.aporeto.io/trireme-lib/controller/internal/windows"
-	"go.aporeto.io/trireme-lib/utils/frontman"
-
+	"github.com/kballard/go-shellquote"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/windows"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/frontman"
 )
 
 const (
@@ -40,10 +40,6 @@ func TestTransformACLRuleHost(t *testing.T) {
 		Convey("Adjacent like ones should be merged", func() {
 
 			So(xformedRules, ShouldHaveLength, 4)
-			So(xformedRules[0][1], ShouldEqual, "HostPU-OUTPUT")
-			So(xformedRules[1][1], ShouldEqual, "HostPU-OUTPUT")
-			So(xformedRules[2][1], ShouldEqual, "HostPU-OUTPUT")
-			So(xformedRules[3][1], ShouldEqual, "HostPU-OUTPUT")
 
 			// check combined rule 1 and 2
 			// OUTPUT HostSvcRules-OUTPUT -p 6 --dports 1:65535 -m set --match-set TRI-v4-ext-cUDEx1114Z2xd dstIP,dstPort -m set ! --match-set TRI-v4-TargetTCP dstIP,dstPort -j DROP -j NFLOG --nflog-group 0 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6
@@ -53,10 +49,13 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.Protocol, ShouldEqual, 6)
 			So(rs.Action, ShouldEqual, frontman.FilterActionBlock)
 			So(rs.Log, ShouldBeTrue)
+			So(rs.TCPFlagsSpecified, ShouldBeTrue)
+			So(rs.TCPFlags, ShouldEqual, 2)
+			So(rs.TCPFlagsMask, ShouldEqual, 18)
 			So(rs.LogPrefix, ShouldEqual, "531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6")
 			So(rs.MatchDstPort, ShouldHaveLength, 1)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 1)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 65535)
+			So(rs.MatchDstPort[0].Start, ShouldEqual, 1)
+			So(rs.MatchDstPort[0].End, ShouldEqual, 65535)
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
@@ -80,12 +79,12 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(rs.Log, ShouldBeFalse)
 			So(rs.MatchDstPort, ShouldHaveLength, 3)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 80)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 80)
-			So(rs.MatchDstPort[1].PortStart, ShouldEqual, 443)
-			So(rs.MatchDstPort[1].PortEnd, ShouldEqual, 443)
-			So(rs.MatchDstPort[2].PortStart, ShouldEqual, 8080)
-			So(rs.MatchDstPort[2].PortEnd, ShouldEqual, 8443)
+			So(rs.MatchDstPort[0].Start, ShouldEqual, 80)
+			So(rs.MatchDstPort[0].End, ShouldEqual, 80)
+			So(rs.MatchDstPort[1].Start, ShouldEqual, 443)
+			So(rs.MatchDstPort[1].End, ShouldEqual, 443)
+			So(rs.MatchDstPort[2].Start, ShouldEqual, 8080)
+			So(rs.MatchDstPort[2].End, ShouldEqual, 8443)
 			So(rs.MatchSet, ShouldHaveLength, 1)
 
 			// check combined rule 4 and 5
@@ -98,8 +97,8 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.Log, ShouldBeTrue)
 			So(rs.LogPrefix, ShouldEqual, "531138568:5d9e2e2d8431510001bcc931:5d61b8f4884e46000146bcd9:3")
 			So(rs.MatchDstPort, ShouldHaveLength, 1)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 2323)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 2323)
+			So(rs.MatchDstPort[0].Start, ShouldEqual, 2323)
+			So(rs.MatchDstPort[0].End, ShouldEqual, 2323)
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-z4QRD1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
@@ -122,9 +121,12 @@ func TestTransformACLRuleHost(t *testing.T) {
 			So(rs.Protocol, ShouldEqual, 6)
 			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(rs.Log, ShouldBeFalse)
+			So(rs.TCPFlagsSpecified, ShouldBeTrue)
+			So(rs.TCPFlags, ShouldEqual, 2)
+			So(rs.TCPFlagsMask, ShouldEqual, 18)
 			So(rs.MatchDstPort, ShouldHaveLength, 1)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 2323)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 2323)
+			So(rs.MatchDstPort[0].Start, ShouldEqual, 2323)
+			So(rs.MatchDstPort[0].End, ShouldEqual, 2323)
 			So(rs.MatchSet, ShouldHaveLength, 1)
 
 		})
@@ -151,7 +153,6 @@ func TestTransformACLRuleHostNet(t *testing.T) {
 		Convey("They should be merged to one rule for the HostPU-INPUT chain", func() {
 
 			So(xformedRules, ShouldHaveLength, 1)
-			So(xformedRules[0][1], ShouldEqual, "HostPU-INPUT")
 
 			// check combined rule 1 and 2
 			// OUTPUT HostPU-INPUT -p 6 --dports 1:65535 -m set --match-set TRI-v6-ext-cUDEx1114Z2xd srcIP,srcPort -m set ! --match-set TRI-v6-TargetTCP srcIP,srcPort -j ACCEPT -j NFLOG --nflog-group 0 --nflog-prefix 3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3
@@ -162,9 +163,12 @@ func TestTransformACLRuleHostNet(t *testing.T) {
 			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(rs.Log, ShouldBeTrue)
 			So(rs.LogPrefix, ShouldEqual, "3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3")
+			So(rs.TCPFlagsSpecified, ShouldBeTrue)
+			So(rs.TCPFlags, ShouldEqual, 2)
+			So(rs.TCPFlagsMask, ShouldEqual, 18)
 			So(rs.MatchDstPort, ShouldHaveLength, 1)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 1)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 65535)
+			So(rs.MatchDstPort[0].Start, ShouldEqual, 1)
+			So(rs.MatchDstPort[0].End, ShouldEqual, 65535)
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v6-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
@@ -233,7 +237,6 @@ func TestTransformACLRuleHostSvcNet(t *testing.T) {
 		Convey("They should be merged to one rule for the HostSvcRules-INPUT chain and should have the PU's ports", func() {
 
 			So(xformedRules, ShouldHaveLength, 1)
-			So(xformedRules[0][1], ShouldEqual, "HostSvcRules-INPUT")
 
 			// check combined rule 1 and 2
 			// dports should be replaced with PU's ports
@@ -245,11 +248,9 @@ func TestTransformACLRuleHostSvcNet(t *testing.T) {
 			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
 			So(rs.Log, ShouldBeTrue)
 			So(rs.LogPrefix, ShouldEqual, "531138568:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3")
-			So(rs.MatchDstPort, ShouldHaveLength, 2)
-			So(rs.MatchDstPort[0].PortStart, ShouldEqual, 80)
-			So(rs.MatchDstPort[0].PortEnd, ShouldEqual, 80)
-			So(rs.MatchDstPort[1].PortStart, ShouldEqual, 443)
-			So(rs.MatchDstPort[1].PortEnd, ShouldEqual, 443)
+			So(rs.TCPFlagsSpecified, ShouldBeTrue)
+			So(rs.TCPFlags, ShouldEqual, 2)
+			So(rs.TCPFlagsMask, ShouldEqual, 18)
 			So(rs.MatchSet, ShouldHaveLength, 2)
 			So(rs.MatchSet[0].MatchSetName, ShouldEqual, "TRI-v4-ext-cUDEx1114Z2xd")
 			So(rs.MatchSet[0].MatchSetNegate, ShouldBeFalse)
@@ -266,6 +267,113 @@ func TestTransformACLRuleHostSvcNet(t *testing.T) {
 
 		})
 
+	})
+
+}
+
+func TestTransformACLRuleIcmp(t *testing.T) {
+
+	Convey("When I parse a set of net acl rules with an icmp rule", t, func() {
+
+		var aclRules [][]string
+
+		rule, err := shellquote.Split("OUTPUT TRI-Net-hostZ7PbqL-0 -p 1 --icmp-type 3/0:2,6 -j NFLOG --nflog-group 11 --nflog-prefix \"3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:incoming n_3484738895:3\"")
+		So(err, ShouldBeNil)
+
+		aclRules = append(aclRules, rule)
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-Net-hostZ7PbqL-0 -p 1 --icmp-type 3/0:2,6 -j ACCEPT", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-Net-hostZ7PbqL-0 -p 1 --icmp-type 8/0:3,5 -j NFLOG --nflog-group 11 --nflog-prefix 3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-Net-hostZ7PbqL-0 -p 1 --icmp-type 8/0:3 -j ACCEPT", " "))
+
+		aclInfo := &ACLInfo{}
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
+		aclInfo.PUType = common.HostPU
+
+		xformedRules := transformACLRules(aclRules, aclInfo, nil, false)
+
+		Convey("They should be merged to one rule for the HostPU-INPUT chain", func() {
+
+			So(xformedRules, ShouldHaveLength, 3)
+
+			// check combined rule 1 and 2
+			// OUTPUT HostPU-INPUT -p 1 --icmp-type 3/0:2,6 -j ACCEPT -j NFLOG --nflog-group 11 --nflog-prefix 3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3
+			rs, err := windows.ParseRuleSpec(xformedRules[0][2:]...)
+
+			So(err, ShouldBeNil)
+			So(rs.Protocol, ShouldEqual, 1)
+			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(rs.IcmpMatch, ShouldHaveLength, 2)
+			So(rs.IcmpMatch[0].IcmpType, ShouldEqual, 3)
+			So(rs.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 0)
+			So(rs.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 2)
+			So(rs.IcmpMatch[1].IcmpType, ShouldEqual, 3)
+			So(rs.IcmpMatch[1].IcmpCodeRange.Start, ShouldEqual, 6)
+			So(rs.IcmpMatch[1].IcmpCodeRange.End, ShouldEqual, 6)
+			So(rs.Log, ShouldBeTrue)
+			So(rs.LogPrefix, ShouldEqual, "3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:incoming n_3484738895:3")
+
+			// rules 3 and 4 should not be combined (they differ by icmp code)
+			rs, err = windows.ParseRuleSpec(xformedRules[1][2:]...)
+			So(err, ShouldBeNil)
+			So(rs.Protocol, ShouldEqual, 1)
+			So(rs.Action, ShouldEqual, frontman.FilterActionContinue)
+			So(rs.IcmpMatch, ShouldHaveLength, 2)
+			So(rs.IcmpMatch[0].IcmpType, ShouldEqual, 8)
+			So(rs.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 0)
+			So(rs.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 3)
+			So(rs.IcmpMatch[1].IcmpType, ShouldEqual, 8)
+			So(rs.IcmpMatch[1].IcmpCodeRange.Start, ShouldEqual, 5)
+			So(rs.IcmpMatch[1].IcmpCodeRange.End, ShouldEqual, 5)
+			So(rs.Log, ShouldBeTrue)
+			So(rs.LogPrefix, ShouldEqual, "3617624947:5d6967333561e000018a3a65:5d60448a884e46000145cf67:3")
+
+			rs, err = windows.ParseRuleSpec(xformedRules[2][2:]...)
+			So(err, ShouldBeNil)
+			So(rs.Protocol, ShouldEqual, 1)
+			So(rs.Action, ShouldEqual, frontman.FilterActionAllow)
+			So(rs.IcmpMatch, ShouldHaveLength, 1)
+			So(rs.IcmpMatch[0].IcmpType, ShouldEqual, 8)
+			So(rs.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 0)
+			So(rs.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 3)
+			So(rs.Log, ShouldBeFalse)
+			So(rs.LogPrefix, ShouldEqual, "")
+
+		})
+	})
+
+	Convey("When I parse a set of app acl rules with an icmp rule", t, func() {
+
+		var aclRules [][]string
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 1 --icmp-type 8/1:3 -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6", " "))
+		aclRules = append(aclRules, strings.Split("OUTPUT TRI-App-hostZ7PbqL-0 -p 1 --icmp-type 8/1:3 -j DROP", " "))
+
+		aclInfo := &ACLInfo{}
+		aclInfo.TCPPorts = sampleTCPPorts
+		aclInfo.UDPPorts = sampleUDPPorts
+		aclInfo.PUType = common.HostPU
+
+		xformedRules := transformACLRules(aclRules, aclInfo, nil, true)
+
+		Convey("They should be merged to one rule for the HostPU-OUTPUT chain", func() {
+
+			So(xformedRules, ShouldHaveLength, 1)
+
+			// check combined rule 1 and 2
+			// OUTPUT HostPU-OUTPUT -p 1 --icmp-type 8/1:3 -j DROP -j NFLOG --nflog-group 10 --nflog-prefix 531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6
+			rs, err := windows.ParseRuleSpec(xformedRules[0][2:]...)
+
+			So(err, ShouldBeNil)
+			So(rs.Protocol, ShouldEqual, 1)
+			So(rs.Action, ShouldEqual, frontman.FilterActionBlock)
+			So(rs.IcmpMatch, ShouldHaveLength, 1)
+			So(rs.IcmpMatch[0].IcmpType, ShouldEqual, 8)
+			So(rs.IcmpMatch[0].IcmpCodeRange.Start, ShouldEqual, 1)
+			So(rs.IcmpMatch[0].IcmpCodeRange.End, ShouldEqual, 3)
+			So(rs.Log, ShouldBeTrue)
+			So(rs.LogPrefix, ShouldEqual, "531138568:5d6044b9e99572000149d650:5d60448a884e46000145cf67:6")
+
+		})
 	})
 
 }

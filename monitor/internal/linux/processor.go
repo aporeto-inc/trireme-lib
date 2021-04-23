@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/buildflags"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/enforcerd/trireme-lib/buildflags"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +32,6 @@ var ignoreNames = map[string]*struct{}{
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
 	host              bool
-	ssh               bool
 	config            *config.ProcessorConfig
 	metadataExtractor extractors.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
@@ -233,7 +232,9 @@ func (l *linuxProcessor) resyncHostService(ctx context.Context, e *common.EventI
 
 // Resync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
-
+	// This lock is not complete necessary here
+	l.config.ResyncLock.RLock()
+	defer l.config.ResyncLock.RUnlock()
 	if e != nil {
 		// If its a host service then use pu from eventInfo
 		// The code block below assumes that pu is already created
@@ -246,11 +247,6 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 	for _, cgroup := range cgroups {
 
 		if _, ok := ignoreNames[cgroup]; ok {
-			continue
-		}
-
-		isSSHPU := strings.Contains(cgroup, "ssh")
-		if l.ssh != isSSHPU {
 			continue
 		}
 
@@ -273,9 +269,7 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 
 		runtime := policy.NewPURuntimeWithDefaults()
 		puType := common.LinuxProcessPU
-		if l.ssh && isSSHPU {
-			puType = common.SSHSessionPU
-		}
+
 		runtime.SetPUType(puType)
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
@@ -308,18 +302,13 @@ func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string,
 
 	puID = baseName(eventInfo.Cgroup, "/")
 
-	if eventInfo.PUType == common.SSHSessionPU {
-		return "ssh-" + puID, nil
-	}
-
 	return puID, nil
 }
 
 func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	//It is okay to launch this so let us create a cgroup for it
-	err := l.netcls.Creategroup(nativeID)
-	if err != nil {
+	// It is okay to launch this so let us create a cgroup for it
+	if err := l.netcls.Creategroup(nativeID); err != nil {
 		return err
 	}
 
@@ -332,8 +321,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	err = l.netcls.AssignMark(nativeID, mark)
-	if err != nil {
+	if err := l.netcls.AssignMark(nativeID, mark); err != nil {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
@@ -341,8 +329,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	}
 
 	if event != nil {
-		err = l.netcls.AddProcess(nativeID, int(event.PID))
-		if err != nil {
+		if err := l.netcls.AddProcess(nativeID, int(event.PID)); err != nil {
 			if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 			}

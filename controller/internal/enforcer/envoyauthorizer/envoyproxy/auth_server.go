@@ -13,14 +13,13 @@ import (
 	envoy_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ext_auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/apiauth"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/flowstats"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/metadata"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
@@ -102,8 +101,7 @@ type AuthServer struct {
 // }
 
 // NewExtAuthzServer creates a new envoy ext_authz server
-func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collector.EventCollector, direction Direction,
-	registry *serviceregistry.Registry, secrets secrets.Secrets, tokenIssuer common.ServiceTokenIssuer) (*AuthServer, error) {
+func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collector.EventCollector, direction Direction, secrets secrets.Secrets, tokenIssuer common.ServiceTokenIssuer) (*AuthServer, error) {
 	var socketPath string
 	switch direction {
 	case UnknownDirection:
@@ -126,8 +124,8 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 		socketPath: socketPath,
 		server:     grpc.NewServer(),
 		direction:  direction,
-		auth:       apiauth.New(puID, registry, secrets),
-		metadata:   metadata.NewClient(puID, registry, tokenIssuer),
+		auth:       apiauth.New(puID, secrets),
+		metadata:   metadata.NewClient(puID, tokenIssuer),
 		collector:  collector,
 	}
 
@@ -143,7 +141,7 @@ func NewExtAuthzServer(puID string, puContexts cache.DataStore, collector collec
 		return nil, err
 	}
 	// start and listen to the server
-	zap.L().Debug("ext_authz_server: Auth Server started the server on: ", zap.Any(" addr: ", nl.Addr()), zap.String("puID: ", puID))
+	zap.L().Debug("ext_authz_server: Auth Server started the server on", zap.Any("addr", nl.Addr()), zap.String("puID", puID))
 	go s.run(nl)
 
 	return s, nil
@@ -180,7 +178,7 @@ func (s *AuthServer) GracefulStop() {
 
 // Check implements the AuthorizationServer interface
 func (s *AuthServer) Check(ctx context.Context, checkRequest *ext_auth.CheckRequest) (*ext_auth.CheckResponse, error) {
-	zap.L().Debug(" Envoy check, DIR: ", zap.Uint8("dir: ", uint8(s.direction)))
+	zap.L().Debug("Envoy check, DIR", zap.Uint8("dir", uint8(s.direction)))
 	switch s.direction {
 	case IngressDirection:
 		return s.ingressCheck(ctx, checkRequest)
@@ -226,9 +224,9 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 			httpReq = request.GetHttp()
 			if httpReq != nil {
 				httpReqHeaders := httpReq.GetHeaders()
-				aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader] //nolint
-				aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]   //nolint
-				zap.L().Debug("ext_authz ingress: ", zap.Any("httpReqHeaders: ", httpReqHeaders), zap.String("aporetoKey: ", aporetoKey))
+				aporetoAuth, _ = httpReqHeaders[aporetoAuthHeader] // nolint
+				aporetoKey, _ = httpReqHeaders[aporetoKeyHeader]   // nolint
+				zap.L().Debug("ext_authz ingress", zap.Any("httpReqHeaders", httpReqHeaders), zap.String("aporetoKey", aporetoKey))
 				urlStr = httpReq.GetPath()
 				method = httpReq.GetMethod()
 				scheme = httpReq.GetScheme()
@@ -236,8 +234,8 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 			}
 		}
 	}
-	zap.L().Debug("ext_authz ingress:", zap.String("source addr: ", sourceIP), zap.String("source, dest: ", source.GetAddress().GetSocketAddress().GetAddress()), zap.String("dest addr: ", dest.GetAddress().GetSocketAddress().GetAddress()))
-	zap.L().Debug("ext_authz ingress:", zap.Any("destPort: ", destPort), zap.Any("srcPort: ", srcPort), zap.String("scheme: ", scheme))
+	zap.L().Debug("ext_authz ingress", zap.String("source addr", sourceIP), zap.String("source, dest", source.GetAddress().GetSocketAddress().GetAddress()), zap.String("dest addr", dest.GetAddress().GetSocketAddress().GetAddress()))
+	zap.L().Debug("ext_authz ingress", zap.Any("destPort", destPort), zap.Any("srcPort", srcPort), zap.String("scheme", scheme))
 
 	requestCookie := &http.Cookie{Name: aporetoAuthHeader, Value: aporetoAuth} // nolint errcheck
 	hdr := make(http.Header)
@@ -251,7 +249,7 @@ func (s *AuthServer) ingressCheck(ctx context.Context, checkRequest *ext_auth.Ch
 		zap.L().Error("ext_authz ingress: Cannot parse the URI", zap.Error(err))
 		return nil, err
 	}
-	zap.L().Debug("ext_authz ingress:", zap.String("URL: ", URL.String()))
+	zap.L().Debug("ext_authz ingress", zap.String("URL", URL.String()))
 	request := &apiauth.Request{
 		OriginalDestination: &net.TCPAddr{IP: net.ParseIP(destIP), Port: destPort},
 		SourceAddress:       &net.TCPAddr{IP: net.ParseIP(sourceIP), Port: srcPort},
@@ -386,7 +384,7 @@ func (s *AuthServer) egressCheck(_ context.Context, checkRequest *ext_auth.Check
 	} else {
 		zap.L().Error("ext_authz egress:the secrerts are nil")
 	}
-	zap.L().Debug("ext_authz egress: Request accepted for ", zap.String("dst: ", destIP))
+	zap.L().Debug("ext_authz egress: Request accepted for", zap.String("dst", destIP))
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(code.Code_OK),
@@ -412,7 +410,7 @@ func (s *AuthServer) egressCheck(_ context.Context, checkRequest *ext_auth.Check
 	}, nil
 }
 
-func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse { //nolint
+func createDeniedCheckResponse(rpcCode code.Code, httpCode envoy_type.StatusCode, body string) *ext_auth.CheckResponse { // nolint
 	return &ext_auth.CheckResponse{
 		Status: &status.Status{
 			Code: int32(rpcCode),

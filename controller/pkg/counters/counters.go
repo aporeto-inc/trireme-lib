@@ -3,22 +3,27 @@ package counters
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
 )
 
 // NewCounters initializes new counters handler. Thread safe.
 func NewCounters() *Counters {
+	return &Counters{}
+}
 
-	return &Counters{
-		counters: make([]uint32, totalCounters),
+// CounterNames returns an array of names
+func CounterNames() []string {
+	names := make([]string, errMax+1)
+	var ct CounterType
+	for ct = 0; ct <= errMax; ct++ {
+		names[ct] = ct.String()
 	}
+	return names[:errMax]
 }
 
 // CounterError is a convinence function which returns error as well as increments the counter.
 func (c *Counters) CounterError(t CounterType, err error) error {
-
-	atomic.AddUint32(&c.counters[int(t)], 1)
-
+	c.IncrementCounter(t)
 	return err
 }
 
@@ -31,13 +36,12 @@ func (c *Counters) IncrementCounter(t CounterType) {
 func (c *Counters) GetErrorCounters() []collector.Counters {
 
 	c.Lock()
-	defer c.Unlock()
 
-	report := make([]collector.Counters, totalCounters)
-
+	report := make([]collector.Counters, errMax+1)
 	for index := range c.counters {
 		report[index] = collector.Counters(atomic.SwapUint32(&c.counters[index], 0))
 	}
 
-	return report
+	c.Unlock()
+	return report[:errMax]
 }

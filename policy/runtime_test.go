@@ -7,7 +7,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 func TestNewPURunTime(t *testing.T) {
@@ -26,6 +26,7 @@ func TestNewPURunTime(t *testing.T) {
 			tags,
 			ips,
 			common.ContainerPU,
+			None,
 			nil,
 		)
 
@@ -70,6 +71,7 @@ func TestBasicFunctions(t *testing.T) {
 			tags,
 			ips,
 			common.ContainerPU,
+			None,
 			nil,
 		)
 
@@ -119,7 +121,7 @@ func TestBasicFunctions(t *testing.T) {
 		})
 
 		Convey("I should be able to set the tags", func() {
-			modify := &TagStore{Tags: []string{"$set=new"}}
+			modify := NewTagStoreFromSlice([]string{"$set=new"})
 			runtime.SetTags(modify)
 			So(runtime.Tags(), ShouldResemble, modify)
 			value, ok := runtime.Tag("$set")

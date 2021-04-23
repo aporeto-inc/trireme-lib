@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // Request captures all the important items of request that are needed
@@ -44,6 +44,8 @@ type NetworkAuthResponse struct {
 	// Network policy ID and service that affect the call.
 	NetworkPolicyID  string
 	NetworkServiceID string
+	ObservedPolicyID string
+	ObservedAction   policy.ActionType
 
 	// Definition of the source.
 	SourceType collector.EndPointType
@@ -66,6 +68,17 @@ type NetworkAuthResponse struct {
 	// TLSListener determines that TLS must be re-initiated towards
 	// the listener.
 	TLSListener bool
+
+	// Fields used when ping is enabled.
+	PingConfig *PingConfig
+}
+
+// PingConfig holds config specific for ping traffic.
+type PingConfig struct {
+	PingID      string
+	IterationID int
+	Claims      []string
+	PayloadSize int
 }
 
 // AppAuthResponse is the decision of the authorization process.

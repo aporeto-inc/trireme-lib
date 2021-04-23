@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 // PortCache is a generic cache of port pairs or exact ports. It can store
@@ -89,7 +89,7 @@ func (p *PortCache) GetSpecValueFromPort(port uint16) (interface{}, error) {
 	p.Lock()
 	defer p.Unlock()
 	for _, s := range p.ranges {
-		if s.Min <= port && port < s.Max {
+		if s.Min <= port && port <= s.Max {
 			return s.Value(), nil
 		}
 	}

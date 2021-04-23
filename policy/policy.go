@@ -1,11 +1,12 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens"
 )
 
 // EnforcerType defines which enforcer type should be selected
@@ -103,6 +104,14 @@ type PUPolicy struct {
 	scopes []string
 	// enforcerType is the enforcer type that is supposed to get used for this PU
 	enforcerType EnforcerType
+	// appDefaultPolicyAction is the application default action of the namespace
+	appDefaultPolicyAction ActionType
+	// netDefaultPolicyAction is the network default action of the namespace
+	netDefaultPolicyAction ActionType
+	// logPrefixMapping maps a short nlog prefix it it's long prefix
+	logPrefixMapping map[string]string
+	// logPrefixMappingCalculated is used to no when to calculate the log mapping
+	logPrefixMappingCalculated bool
 
 	sync.Mutex
 }
@@ -139,6 +148,8 @@ func NewPUPolicy(
 	dependentServices ApplicationServicesList,
 	scopes []string,
 	enforcerType EnforcerType,
+	appDefaultPolicyAction ActionType,
+	netDefaultPolicyAction ActionType,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -182,30 +193,32 @@ func NewPUPolicy(
 	}
 
 	return &PUPolicy{
-		managementID:          id,
-		managementNamespace:   namespace,
-		triremeAction:         action,
-		applicationACLs:       appACLs,
-		networkACLs:           netACLs,
-		DNSACLs:               dnsACLs,
-		transmitterRules:      txtags,
-		receiverRules:         rxtags,
-		identity:              identity,
-		compressedTags:        compressedTags,
-		annotations:           annotations,
-		ips:                   ips,
-		servicesListeningPort: servicesListeningPort,
-		dnsProxyPort:          dnsProxyPort,
-		exposedServices:       exposedServices,
-		dependentServices:     dependentServices,
-		scopes:                scopes,
-		enforcerType:          enforcerType,
+		managementID:           id,
+		managementNamespace:    namespace,
+		triremeAction:          action,
+		applicationACLs:        appACLs,
+		networkACLs:            netACLs,
+		DNSACLs:                dnsACLs,
+		transmitterRules:       txtags,
+		receiverRules:          rxtags,
+		identity:               identity,
+		compressedTags:         compressedTags,
+		annotations:            annotations,
+		ips:                    ips,
+		servicesListeningPort:  servicesListeningPort,
+		dnsProxyPort:           dnsProxyPort,
+		exposedServices:        exposedServices,
+		dependentServices:      dependentServices,
+		scopes:                 scopes,
+		enforcerType:           enforcerType,
+		appDefaultPolicyAction: appDefaultPolicyAction,
+		netDefaultPolicyAction: netDefaultPolicyAction,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping)
+	return NewPUPolicy("", "", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, 0, nil, nil, []string{}, EnforcerMapping, Reject|Log, Reject|Log)
 }
 
 // Clone returns a copy of the policy
@@ -232,6 +245,8 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.dependentServices,
 		p.scopes,
 		p.enforcerType,
+		p.appDefaultPolicyAction,
+		p.netDefaultPolicyAction,
 	)
 
 	return np
@@ -448,70 +463,155 @@ func (p *PUPolicy) EnforcerType() EnforcerType {
 	return p.enforcerType
 }
 
+// AppDefaultPolicyAction returns default application action.
+func (p *PUPolicy) AppDefaultPolicyAction() ActionType {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.appDefaultPolicyAction
+}
+
+// NetDefaultPolicyAction returns default network action.
+func (p *PUPolicy) NetDefaultPolicyAction() ActionType {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.netDefaultPolicyAction
+}
+
 // ToPublicPolicy converts the object to a marshallable object.
 func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 	p.Lock()
 	defer p.Unlock()
 
 	return &PUPolicyPublic{
-		ManagementID:          p.managementID,
-		ManagementNamespace:   p.managementNamespace,
-		TriremeAction:         p.triremeAction,
-		ApplicationACLs:       p.applicationACLs.Copy(),
-		NetworkACLs:           p.networkACLs.Copy(),
-		DNSACLs:               p.DNSACLs.Copy(),
-		TransmitterRules:      p.transmitterRules.Copy(),
-		ReceiverRules:         p.receiverRules.Copy(),
-		Annotations:           p.annotations.Copy(),
-		CompressedTags:        p.compressedTags.Copy(),
-		Identity:              p.identity.Copy(),
-		IPs:                   p.ips.Copy(),
-		ServicesListeningPort: p.servicesListeningPort,
-		DNSProxyPort:          p.dnsProxyPort,
-		ExposedServices:       p.exposedServices,
-		DependentServices:     p.dependentServices,
-		Scopes:                p.scopes,
-		ServicesCA:            p.servicesCA,
-		ServicesCertificate:   p.servicesCertificate,
-		ServicesPrivateKey:    p.servicesPrivateKey,
-		EnforcerType:          p.enforcerType,
+		ManagementID:           p.managementID,
+		ManagementNamespace:    p.managementNamespace,
+		TriremeAction:          p.triremeAction,
+		ApplicationACLs:        p.applicationACLs.Copy(),
+		NetworkACLs:            p.networkACLs.Copy(),
+		DNSACLs:                p.DNSACLs.Copy(),
+		TransmitterRules:       p.transmitterRules.Copy(),
+		ReceiverRules:          p.receiverRules.Copy(),
+		Annotations:            p.annotations.GetSlice(),
+		CompressedTags:         p.compressedTags.GetSlice(),
+		Identity:               p.identity.GetSlice(),
+		IPs:                    p.ips.Copy(),
+		ServicesListeningPort:  p.servicesListeningPort,
+		DNSProxyPort:           p.dnsProxyPort,
+		ExposedServices:        p.exposedServices,
+		DependentServices:      p.dependentServices,
+		Scopes:                 p.scopes,
+		ServicesCA:             p.servicesCA,
+		ServicesCertificate:    p.servicesCertificate,
+		ServicesPrivateKey:     p.servicesPrivateKey,
+		EnforcerType:           p.enforcerType,
+		AppDefaultPolicyAction: p.appDefaultPolicyAction,
+		NetDefaultPolicyAction: p.netDefaultPolicyAction,
+	}
+}
+
+// LookupLogPrefix returns the long version of the nlog prefix
+func (p *PUPolicy) LookupLogPrefix(key string) (string, bool) {
+
+	p.Lock()
+	defer p.Unlock()
+
+	// On demand calculate the mapping
+	p.calculateLogPrefixes()
+
+	logPrefix, ok := p.logPrefixMapping[key]
+	return logPrefix, ok
+}
+
+// GetLogPrefixes returns the current map of logging prefixes
+func (p *PUPolicy) GetLogPrefixes() map[string]string {
+
+	p.Lock()
+	defer p.Unlock()
+
+	// On demand calculate the mapping
+	p.calculateLogPrefixes()
+
+	clone := map[string]string{}
+	for key, value := range p.logPrefixMapping {
+		clone[key] = value
+	}
+	return clone
+}
+
+// MergeLogPrefixes merges existing prefixes with the current logging prefixes
+func (p *PUPolicy) MergeLogPrefixes(prefixes map[string]string) {
+
+	p.Lock()
+	defer p.Unlock()
+
+	// On demand calculate the mapping
+	p.calculateLogPrefixes()
+
+	for key, value := range prefixes {
+		p.logPrefixMapping[key] = value
+	}
+}
+
+// calculateLogPrefixes calculates the short/long logging prefixes
+func (p *PUPolicy) calculateLogPrefixes() {
+
+	// On demand calculate the mapping
+	if !p.logPrefixMappingCalculated {
+		p.logPrefixMapping = map[string]string{}
+		compute := func(ruleList IPRuleList) {
+			for _, ipRule := range ruleList {
+				if ipRule.Policy != nil {
+					key, value := ipRule.Policy.GetShortAndLongLogPrefix()
+					p.logPrefixMapping[key] = value
+				}
+			}
+		}
+		compute(p.applicationACLs)
+		compute(p.networkACLs)
+
+		// mapping has been calculated
+		p.logPrefixMappingCalculated = true
 	}
 }
 
 // PUPolicyPublic captures all policy information related ot the processing
 // unit in an object that can be marshalled and transmitted over the RPC interface.
 type PUPolicyPublic struct {
-	ManagementID          string                  `json:"managementID,omitempty"`
-	ManagementNamespace   string                  `json:"managementNamespace,omitempty"`
-	TriremeAction         PUAction                `json:"triremeAction,omitempty"`
-	ApplicationACLs       IPRuleList              `json:"applicationACLs,omitempty"`
-	NetworkACLs           IPRuleList              `json:"networkACLs,omitempty"`
-	DNSACLs               DNSRuleList             `json:"dnsACLs,omitempty"`
-	Identity              *TagStore               `json:"identity,omitempty"`
-	Annotations           *TagStore               `json:"annotations,omitempty"`
-	CompressedTags        *TagStore               `json:"compressedtags,omitempty"`
-	TransmitterRules      TagSelectorList         `json:"transmitterRules,omitempty"`
-	ReceiverRules         TagSelectorList         `json:"receiverRules,omitempty"`
-	IPs                   ExtendedMap             `json:"IPs,omitempty"`
-	ServicesListeningPort int                     `json:"servicesListeningPort,omitempty"`
-	DNSProxyPort          int                     `json:"dnsProxyPort,omitempty"`
-	ExposedServices       ApplicationServicesList `json:"exposedServices,omitempty"`
-	DependentServices     ApplicationServicesList `json:"dependentServices,omitempty"`
-	ServicesCertificate   string                  `json:"servicesCertificate,omitempty"`
-	ServicesPrivateKey    string                  `json:"servicesPrivateKey,omitempty"`
-	ServicesCA            string                  `json:"servicesCA,omitempty"`
-	Scopes                []string                `json:"scopes,omitempty"`
-	EnforcerType          EnforcerType            `json:"enforcerTypes,omitempty"`
+	ManagementID           string                  `json:"managementID,omitempty"`
+	ManagementNamespace    string                  `json:"managementNamespace,omitempty"`
+	TriremeAction          PUAction                `json:"triremeAction,omitempty"`
+	ApplicationACLs        IPRuleList              `json:"applicationACLs,omitempty"`
+	NetworkACLs            IPRuleList              `json:"networkACLs,omitempty"`
+	DNSACLs                DNSRuleList             `json:"dnsACLs,omitempty"`
+	Identity               []string                `json:"identity,omitempty"`
+	Annotations            []string                `json:"annotations,omitempty"`
+	CompressedTags         []string                `json:"compressedtags,omitempty"`
+	TransmitterRules       TagSelectorList         `json:"transmitterRules,omitempty"`
+	ReceiverRules          TagSelectorList         `json:"receiverRules,omitempty"`
+	IPs                    ExtendedMap             `json:"IPs,omitempty"`
+	ServicesListeningPort  int                     `json:"servicesListeningPort,omitempty"`
+	DNSProxyPort           int                     `json:"dnsProxyPort,omitempty"`
+	ExposedServices        ApplicationServicesList `json:"exposedServices,omitempty"`
+	DependentServices      ApplicationServicesList `json:"dependentServices,omitempty"`
+	ServicesCertificate    string                  `json:"servicesCertificate,omitempty"`
+	ServicesPrivateKey     string                  `json:"servicesPrivateKey,omitempty"`
+	ServicesCA             string                  `json:"servicesCA,omitempty"`
+	Scopes                 []string                `json:"scopes,omitempty"`
+	EnforcerType           EnforcerType            `json:"enforcerTypes,omitempty"`
+	AppDefaultPolicyAction ActionType              `json:"appDefaultPolicyAction,omitempty"`
+	NetDefaultPolicyAction ActionType              `json:"netDefaultPolicyAction,omitempty"`
 }
 
 // ToPrivatePolicy converts the object to a private object.
-func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
+func (p *PUPolicyPublic) ToPrivatePolicy(ctx context.Context, convert bool) (*PUPolicy, error) {
 	var err error
 
 	exposedServices := ApplicationServicesList{}
 	for _, e := range p.ExposedServices {
 		if convert {
-			e.UserAuthorizationHandler, err = usertokens.NewVerifier(e.UserAuthorizationHandler)
+			e.UserAuthorizationHandler, err = usertokens.NewVerifier(ctx, e.UserAuthorizationHandler)
 			if err != nil {
 				return nil, fmt.Errorf("unable to initialize user authorization handler for service: %s - error %s", e.ID, err)
 			}
@@ -520,26 +620,28 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) (*PUPolicy, error) {
 	}
 
 	return &PUPolicy{
-		managementID:          p.ManagementID,
-		managementNamespace:   p.ManagementNamespace,
-		triremeAction:         p.TriremeAction,
-		applicationACLs:       p.ApplicationACLs,
-		networkACLs:           p.NetworkACLs.Copy(),
-		DNSACLs:               p.DNSACLs.Copy(),
-		transmitterRules:      p.TransmitterRules.Copy(),
-		receiverRules:         p.ReceiverRules.Copy(),
-		annotations:           p.Annotations.Copy(),
-		compressedTags:        p.CompressedTags.Copy(),
-		identity:              p.Identity.Copy(),
-		ips:                   p.IPs.Copy(),
-		servicesListeningPort: p.ServicesListeningPort,
-		dnsProxyPort:          p.DNSProxyPort,
-		exposedServices:       exposedServices,
-		dependentServices:     p.DependentServices,
-		scopes:                p.Scopes,
-		enforcerType:          p.EnforcerType,
-		servicesCA:            p.ServicesCA,
-		servicesCertificate:   p.ServicesCertificate,
-		servicesPrivateKey:    p.ServicesPrivateKey,
+		managementID:           p.ManagementID,
+		managementNamespace:    p.ManagementNamespace,
+		triremeAction:          p.TriremeAction,
+		applicationACLs:        p.ApplicationACLs,
+		networkACLs:            p.NetworkACLs.Copy(),
+		DNSACLs:                p.DNSACLs.Copy(),
+		transmitterRules:       p.TransmitterRules.Copy(),
+		receiverRules:          p.ReceiverRules.Copy(),
+		annotations:            NewTagStoreFromSlice(p.Annotations),
+		compressedTags:         NewTagStoreFromSlice(p.CompressedTags),
+		identity:               NewTagStoreFromSlice(p.Identity),
+		ips:                    p.IPs.Copy(),
+		servicesListeningPort:  p.ServicesListeningPort,
+		dnsProxyPort:           p.DNSProxyPort,
+		exposedServices:        exposedServices,
+		dependentServices:      p.DependentServices,
+		scopes:                 p.Scopes,
+		enforcerType:           p.EnforcerType,
+		servicesCA:             p.ServicesCA,
+		servicesCertificate:    p.ServicesCertificate,
+		servicesPrivateKey:     p.ServicesPrivateKey,
+		appDefaultPolicyAction: p.AppDefaultPolicyAction,
+		netDefaultPolicyAction: p.NetDefaultPolicyAction,
 	}, nil
 }

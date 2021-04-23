@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls"
 )
 
 // LinuxMonitor captures all the monitor processor information
@@ -18,7 +18,7 @@ type LinuxMonitor struct {
 }
 
 // New returns a new implmentation of a monitor implmentation
-func New() *LinuxMonitor {
+func New(context.Context) *LinuxMonitor {
 
 	return &LinuxMonitor{
 		proc: &linuxProcessor{},
@@ -40,7 +40,7 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
-		cfg = DefaultConfig(false, false)
+		cfg = DefaultConfig(false)
 	}
 
 	linuxConfig, ok := cfg.(*Config)
@@ -49,20 +49,14 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		if linuxConfig.SSH {
-			if err := registerer.RegisterProcessor(common.SSHSessionPU, l.proc); err != nil {
-				return err
-			}
-		} else {
-			if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
-				return err
-			}
-			if err := registerer.RegisterProcessor(common.HostPU, l.proc); err != nil {
-				return err
-			}
-			if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
-				return err
-			}
+		if err := registerer.RegisterProcessor(common.HostNetworkPU, l.proc); err != nil {
+			return err
+		}
+		if err := registerer.RegisterProcessor(common.HostPU, l.proc); err != nil {
+			return err
+		}
+		if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
+			return err
 		}
 	}
 
@@ -71,7 +65,6 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 
 	// Setup config
 	l.proc.host = linuxConfig.Host
-	l.proc.ssh = linuxConfig.SSH
 
 	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 

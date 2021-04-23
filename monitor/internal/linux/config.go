@@ -1,8 +1,8 @@
 package linuxmonitor
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
 )
 
 // Config is the configuration options to start a CNI monitor
@@ -11,25 +11,23 @@ type Config struct {
 	StoredPath             string
 	ReleasePath            string
 	Host                   bool
-	SSH                    bool
 }
 
 // DefaultConfig provides a default configuration
-func DefaultConfig(host bool, ssh bool) *Config {
+func DefaultConfig(host bool) *Config {
 
 	return &Config{
 		EventMetadataExtractor: extractors.DefaultHostMetadataExtractor,
 		ReleasePath:            "",
 		StoredPath:             common.TriremeCgroupPath,
 		Host:                   host,
-		SSH:                    ssh,
 	}
 }
 
 // SetupDefaultConfig adds defaults to a partial configuration
 func SetupDefaultConfig(linuxConfig *Config) *Config {
 
-	defaultConfig := DefaultConfig(linuxConfig.Host, linuxConfig.SSH)
+	defaultConfig := DefaultConfig(linuxConfig.Host)
 
 	if linuxConfig.ReleasePath == "" {
 		linuxConfig.ReleasePath = defaultConfig.ReleasePath

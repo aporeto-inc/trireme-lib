@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	collector "go.aporeto.io/trireme-lib/collector"
+	collector "go.aporeto.io/enforcerd/trireme-lib/collector"
 )
 
 // MockEventCollector is a mock of EventCollector interface
@@ -148,4 +148,18 @@ func (m *MockEventCollector) CollectPingEvent(report *collector.PingReport) {
 func (mr *MockEventCollectorMockRecorder) CollectPingEvent(report interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPingEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectPingEvent), report)
+}
+
+// CollectConnectionExceptionReport mocks base method
+// nolint
+func (m *MockEventCollector) CollectConnectionExceptionReport(report *collector.ConnectionExceptionReport) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CollectConnectionExceptionReport", report)
+}
+
+// CollectConnectionExceptionReport indicates an expected call of CollectConnectionExceptionReport
+// nolint
+func (mr *MockEventCollectorMockRecorder) CollectConnectionExceptionReport(report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectConnectionExceptionReport", reflect.TypeOf((*MockEventCollector)(nil).CollectConnectionExceptionReport), report)
 }

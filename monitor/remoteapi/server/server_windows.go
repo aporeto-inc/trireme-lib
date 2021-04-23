@@ -6,7 +6,7 @@ import (
 	"net"
 	"net/http"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 	"gopkg.in/natefinch/npipe.v2"
 )
 

@@ -12,10 +12,10 @@ func TestHeaderBytes(t *testing.T) {
 
 	Convey("Given I create a new header bytes", t, func() {
 		header := NewClaimsHeader(
-			OptionCompressionType(CompressionTypeV2),
+			OptionCompressionType(CompressionTypeV1),
 			OptionEncrypt(true),
 			OptionDatapathVersion(DatapathVersion1),
-			OptionPingType(PingTypeNone),
+			OptionPing(true),
 		).ToBytes()
 
 		Convey("Then header bytes should not be nil", func() {
@@ -26,10 +26,10 @@ func TestHeaderBytes(t *testing.T) {
 			ch := header.ToClaimsHeader()
 
 			Convey("Then it should be equal", func() {
-				So(ch.compressionType, ShouldEqual, CompressionTypeV2)
+				So(ch.compressionType, ShouldEqual, CompressionTypeV1)
 				So(ch.encrypt, ShouldEqual, true)
 				So(ch.datapathVersion, ShouldEqual, DatapathVersion1)
-				So(ch.pingType, ShouldEqual, PingTypeNone)
+				So(ch.ping, ShouldEqual, true)
 			})
 		})
 	})

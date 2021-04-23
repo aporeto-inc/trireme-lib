@@ -10,13 +10,13 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	constants "go.aporeto.io/trireme-lib/controller/constants"
-	ebpf "go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	constants "go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	ebpf "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	fqconfig "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	packettracing "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	secrets "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	runtime "go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	policy "go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // MockEnforcer is a mock of Enforcer interface
@@ -48,42 +48,42 @@ func (m *MockEnforcer) EXPECT() *MockEnforcerMockRecorder {
 
 // Enforce mocks base method
 // nolint
-func (m *MockEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (m *MockEnforcer) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Enforce", contextID, puInfo)
+	ret := m.ctrl.Call(m, "Enforce", ctx, contextID, puInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Enforce indicates an expected call of Enforce
 // nolint
-func (mr *MockEnforcerMockRecorder) Enforce(contextID, puInfo interface{}) *gomock.Call {
+func (mr *MockEnforcerMockRecorder) Enforce(ctx, contextID, puInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enforce", reflect.TypeOf((*MockEnforcer)(nil).Enforce), contextID, puInfo)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enforce", reflect.TypeOf((*MockEnforcer)(nil).Enforce), ctx, contextID, puInfo)
 }
 
 // Unenforce mocks base method
 // nolint
-func (m *MockEnforcer) Unenforce(contextID string) error {
+func (m *MockEnforcer) Unenforce(ctx context.Context, contextID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unenforce", contextID)
+	ret := m.ctrl.Call(m, "Unenforce", ctx, contextID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Unenforce indicates an expected call of Unenforce
 // nolint
-func (mr *MockEnforcerMockRecorder) Unenforce(contextID interface{}) *gomock.Call {
+func (mr *MockEnforcerMockRecorder) Unenforce(ctx, contextID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unenforce", reflect.TypeOf((*MockEnforcer)(nil).Unenforce), contextID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unenforce", reflect.TypeOf((*MockEnforcer)(nil).Unenforce), ctx, contextID)
 }
 
 // GetFilterQueue mocks base method
 // nolint
-func (m *MockEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
+func (m *MockEnforcer) GetFilterQueue() fqconfig.FilterQueue {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilterQueue")
-	ret0, _ := ret[0].(*fqconfig.FilterQueue)
+	ret0, _ := ret[0].(fqconfig.FilterQueue)
 	return ret0
 }
 
@@ -190,6 +190,22 @@ func (mr *MockEnforcerMockRecorder) CleanUp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockEnforcer)(nil).CleanUp))
 }
 
+// GetServiceMeshType mocks base method
+// nolint
+func (m *MockEnforcer) GetServiceMeshType() policy.ServiceMesh {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetServiceMeshType")
+	ret0, _ := ret[0].(policy.ServiceMesh)
+	return ret0
+}
+
+// GetServiceMeshType indicates an expected call of GetServiceMeshType
+// nolint
+func (mr *MockEnforcerMockRecorder) GetServiceMeshType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceMeshType", reflect.TypeOf((*MockEnforcer)(nil).GetServiceMeshType))
+}
+
 // EnableDatapathPacketTracing mocks base method
 // nolint
 func (m *MockEnforcer) EnableDatapathPacketTracing(ctx context.Context, contextID string, direction packettracing.TracingDirection, interval time.Duration) error {
@@ -236,6 +252,22 @@ func (m *MockEnforcer) Ping(ctx context.Context, contextID string, pingConfig *p
 func (mr *MockEnforcerMockRecorder) Ping(ctx, contextID, pingConfig interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockEnforcer)(nil).Ping), ctx, contextID, pingConfig)
+}
+
+// DebugCollect mocks base method
+// nolint
+func (m *MockEnforcer) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DebugCollect", ctx, contextID, debugConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DebugCollect indicates an expected call of DebugCollect
+// nolint
+func (mr *MockEnforcerMockRecorder) DebugCollect(ctx, contextID, debugConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebugCollect", reflect.TypeOf((*MockEnforcer)(nil).DebugCollect), ctx, contextID, debugConfig)
 }
 
 // MockDebugInfo is a mock of DebugInfo interface
@@ -311,4 +343,20 @@ func (m *MockDebugInfo) Ping(ctx context.Context, contextID string, pingConfig *
 func (mr *MockDebugInfoMockRecorder) Ping(ctx, contextID, pingConfig interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDebugInfo)(nil).Ping), ctx, contextID, pingConfig)
+}
+
+// DebugCollect mocks base method
+// nolint
+func (m *MockDebugInfo) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DebugCollect", ctx, contextID, debugConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DebugCollect indicates an expected call of DebugCollect
+// nolint
+func (mr *MockDebugInfoMockRecorder) DebugCollect(ctx, contextID, debugConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebugCollect", reflect.TypeOf((*MockDebugInfo)(nil).DebugCollect), ctx, contextID, debugConfig)
 }

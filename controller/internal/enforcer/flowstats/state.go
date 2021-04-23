@@ -4,11 +4,11 @@ import (
 	"net"
 	"net/http"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/apiauth"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // ConnectionState captures the connection state. This state
@@ -28,10 +28,15 @@ func NewAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 		sourcePort = sourceAddress.Port
 	}
 
+	var tags policy.TagStore
+	if resp.PUContext.Annotations() != nil {
+		tags = *resp.PUContext.Annotations()
+	}
+
 	return &ConnectionState{
 		Stats: &collector.FlowRecord{
 			ContextID: nativeID,
-			Destination: &collector.EndPoint{
+			Destination: collector.EndPoint{
 				URI:        r.Method + " " + r.RequestURI,
 				HTTPMethod: r.Method,
 				Type:       collector.EndPointTypeExternalIP,
@@ -39,8 +44,8 @@ func NewAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 				IP:         authRequest.OriginalDestination.IP.String(),
 				ID:         resp.NetworkServiceID,
 			},
-			Source: &collector.EndPoint{
-				Type:       collector.EnpointTypePU,
+			Source: collector.EndPoint{
+				Type:       collector.EndPointTypePU,
 				ID:         resp.PUContext.ManagementID(),
 				IP:         sourceIP,
 				Port:       uint16(sourcePort),
@@ -51,7 +56,7 @@ func NewAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 			L4Protocol:  packet.IPProtocolTCP,
 			ServiceType: policy.ServiceHTTP,
 			ServiceID:   resp.ServiceID,
-			Tags:        resp.PUContext.Annotations(),
+			Tags:        tags.GetSlice(),
 			Namespace:   resp.PUContext.ManagementNamespace(),
 			PolicyID:    resp.NetworkPolicyID,
 			Count:       1,
@@ -63,35 +68,37 @@ func NewAppConnectionState(nativeID string, r *http.Request, authRequest *apiaut
 func NewNetworkConnectionState(nativeID string, userID string, r *apiauth.Request, d *apiauth.NetworkAuthResponse) *ConnectionState {
 
 	var mgmtID, namespace, serviceID string
-	var tags *policy.TagStore
+	var tags policy.TagStore
 
 	if d.PUContext != nil {
 		mgmtID = d.PUContext.ManagementID()
 		namespace = d.PUContext.ManagementNamespace()
-		tags = d.PUContext.Annotations()
+		if d.PUContext.Annotations() != nil {
+			tags = *d.PUContext.Annotations()
+		}
 		serviceID = d.ServiceID
 	} else {
 		mgmtID = collector.DefaultEndPoint
 		namespace = collector.DefaultEndPoint
-		tags = policy.NewTagStore()
+		tags = *policy.NewTagStore()
 		serviceID = collector.DefaultEndPoint
 	}
 
 	sourceType := collector.EndPointTypeExternalIP
 	sourceID := collector.DefaultEndPoint
 	networkPolicyID := collector.DefaultEndPoint
-	action := policy.Reject
+	action := policy.Reject | policy.Log
 
 	if d != nil {
 		sourceType = d.SourceType
-		if sourceType == collector.EndpointTypeClaims {
+		if sourceType == collector.EndPointTypeClaims {
 			sourceType = collector.EndPointTypeExternalIP
 		}
 
 		switch d.SourceType {
-		case collector.EnpointTypePU:
+		case collector.EndPointTypePU:
 			sourceID = d.SourcePUID
-		case collector.EndpointTypeClaims:
+		case collector.EndPointTypeClaims:
 			sourceID = d.NetworkServiceID
 		default:
 			sourceID = d.NetworkServiceID
@@ -106,16 +113,16 @@ func NewNetworkConnectionState(nativeID string, userID string, r *apiauth.Reques
 	c := &ConnectionState{
 		Stats: &collector.FlowRecord{
 			ContextID: nativeID,
-			Destination: &collector.EndPoint{
+			Destination: collector.EndPoint{
 				ID:         mgmtID,
-				Type:       collector.EnpointTypePU,
+				Type:       collector.EndPointTypePU,
 				IP:         r.OriginalDestination.IP.String(),
 				Port:       uint16(r.OriginalDestination.Port),
 				URI:        r.Method + " " + r.RequestURI,
 				HTTPMethod: r.Method,
 				UserID:     userID,
 			},
-			Source: &collector.EndPoint{
+			Source: collector.EndPoint{
 				ID:     sourceID,
 				Type:   sourceType,
 				IP:     r.SourceAddress.IP.String(),
@@ -127,17 +134,24 @@ func NewNetworkConnectionState(nativeID string, userID string, r *apiauth.Reques
 			ServiceType: policy.ServiceHTTP,
 			PolicyID:    networkPolicyID,
 			ServiceID:   serviceID,
-			Tags:        tags,
+			Tags:        tags.GetSlice(),
 			Namespace:   namespace,
 			Count:       1,
 		},
 	}
 
-	if d != nil && d.Action.Rejected() {
-		c.Stats.DropReason = d.DropReason
-	}
+	if d != nil {
+		if d.Action.Rejected() {
+			c.Stats.DropReason = d.DropReason
+		}
 
-	c.Cookie = d.Cookie
+		if d.ObservedPolicyID != "" {
+			c.Stats.ObservedPolicyID = d.ObservedPolicyID
+			c.Stats.ObservedAction = d.ObservedAction
+		}
+
+		c.Cookie = d.Cookie
+	}
 
 	return c
 }

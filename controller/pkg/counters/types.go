@@ -2,25 +2,11 @@ package counters
 
 import "sync"
 
-// Counters holds the counters value.
-type Counters struct {
-	counters []uint32
-
-	sync.RWMutex
-}
-
-// This should be multiples of 10.
-const (
-	totalCounters = 170
-)
-
 // CounterType custom counter error type.
 type CounterType int
 
-// WARNING: Append any new counters at the end of the list.
-// DO NOT CHANGE EXISTING ORDER.
-// Also ensure that the list doesn't exceed current totalCounters,
-// If it does, increase the totalCounters by multiples of 10.
+//go:generate stringer -type=CounterType -trimprefix Err
+// Error counters used in the enforcerd
 const (
 	ErrUnknownError CounterType = iota
 	ErrNonPUTraffic
@@ -120,7 +106,7 @@ const (
 	ErrSynAckTokenDecodeFailed
 	ErrSynAckTokenExpired
 	ErrSynAckSharedKeyHashFailed
-	ErrSynAckPublicKeyFailed
+	ErrSynAckPublicKeyFailed //100
 	ErrAckTokenEncodeFailed
 	ErrAckTokenHashFailed
 	ErrAckTokenSignFailed
@@ -170,7 +156,7 @@ const (
 	ErrUDPAckInvalidSecret
 	ErrUDPAckInvalidTokenLength
 	ErrUDPAckMissingSignature
-	ErrUDPAckCompressedTagMismatch
+	ErrUDPAckCompressedTagMismatch //150
 	ErrUDPAckDatapathVersionMismatch
 	ErrUDPAckTokenDecodeFailed
 	ErrUDPAckTokenExpired
@@ -182,4 +168,23 @@ const (
 	ErrInvalidNetAckState
 	ErrAppSynAckAuthOptionSet
 	ErrDuplicateAckDrop
+	ErrDNSForwardFailed
+	ErrDNSResponseFailed
+	ErrNfLogError
+	ErrSegmentServerContainerEventExceedsProcessingTime
+	ErrCorruptPacket
+	ErrSynMissingTCPOption
+	ErrUDPDropRst
+	ErrNonPUUDPTraffic
+	ErrIPTablesReset
+	ErrDNSInvalidRequest
+	// !!!! ADD NEW ERRORS ABOVE THIS LINE !!!!
+	// errMax must be the last error counter defined.
+	errMax
 )
+
+// Counters holds the counters value.
+type Counters struct {
+	sync.Mutex
+	counters [errMax + 1]uint32
+}

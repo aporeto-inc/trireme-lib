@@ -8,24 +8,45 @@ type ClaimsHeader struct {
 	encrypt bool
 	// Handshake type represents datapath version
 	datapathVersion DatapathVersion
-	// PingType represents ping type
-	pingType PingType
+	// Ping represents ping is set
+	ping bool
 }
 
-// boolToUint8 converts bool to uint8
-// to populate the bits based on e
-func boolToUint8(e bool) uint8 {
+type boolType int
 
-	if !e {
+const (
+	encrypt boolType = iota
+	ping
+)
+
+// boolToUint8 converts bool to uint8
+// to populate the bits based on v
+func boolToUint8(t boolType, v bool) uint8 {
+
+	if !v {
 		return zeroBit
 	}
 
-	return encryptionEnabledBit
+	switch t {
+	case encrypt:
+		return encryptionEnabledBit
+	case ping:
+		return pingEnabledBit
+	default:
+		return zeroBit
+	}
 }
 
 // uint8ToBool converts uint8 to bool
 // to populate the struct based on n
-func uint8ToBool(n uint8) bool {
+func uint8ToBool(t boolType, n uint8) bool {
 
-	return n == encryptionEnabledBit
+	switch t {
+	case encrypt:
+		return n == encryptionEnabledBit
+	case ping:
+		return n == pingEnabledBit
+	default:
+		return false
+	}
 }

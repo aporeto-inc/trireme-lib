@@ -5,7 +5,7 @@ package cgnetcls
 import (
 	"sync/atomic"
 
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/constants"
 )
 
 type netCls struct {
@@ -76,4 +76,8 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 //NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewDockerCgroupNetController() Cgroupnetcls {
 	return &netCls{}
+}
+
+// ConfigureNetClsPath does nothing for windows
+func ConfigureNetClsPath(path string) {
 }

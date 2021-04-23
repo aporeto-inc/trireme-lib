@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 func TestEmptyPortListLookup(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPortListLookup(t *testing.T) {
 	Convey("Given a non-empty port action list", t, func() {
 		var pl portActionList
 		for _, port := range rule.Ports {
-			pa, err := newPortAction(port, rule.Policy)
+			pa, err := newPortAction(port, rule.Policy, false)
 
 			So(err, ShouldBeNil)
 			So(pa, ShouldNotBeNil)
@@ -106,7 +106,7 @@ func TestPortListLookupObservedPolicyContinue(t *testing.T) {
 	Convey("Given a non-empty port action list", t, func() {
 		var pl portActionList
 		for _, port := range rule.Ports {
-			pa, err := newPortAction(port, rule.Policy)
+			pa, err := newPortAction(port, rule.Policy, false)
 			So(err, ShouldBeNil)
 			So(pa, ShouldNotBeNil)
 
@@ -171,7 +171,7 @@ func TestPortListLookupObservedPolicyApply(t *testing.T) {
 	Convey("Given a non-empty port action list", t, func() {
 		var pl portActionList
 		for _, port := range rule.Ports {
-			pa, err := newPortAction(port, rule.Policy)
+			pa, err := newPortAction(port, rule.Policy, false)
 			So(err, ShouldBeNil)
 			So(pa, ShouldNotBeNil)
 
@@ -226,6 +226,69 @@ func TestPortListLookupObservedPolicyApply(t *testing.T) {
 			So(p.ObserveAction, ShouldEqual, policy.ObserveApply)
 			So(p.Action, ShouldEqual, policy.Accept)
 			So(p.PolicyID, ShouldEqual, "portMatch")
+		})
+	})
+}
+
+func TestPortListWithNomatchLookup(t *testing.T) {
+
+	rule := policy.IPRule{
+		Addresses: []string{"0.0.0.0/1", "128.0.0.0/1", "!172.0.0.0/8"},
+		Ports:     []string{"1:999"},
+		Protocols: []string{"tcp"},
+		Policy: &policy.FlowPolicy{
+			Action:   policy.Accept,
+			PolicyID: "portMatch",
+		},
+	}
+
+	Convey("Given a non-empty port action list", t, func() {
+		var pl portActionList
+		for _, port := range rule.Ports {
+			pa, err := newPortAction(port, rule.Policy, true)
+
+			So(err, ShouldBeNil)
+			So(pa, ShouldNotBeNil)
+
+			pl = append(pl, pa)
+		}
+
+		Convey("When I lookup for a non matching port, I should get error", func() {
+			r, p, err := pl.lookup(0, nil)
+			So(err, ShouldNotBeNil)
+			So(r, ShouldBeNil)
+			So(p, ShouldBeNil)
+		})
+
+		Convey("When I lookup for a non matching port, I should get error but get the unmodified reported flow input", func() {
+			r, p, err := pl.lookup(0, &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "portPreMatch"},
+			)
+			So(err, ShouldNotBeNil)
+			So(r, ShouldNotBeNil)
+			So(r.Action, ShouldEqual, policy.Accept)
+			So(r.PolicyID, ShouldEqual, "portPreMatch")
+			So(p, ShouldBeNil)
+		})
+
+		Convey("When I lookup for a matching port, I should get no match", func() {
+			r, p, err := pl.lookup(10, nil)
+			So(err, ShouldNotBeNil)
+			So(r, ShouldBeNil)
+			So(p, ShouldBeNil)
+		})
+
+		Convey("When I lookup for a matching port, I should get no match but the unmodified reported flow input", func() {
+			r, p, err := pl.lookup(10, &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "portPreMatch"},
+			)
+			So(err, ShouldNotBeNil)
+			So(r, ShouldNotBeNil)
+			So(r.Action, ShouldEqual, policy.Accept)
+			So(r.PolicyID, ShouldEqual, "portPreMatch")
+			So(p, ShouldBeNil)
 		})
 	})
 }

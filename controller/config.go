@@ -1,27 +1,27 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	enforcerproxy "go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	supervisornoop "go.aporeto.io/trireme-lib/controller/internal/supervisor/noop"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	enforcerproxy "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/proxy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor"
+	supervisornoop "go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor/noop"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +37,7 @@ type config struct {
 
 	// Configurations for fine tuning internal components.
 	mode                   constants.ModeType
-	fq                     *fqconfig.FilterQueue
+	fq                     fqconfig.FilterQueue
 	isBPFEnabled           bool
 	linuxProcess           bool
 	mutualAuth             bool
@@ -49,10 +49,9 @@ type config struct {
 	runtimeErrorChannel    chan *policy.RuntimeError
 	remoteParameters       *env.RemoteParameters
 	tokenIssuer            common.ServiceTokenIssuer
-	binaryTokens           bool
-	aclmanager             ipsetmanager.ACLManager
 	ipv6Enabled            bool
 	agentVersion           semver.Version
+	iptablesLockfile       string
 }
 
 // Option is provided using functional arguments.
@@ -65,17 +64,17 @@ func OptionBPFEnabled(bpfEnabled bool) Option {
 	}
 }
 
+// OptionIptablesLockfile is a string option to set the path to the iptables lockfile
+func OptionIptablesLockfile(iptablesLockfile string) Option {
+	return func(cfg *config) {
+		cfg.iptablesLockfile = iptablesLockfile
+	}
+}
+
 //OptionIPv6Enable is an option to enable ipv6
 func OptionIPv6Enable(ipv6Enabled bool) Option {
 	return func(cfg *config) {
 		cfg.ipv6Enabled = ipv6Enabled
-	}
-}
-
-//OptionIPSetManager is an option to provide ipsetmanager
-func OptionIPSetManager(manager ipsetmanager.ACLManager) Option {
-	return func(cfg *config) {
-		cfg.aclmanager = manager
 	}
 }
 
@@ -108,7 +107,7 @@ func OptionEnforceLinuxProcess() Option {
 }
 
 // OptionEnforceFqConfig is an option to override filter queues.
-func OptionEnforceFqConfig(f *fqconfig.FilterQueue) Option {
+func OptionEnforceFqConfig(f fqconfig.FilterQueue) Option {
 	return func(cfg *config) {
 		cfg.fq = f
 	}
@@ -164,13 +163,6 @@ func OptionTokenIssuer(t common.ServiceTokenIssuer) Option {
 	}
 }
 
-// OptionBinaryTokens enables the binary token datapath
-func OptionBinaryTokens(b bool) Option {
-	return func(cfg *config) {
-		cfg.binaryTokens = b
-	}
-}
-
 // OptionAgentVersion is an option to set agent version.
 func OptionAgentVersion(v semver.Version) Option {
 	return func(cfg *config) {
@@ -178,7 +170,7 @@ func OptionAgentVersion(v semver.Version) Option {
 	}
 }
 
-func (t *trireme) newEnforcers() error {
+func (t *trireme) newEnforcers(ctx context.Context) error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
 	if t.config.linuxProcess {
@@ -186,7 +178,6 @@ func (t *trireme) newEnforcers() error {
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
-			t.config.service,
 			t.config.secret,
 			t.config.serverID,
 			t.config.validity,
@@ -196,10 +187,9 @@ func (t *trireme) newEnforcers() error {
 			t.config.packetLogs,
 			t.config.runtimeCfg,
 			t.config.tokenIssuer,
-			t.config.binaryTokens,
-			t.config.aclmanager,
 			t.config.isBPFEnabled,
 			t.config.agentVersion,
+			policy.None,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize LocalServer enforcer: %s ", err)
@@ -210,9 +200,9 @@ func (t *trireme) newEnforcers() error {
 		}
 	}
 
-	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.RemoteContainer {
 		enforcerProxy := enforcerproxy.NewProxyEnforcer(
+			ctx,
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
@@ -227,9 +217,9 @@ func (t *trireme) newEnforcers() error {
 			t.config.runtimeErrorChannel,
 			t.config.remoteParameters,
 			t.config.tokenIssuer,
-			t.config.binaryTokens,
 			t.config.isBPFEnabled,
 			t.config.ipv6Enabled,
+			t.config.iptablesLockfile,
 			rpcwrapper.NewRPCServer(),
 		)
 		t.enforcers[constants.RemoteContainer] = enforcerProxy
@@ -237,31 +227,6 @@ func (t *trireme) newEnforcers() error {
 	}
 
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
-	if t.config.mode == constants.Sidecar {
-		t.enforcers[constants.Sidecar], err = enforcer.New(
-			t.config.mutualAuth,
-			t.config.fq,
-			t.config.collector,
-			t.config.service,
-			t.config.secret,
-			t.config.serverID,
-			t.config.validity,
-			constants.Sidecar,
-			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout,
-			t.config.packetLogs,
-			t.config.runtimeCfg,
-			t.config.tokenIssuer,
-			t.config.binaryTokens,
-			t.config.aclmanager,
-			false,
-			t.config.agentVersion,
-		)
-		if err != nil {
-			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
-		}
-	}
-
 	return nil
 }
 
@@ -275,9 +240,8 @@ func (t *trireme) newSupervisors() error {
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
 			t.config.runtimeCfg,
-			t.config.service,
-			t.config.aclmanager,
 			t.config.ipv6Enabled,
+			t.config.iptablesLockfile,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -295,27 +259,11 @@ func (t *trireme) newSupervisors() error {
 		t.supervisors[constants.RemoteContainerEnvoyAuthorizer] = noopSup
 	}
 
-	if t.config.mode == constants.Sidecar {
-		s, err := supervisor.NewSupervisor(
-			t.config.collector,
-			t.enforcers[constants.Sidecar],
-			constants.Sidecar,
-			t.config.runtimeCfg,
-			t.config.service,
-			t.config.aclmanager,
-			t.config.ipv6Enabled,
-		)
-		if err != nil {
-			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)
-		}
-		t.supervisors[constants.Sidecar] = s
-	}
-
 	return nil
 }
 
 // newTrireme returns a reference to the trireme object based on the parameter subelements.
-func newTrireme(c *config) TriremeController {
+func newTrireme(ctx context.Context, c *config) TriremeController {
 
 	var err error
 
@@ -329,7 +277,7 @@ func newTrireme(c *config) TriremeController {
 	}
 
 	zap.L().Debug("Creating Enforcers")
-	if err = t.newEnforcers(); err != nil {
+	if err = t.newEnforcers(ctx); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
 		return nil
 	}
@@ -342,19 +290,14 @@ func newTrireme(c *config) TriremeController {
 
 	if c.linuxProcess {
 		t.puTypeToEnforcerType[common.LinuxProcessPU] = constants.LocalServer
-		t.puTypeToEnforcerType[common.UIDLoginPU] = constants.LocalServer
+		t.puTypeToEnforcerType[common.WindowsProcessPU] = constants.LocalServer
 		t.puTypeToEnforcerType[common.HostPU] = constants.LocalServer
 		t.puTypeToEnforcerType[common.HostNetworkPU] = constants.LocalServer
-		t.puTypeToEnforcerType[common.SSHSessionPU] = constants.LocalServer
 	}
 
 	if t.config.mode == constants.RemoteContainer {
 		t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainer
 		t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainer
-	}
-
-	if t.config.mode == constants.Sidecar {
-		t.puTypeToEnforcerType[common.ContainerPU] = constants.Sidecar
 	}
 
 	return t

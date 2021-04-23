@@ -3,14 +3,13 @@ package rpcwrapper
 import (
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // CaptureType identifies the type of iptables implementation that should be used
@@ -32,6 +31,7 @@ const (
 	DNSReport
 	CounterReport
 	PingReport
+	ConnectionExceptionReport
 )
 
 //Request exported
@@ -55,29 +55,30 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig               *fqconfig.FilterQueue  `json:",omitempty"`
 	MutualAuth             bool                   `json:",omitempty"`
 	PacketLogs             bool                   `json:",omitempty"`
 	Validity               time.Duration          `json:",omitempty"`
 	ServerID               string                 `json:",omitempty"`
 	ExternalIPCacheTimeout time.Duration          `json:",omitempty"`
-	Secrets                secrets.PublicSecrets  `json:",omitempty"`
+	Secrets                secrets.RPCSecrets     `json:",omitempty"`
 	Configuration          *runtime.Configuration `json:",omitempty"`
 	BinaryTokens           bool                   `json:",omitempty"`
 	IsBPFEnabled           bool                   `json:",omitempty"`
 	IPv6Enabled            bool                   `json:",omitempty"`
+	IPTablesLockfile       string                 `json:",omitempty"`
+	ServiceMeshType        policy.ServiceMesh     `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers
 type UpdateSecretsPayload struct {
-	Secrets secrets.PublicSecrets `json:",omitempty"`
+	Secrets secrets.RPCSecrets `json:",omitempty"`
 }
 
 // EnforcePayload Payload for enforce request
 type EnforcePayload struct {
 	ContextID string                 `json:",omitempty"`
 	Policy    *policy.PUPolicyPublic `json:",omitempty"`
-	Secrets   secrets.PublicSecrets  `json:",omitempty"`
+	Secrets   secrets.RPCSecrets     `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request
@@ -92,7 +93,7 @@ type SetLogLevelPayload struct {
 
 //StatsPayload is the payload carries by the stats reporting form the remote enforcer
 type StatsPayload struct {
-	Flows map[string]*collector.FlowRecord `json:",omitempty"`
+	Flows map[uint64]*collector.FlowRecord `json:",omitempty"`
 	Users map[string]*collector.UserRecord `json:",omitempty"`
 }
 
@@ -138,4 +139,19 @@ type TokenResponsePayload struct {
 type PingPayload struct {
 	ContextID  string
 	PingConfig *policy.PingConfig
+}
+
+// DebugCollectPayload is the payload for the DebugCollect request.
+type DebugCollectPayload struct {
+	ContextID    string
+	PcapFilePath string
+	PcapFilter   string
+	CommandExec  string
+}
+
+// DebugCollectResponsePayload is the payload for the DebugCollect response.
+type DebugCollectResponsePayload struct {
+	ContextID     string
+	PID           int
+	CommandOutput string
 }

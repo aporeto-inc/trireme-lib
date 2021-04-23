@@ -12,9 +12,9 @@ import (
 
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -137,7 +137,7 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 		zap.L().Error("SDS Server:Error while starting the envoy sds server.")
 		return nil, err
 	}
-	zap.L().Debug("SDS Server: SDS start success for :", zap.String("pu: ", puInfo.ContextID))
+	zap.L().Debug("SDS Server: SDS start success", zap.String("pu", puInfo.ContextID))
 	return sdsServer, nil
 }
 
@@ -145,7 +145,7 @@ func NewSdsServer(contextID string, puInfo *policy.PUInfo, caPool *x509.CertPool
 // 1. create grpc server.
 // 2. create a listener on the Unix Domain Socket.
 // 3.
-func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
+func (s *SdsServer) CreateSdsService(options *Options) error { // nolint: unparam
 	s.sdsGrpcServer = grpc.NewServer()
 	s.register(s.sdsGrpcServer)
 
@@ -161,7 +161,7 @@ func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 	// 	zap.L().Error("SDS Server: envoy-reireme, failed to remove the udspath", zap.Error(err))
 	// 	return err
 	// }
-	// zap.L().Debug("SDS Server: Start listening on UDS path: ", zap.Any("socketPath: ", options.SocketPath))
+	// zap.L().Debug("SDS Server: Start listening on UDS path", zap.Any("socketPath", options.SocketPath))
 	// addr, _ := net.ResolveUnixAddr("unix", options.SocketPath)
 
 	// sdsGrpcListener, err := net.ListenUnix("unix", addr)
@@ -180,7 +180,7 @@ func (s *SdsServer) CreateSdsService(options *Options) error { //nolint: unparam
 	// }
 	s.sdsGrpcListener = nl
 
-	zap.L().Debug("SDS Server: run the grpc server at: ", zap.Any("addr: ", s.sdsGrpcListener.Addr()))
+	zap.L().Debug("SDS Server: run the grpc server at", zap.Any("addr", s.sdsGrpcListener.Addr()))
 	s.Run()
 	return nil
 }
@@ -194,14 +194,14 @@ func (s *SdsServer) Run() {
 				s.errCh <- err
 			}
 		}
-		zap.L().Error("SDS Server: the listener is nil, cannot start the SDS server for: ", zap.String("puID: ", s.puInfo.ContextID))
+		zap.L().Error("SDS Server: the listener is nil, cannot start the SDS server for", zap.String("puID", s.puInfo.ContextID))
 	}()
 }
 
 // Stop stops all the listeners and the grpc servers.
 func (s *SdsServer) Stop() {
 	if s.sdsGrpcListener != nil {
-		s.sdsGrpcListener.Close() //nolint
+		s.sdsGrpcListener.Close() // nolint
 	}
 	if s.sdsGrpcServer != nil {
 		s.sdsGrpcServer.Stop()
@@ -251,7 +251,7 @@ func startStreaming(stream SdsDiscoveryStream, discoveryReqCh chan *v2.Discovery
 	for {
 		req, err := stream.Recv()
 		if err != nil {
-			zap.L().Error("SDS Server: Connection terminated with err: ", zap.Error(err))
+			zap.L().Error("SDS Server: Connection terminated with err", zap.Error(err))
 			return
 		}
 		discoveryReqCh <- req
@@ -277,7 +277,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 		}
 		token = h[0]
 	}
-	zap.L().Debug("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
+	zap.L().Debug("SDS Server: IN stream secrets, token", zap.String("token", token))
 
 	// create new connection
 	conn := &clientConn{}
@@ -306,7 +306,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				return fmt.Errorf("invalid discovery request with no node")
 			}
 			if req.ErrorDetail != nil {
-				zap.L().Error("SDS Server: ERROR from envoy for processing the resource: ", zap.String("error: ", req.GetErrorDetail().String()))
+				zap.L().Error("SDS Server: ERROR from envoy for processing the resource", zap.String("error", req.GetErrorDetail().String()))
 				continue
 			}
 
@@ -330,7 +330,7 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 			// if this is not the 1st request and if the secret is already present then dont proceed as this is a ACK according to the XDS protocol.
 			if req.VersionInfo != "" && s.checkSecretPresent(conn.connectionID, req, token) {
-				zap.L().Warn("SDS Server: got a ACK from envoy ", zap.String("connectionID", conn.connectionID), zap.String("resourceName: ", resourceName), zap.String("version", req.VersionInfo))
+				zap.L().Warn("SDS Server: got a ACK from envoy", zap.String("connectionID", conn.connectionID), zap.String("resourceName", resourceName), zap.String("version", req.VersionInfo))
 				continue
 			}
 			secret := s.generateSecret(req, token)
@@ -365,15 +365,14 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 				return err
 			}
 			if secret.RootCert != nil {
-				zap.L().Debug("SDS Server: Successfully sent root cert: ", zap.String("rootCA: ", string(secret.RootCert)))
+				zap.L().Debug("SDS Server: Successfully sent root cert", zap.String("rootCA", string(secret.RootCert)))
 			} else {
-				zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.String("default cert: ", string(secret.CertificateChain)))
+				zap.L().Debug("SDS Server: Successfully sent default cert", zap.String("default cert", string(secret.CertificateChain)))
 			}
 		case updateCerts := <-s.updCertsChannel:
 			// 1st check if the connection is present
 
-			_, err := s.conncache.Get(conn.connectionID)
-			if err != nil {
+			if _, err := s.conncache.Get(conn.connectionID); err != nil {
 				zap.L().Warn("SDS server: updCertsChannel, no connID found in cache,", zap.String("connID", conn.connectionID))
 				continue
 			}
@@ -390,11 +389,11 @@ func (s *SdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 func (s *SdsServer) sendUpdatedCerts(apoSecret sdsCerts, conn *clientConn) error {
 	var err error
-	pemCert := []byte{} //nolint
+	pemCert := []byte{} // nolint
 	t := time.Now()
 
 	if apoSecret.key != "" && apoSecret.cert != "" {
-		caPEM := s.secrets.PublicSecrets().CertAuthority()
+		caPEM := s.secrets.CertAuthority()
 
 		pemCert, err = buildCertChain([]byte(apoSecret.cert), caPEM)
 		if err != nil {
@@ -453,7 +452,7 @@ func (s *SdsServer) checkSecretPresent(connID string, req *v2.DiscoveryRequest, 
 
 func createConnID(clientID, resourceName string) string {
 	temp := clientID + resourceName
-	zap.L().Debug("SDS Server: generated a unique ID:", zap.String("connID: ", temp), zap.String("resource: ", resourceName))
+	zap.L().Debug("SDS Server: generated a unique ID", zap.String("connID", temp), zap.String("resource", resourceName))
 	return temp
 }
 
@@ -473,7 +472,7 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 		}
 		token = h[0]
 	}
-	zap.L().Info("SDS Server: IN stream secrets, token: ", zap.String("token: ", token))
+	zap.L().Info("SDS Server: IN stream secrets, token", zap.String("token", token))
 	secret := s.generateSecret(req, token)
 
 	resp := &v2.DiscoveryResponse{
@@ -495,9 +494,9 @@ func (s *SdsServer) FetchSecrets(ctx context.Context, req *v2.DiscoveryRequest) 
 	resp.Resources = append(resp.Resources, endSecret)
 
 	if secret.RootCert != nil {
-		zap.L().Debug("SDS Server:  Successfully sent root cert: ", zap.Any("rootCA: ", string(secret.RootCert)))
+		zap.L().Debug("SDS Server: Successfully sent root cert", zap.Any("rootCA", string(secret.RootCert)))
 	} else {
-		zap.L().Debug("SDS Server: Successfully sent default cert: ", zap.Any("default cert: ", string(secret.CertificateChain)))
+		zap.L().Debug("SDS Server: Successfully sent default cert", zap.Any("default cert", string(secret.CertificateChain)))
 	}
 	return resp, nil
 }
@@ -520,7 +519,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 		return nil
 	}
 
-	caPEM := s.secrets.PublicSecrets().CertAuthority()
+	caPEM := s.secrets.CertAuthority()
 	if req.ResourceNames[0] == "default" {
 
 		expTime, _ = getExpTimeFromCert([]byte(certPEM))
@@ -567,7 +566,7 @@ func (s *SdsServer) generateSecret(req *v2.DiscoveryRequest, token string) *secr
 }
 
 func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	zap.L().Debug("SDS Server:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
+	zap.L().Debug("SDS Server: BEFORE in buildCertChain certPEM", zap.String("certPEM", string(certPEM)), zap.String("caPEM", string(caPEM)))
 	certChain := []*x509.Certificate{}
 	//certPEMBlock := caPEM
 	clientPEMBlock := certPEM
@@ -600,7 +599,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		}
 	}
 	by, _ := x509CertChainToPem(certChain)
-	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("certChain: ", string(by)))
+	zap.L().Debug("SDS Server: After building the cert chain", zap.String("certChain", string(by)))
 	return x509CertChainToPem(certChain)
 }
 
@@ -626,7 +625,7 @@ func x509CertChainToPem(certChain []*x509.Certificate) ([]byte, error) {
 
 // getTopRootCa get the top root CA
 func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
-	zap.L().Debug("SDS Server: BEFORE root cert is :", zap.String("root_cert: ", string(certPEMBlock)))
+	zap.L().Debug("SDS Server: BEFORE root cert", zap.String("root_cert", string(certPEMBlock)))
 	//rootCert := []*x509.Certificate{}
 	var certChain tls.Certificate
 	//certPEMBlock := []byte(rootcaBundle)
@@ -640,13 +639,13 @@ func getTopRootCa(certPEMBlock []byte) ([]byte, error) {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}
 	}
-	zap.L().Debug("SDS Server: the root ca is:", zap.String("cert: ", string(certChain.Certificate[len(certChain.Certificate)-1])))
+	zap.L().Debug("SDS Server: the root ca", zap.String("cert", string(certChain.Certificate[len(certChain.Certificate)-1])))
 	x509Cert, err := x509.ParseCertificate(certChain.Certificate[len(certChain.Certificate)-1])
 	if err != nil {
 		panic(err)
 	}
 	by, _ := x509CertToPem(x509Cert)
-	zap.L().Debug("SDS Server: After building the cert chain: ", zap.String("rootCert: ", string(by)))
+	zap.L().Debug("SDS Server: After building the cert chain", zap.String("rootCert", string(by)))
 	return x509CertToPem(x509Cert)
 }
 

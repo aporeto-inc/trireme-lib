@@ -3,8 +3,8 @@ package registerer
 import (
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/processor"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/processor"
 )
 
 // registerer provides a way for others to register a registerer

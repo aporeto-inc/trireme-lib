@@ -10,21 +10,21 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/processmon"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/processmon"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +37,7 @@ type ProxyInfo struct {
 	validity               time.Duration
 	prochdl                processmon.ProcessManager
 	rpchdl                 rpcwrapper.RPCClient
-	filterQueue            *fqconfig.FilterQueue
+	filterQueue            fqconfig.FilterQueue
 	commandArg             string
 	statsServerSecret      string
 	procMountPoint         string
@@ -48,12 +48,14 @@ type ProxyInfo struct {
 	binaryTokens           bool
 	isBPFEnabled           bool
 	ipv6Enabled            bool
+	serviceMeshType        policy.ServiceMesh
 	rpcServer              rpcwrapper.RPCServer
+	iptablesLockfile       string
 	sync.RWMutex
 }
 
 // Enforce method makes a RPC call for the remote enforcer enforce method
-func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (s *ProxyInfo) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
 
 	initEnforcer, err := s.prochdl.LaunchRemoteEnforcer(
 		contextID,
@@ -69,9 +71,12 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return err
 	}
 
-	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID),
-		zap.Reflect("Policy Object", puInfo))
+	zap.L().Debug("Called enforce and launched remote process", zap.String("contextID", contextID),
+		zap.String("enforcer type", puInfo.Policy.EnforcerType().String()),
+		zap.String("serviceMeshType", puInfo.Runtime.ServiceMeshType.String()),
+		zap.String("name", puInfo.Runtime.Name()))
 
+	s.serviceMeshType = puInfo.Runtime.ServiceMeshType
 	if initEnforcer {
 		if err := s.initRemoteEnforcer(contextID); err != nil {
 			s.prochdl.KillRemoteEnforcer(contextID, true) // nolint errcheck
@@ -86,7 +91,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
 	s.RLock()
-	enforcerPayload.Secrets = s.Secrets.PublicSecrets()
+	enforcerPayload.Secrets = s.Secrets.RPCSecrets()
 	s.RUnlock()
 	request := &rpcwrapper.Request{
 		Payload: enforcerPayload,
@@ -101,7 +106,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 }
 
 // Unenforce stops enforcing policy for the given contextID.
-func (s *ProxyInfo) Unenforce(contextID string) error {
+func (s *ProxyInfo) Unenforce(ctx context.Context, contextID string) error {
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.UnEnforcePayload{
@@ -127,7 +132,7 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.UpdateSecretsPayload{
-			Secrets: s.Secrets.PublicSecrets(),
+			Secrets: s.Secrets.RPCSecrets(),
 		},
 	}
 
@@ -199,7 +204,21 @@ func (s *ProxyInfo) CleanUp() error {
 				}
 				synch.Lock()
 				lenCids = lenCids - 1
-				zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
+				m := 0
+				switch {
+				case lenCids >= 500:
+					m = 250
+				case lenCids >= 100:
+					m = 100
+				case lenCids >= 10:
+					m = 10
+				default:
+					m = 1
+				}
+
+				if lenCids%m == 0 {
+					zap.L().Info(strconv.Itoa(lenCids) + " remote enforcers waiting to be exited")
+				}
 				synch.Unlock()
 				wg.Done()
 			}
@@ -288,8 +307,13 @@ func (s *ProxyInfo) GetBPFObject() ebpf.BPFModule {
 	return nil
 }
 
+// GetServiceMeshType is unimplemented in the envoy authorizer
+func (s *ProxyInfo) GetServiceMeshType() policy.ServiceMesh {
+	return policy.None
+}
+
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
+func (s *ProxyInfo) GetFilterQueue() fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
@@ -301,6 +325,7 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 		collector:   s.collector,
 		secret:      s.statsServerSecret,
 		tokenIssuer: s.tokenIssuer,
+		ctx:         ctx,
 	}
 
 	// Start the server for statistics collection.
@@ -328,6 +353,32 @@ func (s *ProxyInfo) Ping(ctx context.Context, contextID string, pingConfig *poli
 	return nil
 }
 
+// DebugCollect tells remote enforcer to start collecting debug info (pcap or misc commands).
+// It does not wait for pcap collection to complete: the pid of tcpdump is returned.
+// If another command is meant to be executed in remote enforcer, it should be quick, and its output is returned.
+func (s *ProxyInfo) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
+	resp := &rpcwrapper.Response{}
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.DebugCollectPayload{
+			ContextID:    contextID,
+			PcapFilePath: debugConfig.FilePath,
+			PcapFilter:   debugConfig.PcapFilter,
+			CommandExec:  debugConfig.CommandExec,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.DebugCollect, request, resp); err != nil {
+		return fmt.Errorf("unable to run debug collect %s -- %s", err, resp.Status)
+	}
+
+	responsePayload := resp.Payload.(rpcwrapper.DebugCollectResponsePayload)
+	debugConfig.PID = responsePayload.PID
+	debugConfig.CommandOutput = responsePayload.CommandOutput
+
+	return nil
+}
+
 // initRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 
@@ -335,17 +386,18 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
-			FqConfig:               s.filterQueue,
 			MutualAuth:             s.mutualAuth,
 			Validity:               s.validity,
 			ServerID:               s.serverID,
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 			PacketLogs:             s.packetLogs,
-			Secrets:                s.Secrets.PublicSecrets(),
+			Secrets:                s.Secrets.RPCSecrets(),
 			Configuration:          s.cfg,
 			BinaryTokens:           s.binaryTokens,
 			IsBPFEnabled:           s.isBPFEnabled,
+			ServiceMeshType:        s.serviceMeshType,
 			IPv6Enabled:            s.ipv6Enabled,
+			IPTablesLockfile:       s.iptablesLockfile,
 		},
 	}
 
@@ -354,8 +406,9 @@ func (s *ProxyInfo) initRemoteEnforcer(contextID string) error {
 
 // NewProxyEnforcer creates a new proxy to remote enforcers.
 func NewProxyEnforcer(
+	ctx context.Context,
 	mutualAuth bool,
-	filterQueue *fqconfig.FilterQueue,
+	filterQueue fqconfig.FilterQueue,
 	collector collector.EventCollector,
 	secrets secrets.Secrets,
 	serverID string,
@@ -368,9 +421,9 @@ func NewProxyEnforcer(
 	runtimeError chan *policy.RuntimeError,
 	remoteParameters *env.RemoteParameters,
 	tokenIssuer common.ServiceTokenIssuer,
-	binaryTokens bool,
 	isBPFEnabled bool,
 	ipv6Enabled bool,
+	iptablesLockfile string,
 	rpcServer rpcwrapper.RPCServer,
 ) enforcer.Enforcer {
 
@@ -389,7 +442,7 @@ func NewProxyEnforcer(
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.New(context.Background(), remoteParameters, runtimeError, rpcClient),
+		prochdl:                processmon.New(ctx, remoteParameters, runtimeError, rpcClient, filterQueue.GetNumQueues()),
 		rpchdl:                 rpcClient,
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,
@@ -400,9 +453,9 @@ func NewProxyEnforcer(
 		collector:              collector,
 		cfg:                    cfg,
 		tokenIssuer:            tokenIssuer,
-		binaryTokens:           binaryTokens,
 		isBPFEnabled:           isBPFEnabled,
 		ipv6Enabled:            ipv6Enabled,
+		iptablesLockfile:       iptablesLockfile,
 		rpcServer:              rpcServer,
 	}
 }

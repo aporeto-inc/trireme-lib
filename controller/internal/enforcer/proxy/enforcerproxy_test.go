@@ -8,19 +8,20 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/processmon/mockprocessmon"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/testhelper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 const procMountPoint = "/proc"
@@ -84,7 +85,7 @@ func eventCollector() collector.EventCollector {
 
 func secretGen() secrets.Secrets {
 
-	_, newSecret, _ := secrets.CreateCompactPKITestSecrets()
+	_, newSecret, _ := testhelper.NewTestCompactPKISecrets()
 	return newSecret
 }
 
@@ -112,7 +113,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{}, policy.EnforcerMapping)
+	plc := policy.NewPUPolicy("testServerID", "/ns1", policy.Police, rules, rules, nil, nil, nil, nil, nil, nil, ips, 0, 0, nil, nil, []string{}, policy.EnforcerMapping, policy.Reject|policy.Log, policy.Reject|policy.Log)
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 
@@ -120,16 +121,21 @@ func createPUInfo() *policy.PUInfo {
 
 func setupProxyEnforcer() enforcer.Enforcer {
 	mutualAuthorization := false
-	fqConfig := fqconfig.NewFilterQueueWithDefaults()
 	defaultExternalIPCacheTimeout := time.Second * 40
-	validity := constants.DatapathTokenValidity
+
+	fqConfig := fqconfig.NewFilterQueue(
+		1,
+		[]string{},
+	)
+
 	policyEnf := NewProxyEnforcer(
+		context.Background(),
 		mutualAuthorization,
 		fqConfig,
 		eventCollector(),
 		secretGen(),
 		"testServerID",
-		validity,
+		10*time.Minute,
 		constants.DefaultRemoteArg,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
@@ -140,7 +146,7 @@ func setupProxyEnforcer() enforcer.Enforcer {
 		nil,
 		false,
 		false,
-		false,
+		"",
 		rpcwrapper.NewRPCServer(),
 	)
 	return policyEnf
@@ -200,7 +206,7 @@ func TestEnforce(t *testing.T) {
 
 		Convey("When launching the remote fails, it should error", func() {
 			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("error"))
-			err := e.Enforce("pu", pu)
+			err := e.Enforce(context.Background(), "pu", pu)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -208,14 +214,14 @@ func TestEnforce(t *testing.T) {
 			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
-			err := e.Enforce("pu", pu)
+			err := e.Enforce(context.Background(), "pu", pu)
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("When launching the remote succeeds, and init is false, and rpc succeeds, it should work", func() {
 			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
-			err := e.Enforce("pu", pu)
+			err := e.Enforce(context.Background(), "pu", pu)
 			So(err, ShouldBeNil)
 		})
 
@@ -223,7 +229,7 @@ func TestEnforce(t *testing.T) {
 			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("pu", true)
-			err := e.Enforce("pu", pu)
+			err := e.Enforce(context.Background(), "pu", pu)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -231,7 +237,7 @@ func TestEnforce(t *testing.T) {
 			prochdl.EXPECT().LaunchRemoteEnforcer("pu", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			rpchdl.EXPECT().RemoteCall("pu", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Return(nil)
-			err := e.Enforce("pu", pu)
+			err := e.Enforce(context.Background(), "pu", pu)
 			So(err, ShouldBeNil)
 		})
 	})
@@ -252,14 +258,14 @@ func TestUnenforce(t *testing.T) {
 		Convey("When I try to call unenforce", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Unenforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			prochdl.EXPECT().KillRemoteEnforcer("testServerID", true)
-			err := e.Unenforce("testServerID")
+			err := e.Unenforce(context.Background(), "testServerID")
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I try to call unenforce and there is a failure", func() {
 			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Unenforce, gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("error"))
 			prochdl.EXPECT().KillRemoteEnforcer("testServerID", true)
-			err := e.Unenforce("testServerID")
+			err := e.Unenforce(context.Background(), "testServerID")
 
 			Convey("Then I should not get an error", func() {
 				So(err, ShouldBeNil)
@@ -444,6 +450,7 @@ func TestPostReportEvent(t *testing.T) {
 		rpchdl:    rpchdl,
 		collector: c,
 		secret:    "test",
+		ctx:       context.Background(),
 	}
 	response := &rpcwrapper.Response{}
 

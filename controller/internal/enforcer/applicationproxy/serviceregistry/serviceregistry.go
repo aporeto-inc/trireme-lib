@@ -6,14 +6,14 @@ import (
 	"net"
 	"sync"
 
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/auth"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/urisearch"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.aporeto.io/tg/tglib"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
-	"go.aporeto.io/trireme-lib/controller/pkg/auth"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
-	"go.aporeto.io/trireme-lib/policy"
 )
 
 // ServiceContext includes all the all the service related information
@@ -25,6 +25,7 @@ type ServiceContext struct {
 	PUContext *pucontext.PUContext
 	RootCA    [][]byte
 
+	// Dependent Services are services that are consumed by the PU.
 	// The dependent service cache is only accessible internally,
 	// so that all types are properly converted.
 	dependentServiceCache *servicecache.ServiceCache
@@ -66,12 +67,14 @@ type Registry struct {
 	sync.Mutex
 }
 
-// NewServiceRegistry creates and initializes the registry.
-func NewServiceRegistry() *Registry {
-	return &Registry{
-		indexByName: map[string]*ServiceContext{},
-		indexByPort: servicecache.NewTable(),
-	}
+var instance = Registry{
+	indexByName: map[string]*ServiceContext{},
+	indexByPort: servicecache.NewTable(),
+}
+
+//Instance returns the service registry instance
+func Instance() *Registry {
+	return &instance
 }
 
 // Register registers a new service with the registry. If the service
@@ -170,9 +173,9 @@ func (r *Registry) RetrieveExposedServiceContext(ip net.IP, port int, host strin
 	return portContext, nil
 }
 
-// RetrieveServiceDataByIDAndNetwork will return the service data that match the given
+// RetrieveDependentServiceDataByIDAndNetwork will return the service data that match the given
 // PU and the given IP/port information.
-func (r *Registry) RetrieveServiceDataByIDAndNetwork(id string, ip net.IP, port int, host string) (*ServiceContext, *DependentServiceData, error) {
+func (r *Registry) RetrieveDependentServiceDataByIDAndNetwork(id string, ip net.IP, port int, host string) (*ServiceContext, *DependentServiceData, error) {
 	sctx, err := r.RetrieveServiceByID(id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Services for PU %s not found: %s", id, err)
@@ -242,7 +245,7 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 		return fmt.Errorf("Possible port overlap: %s", err)
 	}
 
-	if service.Type == policy.ServiceHTTP && service.PublicNetworkInfo != nil {
+	if service.PublicNetworkInfo != nil {
 		if err := r.indexByPort.Add(
 			service.PublicNetworkInfo,
 			sctx.PU.ContextID,
@@ -250,7 +253,7 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 				ID:                 sctx.PU.ContextID,
 				Service:            service,
 				TargetPort:         int(port),
-				Type:               serviceTypeToNetworkListenerType(service.Type, service.PublicServiceNoTLS),
+				Type:               serviceTypeToNetworkListenerType(service.Type, service.PublicServiceTLSType == policy.ServiceTLSTypeNone),
 				Authorizer:         authProcessor,
 				ClientTrustedRoots: clientCAs,
 				PUContext:          sctx.PUContext,
@@ -264,33 +267,56 @@ func (r *Registry) updateExposedPortAssociations(sctx *ServiceContext, service *
 	return nil
 }
 
-// updateDependentServices will update all the information in the
+func updateDependentService(service *policy.ApplicationService, sctx *ServiceContext) error {
+
+	if len(service.CACert) != 0 {
+		sctx.RootCA = append(sctx.RootCA, service.CACert)
+	}
+
+	serviceData := &DependentServiceData{
+		ServiceType:   serviceTypeToApplicationListenerType(service.Type),
+		ServiceObject: service,
+	}
+	if service.Type == policy.ServiceHTTP {
+		serviceData.APICache = urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
+	}
+
+	if err := sctx.dependentServiceCache.Add(
+		service.NetworkInfo,
+		sctx.PU.ContextID,
+		serviceData,
+		false,
+	); err != nil {
+		return fmt.Errorf("Possible overlap in dependent services: %s", err)
+	}
+
+	return nil
+}
+
+// UpdateDependentServicesByID will the dependent services for the ID
+func (r *Registry) UpdateDependentServicesByID(id string) error {
+
+	sctx, err := r.RetrieveServiceByID(id)
+	if err != nil {
+		return fmt.Errorf("Services for PU %s not found: %s", id, err)
+	}
+
+	r.Lock()
+	sctx.dependentServiceCache = servicecache.NewTable()
+	err = r.updateDependentServices(sctx)
+	r.Unlock()
+
+	return err
+}
+
+// updateDependentService will update all the information in the
 // ServiceContext for the dependent services.
 func (r *Registry) updateDependentServices(sctx *ServiceContext) error {
 
 	for _, service := range sctx.PU.Policy.DependentServices() {
-
-		if len(service.CACert) != 0 {
-			sctx.RootCA = append(sctx.RootCA, service.CACert)
+		if err := updateDependentService(service, sctx); err != nil {
+			return err
 		}
-
-		serviceData := &DependentServiceData{
-			ServiceType:   serviceTypeToApplicationListenerType(service.Type),
-			ServiceObject: service,
-		}
-		if service.Type == policy.ServiceHTTP {
-			serviceData.APICache = urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
-		}
-
-		if err := sctx.dependentServiceCache.Add(
-			service.NetworkInfo,
-			sctx.PU.ContextID,
-			serviceData,
-			false,
-		); err != nil {
-			return fmt.Errorf("Possible overlap in dependent services: %s", err)
-		}
-
 	}
 
 	return nil

@@ -1,8 +1,8 @@
 package registerer
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/processor"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/processor"
 )
 
 // Registerer inteface allows event processors to register themselves with the event server.

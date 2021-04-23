@@ -12,9 +12,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/processor/mockprocessor"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/processor/mockprocessor"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
 )
 
 func TestNewEventServer(t *testing.T) {
@@ -124,17 +124,6 @@ func TestValidateTypes(t *testing.T) {
 
 			err := validateTypes(event)
 			So(err, ShouldBeNil)
-		})
-
-		Convey("If the event name has utf8 charaters and it is UIDPAM PU, it should error.", func() {
-			event := &common.EventInfo{
-				EventType: common.EventStart,
-				PUType:    common.UIDLoginPU,
-				Name:      "utf8-_!@#%&\" (*)+.,/$!:;<>=?{}~",
-			}
-
-			err := validateTypes(event)
-			So(err, ShouldNotBeNil)
 		})
 
 		Convey("If the cgroup has bad charaters, it should error.", func() {

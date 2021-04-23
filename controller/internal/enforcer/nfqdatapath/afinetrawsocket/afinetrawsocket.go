@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
 )
 
 type socketv4 struct {
@@ -27,10 +27,6 @@ type rawsocket struct {
 	insockv6 *socketv6
 }
 
-// PacketMetadata is platform-specific data about the packet
-type PacketMetadata struct {
-}
-
 const (
 	// RawSocketMark is the mark asserted on all packet sent out of this socket
 	RawSocketMark = 0x63
@@ -44,7 +40,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
+	WriteSocket(buf []byte, version packet.IPver, data packet.PlatformMetadata) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -60,17 +56,17 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option SO_MARK", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 0); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option IP_HDRINCL", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DONT); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option IP_PMTUDISC_DONT", err)
 		}
 
@@ -90,17 +86,17 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option SO_MARK", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IP_HDRINCL, 0); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option IP_HDRINCL", err)
 		}
 
 		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER, syscall.IPV6_PMTUDISC_DONT); err != nil {
-			syscall.Close(fd) // nolint
+			syscall.Close(fd) // nolint: errcheck
 			return nil, fmt.Errorf("received error %s while setting socket Option IP_PMTUDISC_DONT ipv6", err)
 		}
 
@@ -128,7 +124,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	}, nil
 }
 
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data packet.PlatformMetadata) error {
 	// copy the dest addr
 	if version == packet.V4 {
 		copy(sock.insockv4.insock.Addr[:], buf[16:20])

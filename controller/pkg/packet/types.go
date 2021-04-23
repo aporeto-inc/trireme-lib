@@ -160,9 +160,6 @@ type iphdr struct {
 }
 
 type tcphdr struct {
-	tcpOptions []byte
-	tcpData    []byte
-
 	sourcePort      uint16
 	destinationPort uint16
 
@@ -178,7 +175,18 @@ type udphdr struct {
 	sourcePort      uint16
 	destinationPort uint16
 	udpChecksum     uint16
+	udpLength       uint16
 	udpData         []byte
+}
+
+type icmphdr struct {
+	icmpType int8
+	icmpCode int8
+}
+
+// PlatformMetadata structure
+type PlatformMetadata interface {
+	Clone() PlatformMetadata
 }
 
 //Packet structure
@@ -187,16 +195,17 @@ type Packet struct {
 	context uint64
 
 	// Mark is the nfqueue Mark
-	Mark string
-
-	ipHdr      iphdr
-	tcpHdr     tcphdr
-	udpHdr     udphdr
-	l4flowhash string
+	Mark        string
+	SetConnmark bool
+	ipHdr       iphdr
+	tcpHdr      tcphdr
+	udpHdr      udphdr
+	icmpHdr     icmphdr
+	l4flowhash  string
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata
 	ConnectionMetadata interface{}
 	// Platform Metadata (needed for Windows)
-	PlatformMetadata interface{}
+	PlatformMetadata PlatformMetadata
 }

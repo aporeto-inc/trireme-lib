@@ -21,6 +21,8 @@ type IptablesProvider interface {
 	Commit() error
 	// RetrieveTable allows a caller to retrieve the final table.
 	RetrieveTable() map[string]map[string][]string
+	// ResetRules resets the rules to a state where rules with the substring subs are removed
+	ResetRules(subs string) error
 }
 
 // BaseIPTables is the base interface of iptables functions.
@@ -39,6 +41,8 @@ type BaseIPTables interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
+	// ListRules lists the rules in the table/chain passed to it
+	ListRules(table, chain string) ([]string, error)
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -50,10 +54,12 @@ type BatchProvider struct {
 	batchTables map[string]bool
 
 	// Allowing for custom commit functions for testing
-	commitFunc func(buf *bytes.Buffer) error
+	commitFunc  func(buf *bytes.Buffer) error
+	customChain string
 	sync.Mutex
 	cmd        string
 	restoreCmd string
+	saveCmd    string
 	quote      bool
 }
 
@@ -62,20 +68,20 @@ const (
 	cmdV6        = "ip6tables --wait"
 	restoreCmdV4 = "iptables-restore"
 	restoreCmdV6 = "ip6tables-restore"
+	saveCmdV4    = "iptables-save"
+	saveCmdV6    = "ip6tables-save"
 )
 
 // TestIptablesPinned returns error if the kernel doesn't support bpf pinning in iptables
 func TestIptablesPinned(bpf string) error {
 	cmd := exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -I OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
-	_, err := cmd.CombinedOutput()
-	if err != nil {
+	if _, err := cmd.CombinedOutput(); err != nil {
 		return err
 	}
 
 	cmd = exec.Command("aporeto-iptables", strings.Fields("iptables --wait -t mangle -D OUTPUT -m bpf --object-pinned "+bpf+" -j LOG")...)
-	_, err = cmd.CombinedOutput()
-	if err != nil {
-		zap.L().Error("Error removing rule")
+	if _, err := cmd.CombinedOutput(); err != nil {
+		zap.L().Error("Error removing rule", zap.Error(err))
 	}
 
 	return nil
@@ -83,7 +89,7 @@ func TestIptablesPinned(bpf string) error {
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string, customChain string) (IptablesProvider, error) {
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {
@@ -95,6 +101,8 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
 		restoreCmd:  restoreCmdV4,
+		saveCmd:     saveCmdV4,
+		customChain: customChain,
 		quote:       true,
 	}
 
@@ -105,7 +113,7 @@ func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string, customChain string) (IptablesProvider, error) {
 
 	batchTablesMap := map[string]bool{}
 	for _, t := range batchTables {
@@ -116,7 +124,9 @@ func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
 		cmd:         cmdV6,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
+		customChain: customChain,
 		restoreCmd:  restoreCmdV6,
+		saveCmd:     saveCmdV6,
 		quote:       true,
 	}
 
@@ -160,6 +170,10 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	b.Lock()
 	defer b.Unlock()
 
+	if len(rulespec) == 0 {
+		return nil
+	}
+
 	if _, ok := b.batchTables[table]; !ok {
 		cmd := createIPtablesCommand(b.cmd, table, chain, "-A", rulespec...)
 		execCmd := exec.Command("aporeto-iptables", cmd...)
@@ -183,6 +197,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 
 	rule := strings.Join(rulespec, " ")
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
+
 	return nil
 }
 
@@ -458,6 +473,8 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 				}
 			}
 		}
+		customChainRules, _ := b.saveCustomChainRules()
+		fmt.Fprintf(buf, "%s\n", customChainRules.String())
 		if _, err := fmt.Fprintf(buf, "COMMIT\n"); err != nil {
 			return nil, err
 		}
@@ -489,6 +506,87 @@ func (b *BatchProvider) quoteRulesSpec(rulesspec []string) {
 	}
 
 	for i, rule := range rulesspec {
+		if len(rulesspec[i]) > 0 && rulesspec[i][0] == '"' {
+			continue
+		}
+
 		rulesspec[i] = fmt.Sprintf("\"%s\"", rule)
 	}
+}
+
+// ResetRules resets the rules to the original form.
+// It is implemented as "iptables-save | grep "-v" subs | iptables-restore"
+func (b *BatchProvider) ResetRules(subs string) error {
+
+	var out []byte
+	var err error
+
+	cmd := exec.Command("aporeto-iptables", b.saveCmd)
+	if out, err = cmd.CombinedOutput(); err != nil {
+		zap.L().Error("Failed to get iptables-save command", zap.Error(err),
+			zap.String("Output", string(out)))
+		return err
+	}
+
+	s := string(out)
+	rules := strings.Split(s, "\n")
+
+	var filterRules []string
+
+	for _, rule := range rules {
+		if !strings.Contains(rule, subs) {
+			filterRules = append(filterRules, rule)
+		}
+	}
+
+	combineRules := strings.Join(filterRules, "\n")
+	buf := bytes.NewBufferString(combineRules)
+
+	return b.commitFunc(buf)
+}
+
+func (b *BatchProvider) saveCustomChainRules() (*bytes.Buffer, error) {
+	var out []byte
+	var err error
+
+	cmd := exec.Command("aporeto-iptables", b.saveCmd)
+	if out, err = cmd.CombinedOutput(); err != nil {
+		zap.L().Error("Failed to get iptables-save command", zap.Error(err),
+			zap.String("Output", string(out)))
+		return nil, err
+	}
+
+	s := string(out)
+	rules := strings.Split(s, "\n")
+
+	var filterRules []string
+
+	for _, rule := range rules {
+		if strings.Contains(rule, b.customChain) {
+			filterRules = append(filterRules, rule)
+		}
+	}
+
+	combineRules := strings.Join(filterRules, "\n")
+	return bytes.NewBufferString(combineRules), nil
+
+}
+
+// ListRules lists the rules in the table/chain passed to it
+func (b *BatchProvider) ListRules(table, chain string) ([]string, error) {
+	var cmd *exec.Cmd
+
+	if chain != "" {
+		cmd = exec.Command("aporeto-iptables", "iptables", "--wait", "-t", table, "-L", chain)
+	} else {
+		cmd = exec.Command("aporeto-iptables", "iptables", "-wait", "-t", table, "-L")
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		zap.L().Error("Failed to get rules", zap.Error(err), zap.String("table", table), zap.String("chain", chain))
+		return []string{}, err
+	}
+	rules := strings.Split(string(out), "\n")
+	return rules, nil
+
 }

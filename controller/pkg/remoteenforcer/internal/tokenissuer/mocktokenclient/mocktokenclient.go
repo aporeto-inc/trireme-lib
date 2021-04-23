@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	common "go.aporeto.io/trireme-lib/common"
+	common "go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 // MockTokenClient is a mock of TokenClient interface

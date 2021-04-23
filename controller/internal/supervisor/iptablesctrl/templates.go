@@ -11,11 +11,13 @@ import (
 	"strings"
 	"text/template"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/constants"
+	"github.com/kballard/go-shellquote"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	cconstants "go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/constants"
 )
 
 func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]string, error) {
@@ -26,12 +28,19 @@ func extractRulesFromTemplate(tmpl *template.Template, data interface{}) ([][]st
 	}
 
 	rules := [][]string{}
+
 	for _, m := range strings.Split(buffer.String(), "\n") {
-		rule := strings.Fields(m)
+
+		rule, err := shellquote.Split(m)
+		if err != nil {
+			return [][]string{}, err
+		}
+
 		// ignore empty lines in the buffer
 		if len(rule) <= 1 {
 			continue
 		}
+
 		rules = append(rules, rule)
 	}
 	return rules, nil
@@ -52,12 +61,12 @@ type ACLInfo struct {
 	BPFPath             string
 	HostInput           string
 	HostOutput          string
+	NfqueueOutput       string
+	NfqueueInput        string
 	NetworkSvcInput     string
 	NetworkSvcOutput    string
 	TriremeInput        string
 	TriremeOutput       string
-	UIDInput            string
-	UIDOutput           string
 	NatProxyNetChain    string
 	NatProxyAppChain    string
 	MangleProxyNetChain string
@@ -69,35 +78,25 @@ type ACLInfo struct {
 	AppSection string
 	NetSection string
 
+	// serviceMesh chains
+	IstioChain string
+
 	// common info
 	DefaultConnmark         string
+	DefaultDropConnmark     string
 	DefaultExternalConnmark string
-	QueueBalanceAppSyn      string
-	QueueBalanceAppSynAck   string
-	QueueBalanceAppAck      string
-	QueueBalanceNetSyn      string
-	QueueBalanceNetSynAck   string
-	QueueBalanceNetAck      string
+	PacketMarkToSetConnmark string
+	DefaultInputMark        string
+	DefaultHandShakeMark    string
 
-	InitialMarkVal  string
 	RawSocketMark   string
 	TargetTCPNetSet string
 	TargetUDPNetSet string
 	ExclusionsSet   string
 	IpsetPrefix     string
-	NetSynQueues    []uint32
-	NetAckQueues    []uint32
-	NetSynAckQueues []uint32
-	AppSynQueues    []uint32
-	AppSynAckQueues []uint32
-	AppAckQueues    []uint32
-	QueueMask       string
-	MarkMask        string
-	HMarkRandomSeed string
 	// IPv4 IPv6
-	DefaultIP      string
-	needICMPRules  bool
-	IsLegacyKernel bool
+	DefaultIP     string
+	needICMPRules bool
 
 	// UDP rules
 	Numpackets   string
@@ -118,16 +117,26 @@ type ACLInfo struct {
 	CgroupMark    string
 	ProxyMark     string
 	AuthPhaseMark string
-	ProxySetName  string
 
-	// UID PUs
-	PacketMark             string
-	Mark                   string
-	UID                    string
-	PortSet                string
-	NFLOGPrefix            string
-	NFLOGAcceptPrefix      string
-	DefaultNFLOGDropPrefix string
+	PacketMark string
+	Mark       string
+	PortSet    string
+
+	AppNFLOGPrefix              string
+	AppNFLOGDropPacketLogPrefix string
+	AppDefaultAction            string
+
+	NetNFLOGPrefix              string
+	NetNFLOGDropPacketLogPrefix string
+	NetDefaultAction            string
+
+	NFQueues    []int
+	NumNFQueues int
+	// icmpv6 allow bytecode
+	ICMPv6Allow string
+
+	// Istio Iptable rules
+	IstioEnabled bool
 }
 
 func chainName(contextID string, version int) (app, net string, err error) {
@@ -150,11 +159,12 @@ func chainName(contextID string, version int) (app, net string, err error) {
 }
 
 func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, puType common.PUType) (*ACLInfo, error) {
-
 	var appChain, netChain string
 	var err error
+	var nfqueues []int
 
-	ipsetPrefix := i.impl.GetIPSetPrefix()
+	numQueues := i.fqc.GetNumQueues()
+
 	ipFilter := i.impl.IPFilter()
 
 	if contextID != "" {
@@ -165,7 +175,7 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 	}
 
 	parseDNSServerIP := func() string {
-		for _, ipString := range i.fqc.DNSServerAddress {
+		for _, ipString := range i.fqc.GetDNSServerAddresses() {
 			if ip := net.ParseIP(ipString); ip != nil {
 				if ipFilter(ip) {
 					return ipString
@@ -183,31 +193,30 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		return ""
 	}
 
-	var tcpPorts, udpPorts string
-	var servicePort, mark, uid, dnsProxyPort, packetMark string
-	queueMask := "0x" + strconv.FormatUint(uint64(constants.NFQueueMask), 16)
-	markMask := "0x" + strconv.FormatUint(uint64(constants.NFSetMarkMask), 16)
+	appDefaultAction := policy.Reject | policy.Log
+	netDefaultAction := policy.Reject | policy.Log
 
-	hmarkRandomSeed := "0x" + strconv.FormatUint(uint64(constants.HMARKRandomSeed), 16)
+	var tcpPorts, udpPorts string
+	var servicePort, mark, dnsProxyPort, packetMark string
 	if p != nil {
 		tcpPorts, udpPorts = common.ConvertServicesToProtocolPortList(p.Runtime.Options().Services)
 		puType = p.Runtime.PUType()
 		servicePort = p.Policy.ServicesListeningPort()
 		dnsProxyPort = p.Policy.DNSProxyPort()
 		mark = p.Runtime.Options().CgroupMark
-		markIntVal, _ := strconv.Atoi(mark)
-		packetMark = strconv.Itoa(markIntVal << constants.MarkShift)
-		uid = p.Runtime.Options().UserID
+		packetMark = mark
+		appDefaultAction = p.Policy.AppDefaultPolicyAction()
+		netDefaultAction = p.Policy.NetDefaultPolicyAction()
 	}
 
-	proxyPrefix := ipsetPrefix + proxyPortSetPrefix
-	proxySetName := puPortSetName(contextID, proxyPrefix)
-	destSetName, srvSetName := i.getSetNames(proxySetName)
+	destSetName, srvSetName := i.ipsetmanager.GetProxySetNames(contextID)
+
+	tcpTargetSetName, udpTargetSetName, excludedNetworkSetName := i.ipsetmanager.GetIPsetNamesForTargetAndExcludedNetworks()
 
 	appSection := ""
 	netSection := ""
 	switch puType {
-	case common.LinuxProcessPU, common.SSHSessionPU:
+	case common.LinuxProcessPU, common.WindowsProcessPU:
 		appSection = TriremeOutput
 		netSection = TriremeInput
 	case common.HostNetworkPU:
@@ -221,7 +230,11 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		netSection = mainNetChain
 	}
 
-	portSetName := i.getPortSet(contextID)
+	portSetName := i.ipsetmanager.GetServerPortSetName(contextID)
+
+	for i := 0; i < numQueues; i++ {
+		nfqueues = append(nfqueues, i)
+	}
 
 	cfg := &ACLInfo{
 		ContextID: contextID,
@@ -233,12 +246,14 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		MainNetChain:        mainNetChain,
 		HostInput:           HostModeInput,
 		HostOutput:          HostModeOutput,
+		NfqueueOutput:       NfqueueOutput,
+		NfqueueInput:        NfqueueInput,
+		NFQueues:            nfqueues,
+		NumNFQueues:         numQueues,
 		NetworkSvcInput:     NetworkSvcInput,
 		NetworkSvcOutput:    NetworkSvcOutput,
 		TriremeInput:        TriremeInput,
 		TriremeOutput:       TriremeOutput,
-		UIDInput:            uidInput,
-		UIDOutput:           uidchain,
 		NatProxyNetChain:    natProxyInputChain,
 		NatProxyAppChain:    natProxyOutputChain,
 		MangleProxyNetChain: proxyInputChain,
@@ -249,32 +264,20 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		NetChain:   netChain,
 		AppSection: appSection,
 		NetSection: netSection,
+		IstioChain: istioChain,
 
 		// common info
 		DefaultConnmark:         strconv.Itoa(int(constants.DefaultConnMark)),
+		DefaultDropConnmark:     strconv.Itoa(int(constants.DropConnmark)),
 		DefaultExternalConnmark: strconv.Itoa(int(constants.DefaultExternalConnMark)),
-		QueueBalanceAppSyn:      i.fqc.GetApplicationQueueSynStr(),
-		QueueBalanceAppSynAck:   i.fqc.GetApplicationQueueSynAckStr(),
-		QueueBalanceAppAck:      i.fqc.GetApplicationQueueAckStr(),
-		QueueBalanceNetSyn:      i.fqc.GetNetworkQueueSynStr(),
-		QueueBalanceNetSynAck:   i.fqc.GetNetworkQueueSynAckStr(),
-		QueueBalanceNetAck:      i.fqc.GetNetworkQueueAckStr(),
-		NetSynQueues:            i.fqc.NetworkSynQueues,
-		NetAckQueues:            i.fqc.NetworkAckQueues,
-		NetSynAckQueues:         i.fqc.NetworkSynAckQueues,
-		AppSynQueues:            i.fqc.ApplicationSynQueues,
-		AppSynAckQueues:         i.fqc.ApplicationSynAckQueues,
-		AppAckQueues:            i.fqc.ApplicationAckQueues,
-		InitialMarkVal:          strconv.Itoa((constants.Initialmarkval - 1) << constants.MarkShift),
+		PacketMarkToSetConnmark: strconv.Itoa(int(constants.PacketMarkToSetConnmark)),
+		DefaultInputMark:        strconv.Itoa(int(constants.DefaultInputMark)),
 		RawSocketMark:           strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		DefaultHandShakeMark:    strconv.Itoa(int(constants.HandshakeConnmark)),
 		CgroupMark:              mark,
-		TargetTCPNetSet:         ipsetPrefix + targetTCPNetworkSet,
-		TargetUDPNetSet:         ipsetPrefix + targetUDPNetworkSet,
-		ExclusionsSet:           ipsetPrefix + excludedNetworkSet,
-		IpsetPrefix:             ipsetPrefix,
-		QueueMask:               queueMask,
-		MarkMask:                markMask,
-		HMarkRandomSeed:         hmarkRandomSeed,
+		TargetTCPNetSet:         tcpTargetSetName,
+		TargetUDPNetSet:         udpTargetSetName,
+		ExclusionsSet:           excludedNetworkSetName,
 		// IPv4 vs IPv6
 		DefaultIP:     i.impl.GetDefaultIP(),
 		needICMPRules: i.impl.NeedICMP(),
@@ -295,20 +298,23 @@ func (i *iptables) newACLInfo(version int, contextID string, p *policy.PUInfo, p
 		ProxyPort:    servicePort,
 		DNSProxyPort: dnsProxyPort,
 		DNSServerIP:  parseDNSServerIP(),
-		ProxyMark:    proxyMark,
-		ProxySetName: proxySetName,
+		ProxyMark:    cconstants.ProxyMark,
 
-		// // UID PUs
-		UID:                    uid,
-		PacketMark:             packetMark,
-		Mark:                   mark,
-		PortSet:                portSetName,
-		IsLegacyKernel:         i.isLegacyKernel,
-		NFLOGPrefix:            policy.DefaultLogPrefix(contextID),
-		NFLOGAcceptPrefix:      policy.DefaultAcceptLogPrefix(contextID),
-		DefaultNFLOGDropPrefix: policy.DefaultDroppedPacketLogPrefix(contextID),
+		// PUs
+		PacketMark: packetMark,
+		Mark:       mark,
+		PortSet:    portSetName,
+
+		AppNFLOGPrefix:              policy.DefaultLogPrefix(contextID, appDefaultAction),
+		AppNFLOGDropPacketLogPrefix: policy.DefaultDropPacketLogPrefix(contextID),
+		AppDefaultAction:            policy.DefaultAction(appDefaultAction),
+
+		NetNFLOGPrefix:              policy.DefaultLogPrefix(contextID, netDefaultAction),
+		NetNFLOGDropPacketLogPrefix: policy.DefaultDropPacketLogPrefix(contextID),
+		NetDefaultAction:            policy.DefaultAction(netDefaultAction),
 	}
 
+	allowICMPv6(cfg)
 	if i.bpf != nil {
 		cfg.BPFPath = i.bpf.GetBPFPath()
 	}

@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	common "go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	common "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/common"
 )
 
 // MockVerifier is a mock of Verifier interface
