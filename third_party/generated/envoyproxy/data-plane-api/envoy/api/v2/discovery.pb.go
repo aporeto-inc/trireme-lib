@@ -79,7 +79,7 @@ func (m *DiscoveryRequest) XXX_Unmarshal(b []byte) error {
 }
 func (m *DiscoveryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
 }
 func (m *DiscoveryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +346,7 @@ func (m *DeltaDiscoveryRequest) XXX_Unmarshal(b []byte) error {
 }
 func (m *DeltaDiscoveryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +444,7 @@ func (m *DeltaDiscoveryResponse) XXX_Unmarshal(b []byte) error {
 }
 func (m *DeltaDiscoveryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +524,7 @@ func (m *Resource) XXX_Unmarshal(b []byte) error {
 }
 func (m *Resource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -876,7 +876,7 @@ func (this *Resource) Equal(that interface{}) bool {
 func (m *DiscoveryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -884,73 +884,80 @@ func (m *DiscoveryRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DiscoveryRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DiscoveryRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.VersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.VersionInfo)))
-		i += copy(dAtA[i:], m.VersionInfo)
-	}
-	if m.Node != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.Node.Size()))
-		n1, err1 := m.Node.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if len(m.ResourceNames) > 0 {
-		for _, s := range m.ResourceNames {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.ResponseNonce) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResponseNonce)))
-		i += copy(dAtA[i:], m.ResponseNonce)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.ErrorDetail != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n2, err2 := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		{
+			size, err := m.ErrorDetail.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ResponseNonce) > 0 {
+		i -= len(m.ResponseNonce)
+		copy(dAtA[i:], m.ResponseNonce)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResponseNonce)))
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.ResourceNames) > 0 {
+		for iNdEx := len(m.ResourceNames) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ResourceNames[iNdEx])
+			copy(dAtA[i:], m.ResourceNames[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResourceNames[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.Node != nil {
+		{
+			size, err := m.Node.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.VersionInfo) > 0 {
+		i -= len(m.VersionInfo)
+		copy(dAtA[i:], m.VersionInfo)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.VersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *DiscoveryResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -958,70 +965,83 @@ func (m *DiscoveryResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DiscoveryResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DiscoveryResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.VersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.VersionInfo)))
-		i += copy(dAtA[i:], m.VersionInfo)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Resources) > 0 {
-		for _, msg := range m.Resources {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.ControlPlane != nil {
+		{
+			size, err := m.ControlPlane.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.Nonce) > 0 {
+		i -= len(m.Nonce)
+		copy(dAtA[i:], m.Nonce)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Nonce)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.Canary {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.Canary {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.Nonce) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Nonce)))
-		i += copy(dAtA[i:], m.Nonce)
-	}
-	if m.ControlPlane != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.ControlPlane.Size()))
-		n3, err3 := m.ControlPlane.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+	if len(m.Resources) > 0 {
+		for iNdEx := len(m.Resources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Resources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintDiscovery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
 		}
-		i += n3
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.VersionInfo) > 0 {
+		i -= len(m.VersionInfo)
+		copy(dAtA[i:], m.VersionInfo)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.VersionInfo)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DeltaDiscoveryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1029,104 +1049,106 @@ func (m *DeltaDiscoveryRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeltaDiscoveryRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeltaDiscoveryRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Node != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.Node.Size()))
-		n4, err4 := m.Node.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.ResourceNamesSubscribe) > 0 {
-		for _, s := range m.ResourceNamesSubscribe {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+	if m.ErrorDetail != nil {
+		{
+			size, err := m.ErrorDetail.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x3a
 	}
-	if len(m.ResourceNamesUnsubscribe) > 0 {
-		for _, s := range m.ResourceNamesUnsubscribe {
-			dAtA[i] = 0x22
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if len(m.ResponseNonce) > 0 {
+		i -= len(m.ResponseNonce)
+		copy(dAtA[i:], m.ResponseNonce)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResponseNonce)))
+		i--
+		dAtA[i] = 0x32
 	}
 	if len(m.InitialResourceVersions) > 0 {
 		keysForInitialResourceVersions := make([]string, 0, len(m.InitialResourceVersions))
-		for k, _ := range m.InitialResourceVersions {
+		for k := range m.InitialResourceVersions {
 			keysForInitialResourceVersions = append(keysForInitialResourceVersions, string(k))
 		}
 		github_com_gogo_protobuf_sortkeys.Strings(keysForInitialResourceVersions)
-		for _, k := range keysForInitialResourceVersions {
-			dAtA[i] = 0x2a
-			i++
-			v := m.InitialResourceVersions[string(k)]
-			mapSize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
-			i = encodeVarintDiscovery(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+		for iNdEx := len(keysForInitialResourceVersions) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.InitialResourceVersions[string(keysForInitialResourceVersions[iNdEx])]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintDiscovery(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(keysForInitialResourceVersions[iNdEx])
+			copy(dAtA[i:], keysForInitialResourceVersions[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(keysForInitialResourceVersions[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintDiscovery(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
 		}
 	}
-	if len(m.ResponseNonce) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResponseNonce)))
-		i += copy(dAtA[i:], m.ResponseNonce)
-	}
-	if m.ErrorDetail != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n5, err5 := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+	if len(m.ResourceNamesUnsubscribe) > 0 {
+		for iNdEx := len(m.ResourceNamesUnsubscribe) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ResourceNamesUnsubscribe[iNdEx])
+			copy(dAtA[i:], m.ResourceNamesUnsubscribe[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResourceNamesUnsubscribe[iNdEx])))
+			i--
+			dAtA[i] = 0x22
 		}
-		i += n5
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ResourceNamesSubscribe) > 0 {
+		for iNdEx := len(m.ResourceNamesSubscribe) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ResourceNamesSubscribe[iNdEx])
+			copy(dAtA[i:], m.ResourceNamesSubscribe[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResourceNamesSubscribe[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Node != nil {
+		{
+			size, err := m.Node.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *DeltaDiscoveryResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1134,65 +1156,70 @@ func (m *DeltaDiscoveryResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeltaDiscoveryResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeltaDiscoveryResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SystemVersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemVersionInfo)))
-		i += copy(dAtA[i:], m.SystemVersionInfo)
-	}
-	if len(m.Resources) > 0 {
-		for _, msg := range m.Resources {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.Nonce) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Nonce)))
-		i += copy(dAtA[i:], m.Nonce)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.RemovedResources) > 0 {
-		for _, s := range m.RemovedResources {
+		for iNdEx := len(m.RemovedResources) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.RemovedResources[iNdEx])
+			copy(dAtA[i:], m.RemovedResources[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(m.RemovedResources[iNdEx])))
+			i--
 			dAtA[i] = 0x32
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Nonce) > 0 {
+		i -= len(m.Nonce)
+		copy(dAtA[i:], m.Nonce)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Nonce)))
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Resources) > 0 {
+		for iNdEx := len(m.Resources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Resources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintDiscovery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.SystemVersionInfo) > 0 {
+		i -= len(m.SystemVersionInfo)
+		copy(dAtA[i:], m.SystemVersionInfo)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1200,61 +1227,67 @@ func (m *Resource) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Version) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Version)))
-		i += copy(dAtA[i:], m.Version)
-	}
-	if m.Resource != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.Resource.Size()))
-		n6, err6 := m.Resource.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
-		}
-		i += n6
-	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Aliases) > 0 {
-		for _, s := range m.Aliases {
+		for iNdEx := len(m.Aliases) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Aliases[iNdEx])
+			copy(dAtA[i:], m.Aliases[iNdEx])
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Aliases[iNdEx])))
+			i--
 			dAtA[i] = 0x22
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if m.Resource != nil {
+		{
+			size, err := m.Resource.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Version) > 0 {
+		i -= len(m.Version)
+		copy(dAtA[i:], m.Version)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Version)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintDiscovery(dAtA []byte, offset int, v uint64) int {
+	offset -= sovDiscovery(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *DiscoveryRequest) Size() (n int) {
 	if m == nil {
