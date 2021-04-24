@@ -184,7 +184,7 @@ func (p *Config) GetClientCertificateFunc(*tls.CertificateRequestInfo) (*tls.Cer
 	if p.cert != nil {
 		cert, err := x509.ParseCertificate(p.cert.Certificate[0])
 		if err != nil {
-			zap.L().Error("http: Cannot build the cert chain")
+			zap.L().Error("http: Cannot parse the cert chain")
 		}
 		if cert != nil {
 			by, _ := x509CertToPem(cert)

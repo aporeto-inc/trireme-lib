@@ -142,6 +142,8 @@ func (e *Enforcer) Enforce(ctx context.Context, contextID string, puInfo *policy
 		sdsServer, err := envoyproxy.NewSdsServer(contextID, puInfo, caPool, e.secrets)
 		if err != nil {
 			zap.L().Error("Cannot create and run SdsServer", zap.Error(err))
+			ingressServer.Stop()
+			egressServer.Stop()
 			return err
 		}
 		// Add the EnvoyServers to our cache
