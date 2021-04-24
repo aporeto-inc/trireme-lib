@@ -157,6 +157,12 @@ func (d *Datapath) processDiagnosticNetSynPacket(
 	if ch.PingType() == claimsheader.PingTypeDefaultIdentityPassthrough {
 		zap.L().Debug("Processing diagnostic network syn packet: defaultpassthrough")
 
+		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+			return fmt.Errorf("unable to detach tcp syn payload: %v", err)
+		}
+
+		tcpPacket.DropTCPDetachedBytes()
+
 		tcpConn.PingConfig.Passthrough = true
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), tcpConn)
 		return nil
@@ -269,6 +275,13 @@ func (d *Datapath) processDiagnosticNetSynAckPacket(
 
 	if tcpConn.PingConfig.Type == claimsheader.PingTypeDefaultIdentityPassthrough {
 		zap.L().Debug("Processing diagnostic network synack packet: defaultpassthrough")
+
+		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+			return fmt.Errorf("unable to detach tcp synack payload: %v", err)
+		}
+
+		tcpPacket.DropTCPDetachedBytes()
+
 		tcpConn.PingConfig.Passthrough = true
 		return nil
 	}
