@@ -45,6 +45,8 @@ type BaseIPTables interface {
 	DeleteChain(table, chain string) error
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
+	// ListRules lists the rules in the table/chain passed to it
+	ListRules(table, chain string) ([]string, error)
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -52,13 +54,13 @@ type BatchProvider struct{}
 
 // NewGoIPTablesProviderV4 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV4(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV4(batchTables []string, customChain string) (IptablesProvider, error) {
 	return &BatchProvider{}, nil
 }
 
 // NewGoIPTablesProviderV6 returns an IptablesProvider interface based on the go-iptables
 // external package.
-func NewGoIPTablesProviderV6(batchTables []string) (IptablesProvider, error) {
+func NewGoIPTablesProviderV6(batchTables []string, customChain string) (IptablesProvider, error) {
 	return &BatchProvider{}, nil
 }
 
@@ -337,4 +339,10 @@ func (b *BatchProvider) RetrieveTable() map[string]map[string][]string {
 func (b *BatchProvider) ResetRules(subs string) error {
 	// does nothing
 	return nil
+}
+
+// ListRules lists the rules in the table/chain passed to it
+func (b *BatchProvider) ListRules(table, chain string) ([]string, error) {
+	// Unimplemented on windows
+	return []string{}, nil
 }

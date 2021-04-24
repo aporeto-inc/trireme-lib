@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -125,6 +126,66 @@ func (i *Instance) CleanUp() error {
 
 	if err := i.iptv6.CleanUp(); err != nil {
 		zap.L().Error("Failed to cleanup ipv6 rules")
+	}
+
+	return nil
+}
+
+// CreateCustomRulesChain creates a custom rules chain if it doesnt exist
+func (i *Instance) CreateCustomRulesChain() error {
+	nonbatchedv4tableprovider, _ := provider.NewGoIPTablesProviderV4([]string{}, CustomQOSChain)
+	nonbatchedv6tableprovider, _ := provider.NewGoIPTablesProviderV6([]string{}, CustomQOSChain)
+	err := nonbatchedv4tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
+
+	}
+	postroutingchainrulesv4, err := nonbatchedv4tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		return err
+	}
+	checkCustomRulesv4 := func() bool {
+		for _, rule := range postroutingchainrulesv4 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv4() {
+		if err := nonbatchedv4tableprovider.Insert(customQOSChainTable, customQOSChainNFHook, 1,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv4 custom rule", zap.Error(err))
+		}
+	}
+
+	err = nonbatchedv6tableprovider.NewChain(customQOSChainTable, CustomQOSChain)
+	if err != nil {
+		zap.L().Debug("Chain already exists", zap.Error(err))
+	}
+	postroutingchainrulesv6, err := nonbatchedv6tableprovider.ListRules(customQOSChainTable, customQOSChainNFHook)
+	if err != nil {
+		return err
+	}
+	checkCustomRulesv6 := func() bool {
+		for _, rule := range postroutingchainrulesv6 {
+			if strings.Contains(rule, CustomQOSChain) {
+				return true
+			}
+		}
+		return false
+	}
+	if !checkCustomRulesv6() {
+		if err := nonbatchedv6tableprovider.Append(customQOSChainTable, customQOSChainNFHook,
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
+			"-j", CustomQOSChain,
+		); err != nil {
+			zap.L().Debug("Unable to create ipv6 custom rule", zap.Error(err))
+		}
 	}
 
 	return nil

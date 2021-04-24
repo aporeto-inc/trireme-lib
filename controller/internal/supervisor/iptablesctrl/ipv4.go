@@ -30,7 +30,7 @@ func init() {
 // GetIPv4Impl creates the instance of ipv4 struct which implements the interface
 // ipImpl
 func GetIPv4Impl() (IPImpl, error) {
-	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"})
+	ipt, err := provider.NewGoIPTablesProviderV4([]string{"mangle"}, CustomQOSChain)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
@@ -108,4 +108,8 @@ func (i *ipv4) RetrieveTable() map[string]map[string][]string {
 
 func (i *ipv4) ResetRules(subs string) error {
 	return i.ipt.ResetRules(subs)
+}
+
+func (i *ipv4) ListRules(table, chain string) ([]string, error) {
+	return i.ipt.ListRules(table, chain)
 }

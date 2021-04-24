@@ -283,6 +283,7 @@ func TestStart(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -326,6 +327,7 @@ func TestStop(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -362,6 +364,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
