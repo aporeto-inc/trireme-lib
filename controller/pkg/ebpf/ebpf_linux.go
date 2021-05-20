@@ -13,9 +13,9 @@ import (
 
 	bpflib "github.com/iovisor/gobpf/elf"
 	"github.com/iovisor/gobpf/pkg/bpffs"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf/bpfbuild"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf/bpfbuild"
 	"go.uber.org/zap"
 )
 
@@ -46,12 +46,12 @@ func removeOldBPFFiles() {
 		return nil
 	}
 
-	filepath.Walk(bpfPath, removeFiles) //nolint
+	filepath.Walk(bpfPath, removeFiles) // nolint
 }
 
-// ISeBPFSupported is called once by the master enforcer to test if
+// IsEBPFSupported is called once by the master enforcer to test if
 // the system supports eBPF.
-func ISeBPFSupported() bool {
+func IsEBPFSupported() bool {
 
 	if err := bpffs.Mount(); err != nil {
 		zap.L().Info("bpf mount failed", zap.Error(err))
@@ -73,13 +73,15 @@ func ISeBPFSupported() bool {
 	return true
 }
 
-//LoadBPF loads the bpf object in the memory and also pins the bpf to the file system.
+// LoadBPF loads the bpf object in the memory and also pins the bpf to the file system.
 func LoadBPF() BPFModule {
 	bpf := &ebpfModule{}
 
 	bpf.bpfPath = bpfPath + bpfPrefix + strconv.Itoa(os.Getpid())
 	if err := os.Remove(bpf.bpfPath); err != nil {
-		zap.L().Debug("Failed to remove bpf file", zap.Error(err))
+		if !os.IsNotExist(err) {
+			zap.L().Debug("Failed to remove bpf file", zap.Error(err))
+		}
 	}
 
 	buf, err := bpfbuild.Asset("socket-filter-bpf.o")
@@ -92,8 +94,7 @@ func LoadBPF() BPFModule {
 	m := bpflib.NewModuleFromReader(reader)
 
 	if err := m.Load(nil); err != nil {
-		zap.L().Info("Failed to load BPF in kernel")
-		zap.L().Debug("BPF Load error:", zap.Error(err))
+		zap.L().Info("Failed to load BPF in kernel", zap.Error(err))
 		return nil
 	}
 

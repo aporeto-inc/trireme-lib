@@ -5,12 +5,22 @@ import (
 	"fmt"
 	"hash/fnv"
 	"net"
+	"strings"
 
 	"github.com/docker/go-connections/nat"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
+	"go.aporeto.io/gaia"
 	"go.uber.org/zap"
+)
+
+// Aporeto tag key and value constants
+const (
+	TagKeyController = "$controller"
+	TagKeyID         = "$id"
+	TagKeyIdentity   = "$identity"
+
+	TagValueProcessingUnit = "processingunit"
 )
 
 const (
@@ -160,22 +170,29 @@ const (
 
 // FlowPolicy captures the policy for a particular flow
 type FlowPolicy struct {
-	ObserveAction ObserveActionType
-	Action        ActionType
-	ServiceID     string
-	PolicyID      string
-	Labels        []string
+	ObserveAction   ObserveActionType
+	Action          ActionType
+	ServiceID       string
+	PolicyID        string
+	RuleName        string
+	Labels          []string
+	ServicePriority uint32 // A hash of the ServiceID
+	Priority        uint32 // Priority based on the ExternalNetwork entries
 }
 
-// DefaultAcceptLogPrefix return the prefix used in nf-log action for default rule.
-func DefaultAcceptLogPrefix(contextID string) string {
-
-	hash, err := Fnv32Hash(contextID)
-	if err != nil {
-		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+// Clone creates a copy of the FlowPolicy
+func (f *FlowPolicy) Clone() *FlowPolicy {
+	clone := &FlowPolicy{
+		ObserveAction:   f.ObserveAction,
+		Action:          f.Action,
+		ServiceID:       f.ServiceID,
+		PolicyID:        f.PolicyID,
+		RuleName:        f.RuleName,
+		Labels:          f.Labels,
+		ServicePriority: f.ServicePriority,
+		Priority:        f.Priority,
 	}
-
-	return hash + ":default:default:3"
+	return clone
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
@@ -186,7 +203,8 @@ func (f *FlowPolicy) LogPrefix(contextID string) string {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
-	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + f.EncodedActionString()
+	ruleExtNetName, _ := f.GetShortAndLongLogPrefix()
+	return hash + ":" + ruleExtNetName + ":" + f.EncodedActionString()
 }
 
 // LogPrefixAction is the prefix used in nf-log action with the given action.
@@ -202,22 +220,27 @@ func (f *FlowPolicy) LogPrefixAction(contextID string, action string) string {
 		action = "6"
 	}
 
-	return hash + ":" + f.PolicyID + ":" + f.ServiceID + ":" + action
+	ruleExtNetName, _ := f.GetShortAndLongLogPrefix()
+	return hash + ":" + ruleExtNetName + ":" + action
 }
 
 // DefaultLogPrefix return the prefix used in nf-log action for default rule.
-func DefaultLogPrefix(contextID string) string {
+func DefaultLogPrefix(contextID string, action ActionType) string {
 
 	hash, err := Fnv32Hash(contextID)
 	if err != nil {
 		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
 	}
 
+	if action.Accepted() {
+		return hash + ":default:default:3"
+	}
+
 	return hash + ":default:default:6"
 }
 
-// DefaultDroppedPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
-func DefaultDroppedPacketLogPrefix(contextID string) string {
+// DefaultDropPacketLogPrefix generates the nflog prefix for packets logged by the catch all default rule
+func DefaultDropPacketLogPrefix(contextID string) string {
 
 	hash, err := Fnv32Hash(contextID)
 	if err != nil {
@@ -225,6 +248,14 @@ func DefaultDroppedPacketLogPrefix(contextID string) string {
 	}
 
 	return hash + ":default:default:10"
+}
+
+// DefaultAction generates the default action of the rule
+func DefaultAction(action ActionType) string {
+	if action.Accepted() {
+		return "ACCEPT"
+	}
+	return "DROP"
 }
 
 // EncodedActionString is used to encode observed action as well as action
@@ -258,6 +289,56 @@ func (f *FlowPolicy) EncodedActionString() string {
 		}
 	}
 	return e
+}
+
+// GetShortAndLongLogPrefix returns the short and long log prefix
+func (f *FlowPolicy) GetShortAndLongLogPrefix() (string, string) {
+
+	getFirstXChars := func(str string, numChars int) string {
+		if len(str) <= numChars {
+			return str
+		}
+		return str[0:numChars]
+	}
+
+	getLastXChars := func(str string, numChars int) string {
+		strLen := len(str)
+		if strLen <= numChars {
+			return str
+		}
+		index := strLen - numChars
+		return str[index:]
+	}
+
+	// If we don't have a rulename, then do it the old way
+	if (len(f.RuleName)) <= 0 {
+		prefix := f.PolicyID + ":" + f.ServiceID
+		return prefix, prefix
+	}
+
+	// The shortPrefix will become a key in a map we use to look up the long prefix.
+	// I want to put as much of the info in the short logging prefix as possible to help
+	// with debugging, but it needs to be unique
+	hash, err := Fnv32Hash(f.PolicyID, f.ServiceID, f.RuleName)
+	if err != nil {
+		zap.L().Warn("unable to generate log prefix hash", zap.Error(err))
+	}
+
+	longPrefix := f.PolicyID + ":" + f.ServiceID + ":" + f.RuleName
+
+	// We have 64 characters max for the logging prefix.
+	// The ContextHash and Action are appended else where
+	// ContextHash(10):PolicyID(10):ServiceID(10):RuleName(10)_hash(10):Action(2) = a max of 57 chars
+
+	var builder strings.Builder
+	builder.WriteString(getLastXChars(f.PolicyID, 10))
+	builder.WriteString(":")
+	builder.WriteString(getLastXChars(f.ServiceID, 10))
+	builder.WriteString(":")
+	builder.WriteString(getFirstXChars(f.RuleName, 10))
+	builder.WriteString("_")
+	builder.WriteString(hash)
+	return builder.String(), longPrefix
 }
 
 // EncodedStringToAction returns action and observed action from encoded string.
@@ -313,6 +394,7 @@ type DNSRuleList map[string][]PortProtocolPolicy
 func (l DNSRuleList) Copy() DNSRuleList {
 	dnsRuleList := DNSRuleList{}
 
+	// nolint:gosimple //S1001: should use copy() instead of a loop (gosimple) // false positive
 	for k, v := range l {
 		dnsRuleList[k] = v
 	}
@@ -323,18 +405,22 @@ func (l DNSRuleList) Copy() DNSRuleList {
 // Copy creates a clone of the IP rule list
 func (l IPRuleList) Copy() IPRuleList {
 	list := make(IPRuleList, len(l))
+
+	// nolint:gosimple //S1001: should use copy() instead of a loop (gosimple) // false positive
 	for i, v := range l {
 		list[i] = v
 	}
+
 	return list
 }
 
-// KeyValueOperator describes an individual matching rule
+// KeyValueOperator describes an individual matchinggit  rule
 type KeyValueOperator struct {
-	Key      string
-	Value    []string
-	Operator Operator
-	ID       string
+	Key       string
+	Value     []string
+	Operator  Operator
+	ID        string
+	PortRange *portspec.PortSpec
 }
 
 // TagSelector info describes a tag selector key Operator value
@@ -350,6 +436,7 @@ type TagSelectorList []TagSelector
 func (t TagSelectorList) Copy() TagSelectorList {
 	list := make(TagSelectorList, len(t))
 
+	// nolint:gosimple //S1001: should use copy() instead of a loop (gosimple) // false positive
 	for i, v := range t {
 		list[i] = v
 	}
@@ -362,6 +449,7 @@ type ExtendedMap map[string]string
 
 // Copy copies an ExtendedMap
 func (s ExtendedMap) Copy() ExtendedMap {
+	// nolint:gosimple //S1001: should use copy() instead of a loop (gosimple) // false positive
 	c := ExtendedMap{}
 	for k, v := range s {
 		c[k] = v
@@ -410,12 +498,73 @@ type RuntimeError struct {
 	Error     error
 }
 
+// DebugConfigInput holds information needed to start a debug collect.
+type DebugConfigInput struct {
+	DebugType   gaia.EnforcerRefreshDebugValue
+	NativeID    string
+	FilePath    string
+	PcapFilter  string
+	CommandExec string
+}
+
+// DebugConfigResult holds results from a debug collect.
+type DebugConfigResult struct {
+	PID           int
+	CommandOutput string
+}
+
+// DebugConfig holds information needed for a single debug collect operation.
+type DebugConfig struct {
+	DebugConfigInput
+	DebugConfigResult
+}
+
+// DebugConfigMulti holds information needed for a debug collect operation on all remote enforcers.
+type DebugConfigMulti struct {
+	DebugConfigInput
+	Results map[string]*DebugConfigResult
+}
+
 // PingConfig holds the configuration to run ping.
 type PingConfig struct {
-	Type     claimsheader.PingType
-	IP       net.IP
-	Ports    []*portspec.PortSpec
-	Requests int
+	Mode               gaia.ProcessingUnitRefreshPingModeValue
+	ID                 string
+	IP                 net.IP
+	Port               uint16
+	Iterations         int
+	TargetTCPNetworks  bool
+	ExcludedNetworks   bool
+	ServiceCertificate string
+	ServiceKey         string
+	ServiceAddresses   map[string][]string
+}
+
+// Ping Errors.
+const (
+	ErrExcludedNetworks  = "excludednetworks"
+	ErrTargetTCPNetworks = "targettcpnetworks"
+)
+
+// Error returns error as string from ping config.
+func (p *PingConfig) Error() string {
+
+	switch {
+	case p.ExcludedNetworks:
+		return ErrExcludedNetworks
+	case !p.TargetTCPNetworks:
+		return ErrTargetTCPNetworks
+	default:
+		return ""
+	}
+}
+
+// PingPayload holds the payload carried on the wire.
+type PingPayload struct {
+	PingID               string      `codec:",omitempty"`
+	IterationID          int         `codec:",omitempty"`
+	ApplicationListening bool        `codec:",omitempty"`
+	NamespaceHash        string      `codec:",omitempty"`
+	ServiceType          ServiceType `codec:",omitempty"`
 }
 
 // Fnv32Hash hash the given data by Fnv32-bit algorithm.
@@ -436,4 +585,18 @@ func Fnv32Hash(data ...string) (string, error) {
 	}
 
 	return fmt.Sprintf("%d", hash.Sum32()), nil
+}
+
+// ServiceMesh to determine pod is of which servicemesh type
+type ServiceMesh int
+
+const (
+	// None means the pod have no servicemesh enabled on it
+	None ServiceMesh = iota
+	// Istio servicemesh enabled on the pod
+	Istio
+)
+
+func (s ServiceMesh) String() string {
+	return [...]string{"None", "Istio"}[s]
 }

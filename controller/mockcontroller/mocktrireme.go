@@ -10,10 +10,10 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	packettracing "go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	packettracing "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	secrets "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	runtime "go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	policy "go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // MockTriremeController is a mock of TriremeController interface
@@ -203,6 +203,22 @@ func (mr *MockTriremeControllerMockRecorder) Ping(ctx, puID, policy, runtime, pi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockTriremeController)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
 }
 
+// DebugCollect mocks base method
+// nolint
+func (m *MockTriremeController) DebugCollect(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, debugConfig *policy.DebugConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DebugCollect", ctx, puID, policy, runtime, debugConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DebugCollect indicates an expected call of DebugCollect
+// nolint
+func (mr *MockTriremeControllerMockRecorder) DebugCollect(ctx, puID, policy, runtime, debugConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebugCollect", reflect.TypeOf((*MockTriremeController)(nil).DebugCollect), ctx, puID, policy, runtime, debugConfig)
+}
+
 // MockDebugInfo is a mock of DebugInfo interface
 // nolint
 type MockDebugInfo struct {
@@ -276,4 +292,20 @@ func (m *MockDebugInfo) Ping(ctx context.Context, puID string, policy *policy.PU
 func (mr *MockDebugInfoMockRecorder) Ping(ctx, puID, policy, runtime, pingConfig interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDebugInfo)(nil).Ping), ctx, puID, policy, runtime, pingConfig)
+}
+
+// DebugCollect mocks base method
+// nolint
+func (m *MockDebugInfo) DebugCollect(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, debugConfig *policy.DebugConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DebugCollect", ctx, puID, policy, runtime, debugConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DebugCollect indicates an expected call of DebugCollect
+// nolint
+func (mr *MockDebugInfoMockRecorder) DebugCollect(ctx, puID, policy, runtime, debugConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebugCollect", reflect.TypeOf((*MockDebugInfo)(nil).DebugCollect), ctx, puID, policy, runtime, debugConfig)
 }

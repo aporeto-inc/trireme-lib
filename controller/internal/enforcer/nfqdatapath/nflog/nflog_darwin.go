@@ -5,7 +5,7 @@ package nflog
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
 )
 
 // nfLog TODO

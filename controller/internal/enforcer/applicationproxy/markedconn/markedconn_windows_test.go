@@ -10,7 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/magiconair/properties/assert"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/frontman"
 )
 
 type abi struct {
@@ -21,8 +21,8 @@ type abi struct {
 }
 
 var (
-	goodIP   = syscall.StringToUTF16("192.168.100.101") //nolint
-	badIP    = syscall.StringToUTF16("192.xxxxxxx")     //nolint
+	goodIP   = syscall.StringToUTF16("192.168.100.101") // nolint
+	badIP    = syscall.StringToUTF16("192.xxxxxxx")     // nolint
 	goodPort = uint16(8080)
 )
 
@@ -31,7 +31,7 @@ func (a *abi) FrontmanOpenShared() (uintptr, error) {
 }
 
 func (a *abi) GetDestInfo(driverHandle, socket, destInfo uintptr) (uintptr, error) {
-	destInfoPtr := (*frontman.DestInfo)(unsafe.Pointer(destInfo)) //nolint:govet
+	destInfoPtr := (*frontman.DestInfo)(unsafe.Pointer(destInfo)) // nolint:govet
 	if a.destInfoOverride != nil {
 		if a.destInfoOverride.DestHandle == uintptr(syscall.InvalidHandle) {
 			return 0, errors.New("INVALID_HANDLE_VALUE")
@@ -111,11 +111,11 @@ func (a *abi) PacketFilterForward(info, packet uintptr) (uintptr, error) {
 	return 1, nil
 }
 
-func (a *abi) AppendFilter(driverHandle, outbound, filterName uintptr) (uintptr, error) {
+func (a *abi) AppendFilter(driverHandle, outbound, filterName, isGotoFilter uintptr) (uintptr, error) {
 	return 1, nil
 }
 
-func (a *abi) InsertFilter(driverHandle, outbound, priority, filterName uintptr) (uintptr, error) {
+func (a *abi) InsertFilter(driverHandle, outbound, priority, filterName, isGotoFilter uintptr) (uintptr, error) {
 	return 1, nil
 }
 
@@ -196,9 +196,9 @@ func TestWindowsGetOrigDestBadIP(t *testing.T) {
 }
 
 func TestSocketListenerWindows(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background()) //nolint
+	ctx, cancel := context.WithCancel(context.Background()) // nolint
 	_, err := NewSocketListener(ctx, ":1111", 100)
 
 	assert.Equal(t, err, nil, "error  should be nil")
-	cancel() //nolint
+	cancel() // nolint
 }

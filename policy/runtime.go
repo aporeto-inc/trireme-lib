@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/docker/go-connections/nat"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 // PURuntime holds all data related to the status of the container run time
@@ -24,6 +24,8 @@ type PURuntime struct {
 	tags *TagStore
 	// options
 	options *OptionsType
+	// ServiceMeshType determines which serviceMesh is enabled ont he pod
+	ServiceMeshType ServiceMesh
 
 	sync.Mutex
 }
@@ -41,13 +43,15 @@ type PURuntimeJSON struct {
 	// IPAddress is the IP Address of the container
 	IPAddresses ExtendedMap
 	// Tags is a map of the metadata of the container
-	Tags *TagStore
+	Tags []string
 	// Options is a map of the options of the container
 	Options *OptionsType
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType common.PUType, options *OptionsType) *PURuntime {
+func NewPURuntime(
+	name string, pid int, nsPath string, tags *TagStore,
+	ips ExtendedMap, puType common.PUType, serviceMeshType ServiceMesh, options *OptionsType) *PURuntime {
 
 	if tags == nil {
 		tags = NewTagStore()
@@ -62,20 +66,21 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 	}
 
 	return &PURuntime{
-		puType:  puType,
-		tags:    tags,
-		ips:     ips,
-		options: options,
-		pid:     pid,
-		nsPath:  nsPath,
-		name:    name,
+		puType:          puType,
+		tags:            tags,
+		ips:             ips,
+		options:         options,
+		pid:             pid,
+		nsPath:          nsPath,
+		name:            name,
+		ServiceMeshType: serviceMeshType,
 	}
 }
 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
+	return NewPURuntime("", 0, "", nil, nil, common.ContainerPU, None, nil)
 }
 
 // Clone returns a copy of the policy
@@ -83,7 +88,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.Lock()
 	defer r.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.nsPath, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.nsPath, r.tags.Copy(), r.ips.Copy(), r.puType, None, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -94,7 +99,7 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 		NSPath:      r.nsPath,
 		Name:        r.name,
 		IPAddresses: r.ips,
-		Tags:        r.tags,
+		Tags:        r.tags.GetSlice(),
 		Options:     r.options,
 	})
 }
@@ -109,7 +114,7 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 	r.nsPath = a.NSPath
 	r.name = a.Name
 	r.ips = a.IPAddresses
-	r.tags = a.Tags
+	r.tags = NewTagStoreFromSlice(a.Tags)
 	r.options = a.Options
 	r.puType = a.PUType
 	return nil
@@ -204,7 +209,7 @@ func (r *PURuntime) Tag(key string) (string, bool) {
 	return tag, ok
 }
 
-// Tags returns tags for the processing unit
+// Tags returns a copy of the tags for the processing unit
 func (r *PURuntime) Tags() *TagStore {
 	r.Lock()
 	defer r.Unlock()
@@ -217,7 +222,7 @@ func (r *PURuntime) SetTags(t *TagStore) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.tags.Tags = t.Tags
+	r.tags = t.Copy()
 }
 
 // Options returns tags for the processing unit
@@ -225,9 +230,7 @@ func (r *PURuntime) Options() OptionsType {
 	r.Lock()
 	defer r.Unlock()
 
-	if r.options == nil {
-		return OptionsType{}
-	}
+	r.ensureOptions()
 
 	return *r.options
 }
@@ -237,9 +240,9 @@ func (r *PURuntime) SetServices(services []common.Service) {
 	r.Lock()
 	defer r.Unlock()
 
-	if r.options != nil {
-		r.options.Services = services
-	}
+	r.ensureOptions()
+
+	r.options.Services = services
 }
 
 // PortMap returns the mapping from host port->container port
@@ -252,4 +255,10 @@ func (r *PURuntime) PortMap() map[nat.Port][]string {
 	}
 
 	return nil
+}
+
+func (r *PURuntime) ensureOptions() {
+	if r.options == nil {
+		r.options = &OptionsType{}
+	}
 }

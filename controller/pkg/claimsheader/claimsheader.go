@@ -16,20 +16,20 @@ func NewClaimsHeader(opts ...Option) *ClaimsHeader {
 //    0             1              2               3               4
 //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |     D     |CT |E| P  |         R (reserved)                   |
+//  |     D     |CT |E|P|            R (reserved)                   |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  D  [0:5]   - Datapath version
 //  CT [6,7]   - Compressed tag type
 //  E  [8]     - Encryption enabled
-//  P  [9:12]  - Ping type
-//  R  [13:31] - Reserved
+//  P  [9]     - Ping enabled
+//  R  [10:31] - Reserved
 func (c *ClaimsHeader) ToBytes() HeaderBytes {
 
 	claimsHeaderData := make([]byte, maxHeaderLen)
 	claimsHeaderData[0] |= c.datapathVersion.toMask().toUint8()
 	claimsHeaderData[0] |= c.compressionType.toMask().toUint8()
-	claimsHeaderData[1] |= boolToUint8(c.encrypt)
-	claimsHeaderData[1] |= c.pingType.toMask().toUint8()
+	claimsHeaderData[1] |= boolToUint8(encrypt, c.encrypt)
+	claimsHeaderData[1] |= boolToUint8(ping, c.ping)
 
 	return claimsHeaderData
 }
@@ -52,10 +52,10 @@ func (c *ClaimsHeader) DatapathVersion() DatapathVersion {
 	return c.datapathVersion
 }
 
-// PingType returns ping type
-func (c *ClaimsHeader) PingType() PingType {
+// Ping returns the ping in bool
+func (c *ClaimsHeader) Ping() bool {
 
-	return c.pingType
+	return c.ping
 }
 
 // SetCompressionType sets the compression type
@@ -76,8 +76,8 @@ func (c *ClaimsHeader) SetDatapathVersion(dv DatapathVersion) {
 	c.datapathVersion = dv
 }
 
-// SetPingType sets the ping type
-func (c *ClaimsHeader) SetPingType(pingType PingType) {
+// SetPing sets the ping
+func (c *ClaimsHeader) SetPing(ping bool) {
 
-	c.pingType = pingType
+	c.ping = ping
 }

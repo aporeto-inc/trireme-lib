@@ -5,17 +5,20 @@ package afinetrawsocket
 import (
 	"errors"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/utils/frontman"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/frontman"
 )
 
 type rawsocket struct {
 }
 
-// PacketMetadata is platform-specific data about the packet
-type PacketMetadata struct {
+// WindowPlatformMetadata is platform-specific data about the packet
+type WindowPlatformMetadata struct {
 	PacketInfo frontman.PacketInfo
 	IgnoreFlow bool
+	DropFlow   bool
+	Drop       bool
+	SetMark    uint32
 }
 
 const (
@@ -31,7 +34,7 @@ const (
 
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
-	WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error
+	WriteSocket(buf []byte, version packet.IPver, data packet.PlatformMetadata) error
 }
 
 // CreateSocket returns a handle to SocketWriter interface
@@ -40,25 +43,57 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 }
 
 // WriteSocket on Windows calls into the driver to forward the packet
-func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data *PacketMetadata) error {
+func (sock *rawsocket) WriteSocket(buf []byte, version packet.IPver, data packet.PlatformMetadata) error {
 	if data == nil {
-		return errors.New("no PacketMetadata for WriteSocket")
+		return errors.New("no PlatformMetadata for WriteSocket")
 	}
-	return data.udpForward(buf, version)
+	windata, ok := data.(*WindowPlatformMetadata)
+	if !ok {
+		return errors.New("no WindowPlatformMetadata for WriteSocket")
+	}
+	return windata.forwardPacket(buf, version)
 }
 
-// udpForward takes a raw udp packet and sends it to the driver to be sent on the network
-func (w *PacketMetadata) udpForward(buf []byte, version packet.IPver) error {
-	// set packet info.
-	// could set port/addr in packet info but not required by the driver for forwarding of the packet.
-	w.PacketInfo.Outbound = 1
-	if version == packet.V4 {
-		w.PacketInfo.Ipv4 = 1
-	} else {
-		w.PacketInfo.Ipv4 = 0
+// Clone the WindowPlatformMetadata structure
+func (w *WindowPlatformMetadata) Clone() packet.PlatformMetadata {
+	platformMetadata := &WindowPlatformMetadata{
+		PacketInfo: w.PacketInfo,
+		IgnoreFlow: w.IgnoreFlow,
+		Drop:       w.Drop,
 	}
-	w.PacketInfo.PacketSize = uint32(len(buf))
-	if err := frontman.Wrapper.PacketFilterForward(&w.PacketInfo, buf); err != nil {
+	return platformMetadata
+}
+
+// forwardPacket takes a raw packet and sends it to the driver to be sent on the network
+func (w *WindowPlatformMetadata) forwardPacket(buf []byte, version packet.IPver) error {
+
+	if w.IgnoreFlow && w.DropFlow {
+		return errors.New("ignoreFlow and dropFlow cannot both be true")
+	}
+
+	// Could set port/addr in packet info but not required by the driver for forwarding of the packet.
+	// Create a copy of the packet info so that these changes don't modifiy the current PacketInfo
+	packetInfo := w.PacketInfo
+	packetInfo.Outbound = 1
+	packetInfo.NewPacket = 1
+	packetInfo.Drop = 0
+	packetInfo.IgnoreFlow = 0
+	if version == packet.V4 {
+		packetInfo.Ipv4 = 1
+	} else {
+		packetInfo.Ipv4 = 0
+	}
+	if w.Drop {
+		packetInfo.Drop = 1
+	}
+	if w.IgnoreFlow {
+		packetInfo.IgnoreFlow = 1
+	}
+	if w.DropFlow {
+		packetInfo.DropFlow = 1
+	}
+	packetInfo.PacketSize = uint32(len(buf))
+	if err := frontman.Wrapper.PacketFilterForward(&packetInfo, buf); err != nil {
 		return err
 	}
 	return nil

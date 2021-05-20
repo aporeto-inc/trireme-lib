@@ -6,16 +6,16 @@ package processmon
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 type remoteMonitor struct {
 }
 
 // New is a method to create a new remote process monitor.
-func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
+func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient, numNfqueues int) ProcessManager {
 	return &remoteMonitor{}
 }
 

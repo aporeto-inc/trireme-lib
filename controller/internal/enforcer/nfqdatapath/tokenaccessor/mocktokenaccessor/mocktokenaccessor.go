@@ -5,32 +5,30 @@
 package mocktokenaccessor
 
 import (
+	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	claimsheader "go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	connection "go.aporeto.io/trireme-lib/controller/pkg/connection"
-	pucontext "go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	tokens "go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	ephemeralkeys "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/ephemeralkeys"
+	claimsheader "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/claimsheader"
+	pkiverifier "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pkiverifier"
+	secrets "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	tokens "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/tokens"
 )
 
 // MockTokenAccessor is a mock of TokenAccessor interface
-// nolint
 type MockTokenAccessor struct {
 	ctrl     *gomock.Controller
 	recorder *MockTokenAccessorMockRecorder
 }
 
 // MockTokenAccessorMockRecorder is the mock recorder for MockTokenAccessor
-// nolint
 type MockTokenAccessorMockRecorder struct {
 	mock *MockTokenAccessor
 }
 
 // NewMockTokenAccessor creates a new mock instance
-// nolint
 func NewMockTokenAccessor(ctrl *gomock.Controller) *MockTokenAccessor {
 	mock := &MockTokenAccessor{ctrl: ctrl}
 	mock.recorder = &MockTokenAccessorMockRecorder{mock}
@@ -38,124 +36,124 @@ func NewMockTokenAccessor(ctrl *gomock.Controller) *MockTokenAccessor {
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-// nolint
 func (m *MockTokenAccessor) EXPECT() *MockTokenAccessorMockRecorder {
 	return m.recorder
 }
 
 // GetTokenValidity mocks base method
-// nolint
 func (m *MockTokenAccessor) GetTokenValidity() time.Duration {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTokenValidity")
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
 }
 
 // GetTokenValidity indicates an expected call of GetTokenValidity
-// nolint
 func (mr *MockTokenAccessorMockRecorder) GetTokenValidity() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTokenValidity", reflect.TypeOf((*MockTokenAccessor)(nil).GetTokenValidity))
 }
 
 // GetTokenServerID mocks base method
-// nolint
 func (m *MockTokenAccessor) GetTokenServerID() string {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTokenServerID")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetTokenServerID indicates an expected call of GetTokenServerID
-// nolint
 func (mr *MockTokenAccessorMockRecorder) GetTokenServerID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTokenServerID", reflect.TypeOf((*MockTokenAccessor)(nil).GetTokenServerID))
 }
 
 // CreateAckPacketToken mocks base method
-// nolint
-func (m *MockTokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, secrets secrets.Secrets) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateAckPacketToken", context, auth, secrets)
+func (m *MockTokenAccessor) CreateAckPacketToken(proto314 bool, secretKey []byte, claims *tokens.ConnectionClaims, encodedBuf []byte) ([]byte, error) {
+	ret := m.ctrl.Call(m, "CreateAckPacketToken", proto314, secretKey, claims, encodedBuf)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateAckPacketToken indicates an expected call of CreateAckPacketToken
-// nolint
-func (mr *MockTokenAccessorMockRecorder) CreateAckPacketToken(context, auth, secrets interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAckPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateAckPacketToken), context, auth, secrets)
+func (mr *MockTokenAccessorMockRecorder) CreateAckPacketToken(proto314, secretKey, claims, encodedBuf interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAckPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateAckPacketToken), proto314, secretKey, claims, encodedBuf)
 }
 
 // CreateSynPacketToken mocks base method
-// nolint
-func (m *MockTokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSynPacketToken", context, auth, claimsHeader, secrets)
+func (m *MockTokenAccessor) CreateSynPacketToken(claims *tokens.ConnectionClaims, encodedBuf, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
+	ret := m.ctrl.Call(m, "CreateSynPacketToken", claims, encodedBuf, nonce, claimsHeader, secrets)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSynPacketToken indicates an expected call of CreateSynPacketToken
-// nolint
-func (mr *MockTokenAccessorMockRecorder) CreateSynPacketToken(context, auth, claimsHeader, secrets interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSynPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateSynPacketToken), context, auth, claimsHeader, secrets)
+func (mr *MockTokenAccessorMockRecorder) CreateSynPacketToken(claims, encodedBuf, nonce, claimsHeader, secrets interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSynPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateSynPacketToken), claims, encodedBuf, nonce, claimsHeader, secrets)
 }
 
 // CreateSynAckPacketToken mocks base method
-// nolint
-func (m *MockTokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSynAckPacketToken", context, auth, claimsHeader, secrets)
+func (m *MockTokenAccessor) CreateSynAckPacketToken(proto314 bool, claims *tokens.ConnectionClaims, encodedBuf, nonce []byte, claimsHeader *claimsheader.ClaimsHeader, secrets secrets.Secrets, secretKey []byte) ([]byte, error) {
+	ret := m.ctrl.Call(m, "CreateSynAckPacketToken", proto314, claims, encodedBuf, nonce, claimsHeader, secrets, secretKey)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSynAckPacketToken indicates an expected call of CreateSynAckPacketToken
-// nolint
-func (mr *MockTokenAccessorMockRecorder) CreateSynAckPacketToken(context, auth, claimsHeader, secrets interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSynAckPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateSynAckPacketToken), context, auth, claimsHeader, secrets)
+func (mr *MockTokenAccessorMockRecorder) CreateSynAckPacketToken(proto314, claims, encodedBuf, nonce, claimsHeader, secrets, secretKey interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSynAckPacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).CreateSynAckPacketToken), proto314, claims, encodedBuf, nonce, claimsHeader, secrets, secretKey)
 }
 
 // ParsePacketToken mocks base method
-// nolint
-func (m *MockTokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ParsePacketToken", auth, data, secrets)
-	ret0, _ := ret[0].(*tokens.ConnectionClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (m *MockTokenAccessor) ParsePacketToken(privateKey *ephemeralkeys.PrivateKey, data []byte, secrets secrets.Secrets, c *tokens.ConnectionClaims, b bool) ([]byte, *claimsheader.ClaimsHeader, *pkiverifier.PKIControllerInfo, []byte, string, bool, error) {
+	ret := m.ctrl.Call(m, "ParsePacketToken", privateKey, data, secrets, c, b)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*claimsheader.ClaimsHeader)
+	ret2, _ := ret[2].(*pkiverifier.PKIControllerInfo)
+	ret3, _ := ret[3].([]byte)
+	ret4, _ := ret[4].(string)
+	ret5, _ := ret[5].(bool)
+	ret6, _ := ret[6].(error)
+	return ret0, ret1, ret2, ret3, ret4, ret5, ret6
 }
 
 // ParsePacketToken indicates an expected call of ParsePacketToken
-// nolint
-func (mr *MockTokenAccessorMockRecorder) ParsePacketToken(auth, data, secrets interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParsePacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).ParsePacketToken), auth, data, secrets)
+func (mr *MockTokenAccessorMockRecorder) ParsePacketToken(privateKey, data, secrets, c, b interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParsePacketToken", reflect.TypeOf((*MockTokenAccessor)(nil).ParsePacketToken), privateKey, data, secrets, c, b)
 }
 
 // ParseAckToken mocks base method
-// nolint
-func (m *MockTokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte, secrets secrets.Secrets) (*tokens.ConnectionClaims, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ParseAckToken", auth, data, secrets)
-	ret0, _ := ret[0].(*tokens.ConnectionClaims)
+func (m *MockTokenAccessor) ParseAckToken(proto314 bool, secretKey, nonce, data []byte, connClaims *tokens.ConnectionClaims) error {
+	ret := m.ctrl.Call(m, "ParseAckToken", proto314, secretKey, nonce, data, connClaims)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ParseAckToken indicates an expected call of ParseAckToken
+func (mr *MockTokenAccessorMockRecorder) ParseAckToken(proto314, secretKey, nonce, data, connClaims interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseAckToken", reflect.TypeOf((*MockTokenAccessor)(nil).ParseAckToken), proto314, secretKey, nonce, data, connClaims)
+}
+
+// Randomize mocks base method
+func (m *MockTokenAccessor) Randomize(arg0, arg1 []byte) error {
+	ret := m.ctrl.Call(m, "Randomize", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Randomize indicates an expected call of Randomize
+func (mr *MockTokenAccessorMockRecorder) Randomize(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Randomize", reflect.TypeOf((*MockTokenAccessor)(nil).Randomize), arg0, arg1)
+}
+
+// Sign mocks base method
+func (m *MockTokenAccessor) Sign(arg0 []byte, arg1 *ecdsa.PrivateKey) ([]byte, error) {
+	ret := m.ctrl.Call(m, "Sign", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ParseAckToken indicates an expected call of ParseAckToken
-// nolint
-func (mr *MockTokenAccessorMockRecorder) ParseAckToken(auth, data, secrets interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseAckToken", reflect.TypeOf((*MockTokenAccessor)(nil).ParseAckToken), auth, data, secrets)
+// Sign indicates an expected call of Sign
+func (mr *MockTokenAccessorMockRecorder) Sign(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockTokenAccessor)(nil).Sign), arg0, arg1)
 }

@@ -1,8 +1,8 @@
 package policy
 
 import (
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens"
 )
 
 // ServiceType are the types of services that can are suported.
@@ -14,6 +14,16 @@ const (
 	ServiceHTTP
 	ServiceTCP
 	ServiceSecretsProxy
+)
+
+// ServiceTLSType is the types of TLS used on public port
+type ServiceTLSType int
+
+// Values of UserAuthorizationTypeValues
+const (
+	ServiceTLSTypeNone ServiceTLSType = iota
+	ServiceTLSTypeAporeto
+	ServiceTLSTypeCustom
 )
 
 // UserAuthorizationTypeValues is the types of user authorization methods that
@@ -75,7 +85,7 @@ type ApplicationService struct {
 	HTTPRules []*HTTPRule
 
 	// Tags are the tags of the service.
-	Tags *TagStore
+	Tags []string
 
 	// FallbackJWTAuthorizationCert is the certificate that has been used to sign
 	// JWTs if they are not signed by the datapath
@@ -120,9 +130,9 @@ type ApplicationService struct {
 	// PublicServiceCertificateKey is the corresponding private key.
 	PublicServiceCertificateKey []byte
 
-	// PublicServiceNoTLS indicates that TLS will not be enabled in the public application
-	// ports. This is useful for health checks. It should not be used for API access.
-	PublicServiceNoTLS bool
+	// PublicServiceTLSType specifies TLS Type to support on PublicService port.
+	// This is useful for health checks. It should not be used for API access.
+	PublicServiceTLSType ServiceTLSType
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
@@ -148,4 +158,20 @@ type HTTPRule struct {
 	// HookMethod indicates that this rule is not for generic proxying but
 	// must first be processed by the hook with the corresponding name.
 	HookMethod string
+}
+
+// PublicPort returns the min port in the spec for the publicly exposed port.
+func (a *ApplicationService) PublicPort() int {
+	if a.PublicNetworkInfo == nil {
+		return 0
+	}
+	return int(a.PublicNetworkInfo.Ports.Min)
+}
+
+// PrivatePort returns the min port in the spec for the private listening port.
+func (a *ApplicationService) PrivatePort() int {
+	if a.PrivateNetworkInfo == nil {
+		return 0
+	}
+	return int(a.PrivateNetworkInfo.Ports.Min)
 }

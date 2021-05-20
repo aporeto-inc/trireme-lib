@@ -5,8 +5,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/processor/mockprocessor"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/processor/mockprocessor"
 )
 
 func TestNew(t *testing.T) {
@@ -57,7 +57,7 @@ func TestRegisterProcessor(t *testing.T) {
 		})
 
 		Convey("If I ask for the handler, with a bad event, I should get an error ", func() {
-			_, err := r.GetHandler(common.LinuxProcessPU, common.Event(300))
+			_, err := r.GetHandler(common.LinuxProcessPU, common.Event("300"))
 			So(err, ShouldNotBeNil)
 		})
 

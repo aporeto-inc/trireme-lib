@@ -2,7 +2,7 @@
 
 package windowsmonitor
 
-import "go.aporeto.io/trireme-lib/monitor/extractors"
+import "go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
 
 // Config is the configuration options to start a CNI monitor
 type Config struct {
@@ -25,5 +25,5 @@ func SetupDefaultConfig(windowsConfig *Config) *Config {
 	if windowsConfig.EventMetadataExtractor == nil {
 		windowsConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
 	}
-	return defaultConfig
+	return windowsConfig
 }

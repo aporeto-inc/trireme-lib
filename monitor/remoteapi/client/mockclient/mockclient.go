@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	common "go.aporeto.io/trireme-lib/common"
+	common "go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 // MockAPIClient is a mock of APIClient interface

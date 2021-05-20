@@ -6,11 +6,22 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"syscall"
 	"time"
 
-	"go.aporeto.io/trireme-lib/utils/netinterfaces"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/netinterfaces"
 	"go.uber.org/zap"
 )
+
+// Control represents the dial control used to manipulate the raw connection.
+type Control func(network, address string, c syscall.RawConn) error
+
+func makeDialer(mark int, platformData *PlatformData) net.Dialer {
+	// platformData is the destHandle
+	return net.Dialer{
+		Control: ControlFunc(mark, true, platformData),
+	}
+}
 
 // DialMarkedWithContext will dial a TCP connection to the provide address and mark the socket
 // with the provided mark.

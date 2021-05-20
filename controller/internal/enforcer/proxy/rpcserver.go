@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 // ProxyRPCServer This struct is a receiver for Statsserver and maintains a handle to the RPC ProxyRPCServer.
@@ -17,6 +17,7 @@ type ProxyRPCServer struct {
 	rpchdl      rpcwrapper.RPCServer
 	secret      string
 	tokenIssuer common.ServiceTokenIssuer
+	ctx         context.Context
 }
 
 // PostStats is the function called from the remoteenforcer when it has new flow events to publish.
@@ -53,10 +54,10 @@ func (r *ProxyRPCServer) RetrieveToken(req rpcwrapper.Request, resp *rpcwrapper.
 		return errors.New("invalid request payload for token request")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	subctx, cancel := context.WithTimeout(r.ctx, time.Second*60)
 	defer cancel()
 
-	token, err := r.tokenIssuer.Issue(ctx, payload.ContextID, payload.ServiceTokenType, payload.Audience, payload.Validity)
+	token, err := r.tokenIssuer.Issue(subctx, payload.ContextID, payload.ServiceTokenType, payload.Audience, payload.Validity)
 	if err != nil {
 		resp.Status = "error"
 		return fmt.Errorf("control plane failed to issue token: %s", err)
@@ -93,6 +94,10 @@ func (r *ProxyRPCServer) PostReportEvent(req rpcwrapper.Request, resp *rpcwrappe
 	case rpcwrapper.DNSReport:
 		dnsReport := req.Payload.(*collector.DNSRequestReport)
 		r.collector.CollectDNSRequests(dnsReport)
+
+	case rpcwrapper.ConnectionExceptionReport:
+		connectionReport := req.Payload.(*collector.ConnectionExceptionReport)
+		r.collector.CollectConnectionExceptionReport(connectionReport)
 
 	default:
 		return fmt.Errorf("unsupported report type: %v", req.PayloadType)

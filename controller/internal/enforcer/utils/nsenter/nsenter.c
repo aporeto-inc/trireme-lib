@@ -1,4 +1,5 @@
 // +build linux !darwin
+// +build !windows
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -50,11 +51,10 @@ void nsexec(void) {
   }
 
   // Set namespace
-  int retval = syscall(308,fd,0);
+  int retval =syscall(308,fd,CLONE_NEWNET);
   snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval);
   setenv("TRIREME_ENV_NSENTER_LOGS",msg,1);
   if(retval < 0){
-    setenv("APORET_ENV_NSENTER_ERROR_STATE",strerror(errno),1);
+    setenv("TRIREME_ENV_NSENTER_ERROR_STATE",strerror(errno),1); 		
   }
-  
 }

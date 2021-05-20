@@ -15,7 +15,7 @@ import (
 	"github.com/bluele/gcache"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/rs/xid"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/usertokens/common"
 	"golang.org/x/oauth2"
 )
 
@@ -159,7 +159,7 @@ func (v *TokenVerifier) Callback(ctx context.Context, u *url.URL) (string, strin
 	if err := tokenCache.SetWithExpire(
 		rawIDToken,
 		&clientData{
-			tokenSource: v.clientConfig.TokenSource(context.Background(), oauth2Token),
+			tokenSource: v.clientConfig.TokenSource(ctx, oauth2Token),
 			expiry:      oauth2Token.Expiry,
 		},
 		time.Until(oauth2Token.Expiry.Add(3600*time.Second)),
@@ -265,8 +265,7 @@ func (v *TokenVerifier) VerifierType() common.JWTType {
 
 func randomSha1(nonceSourceSize int) (string, error) {
 	nonceSource := make([]byte, nonceSourceSize)
-	_, err := rand.Read(nonceSource)
-	if err != nil {
+	if _, err := rand.Read(nonceSource); err != nil {
 		return "", err
 	}
 	sha := sha1.Sum(nonceSource)

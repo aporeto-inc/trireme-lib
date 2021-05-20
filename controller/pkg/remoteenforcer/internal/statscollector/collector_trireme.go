@@ -1,14 +1,14 @@
 package statscollector
 
 import (
-	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
 	"go.uber.org/zap"
 )
 
 // CollectFlowEvent collects a new flow event and adds it to a local list it shares with SendStats
 func (c *collectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
-	hash := collector.StatsFlowHash(record)
+	hash := collector.StatsFlowContentHash(record)
 
 	// If flow event doesn't have a count make it equal to 1. At least one flow is collected
 	if record.Count == 0 {
@@ -35,6 +35,7 @@ func (c *collectorImpl) CollectContainerEvent(record *collector.ContainerRecord)
 
 // CollectUserEvent collects a new user event and adds it to a local cache.
 func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
+
 	if err := collector.StatsUserHash(record); err != nil {
 		zap.L().Error("Cannot store user record", zap.Error(err))
 		return
@@ -73,6 +74,11 @@ func (c *collectorImpl) CollectDNSRequests(report *collector.DNSRequestReport) {
 // CollectPingEvent collect ping events from the datapath
 func (c *collectorImpl) CollectPingEvent(report *collector.PingReport) {
 	c.send(PingReport, report)
+}
+
+// CollectConnectionExceptionReport collect collect connection exception reports from the datapath
+func (c *collectorImpl) CollectConnectionExceptionReport(report *collector.ConnectionExceptionReport) {
+	c.send(ConnectionExceptionReport, report)
 }
 
 func (c *collectorImpl) send(rtype ReportType, report interface{}) {

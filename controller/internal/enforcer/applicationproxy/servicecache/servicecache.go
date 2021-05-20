@@ -5,9 +5,9 @@ import (
 	"net"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/utils/ipprefix"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/ipprefix"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 type entry struct {
@@ -160,21 +160,27 @@ func (s *ServiceCache) addIPService(e *common.Service, record *entry, local bool
 	}
 
 	addresses := e.Addresses
+
 	// If addresses are nil, I only care about ports.
-	if len(e.Addresses) == 0 {
-		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
-		addresses = append(addresses, ip)
-		_, ip, _ = net.ParseCIDR("::/0")
-		addresses = append(addresses, ip)
+	if len(e.Addresses) == 0 && len(e.FQDNs) == 0 {
+		addresses = map[string]struct{}{}
+		addresses["0.0.0.0/0"] = struct{}{}
+		addresses["::/0"] = struct{}{}
 	}
 
-	for _, addr := range addresses {
+	for addrS := range addresses {
 		var records entryList
+		var addr *net.IPNet
+		var err error
+
+		if _, addr, err = net.ParseCIDR(addrS); err != nil {
+			continue
+		}
 
 		mask, _ := addr.Mask.Size()
-		v, err := cache.Get(addr.IP, mask)
+		v, exists := cache.Get(addr.IP, mask)
 
-		if !err {
+		if !exists {
 			records = entryList{}
 		} else {
 			records = v.(entryList)

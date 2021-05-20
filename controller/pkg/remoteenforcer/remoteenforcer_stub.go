@@ -6,36 +6,35 @@ import (
 	"context"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/tokenissuer"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
-	"go.uber.org/zap"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 )
 
-//nolint:unused // seem to be used by the test
+// nolint:unused // seem to be used by the test
 var (
 	createEnforcer   = enforcer.New
 	createSupervisor = supervisor.NewSupervisor
 )
 
-// newServer is a fake implementation for building on darwin/windows.
+// newRemoteEnforcer starts a new server
 func newRemoteEnforcer(
 	ctx context.Context,
-	cancel context.CancelFunc,
-	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	secret string,
 	statsClient client.Reporter,
 	collector statscollector.Collector,
 	reportsClient client.Reporter,
 	tokenIssuer tokenissuer.TokenClient,
-	zapConfig zap.Config,
+	logLevel string,
+	logFormat string,
+	logID string,
+	numQueues int,
 	enforcerType policy.EnforcerType,
 	agentVersion semver.Version,
 ) (*RemoteEnforcer, error) {
@@ -43,7 +42,7 @@ func newRemoteEnforcer(
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor, zapConfig zap.Config, agentVersion semver.Version) error {
+func LaunchRemoteEnforcer(ctx context.Context, logLevel, logFormat, logID string, numQueues int, agentVersion semver.Version) error {
 	return nil
 }
 

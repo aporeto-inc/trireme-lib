@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls"
 	"go.uber.org/zap"
 )
 
@@ -77,7 +77,7 @@ func (d *defaultRead) readProcNetTCP() (inodeMap map[string]string, userMap map[
 
 			portNum, err := strconv.ParseInt(ipPort[portOffset], hexFormat, integerSize)
 			if err != nil {
-				zap.L().Warn("failed to parse port ", zap.String("port", ipPort[portOffset]))
+				zap.L().Warn("failed to parse port", zap.String("port", ipPort[portOffset]))
 				continue
 			}
 

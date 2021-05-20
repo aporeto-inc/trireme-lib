@@ -8,21 +8,21 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/envoyauthorizer/envoyproxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	enforcerconstants "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/envoyauthorizer/envoyproxy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/metadata"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +35,6 @@ type Enforcer struct {
 	secrets                secrets.Secrets
 	tokenIssuer            common.ServiceTokenIssuer
 
-	registry     *serviceregistry.Registry
 	puContexts   cache.DataStore
 	clients      cache.DataStore
 	systemCAPool *x509.CertPool
@@ -73,7 +72,7 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 		return nil, err
 	}
 
-	if ok := systemPool.AppendCertsFromPEM(secrets.PublicSecrets().CertAuthority()); !ok {
+	if ok := systemPool.AppendCertsFromPEM(secrets.CertAuthority()); !ok {
 		return nil, fmt.Errorf("error while adding provided CA")
 	}
 	// TODO: systemPool needs the same treatment as the AppProxy and a `processCertificateUpdates` and `expandCAPool` implementation as well
@@ -83,7 +82,6 @@ func NewEnvoyAuthorizerEnforcer(mode constants.ModeType, eventCollector collecto
 		externalIPCacheTimeout: externalIPCacheTimeout,
 		secrets:                secrets,
 		tokenIssuer:            tokenIssuer,
-		registry:               serviceregistry.NewServiceRegistry(),
 		puContexts:             cache.NewCache("puContexts"),
 		clients:                cache.NewCache("clients"),
 		// auth:                   apiauth.New(puContexts, registry, secrets),
@@ -103,22 +101,22 @@ func (e *Enforcer) Secrets() (secrets.Secrets, func()) {
 // 2. create a PUcontext as this will be used in auth code.
 // 3. If envoy servers are not present then create all 3 envoy servers.
 // 4. If the servers are already present under policy update then update the service certs.
-func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (e *Enforcer) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
 	e.Lock()
 	defer e.Unlock()
 
-	zap.L().Debug("Enforce for the envoy for pu: ", zap.String("puID:", contextID))
+	zap.L().Debug("Enforce for the envoy for pu", zap.String("puID", contextID))
 	// here we 1st need to create a PuContext, as the PU context will derive the
 	// serviceCtxt which will be used by the authorizer to determine the policyInfo.
 
-	pu, err := pucontext.NewPU(contextID, puInfo, e.externalIPCacheTimeout)
+	pu, err := pucontext.NewPU(contextID, puInfo, nil, e.externalIPCacheTimeout)
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
 	// Add the puContext to the cache as we need to later while serving the requests.
 	e.puContexts.AddOrUpdate(contextID, pu)
 
-	sctx, err := e.registry.Register(contextID, puInfo, pu, e.secrets)
+	sctx, err := serviceregistry.Instance().Register(contextID, puInfo, pu, e.secrets)
 	if err != nil {
 		return fmt.Errorf("policy conflicts detected: %s", err)
 	}
@@ -129,13 +127,13 @@ func (e *Enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// create a new server if it doesn't exist yet
 	if _, err := e.clients.Get(contextID); err != nil {
 		zap.L().Debug("creating new auth and sds servers", zap.String("puID", contextID))
-		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection, e.registry, e.secrets, e.tokenIssuer)
+		ingressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.IngressDirection, e.secrets, e.tokenIssuer)
 		if err != nil {
 			zap.L().Error("Cannot create and run IngressServer", zap.Error(err))
 			return err
 		}
 
-		egressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.EgressDirection, e.registry, e.secrets, e.tokenIssuer)
+		egressServer, err := envoyproxy.NewExtAuthzServer(contextID, e.puContexts, e.collector, envoyproxy.EgressDirection, e.secrets, e.tokenIssuer)
 		if err != nil {
 			zap.L().Error("Cannot create and run EgressServer", zap.Error(err))
 			ingressServer.Stop()
@@ -215,7 +213,7 @@ func (e *Enforcer) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 		zap.L().Error("cannot process system pool", zap.Error(err))
 		return e.systemCAPool
 	}
-	if ok := systemPool.AppendCertsFromPEM(e.secrets.PublicSecrets().CertAuthority()); !ok {
+	if ok := systemPool.AppendCertsFromPEM(e.secrets.CertAuthority()); !ok {
 		zap.L().Error("cannot appen system CA", zap.Error(err))
 		return e.systemCAPool
 	}
@@ -228,7 +226,7 @@ func (e *Enforcer) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 }
 
 // Unenforce stops enforcing policy for the given IP.
-func (e *Enforcer) Unenforce(contextID string) error {
+func (e *Enforcer) Unenforce(ctx context.Context, contextID string) error {
 	e.Lock()
 	defer e.Unlock()
 
@@ -239,7 +237,7 @@ func (e *Enforcer) Unenforce(contextID string) error {
 	}
 
 	server := rawAuthzServers.(*envoyServers)
-	shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*10)
+	shutdownCtx, shutdownCtxCancel := context.WithTimeout(ctx, time.Second*10)
 	defer shutdownCtxCancel()
 
 	var wg sync.WaitGroup
@@ -323,8 +321,13 @@ func (e *Enforcer) GetBPFObject() ebpf.BPFModule {
 	return nil
 }
 
+// GetServiceMeshType is unimplemented in the envoy authorizer
+func (e *Enforcer) GetServiceMeshType() policy.ServiceMesh {
+	return policy.None
+}
+
 // GetFilterQueue is unimplemented in the envoy authorizer
-func (e *Enforcer) GetFilterQueue() *fqconfig.FilterQueue {
+func (e *Enforcer) GetFilterQueue() fqconfig.FilterQueue {
 	return nil
 }
 
@@ -340,5 +343,10 @@ func (e *Enforcer) EnableIPTablesPacketTracing(ctx context.Context, contextID st
 
 // Ping is unimplemented in the envoy authorizer
 func (e *Enforcer) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
+	return nil
+}
+
+// DebugCollect is unimplemented in the envoy authorizer
+func (e *Enforcer) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
 	return nil
 }

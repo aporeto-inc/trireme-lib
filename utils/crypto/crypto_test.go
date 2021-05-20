@@ -328,3 +328,14 @@ AwEHoUQDQgAEAfAL+AfPj/DnxrU6tUkEyzEyCxnflOWxhouy1bdzhJ7vxMb1vQ31
 		})
 	})
 }
+
+// func TestPublicKeyEncDec(t *testing.T) {
+
+// 	privateKey1, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+// 	encPub1 := EncodePublicKey(&privateKey1.PublicKey)
+// 	decPub1, _ := DecodePublicKey(encPub1)
+
+// 	pubKeyEq1 := reflect.DeepEqual(privateKey1.PublicKey, *decPub1)
+
+// 	assert.Equal(t, pubKeyEq1, true, "public key1 should be equal")
+// }

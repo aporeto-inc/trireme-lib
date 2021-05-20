@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 func cleanupPipe(address string) error {
@@ -28,6 +28,7 @@ func (e *EventServer) makePipe() (net.Listener, error) {
 	// Start a custom listener
 	addr, _ := net.ResolveUnixAddr("unix", e.socketPath)
 	nl, err := net.ListenUnix("unix", addr)
+
 	if err != nil {
 		return nil, fmt.Errorf("Unable to start API server: %s", err)
 	}

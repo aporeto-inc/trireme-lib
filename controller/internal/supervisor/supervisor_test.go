@@ -7,19 +7,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	enforcerconstants "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/testhelper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 )
 
 func newSupervisor(
@@ -27,10 +34,9 @@ func newSupervisor(
 	enforcerInstance enforcer.Enforcer,
 	mode constants.ModeType,
 	cfg *runtime.Configuration,
-	aclmanager ipsetmanager.ACLManager,
 ) (*Config, error) {
 
-	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, nil, aclmanager, false)
+	s, err := NewSupervisor(collector, enforcerInstance, mode, cfg, false, "")
 	if err != nil {
 		return nil, err
 	}
@@ -80,17 +86,67 @@ func createPUInfo() *policy.PUInfo {
 		nil,
 		[]string{},
 		policy.EnforcerMapping,
+		policy.Reject|policy.Log,
+		policy.Reject|policy.Log,
 	)
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 
 }
 
+func newFilterQueueWithDefaults() fqconfig.FilterQueue {
+	return fqconfig.NewFilterQueue(0, nil)
+}
+
+// NewWithDefaults create a new data path with most things used by default
+func newWithDefaults(
+	serverID string, // nolint: unparam
+	collector collector.EventCollector,
+	service packetprocessor.PacketProcessor, // nolint: unparam
+	secrets secrets.Secrets,
+	mode constants.ModeType,
+	procMountPoint string, // nolint: unparam
+	targetNetworks []string,
+) enforcer.Enforcer {
+
+	defaultMutualAuthorization := false
+	defaultValidity := constants.SynTokenRefreshTime
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
+	defaultPacketLogs := false
+
+	tokenAccessor, _ := tokenaccessor.New(serverID, defaultValidity, secrets)
+	puFromContextID := cache.NewCache("puFromContextID")
+	fq := newFilterQueueWithDefaults()
+	e := nfqdatapath.New(
+		defaultMutualAuthorization,
+		fq,
+		collector,
+		serverID,
+		defaultValidity,
+		secrets,
+		mode,
+		procMountPoint,
+		defaultExternalIPCacheTimeout,
+		defaultPacketLogs,
+		tokenAccessor,
+		puFromContextID,
+		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
+		false,
+		semver.Version{},
+		policy.None,
+	)
+
+	return e
+}
+
 func TestNewSupervisor(t *testing.T) {
 	Convey("When I try to instantiate a new supervisor ", t, func() {
 
 		c := &collector.DefaultCollector{}
-		_, secrets, _ := secrets.CreateCompactPKITestSecrets()
+		_, secrets, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -100,11 +156,11 @@ func TestNewSupervisor(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := newSupervisor(c, e, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(c, e, mode, &runtime.Configuration{})
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -112,7 +168,7 @@ func TestNewSupervisor(t *testing.T) {
 			})
 		})
 		Convey("When I provide a nil  collector", func() {
-			s, err := newSupervisor(nil, e, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(nil, e, mode, &runtime.Configuration{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -120,7 +176,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := newSupervisor(c, nil, mode, &runtime.Configuration{}, nil)
+			s, err := newSupervisor(c, nil, mode, &runtime.Configuration{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -135,7 +191,7 @@ func TestSupervise(t *testing.T) {
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
+		_, scrts, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -144,10 +200,12 @@ func TestSupervise(t *testing.T) {
 		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		ips := provider.NewTestIpsetProvider()
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{}, ipsetmanager.CreateIPsetManager(ips, ips))
+		ips := ipsetmanager.NewTestIpsetProvider()
+		ipsetmanager.SetIpsetTestInstance(ips)
+
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -191,15 +249,17 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I send supervise command for a second time, and the update fails", func() {
-			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Times(2).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
 			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().CleanUp()
+			impl.EXPECT().Run(gomock.Any()).Return(nil)
+			impl.EXPECT().SetTargetNetworks(gomock.Any()).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			So(err, ShouldBeNil)
 		})
 
 	})
@@ -212,7 +272,7 @@ func TestUnsupervise(t *testing.T) {
 
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
+		_, scrts, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -222,10 +282,12 @@ func TestUnsupervise(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		ips := provider.NewTestIpsetProvider()
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
+		ips := ipsetmanager.NewTestIpsetProvider()
+		ipsetmanager.SetIpsetTestInstance(ips)
+
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -259,7 +321,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
+		_, scrts, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -269,12 +331,11 @@ func TestStart(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
 		s, _ := newSupervisor(c, e,
 			constants.RemoteContainer,
-			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil,
-		)
+			&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -283,6 +344,7 @@ func TestStart(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -305,7 +367,7 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
+		_, scrts, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -315,9 +377,9 @@ func TestStop(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, nil)
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -326,6 +388,7 @@ func TestStop(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -340,7 +403,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		_, scrts, _ := secrets.CreateCompactPKITestSecrets()
+		_, scrts, _ := testhelper.NewTestCompactPKISecrets()
 
 		prevRawSocket := nfqdatapath.GetUDPRawSocket
 		defer func() {
@@ -350,10 +413,9 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 			return nil, nil
 		}
 
-		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, nil)
+		e := newWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		ips := provider.NewTestIpsetProvider()
-		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}, ipsetmanager.CreateIPsetManager(ips, ips))
+		s, _ := newSupervisor(c, e, constants.RemoteContainer, &runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}})
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -362,6 +424,7 @@ func TestEnableIPTablesPacketTracing(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks(&runtime.Configuration{TCPTargetNetworks: []string{"172.17.0.0/16"}}).Return(nil)
+			impl.EXPECT().CreateCustomRulesChain().Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)

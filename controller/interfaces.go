@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // TriremeController is the main API of the Trireme controller
@@ -44,4 +44,6 @@ type DebugInfo interface {
 	EnableIPTablesPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, interval time.Duration) error
 	// Ping runs ping based on the given config.
 	Ping(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, pingConfig *policy.PingConfig) error
+	// DebugCollect collects debug information, such as packet capture
+	DebugCollect(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, debugConfig *policy.DebugConfig) error
 }

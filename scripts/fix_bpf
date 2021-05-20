@@ -1,0 +1,4 @@
+#!/bin/bash
+
+printf "fix_bfp not needed for go modules"
+exit 0

@@ -1,7 +1,7 @@
 package processmon
 
 import (
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // ProcessManager interface exposes methods implemented by a processmon
