@@ -3,23 +3,45 @@ package iptablesctrl
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/kballard/go-shellquote"
 	"github.com/mattn/go-shellwords"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/policy"
+	mgrconstants "go.aporeto.io/cns-agent-mgr/pkg/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	markconstants "go.aporeto.io/enforcerd/trireme-lib/utils/constants"
+	"go.aporeto.io/gaia/protocols"
 	"go.uber.org/zap"
 )
 
 const (
-	tcpProto     = "tcp"
-	udpProto     = "udp"
 	numPackets   = "100"
 	initialCount = "99"
 )
+
+var (
+	cnsAgentBootPid    int
+	cnsAgentMgrPid     int
+	getEnforcerPID     = func() int { return os.Getpid() }
+	getCnsAgentMgrPID  = func() int { return cnsAgentMgrPid }
+	getCnsAgentBootPID = func() int { return cnsAgentBootPid }
+)
+
+func init() {
+	cnsAgentBootPid = -1
+	if mgrconstants.IsManagedByCnsAgentManager() {
+		cnsAgentBootPid = discoverCnsAgentBootPID()
+	}
+	cnsAgentMgrPid = -1
+	if mgrconstants.IsManagedByCnsAgentManager() {
+		cnsAgentMgrPid = os.Getppid()
+	}
+}
 
 type rulesInfo struct {
 	RejectObserveApply    [][]string
@@ -29,8 +51,7 @@ type rulesInfo struct {
 	AcceptObserveApply    [][]string
 	AcceptNotObserved     [][]string
 	AcceptObserveContinue [][]string
-
-	ReverseRules [][]string
+	ReverseRules          [][]string
 }
 
 // cgroupChainRules provides the rules for redirecting to a processing unit
@@ -38,24 +59,8 @@ type rulesInfo struct {
 // configuration.
 func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 
-	// Rules for older distros (eg RH 6.9/Ubuntu 14.04), due to absence of
-	// cgroup match modules, source ports are used  to trap outgoing traffic.
-	if i.isLegacyKernel && (cfg.PUType == common.HostNetworkPU || cfg.PUType == common.HostPU) {
-		return i.legacyPuChainRules(
-			cfg.ContextID,
-			cfg.AppChain,
-			cfg.NetChain,
-			cfg.PacketMark,
-			cfg.TCPPorts,
-			cfg.UDPPorts,
-			cfg.ProxyPort,
-			cfg.ProxySetName,
-			cfg.AppSection,
-			cfg.NetSection,
-			cfg.PUType,
-			cfg.DNSProxyPort,
-			cfg.DNSServerIP,
-		)
+	if legacyRules, ok := i.legacyPuChainRules(cfg); ok {
+		return legacyRules
 	}
 
 	tmpl := template.Must(template.New(cgroupCaptureTemplate).Funcs(template.FuncMap{
@@ -68,43 +73,56 @@ func (i *iptables) cgroupChainRules(cfg *ACLInfo) [][]string {
 		"isHostPU": func() bool {
 			return cfg.AppSection == HostModeOutput && cfg.NetSection == HostModeInput
 		},
+		"isProcessPU": func() bool {
+			return cfg.PUType == common.LinuxProcessPU || cfg.PUType == common.WindowsProcessPU
+		},
+		"isIPV6Enabled": func() bool {
+			// icmpv6 rules are needed for ipv6
+			return cfg.needICMPRules
+		},
 	}).Parse(cgroupCaptureTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
-
-	return append(rules, i.proxyRules(cfg)...)
-}
-
-func (i *iptables) uidChainRules(cfg *ACLInfo) [][]string {
-
-	tmpl := template.Must(template.New(uidChainTemplate).Parse(uidChainTemplate))
-
-	rules, err := extractRulesFromTemplate(tmpl, cfg)
-	if err != nil {
-		zap.L().Warn("unable to extract rules", zap.Error(err))
-	}
-
-	if i.isLegacyKernel {
-		return append(rules, i.legacyProxyRules(cfg.TCPPorts, cfg.ProxyPort, cfg.ProxySetName, cfg.CgroupMark, cfg.DNSProxyPort, cfg.DNSServerIP)...)
-	}
-	return append(rules, i.proxyRules(cfg)...)
+	rules = append(rules, i.proxyRules(cfg)...)
+	rules = append(rules, i.proxyDNSRules(cfg)...)
+	return rules
 }
 
 // containerChainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (i *iptables) containerChainRules(cfg *ACLInfo) [][]string {
-
 	tmpl := template.Must(template.New(containerChainTemplate).Parse(containerChainTemplate))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
 	if err != nil {
 		zap.L().Warn("unable to extract rules", zap.Error(err))
 	}
+	rules = append(rules, i.istioRules(cfg)...)
+	if i.serviceMeshType == policy.None {
+		rules = append(rules, i.proxyRules(cfg)...)
+	}
+	rules = append(rules, i.proxyDNSRules(cfg)...)
+	return rules
+}
 
-	return append(rules, i.proxyRules(cfg)...)
+func (i *iptables) istioRules(cfg *ACLInfo) [][]string {
+	if i.serviceMeshType == policy.Istio {
+		tmpl := template.Must(template.New(istioChainTemplate).Funcs(template.FuncMap{
+			"IstioUID": func() string {
+				return IstioUID
+			},
+		}).Parse(istioChainTemplate))
+		rules, err := extractRulesFromTemplate(tmpl, cfg)
+		if err != nil {
+			zap.L().Warn("unable to extract rules", zap.Error(err))
+		}
+		zap.L().Debug("configured Istio: ", zap.Any(" rules ", rules))
+		return rules
+	}
+	return nil
 }
 
 // proxyRules creates the rules that allow traffic to go through if it is handled
@@ -127,15 +145,67 @@ func (i *iptables) proxyRules(cfg *ACLInfo) [][]string {
 	return rules
 }
 
+func (i *iptables) proxyDNSRules(cfg *ACLInfo) [][]string {
+	tmpl := template.Must(template.New(proxyDNSChainTemplate).Funcs(template.FuncMap{
+		"isCgroupSet": func() bool {
+			return cfg.CgroupMark != ""
+		},
+		"enableDNSProxy": func() bool {
+			return cfg.DNSServerIP != ""
+		},
+	}).Parse(proxyDNSChainTemplate))
+
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
+	if err != nil {
+		zap.L().Warn("proxyDNSRules unable to extract rules", zap.Error(err))
+	}
+	return rules
+}
+
+// extractPreNetworkACLRules creates the rules that come before ACL rules.
+func (i *iptables) extractPreNetworkACLRules(cfg *ACLInfo) [][]string {
+
+	tmpl := template.Must(template.New(preNetworkACLRuleTemplate).Funcs(template.FuncMap{
+		"Increment": func(i int) int {
+			return i + 1
+		},
+	}).Parse(preNetworkACLRuleTemplate))
+
+	rules, err := extractRulesFromTemplate(tmpl, cfg)
+	if err != nil {
+		zap.L().Warn("unable to extract rules", zap.Error(err))
+	}
+	return rules
+}
+
 // trapRules provides the packet capture rules that are defined for each processing unit.
 func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) [][]string {
 
+	outputMark, _ := strconv.Atoi(cfg.PacketMark)
+	outputMark = outputMark * cfg.NumNFQueues
+
 	tmpl := template.Must(template.New(packetCaptureTemplate).Funcs(template.FuncMap{
-		"needDnsRules": func() bool {
-			return i.mode == constants.Sidecar || isHostPU || i.isLegacyKernel
+		"windowsAllIpsetName": func() string {
+			return i.ipsetmanager.GetIPsetPrefix() + "WindowsAllIPs"
 		},
-		"isUIDProcess": func() bool {
-			return cfg.UID != ""
+		"packetMark": func() string {
+			outputMark, _ := strconv.Atoi(cfg.PacketMark)
+			outputMark = outputMark * cfg.NumNFQueues
+			return strconv.Itoa(outputMark)
+		},
+		"getOutputMark": func() string {
+			m := strconv.Itoa(outputMark)
+			outputMark++
+			return m
+		},
+		"queueBalance": func() string {
+			return fmt.Sprintf("0:%d", cfg.NumNFQueues-1)
+		},
+		"isNotContainerPU": func() bool {
+			return cfg.PUType != common.ContainerPU
+		},
+		"needDnsRules": func() bool {
+			return isHostPU
 		},
 		"needICMP": func() bool {
 			return cfg.needICMPRules
@@ -157,6 +227,12 @@ func (i *iptables) trapRules(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRul
 		},
 		"Increment": func(i int) int {
 			return i + 1
+		},
+		"isAppDrop": func() bool {
+			return strings.EqualFold(cfg.AppDefaultAction, "DROP")
+		},
+		"isNetDrop": func() bool {
+			return strings.EqualFold(cfg.NetDefaultAction, "DROP")
 		},
 	}).Parse(packetCaptureTemplate))
 
@@ -197,7 +273,7 @@ func extractACLsFromTemplate(rulesBucket *rulesInfo) ([][]string, error) {
 
 	tmpl := template.Must(template.New(acls).Funcs(template.FuncMap{
 		"joinRule": func(rule []string) string {
-			return strings.Join(rule, " ")
+			return shellquote.Join(rule...)
 		},
 	}).Parse(acls))
 
@@ -271,13 +347,8 @@ func (i *iptables) processRulesFromList(rulelist [][]string, methodType string) 
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *iptables) addChainRules(cfg *ACLInfo) error {
-
 	if i.mode != constants.LocalServer {
 		return i.processRulesFromList(i.containerChainRules(cfg), "Append")
-	}
-
-	if cfg.UID != "" {
-		return i.processRulesFromList(i.uidChainRules(cfg), "Append")
 	}
 
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Append")
@@ -287,87 +358,6 @@ func (i *iptables) addChainRules(cfg *ACLInfo) error {
 func (i *iptables) addPacketTrap(cfg *ACLInfo, isHostPU bool, appAnyRules, netAnyRules [][]string) error {
 
 	return i.processRulesFromList(i.trapRules(cfg, isHostPU, appAnyRules, netAnyRules), "Append")
-}
-
-func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string) ([][]string, [][]string) {
-	iptRules := [][]string{}
-	reverseRules := [][]string{}
-
-	ipsetPrefix := i.impl.GetIPSetPrefix()
-	observeContinue := rule.Policy.ObserveAction.ObserveContinue()
-	contextID := cfg.ContextID
-
-	baseRule := func(proto string) []string {
-		iptRule := []string{
-			appPacketIPTableContext,
-			chain,
-			"-p", proto,
-			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
-		}
-
-		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
-			stateMatch := []string{"-m", "state", "--state", "NEW"}
-			iptRule = append(iptRule, stateMatch...)
-		}
-
-		// only tcp uses target networks
-		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
-			targetNet := []string{"-m", "set", "!", "--match-set", ipsetPrefix + targetTCPNetworkSet, ipMatchDirection}
-			iptRule = append(iptRule, targetNet...)
-		}
-
-		// port match is required only for tcp and udp protocols
-		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
-			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.Ports, ",")}
-			iptRule = append(iptRule, portMatchSet...)
-		}
-
-		return iptRule
-	}
-
-	if err := i.programExtensionsRules(contextID, rule, chain, proto, ipMatchDirection, nfLogGroup); err != nil {
-		zap.L().Warn("unable to program extension rules",
-			zap.Error(err),
-		)
-	}
-
-	if rule.Policy.Action&policy.Log > 0 || observeContinue {
-		state := []string{}
-		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
-			state = []string{"-m", "state", "--state", "NEW"}
-		}
-
-		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefix(contextID)}...)
-		nfLogRule := append(baseRule(proto), nflog...)
-
-		iptRules = append(iptRules, nfLogRule)
-	}
-
-	if !observeContinue {
-		if (rule.Policy.Action & policy.Accept) != 0 {
-			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
-			iptRules = append(iptRules, acceptRule)
-		}
-
-		if rule.Policy.Action&policy.Reject != 0 {
-			reject := []string{"-j", "DROP"}
-			rejectRule := append(baseRule(proto), reject...)
-			iptRules = append(iptRules, rejectRule)
-		}
-
-		if rule.Policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
-			reverseRules = append(reverseRules, []string{
-				appPacketIPTableContext,
-				reverseChain,
-				"-p", proto,
-				"-m", "set", "--match-set", rule.ipset, reverseDirection,
-				"-m", "state", "--state", "ESTABLISHED",
-				"-j", "ACCEPT",
-			})
-		}
-	}
-
-	return iptRules, reverseRules
 }
 
 // programExtensionsRules programs iptable rules for the given extensions
@@ -465,7 +455,11 @@ func (i *iptables) sortACLsInBuckets(cfg *ACLInfo, chain string, reverseChain st
 				continue
 			}
 
-			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse)
+			if i.aclSkipProto(proto) {
+				continue
+			}
+
+			acls, r := i.generateACLRules(cfg, &rule, chain, reverseChain, nflogGroup, proto, direction, reverse, isAppACLs)
 			rulesBucket.ReverseRules = append(rulesBucket.ReverseRules, r...)
 
 			if testReject(rule.Policy) && testObserveApply(rule.Policy) {
@@ -519,6 +513,17 @@ func (i *iptables) addExternalACLs(cfg *ACLInfo, chain string, reverseChain stri
 	return nil
 }
 
+func (i *iptables) addPreNetworkACLRules(cfg *ACLInfo) error {
+
+	rules := i.extractPreNetworkACLRules(cfg)
+
+	if err := i.processRulesFromList(rules, "Append"); err != nil {
+		return fmt.Errorf("unable to install networkd SYN rule : %s", err)
+	}
+
+	return nil
+}
+
 // deleteChainRules deletes the rules that send traffic to our chain
 func (i *iptables) deleteChainRules(cfg *ACLInfo) error {
 
@@ -526,23 +531,41 @@ func (i *iptables) deleteChainRules(cfg *ACLInfo) error {
 		return i.processRulesFromList(i.containerChainRules(cfg), "Delete")
 	}
 
-	if cfg.UID != "" {
-		return i.processRulesFromList(i.uidChainRules(cfg), "Delete")
-	}
-
 	return i.processRulesFromList(i.cgroupChainRules(cfg), "Delete")
 }
 
 // setGlobalRules installs the global rules
 func (i *iptables) setGlobalRules() error {
-
 	cfg, err := i.newACLInfo(0, "", nil, 0)
 	if err != nil {
 		return err
 	}
-	ipsetPrefix := i.impl.GetIPSetPrefix()
+
+	_, _, excludedNetworkName := i.ipsetmanager.GetIPsetNamesForTargetAndExcludedNetworks()
+
+	inputMark, _ := strconv.Atoi(cfg.DefaultInputMark) //nolint
+	outputMark := 0
 
 	tmpl := template.Must(template.New(globalRules).Funcs(template.FuncMap{
+		"isIstioEnabled": func() bool {
+			return i.serviceMeshType == policy.Istio
+		},
+		"IstioRedirPort": func() string {
+			return IstioRedirPort
+		},
+		"getInputMark": func() string {
+			m := strconv.Itoa(inputMark)
+			inputMark++
+			return m
+		},
+		"getOutputMark": func() string {
+			m := strconv.Itoa(outputMark)
+			outputMark++
+			return m
+		},
+		"queueBalance": func() string {
+			return fmt.Sprintf("0:%d", cfg.NumNFQueues-1)
+		},
 		"isLocalServer": func() bool {
 			return i.mode == constants.LocalServer
 		},
@@ -555,6 +578,30 @@ func (i *iptables) setGlobalRules() error {
 		"Increment": func(i int) int {
 			return i + 1
 		},
+		"EnforcerPID": func() string {
+			return strconv.Itoa(getEnforcerPID())
+		},
+		"CnsAgentMgrPID": func() string {
+			return strconv.Itoa(getCnsAgentMgrPID())
+		},
+		"CnsAgentBootPID": func() string {
+			return strconv.Itoa(getCnsAgentBootPID())
+		},
+		"isManagedByCnsAgentManager": func() bool {
+			return getCnsAgentBootPID() > 0
+		},
+		"isIPv4": func() bool {
+			return i.impl.IPVersion() == IPV4
+		},
+		"windowsDNSServerName": func() string {
+			return i.ipsetmanager.GetIPsetPrefix() + "WindowsDNSServer"
+		},
+		"isKubernetesPU": func() bool {
+			return cfg.PUType == common.KubernetesPU
+		},
+		"needICMP": func() bool {
+			return cfg.needICMPRules
+		},
 	}).Parse(globalRules))
 
 	rules, err := extractRulesFromTemplate(tmpl, cfg)
@@ -566,12 +613,27 @@ func (i *iptables) setGlobalRules() error {
 		return fmt.Errorf("unable to install global rules:%s", err)
 	}
 
+	// Insert the Istio nat rules into the ISTIO_OUTPUT table
+	// the following is done so that there is no loop in the dataPath.
+	// basically, the envoy packets which are already processed by us, we should
+	// accept the packets.
+	if i.serviceMeshType == policy.Istio {
+		err = i.impl.Insert(appProxyIPTableContext,
+			ipTableSectionOutput, 1,
+			"-p", "tcp",
+			"-m", "mark", "--mark", strconv.Itoa(markconstants.IstioPacketMark),
+			"-j", "ACCEPT")
+		if err != nil {
+			return fmt.Errorf("unable to add Istio accept for marked packets : %s", err)
+		}
+	}
+
 	// nat rules cannot be templated, since they interfere with Docker.
 	err = i.impl.Insert(appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-p", "tcp",
 		"-m", "addrtype", "--dst-type", "LOCAL",
-		"-m", "set", "!", "--match-set", ipsetPrefix+excludedNetworkSet, "src",
+		"-m", "set", "!", "--match-set", excludedNetworkName, "src",
 		"-j", natProxyInputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
@@ -579,7 +641,7 @@ func (i *iptables) setGlobalRules() error {
 
 	err = i.impl.Insert(appProxyIPTableContext,
 		ipTableSectionOutput, 1,
-		"-m", "set", "!", "--match-set", ipsetPrefix+excludedNetworkSet, "dst",
+		"-m", "set", "!", "--match-set", excludedNetworkName, "dst",
 		"-j", natProxyOutputChain)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
@@ -589,9 +651,6 @@ func (i *iptables) setGlobalRules() error {
 }
 
 func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
-	// This func is a chance to remove rules that don't fit in your templates.
-	// This should ideally not be used
-	i.removeGlobalHooksPre()
 
 	tmpl := template.Must(template.New(globalHooks).Funcs(template.FuncMap{
 		"isLocalServer": func() bool {
@@ -608,59 +667,120 @@ func (i *iptables) removeGlobalHooks(cfg *ACLInfo) error {
 	return nil
 }
 
-func (i *iptables) cleanACLs() error { // nolint
-	cfg, err := i.newACLInfo(0, "", nil, 0)
-	if err != nil {
-		return err
+func (i *iptables) generateACLRules(cfg *ACLInfo, rule *aclIPset, chain string, reverseChain string, nfLogGroup, proto, ipMatchDirection string, reverseDirection string, isAppACLs bool) ([][]string, [][]string) {
+
+	iptRules := [][]string{}
+	reverseRules := [][]string{}
+
+	targetTCPName, targetUDPName, _ := i.ipsetmanager.GetIPsetNamesForTargetAndExcludedNetworks()
+
+	observeContinue := rule.Policy.ObserveAction.ObserveContinue()
+	contextID := cfg.ContextID
+
+	baseRule := func(proto string) []string {
+
+		iptRule := []string{appPacketIPTableContext, chain}
+
+		if splits := strings.Split(proto, "/"); strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP || strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP6 {
+			iptRule = append(iptRule, icmpRule(proto, rule.Ports)...)
+
+			if strings.ToUpper(splits[0]) == protocols.L4ProtocolICMP6 {
+				proto = "icmpv6"
+			} else {
+				proto = "icmp"
+			}
+		}
+
+		iptRule = append(iptRule, []string{
+			"-p", proto,
+			"-m", "set", "--match-set", rule.ipset, ipMatchDirection,
+		}...)
+
+		if proto == constants.UDPProtoNum || proto == constants.UDPProtoString {
+			udpRule := generateUDPACLRule()
+			iptRule = append(iptRule, udpRule...)
+		}
+
+		if proto == constants.TCPProtoNum || proto == constants.TCPProtoString {
+			stateMatch := []string{"-m", "state", "--state", "NEW"}
+			iptRule = append(iptRule, stateMatch...)
+		}
+
+		// add the target network condition if tcp and not a reject action and is the app chain
+		if (rule.Policy.Action&policy.Reject == 0 && isAppACLs) && (proto == constants.TCPProtoNum || proto == constants.TCPProtoString) {
+			targetNet := []string{"-m", "set", "!", "--match-set", targetTCPName, ipMatchDirection}
+			iptRule = append(iptRule, targetNet...)
+		}
+
+		// add the target network condition if tcp and not a reject action and is the app chain
+		if (rule.Policy.Action&policy.Reject == 0 && isAppACLs) && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+
+			targetUDPClause := targetUDPNetworkClause(rule, targetUDPName, ipMatchDirection)
+			if len(targetUDPClause) > 0 {
+				iptRule = append(iptRule, targetUDPClause...)
+			}
+
+		}
+		// port match is required only for tcp and udp protocols
+		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
+
+			portMatchSet := []string{"--match", "multiport", "--dports", strings.Join(rule.Ports, ",")}
+			iptRule = append(iptRule, portMatchSet...)
+		}
+
+		return iptRule
 	}
 
-	// First clear the nat rules
-	if err := i.removeGlobalHooks(cfg); err != nil {
-		zap.L().Error("unable to remove nat proxy rules")
-	}
-
-	// Clean Application Rules/Chains
-	i.cleanACLSection(appPacketIPTableContext, chainPrefix)
-	i.cleanACLSection(appProxyIPTableContext, chainPrefix)
-
-	i.impl.Commit() // nolint
-
-	// Always return nil here. No reason to block anything if cleans fail.
-	return nil
-}
-
-// cleanACLSection flushes and deletes all chains with Prefix - Trireme
-func (i *iptables) cleanACLSection(context, chainPrefix string) {
-
-	rules, err := i.impl.ListChains(context)
-	if err != nil {
-		zap.L().Warn("Failed to list chains",
-			zap.String("context", context),
+	if err := i.programExtensionsRules(contextID, rule, chain, proto, ipMatchDirection, nfLogGroup); err != nil {
+		zap.L().Warn("unable to program extension rules",
 			zap.Error(err),
 		)
 	}
 
-	for _, rule := range rules {
-		if strings.Contains(rule, chainPrefix) {
-			if err := i.impl.ClearChain(context, rule); err != nil {
-				zap.L().Warn("Can not clear the chain",
-					zap.String("context", context),
-					zap.String("section", rule),
-					zap.Error(err),
-				)
+	// If log or observeContinue
+	if rule.Policy.Action&policy.Log != 0 || observeContinue {
+		state := []string{}
+		if proto == constants.TCPProtoNum || proto == constants.UDPProtoNum || proto == constants.TCPProtoString || proto == constants.UDPProtoString {
+			state = []string{"-m", "state", "--state", "NEW"}
+		}
+
+		nflog := append(state, []string{"-j", "NFLOG", "--nflog-group", nfLogGroup, "--nflog-prefix", rule.Policy.LogPrefix(contextID)}...)
+		nfLogRule := append(baseRule(proto), nflog...)
+
+		iptRules = append(iptRules, nfLogRule)
+	}
+
+	if !observeContinue {
+		if (rule.Policy.Action & policy.Accept) != 0 {
+			if proto == constants.UDPProtoNum || proto == constants.UDPProtoString {
+				connmarkClause := connmarkUDPConnmarkClause()
+				if len(connmarkClause) > 0 {
+					connmarkRule := append(baseRule(proto), connmarkClause...)
+					iptRules = append(iptRules, connmarkRule)
+				}
 			}
+			acceptRule := append(baseRule(proto), []string{"-j", "ACCEPT"}...)
+			iptRules = append(iptRules, acceptRule)
+		}
+
+		if rule.Policy.Action&policy.Reject != 0 {
+			reject := []string{"-j", "DROP"}
+			rejectRule := append(baseRule(proto), reject...)
+			iptRules = append(iptRules, rejectRule)
+		}
+
+		if rule.Policy.Action&policy.Accept != 0 && (proto == constants.UDPProtoNum || proto == constants.UDPProtoString) {
+			reverseRules = append(reverseRules, []string{
+				appPacketIPTableContext,
+				reverseChain,
+				"-p", proto,
+				"-m", "set", "--match-set", rule.ipset, reverseDirection,
+				"-m", "state", "--state", "ESTABLISHED",
+				"-m", "connmark", "--mark", strconv.Itoa(int(markconstants.DefaultExternalConnMark)),
+				"-j", "ACCEPT",
+			})
 		}
 	}
 
-	for _, rule := range rules {
-		if strings.Contains(rule, chainPrefix) {
-			if err := i.impl.DeleteChain(context, rule); err != nil {
-				zap.L().Warn("Can not delete the chain",
-					zap.String("context", context),
-					zap.String("section", rule),
-					zap.Error(err),
-				)
-			}
-		}
-	}
+	return iptRules, reverseRules
 }

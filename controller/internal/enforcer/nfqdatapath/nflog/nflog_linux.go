@@ -5,9 +5,12 @@ package nflog
 import (
 	"context"
 	"sync"
+	"time"
 
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/counters"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.aporeto.io/netlink-go/nflog"
-	"go.aporeto.io/trireme-lib/collector"
 	"go.uber.org/zap"
 )
 
@@ -18,18 +21,20 @@ type nfLog struct {
 	collector       collector.EventCollector
 	srcNflogHandle  nflog.NFLog
 	dstNflogHandle  nflog.NFLog
+	flowReportCache cache.DataStore
 	sync.Mutex
 }
 
 // NewNFLogger provides an NFLog instance
 func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUContext GetPUContextFunc, collector collector.EventCollector) NFLogger {
-
-	return &nfLog{
+	nfLog := &nfLog{
 		ipv4groupSource: ipv4groupSource,
 		ipv4groupDest:   ipv4groupDest,
 		collector:       collector,
 		getPUContext:    getPUContext,
 	}
+	nfLog.flowReportCache = cache.NewCacheWithExpirationNotifier("flowReportCache", time.Second*5, nfLog.logExpirationNotifier)
+	return nfLog
 }
 
 // Run runs the Nf Logger
@@ -56,9 +61,9 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, _ interface{}) {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
 		return
 	}
-	if record != nil {
-		a.collector.CollectFlowEvent(record)
-	}
+
+	handleFlowReport(a.flowReportCache, a.collector, record, false)
+
 	if packetEvent != nil {
 		a.collector.CollectPacketEvent(packetEvent)
 	}
@@ -71,20 +76,27 @@ func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, _ interface{}) {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
 		return
 	}
-	if record != nil {
-		a.collector.CollectFlowEvent(record)
-	}
+
+	handleFlowReport(a.flowReportCache, a.collector, record, true)
+
 	if packetEvent != nil {
 		a.collector.CollectPacketEvent(packetEvent)
 	}
-
 }
 
 func (a *nfLog) nflogErrorHandler(err error) {
-
-	zap.L().Error("Error while processing nflog packet", zap.Error(err))
+	counters.IncrementCounter(counters.ErrNfLogError)
+	zap.L().Debug("Error while processing nflog packet", zap.Error(err))
 }
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, *collector.PacketReport, error) {
 	return recordFromNFLogData(buf.Payload, buf.Prefix, buf.Protocol, buf.SrcIP, buf.DstIP, buf.SrcPort, buf.DstPort, a.getPUContext, puIsSource)
+}
+
+func (a *nfLog) logExpirationNotifier(_ interface{}, item interface{}) {
+	if item != nil {
+		// Basically we had an observed flow report that didn't get reported yet.
+		record := item.(*collector.FlowRecord)
+		a.collector.CollectFlowEvent(record)
+	}
 }

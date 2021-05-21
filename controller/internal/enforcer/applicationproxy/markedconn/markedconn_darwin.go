@@ -6,10 +6,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"syscall"
 
-	"go.aporeto.io/trireme-lib/utils/netinterfaces"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/netinterfaces"
 	"go.uber.org/zap"
 )
+
+// Control represents the dial control used to manipulate the raw connection.
+type Control func(network, address string, c syscall.RawConn) error
 
 // DialMarkedWithContext dials a TCP connection and associates a mark. Propagates the context.
 func DialMarkedWithContext(ctx context.Context, network string, addr string, platformData *PlatformData, mark int) (net.Conn, error) {
@@ -24,6 +28,11 @@ func DialMarkedWithContext(ctx context.Context, network string, addr string, pla
 	}
 	return conn, err
 
+}
+
+// ControlFunc used in the dialer.
+func ControlFunc(mark int, block bool, platformData *PlatformData) Control {
+	return nil
 }
 
 // NewSocketListener creates a socket listener with marked connections.
@@ -49,8 +58,8 @@ type ProxiedConnection struct {
 
 // PlatformData is proxy/socket data (platform-specific)
 type PlatformData struct {
-	handle          uintptr
-	postConnectFunc func(fd uintptr)
+	handle          uintptr          // nolint: structcheck
+	postConnectFunc func(fd uintptr) // nolint: structcheck
 }
 
 // GetTCPConnection returns the TCP connection object.

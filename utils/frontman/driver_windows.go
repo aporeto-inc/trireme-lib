@@ -26,8 +26,8 @@ type ABI interface {
 	PacketFilterStart(frontman, firewallName, receiveCallback, loggingCallback uintptr) (uintptr, error)
 	PacketFilterClose() (uintptr, error)
 	PacketFilterForward(info, packet uintptr) (uintptr, error)
-	AppendFilter(driverHandle, outbound, filterName uintptr) (uintptr, error)
-	InsertFilter(driverHandle, outbound, priority, filterName uintptr) (uintptr, error)
+	AppendFilter(driverHandle, outbound, filterName, isGotoFilter uintptr) (uintptr, error)
+	InsertFilter(driverHandle, outbound, priority, filterName, isGotoFilter uintptr) (uintptr, error)
 	DestroyFilter(driverHandle, filterName uintptr) (uintptr, error)
 	EmptyFilter(driverHandle, filterName uintptr) (uintptr, error)
 	GetFilterList(driverHandle, outbound, buffer, bufferSize, bytesReturned uintptr) (uintptr, error)
@@ -186,16 +186,16 @@ func (d *driver) PacketFilterForward(info, packet uintptr) (uintptr, error) {
 	return ret, err
 }
 
-func (d *driver) AppendFilter(driverHandle, outbound, filterName uintptr) (uintptr, error) {
-	ret, _, err := appendFilterProc.Call(driverHandle, outbound, filterName)
+func (d *driver) AppendFilter(driverHandle, outbound, filterName, isGotoFilter uintptr) (uintptr, error) {
+	ret, _, err := appendFilterProc.Call(driverHandle, outbound, filterName, isGotoFilter)
 	if err == syscall.Errno(0) {
 		err = nil
 	}
 	return ret, err
 }
 
-func (d *driver) InsertFilter(driverHandle, outbound, priority, filterName uintptr) (uintptr, error) {
-	ret, _, err := insertFilterProc.Call(driverHandle, outbound, priority, filterName)
+func (d *driver) InsertFilter(driverHandle, outbound, priority, filterName, isGotoFilter uintptr) (uintptr, error) {
+	ret, _, err := insertFilterProc.Call(driverHandle, outbound, priority, filterName, isGotoFilter)
 	if err == syscall.Errno(0) {
 		err = nil
 	}
@@ -299,6 +299,9 @@ const (
 	FilterActionProxy
 	FilterActionNfq
 	FilterActionForceNfq
+	FilterActionAllowOnce
+	FilterActionGotoFilter
+	FilterActionSetMark
 )
 
 // See frontmanIO.h for #defines
@@ -306,6 +309,12 @@ const (
 	BytesMatchStartIPHeader = iota + 1
 	BytesMatchStartProtocolHeader
 	BytesMatchStartPayload
+)
+
+// ProcessMatch constants
+const (
+	ProcessMatchProcess  = iota + 1 // Match the process id
+	ProcessMatchChildren            // Match the child processes
 )
 
 // See Filter_set.h
@@ -318,6 +327,19 @@ const (
 const (
 	IpsetsDetailFormatString = iota + 1
 	IpsetsDetailFormatJSON
+)
+
+// See frontmanIO.h
+const (
+	MatchTypeMatch   = uint8(1)
+	MatchTypeNoMatch = uint8(2)
+)
+
+// See frontmanIO.h
+const (
+	IPVersionAny = uint8(0) // Rule is for Ipv4 or Ipv6
+	IPVersion4   = uint8(1) // Rule is just for Ipv4
+	IPVersion6   = uint8(2) // Rule is just for Ipv6
 )
 
 // DestInfo mirrors frontman's DEST_INFO struct
@@ -336,15 +358,20 @@ type PacketInfo struct {
 	Outbound                     uint8
 	Drop                         uint8
 	IgnoreFlow                   uint8
-	Reserved1                    uint8
-	Reserved2                    uint8
-	Reserved3                    uint8
+	HandleLoopback               uint8 // Not to be set by go code, but is for outbound loopback packets
+	NewPacket                    uint8 // Set to 1 if packet did not originate from the driver.
+	NoPidMatchOnFlow             uint8 // Set to 1 to ignore process ID rule matches.
+	DropFlow                     uint8
+	SetMark                      uint8
+	Reserved                     [2]uint8
+	SetMarkValue                 uint32
 	LocalPort                    uint16
 	RemotePort                   uint16
 	LocalAddr                    [4]uint32
 	RemoteAddr                   [4]uint32
 	IfIdx                        uint32
 	SubIfIdx                     uint32
+	CompartmentID                uint32
 	PacketSize                   uint32
 	Mark                         uint32
 	StartTimeReceivedFromNetwork uint64
@@ -385,31 +412,50 @@ type PortRange struct {
 	PortEnd   uint16
 }
 
+// IcmpRange mirrors frontman's ICMP_RANGE struct
+type IcmpRange struct {
+	IcmpTypeSpecified uint8
+	IcmpType          uint8
+	IcmpCodeSpecified uint8
+	IcmpCodeLower     uint8
+	IcmpCodeUpper     uint8
+}
+
 // RuleSpec mirrors frontman's RULE_SPEC struct
 type RuleSpec struct {
-	Action            uint8
-	Log               uint8
-	Protocol          uint8
-	ProtocolSpecified uint8
-	IcmpType          uint8
-	IcmpTypeSpecified uint8
-	IcmpCode          uint8
-	IcmpCodeSpecified uint8
-	AleAuthConnect    uint8 // not used by us
-	Reserved1         uint8
-	Reserved2         uint8
-	Reserved3         uint8
-	ProxyPort         uint16
-	BytesMatchStart   int16 // See frontmanIO.h for BYTESMATCH defines.
-	BytesMatchOffset  int32
-	BytesMatchSize    int32
-	BytesMatch        *byte
-	Mark              uint32
-	GroupID           uint32
-	SrcPortCount      int32
-	DstPortCount      int32
-	SrcPorts          *PortRange
-	DstPorts          *PortRange
-	LogPrefix         uintptr // const wchar_t*
-	Application       uintptr // const wchar_t*
+	Action                 uint8
+	Log                    uint8
+	Protocol               uint8
+	ProtocolSpecified      uint8
+	AleAuthConnect         uint8 // not used by us
+	ProcessFlags           uint8 // See frontmanIO.h bit mask PROCESS_MATCH_PROCESS and/or PROCESS_MATCH_CHILDREN
+	TCPFlags               uint8
+	TCPFlagsMask           uint8
+	TCPFlagsSpecified      uint8
+	TCPOption              uint8
+	TCPOptionSpecified     uint8
+	CompartmentIDSpecified uint8
+	BytesNoMatch           uint8
+	FlowMarkMatchType      uint8 // MATCH_TYPE_MATCH = 1 MATCH_TYPE_NOMATCH = 2
+	IPVersionMatch         uint8 // IP_VERSION_ANY, IP_VERSION_4, or IP_VERSION_6
+	Reserved               uint8
+	FlowMark               uint32
+	CompartmentID          uint32
+	IcmpRanges             *IcmpRange
+	IcmpRangeCount         int32
+	ProxyPort              uint16
+	BytesMatchStart        int16 // See frontmanIO.h for BYTESMATCH defines.
+	BytesMatchOffset       int32
+	BytesMatchSize         int32
+	BytesMatch             *byte
+	Mark                   uint32
+	GroupID                uint32
+	SrcPortCount           int32
+	DstPortCount           int32
+	SrcPorts               *PortRange
+	DstPorts               *PortRange
+	LogPrefix              uintptr // const wchar_t*
+	Application            uintptr // const wchar_t*
+	ProcessID              uint64
+	GotoFilterName         uintptr // const wchar_t*
 }

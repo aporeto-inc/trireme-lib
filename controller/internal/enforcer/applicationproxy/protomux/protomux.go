@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
 	"go.uber.org/zap"
 )
 
@@ -50,13 +50,12 @@ type MultiplexedListener struct {
 	defaultListener *ProtoListener
 	localIPs        map[string]struct{}
 	mark            int
-	registry        *serviceregistry.Registry
 	sync.RWMutex
 }
 
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
-func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.Registry, puID string) *MultiplexedListener {
+func NewMultiplexedListener(l net.Listener, mark int, puID string) *MultiplexedListener {
 
 	return &MultiplexedListener{
 		root:     l,
@@ -64,7 +63,6 @@ func NewMultiplexedListener(l net.Listener, mark int, registry *serviceregistry.
 		shutdown: make(chan struct{}),
 		wg:       sync.WaitGroup{},
 		protomap: map[common.ListenerType]*ProtoListener{},
-		registry: registry,
 		localIPs: markedconn.GetInterfaces(),
 		mark:     mark,
 		puID:     puID,
@@ -180,6 +178,8 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 			if err != nil {
 				// check if the error is due to shutdown in progress
 				select {
+				case <-ctx.Done():
+					return nil
 				case <-m.shutdown:
 					return nil
 				default:
@@ -221,7 +221,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	var listenerType common.ListenerType
 	if local {
-		_, serviceData, err := m.registry.RetrieveServiceDataByIDAndNetwork(m.puID, ip, port, "")
+		_, serviceData, err := serviceregistry.Instance().RetrieveDependentServiceDataByIDAndNetwork(m.puID, ip, port, "")
 		if err != nil {
 			zap.L().Error("Cannot discover target service",
 				zap.String("ContextID", m.puID),
@@ -234,7 +234,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 		}
 		listenerType = serviceData.ServiceType
 	} else {
-		pctx, err := m.registry.RetrieveExposedServiceContext(ip, port, "")
+		pctx, err := serviceregistry.Instance().RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
 			zap.L().Error("Cannot discover target service",
 				zap.String("ip", ip.String()),

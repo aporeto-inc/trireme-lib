@@ -48,7 +48,7 @@ func (c UIDConnection) RemoteAddr() net.Addr {
 	if err != nil {
 		uidAddr.Address = "NotAvailable"
 	}
-	defer f.Close() // nolint
+	defer f.Close() // nolint: errcheck
 
 	cred, err := syscall.GetsockoptUcred(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
 	if err != nil {

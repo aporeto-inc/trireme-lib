@@ -4,7 +4,6 @@
 package processmon
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -17,27 +16,28 @@ import (
 	"syscall"
 	"time"
 
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.aporeto.io/enforcerd/internal/logging/masterlog"
+	"go.aporeto.io/enforcerd/internal/utils"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
 const (
-	// netNSPath holds the directory to ensure ip netns command works
-	netNSPath                   = "/var/run/netns/"
-	processMonitorCacheName     = "ProcessMonitorCache"
-	remoteEnforcerBuildName     = "remoteenforcerd"
-	remoteEnforcerTempBuildPath = "/var/run/aporeto/tmp/bin/"
-	secretLength                = 32
+	processMonitorCacheName = "ProcessMonitorCache"
+	secretLength            = 32
 )
 
 var (
+	// netNSPath holds the directory to ensure ip netns command works
+	netNSPath = "/var/run/netns/"
+
 	// execCommand is to used to fake exec commands in tests.
 	execCommand = exec.Command
 )
@@ -46,16 +46,10 @@ var (
 type RemoteMonitor struct {
 	// netNSPath made configurable to enable running tests
 	netNSPath string
-	// remoteEnforcerTempBuildPath made configurable to enable running tests
-	remoteEnforcerTempBuildPath string
-	// remoteEnforcerBuildName made configurable to enable running tests
-	remoteEnforcerBuildName string
 	// activeProcesses holds a cache of the currently active processes.
 	activeProcesses *cache.Cache
 	// childExitStatus is a channel to monitor the exit status of processes.
 	childExitStatus chan exitStatus
-	// logToConsole stores if we should log to console.
-	logToConsole bool
 	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
 	// logLevel is the level of logs for remote command.
@@ -64,12 +58,12 @@ type RemoteMonitor struct {
 	logFormat string
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags claimsheader.CompressionType
+	// numQueues is the number of nfqueus
+	numQueues string
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
 	runtimeErrorChannel chan *policy.RuntimeError
 	// rpc is the rpc client to communicate with the remotes.
 	rpc rpcwrapper.RPCClient
-	// DisableLogWrite flag tells if we are running in kubernetes.
-	DisableLogWrite bool
 
 	sync.Mutex
 }
@@ -83,7 +77,7 @@ type processInfo struct {
 
 // exitStatus captures the exit status of a process
 type exitStatus struct {
-	process int
+	pid int // exitted PID
 	// The contextID is optional and is primarily used by remote enforcer
 	// processes to represent the namespace in which the process was running
 	contextID  string
@@ -91,22 +85,21 @@ type exitStatus struct {
 }
 
 // New is a method to create a new remote process monitor.
-func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient) ProcessManager {
+func New(ctx context.Context, p *env.RemoteParameters, c chan *policy.RuntimeError, r rpcwrapper.RPCClient, numQueues int) ProcessManager {
+
+	numQueuesStr := strconv.Itoa(numQueues)
 
 	m := &RemoteMonitor{
-		remoteEnforcerTempBuildPath: remoteEnforcerTempBuildPath,
-		remoteEnforcerBuildName:     remoteEnforcerBuildName,
-		netNSPath:                   netNSPath,
-		activeProcesses:             cache.NewCache(processMonitorCacheName),
-		childExitStatus:             make(chan exitStatus, 100),
-		logToConsole:                p.LogToConsole,
-		logWithID:                   p.LogWithID,
-		logLevel:                    p.LogLevel,
-		logFormat:                   p.LogFormat,
-		DisableLogWrite:             p.DisableLogWrite,
-		compressedTags:              p.CompressedTags,
-		runtimeErrorChannel:         c,
-		rpc:                         r,
+		netNSPath:           netNSPath,
+		activeProcesses:     cache.NewCache(processMonitorCacheName),
+		childExitStatus:     make(chan exitStatus, 100),
+		logWithID:           p.LogWithID,
+		logLevel:            p.LogLevel,
+		logFormat:           p.LogFormat,
+		compressedTags:      p.CompressedTags,
+		numQueues:           numQueuesStr,
+		runtimeErrorChannel: c,
+		rpc:                 r,
 	}
 
 	go m.collectChildExitStatus(ctx)
@@ -159,11 +152,11 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 	// If it was we will use it. Otherwise we will determine it based on the PID.
 	nsPath := refNSPath
 	if refNSPath == "" {
-		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
+		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns", "net")
 	}
 
 	var hoststat os.FileInfo
-	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1/ns/net")); err != nil {
+	if hoststat, err = os.Stat(filepath.Join(procMountPoint, "1", "ns", "net")); err != nil {
 		return false, err
 	}
 
@@ -192,14 +185,9 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 			zap.Error(removeErr))
 	}
 
+	// NOTE: This is used by 'enforcer cleanup' command.
 	if err = os.Symlink(nsPath, contextFile); err != nil {
 		zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
-	}
-
-	cmd := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
-
-	if err = p.pollStdOutAndErr(cmd); err != nil {
-		return false, err
 	}
 
 	var randomkeystring string
@@ -209,7 +197,6 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		return false, fmt.Errorf("unable to generate secret: %s", err)
 	}
 
-	// Start command
 	newEnvVars := p.getLaunchProcessEnvVars(
 		procMountPoint,
 		contextID,
@@ -219,29 +206,43 @@ func (p *RemoteMonitor) LaunchRemoteEnforcer(
 		refNSPath,
 		enforcerType,
 	)
+
+	cmd, cmdName, cmdArgs := getLaunchProcessCmd(arg)
 	cmd.Env = append(os.Environ(), newEnvVars...)
+
+	if reader, err := getCmdReader(cmd); err == nil {
+		masterlog.HandleRemoteLog(reader)
+	} else {
+		zap.L().Error("Failed to get reader for remote logs")
+	}
+
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
 		if err1 := os.Remove(contextFile); err1 != nil {
 			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
 		}
-		return false, fmt.Errorf("unable to start enforcer binary: %s", err)
+		zap.L().Error("Unable to start remote enforcer binary", zap.Error(err))
+		return false, fmt.Errorf("Unable to start remote enforcer binary: %s", err)
 	}
+
+	zap.L().Debug("Remote enforcer launched",
+		zap.String("command", cmdName),
+		zap.Strings("args", cmdArgs),
+		zap.Int("remotePid", cmd.Process.Pid),
+	)
 
 	procInfo.process = cmd.Process
-
-	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
-		return false, fmt.Errorf("failed to established rpc channel: %s", err)
-	}
-
 	go func() {
 		status := cmd.Wait()
 		p.childExitStatus <- exitStatus{
-			process:    cmd.Process.Pid,
+			pid:        cmd.Process.Pid,
 			contextID:  contextID,
 			exitStatus: status,
 		}
 	}()
+	if err = p.rpc.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
+		return false, fmt.Errorf("failed to established rpc channel: %s", err)
+	}
 
 	return true, nil
 }
@@ -317,69 +318,58 @@ func (p *RemoteMonitor) collectChildExitStatus(ctx context.Context) {
 
 		case es := <-p.childExitStatus:
 
+			// if we've already been removed from the activeProcesses then it's an expected exit.
 			if err := p.activeProcesses.Remove(es.contextID); err != nil {
 				continue
 			}
 
+			// ... otherwise the exit was unexpected. Stop the RPC client connection to
+			// the remote enforcer and generate a runtime alarm
 			p.rpc.DestroyRPCClient(es.contextID)
 
 			if p.runtimeErrorChannel != nil {
 				if es.exitStatus != nil {
 					zap.L().Error("Remote enforcer exited with an error",
 						zap.String("nativeContextID", es.contextID),
-						zap.Int("pid", es.process),
+						zap.Int("childPid", es.pid),
 						zap.Error(es.exitStatus),
 					)
+					p.runtimeErrorChannel <- &policy.RuntimeError{
+						ContextID: es.contextID,
+						Error:     fmt.Errorf("remote enforcer terminated: childPid: %d, contextID: %s, exitStatus: %s", es.pid, es.contextID, es.exitStatus.Error()),
+					}
 				} else {
 					zap.L().Warn("Remote enforcer exited",
 						zap.String("nativeContextID", es.contextID),
-						zap.Int("pid", es.process),
+						zap.Int("childPid", es.pid),
 					)
-				}
-				p.runtimeErrorChannel <- &policy.RuntimeError{
-					ContextID: es.contextID,
-					Error:     fmt.Errorf("remote enforcer terminated: %s", es.exitStatus),
+					p.runtimeErrorChannel <- &policy.RuntimeError{
+						ContextID: es.contextID,
+						Error:     fmt.Errorf("remote enforcer terminated: childPid: %d, contextID: %s", es.pid, es.contextID),
+					}
 				}
 			}
-
 		}
 	}
 }
 
-// pollStdOutAndErr polls std out and err
-func (p *RemoteMonitor) pollStdOutAndErr(
-	cmd *exec.Cmd,
-) (err error) {
+func getCmdReader(cmd *exec.Cmd) (io.ReadCloser, error) {
 
-	stdout, err := cmd.StdoutPipe()
+	reader, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
+	cmd.Stderr = cmd.Stdout
 
-	// Stdout/err processing
-	go processIOReader(stdout)
-	go processIOReader(stderr)
-
-	return nil
+	return reader, nil
 }
 
-// getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *RemoteMonitor) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) *exec.Cmd {
-
-	cmdName := filepath.Join(remoteEnforcerBuildPath, remoteEnforcerName)
-
-	cmdArgs := []string{arg}
-	zap.L().Debug("Enforcer executed",
-		zap.String("command", cmdName),
-		zap.Strings("args", cmdArgs),
-	)
-
-	return execCommand(cmdName, cmdArgs...)
+// getLaunchProcessCmd returns the os.exec object used to launch the remote enforcerd
+func getLaunchProcessCmd(arg string) (cmd *exec.Cmd, cmdName string, cmdArgs []string) {
+	cmdArgs = strings.Fields(arg)
+	cmdName = constants.RemoteEnforcerPath
+	return execCommand(cmdName, cmdArgs...), cmdName, cmdArgs
 }
 
 // getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
@@ -392,7 +382,6 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 	refNSPath string,
 	enforcerType policy.EnforcerType,
 ) []string {
-	disableLog := strconv.FormatBool(p.DisableLogWrite)
 
 	newEnvVars := []string{
 		constants.EnvMountPoint + "=" + procMountPoint,
@@ -404,17 +393,12 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
-		constants.EnvDisableLogWrite + "=" + disableLog,
 		constants.EnvEnforcerType + "=" + enforcerType.String(),
+		constants.EnvEnforcerdToolsDir + "=" + utils.GetEnforcerdStartupDir(),
+		constants.EnvEnforcerdNFQueues + "=" + p.numQueues,
 	}
 
-	if p.compressedTags != claimsheader.CompressionTypeNone {
-		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
-	}
-
-	if p.logToConsole {
-		newEnvVars = append(newEnvVars, constants.EnvLogToConsole+"="+constants.EnvLogToConsoleEnable)
-	}
+	newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+strconv.Itoa(int(p.compressedTags)))
 
 	if p.logWithID {
 		newEnvVars = append(newEnvVars, constants.EnvLogID+"="+contextID)
@@ -432,20 +416,21 @@ func (p *RemoteMonitor) getLaunchProcessEnvVars(
 func contextID2SocketPath(contextID string) string {
 
 	if contextID == "" {
-		panic("contextID is empty")
+		zap.L().Fatal("contextID is empty")
 	}
 
-	return filepath.Join("/var/run/", strings.Replace(contextID, "/", "_", -1)+".sock")
-}
-
-// processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader) {
-	reader := bufio.NewReader(fd)
-	for {
-		str, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		fmt.Print(str)
+	hash, err := policy.Fnv32Hash(contextID)
+	if err != nil {
+		zap.L().Fatal("unable to hash contextID", zap.Error(err))
 	}
+
+	path := filepath.Join(constants.SocketsPath, strings.Replace(hash, "/", "_", -1)+".sock")
+
+	// Validation enforced by Linux.
+	// Ref https://man7.org/linux/man-pages/man7/unix.7.html.
+	if len(path) > 107 {
+		zap.L().Fatal("socket path too long", zap.String("path", path))
+	}
+
+	return path
 }

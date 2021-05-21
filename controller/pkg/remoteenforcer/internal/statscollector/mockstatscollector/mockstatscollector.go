@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	collector "go.aporeto.io/trireme-lib/collector"
-	statscollector "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	collector "go.aporeto.io/enforcerd/trireme-lib/collector"
+	statscollector "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 )
 
 // MockCollectorReader is a mock of CollectorReader interface
@@ -71,10 +71,10 @@ func (mr *MockCollectorReaderMockRecorder) FlushUserCache() *gomock.Call {
 
 // GetFlowRecords mocks base method
 // nolint
-func (m *MockCollectorReader) GetFlowRecords() map[string]*collector.FlowRecord {
+func (m *MockCollectorReader) GetFlowRecords() map[uint64]*collector.FlowRecord {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFlowRecords")
-	ret0, _ := ret[0].(map[string]*collector.FlowRecord)
+	ret0, _ := ret[0].(map[uint64]*collector.FlowRecord)
 	return ret0
 }
 
@@ -176,10 +176,10 @@ func (mr *MockCollectorMockRecorder) FlushUserCache() *gomock.Call {
 
 // GetFlowRecords mocks base method
 // nolint
-func (m *MockCollector) GetFlowRecords() map[string]*collector.FlowRecord {
+func (m *MockCollector) GetFlowRecords() map[uint64]*collector.FlowRecord {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFlowRecords")
-	ret0, _ := ret[0].(map[string]*collector.FlowRecord)
+	ret0, _ := ret[0].(map[uint64]*collector.FlowRecord)
 	return ret0
 }
 
@@ -332,4 +332,18 @@ func (m *MockCollector) CollectPingEvent(report *collector.PingReport) {
 func (mr *MockCollectorMockRecorder) CollectPingEvent(report interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectPingEvent", reflect.TypeOf((*MockCollector)(nil).CollectPingEvent), report)
+}
+
+// CollectConnectionExceptionReport mocks base method
+// nolint
+func (m *MockCollector) CollectConnectionExceptionReport(report *collector.ConnectionExceptionReport) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CollectConnectionExceptionReport", report)
+}
+
+// CollectConnectionExceptionReport indicates an expected call of CollectConnectionExceptionReport
+// nolint
+func (mr *MockCollectorMockRecorder) CollectConnectionExceptionReport(report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectConnectionExceptionReport", reflect.TypeOf((*MockCollector)(nil).CollectConnectionExceptionReport), report)
 }

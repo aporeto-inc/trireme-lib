@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/client"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/client"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"go.uber.org/zap"
 )
 
@@ -62,7 +62,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 
 	ticker := time.NewTicker(s.statsInterval)
 	userTicker := time.NewTicker(s.userRetention)
-	// nolint : gosimple
+	// nolint: gosimple
 	for {
 		select {
 		case <-ticker.C:
@@ -83,7 +83,7 @@ func (s *statsClient) sendStats(ctx context.Context) {
 
 }
 
-func (s *statsClient) sendRequest(flows map[string]*collector.FlowRecord, users map[string]*collector.UserRecord) {
+func (s *statsClient) sendRequest(flows map[uint64]*collector.FlowRecord, users map[string]*collector.UserRecord) {
 
 	request := rpcwrapper.Request{
 		Payload: &rpcwrapper.StatsPayload{

@@ -7,19 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
-	"go.aporeto.io/trireme-lib/controller/pkg/claimsheader"
-	"go.aporeto.io/trireme-lib/controller/pkg/dmesgparser"
-	"go.aporeto.io/trireme-lib/controller/pkg/env"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/claimsheader"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/dmesgparser"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/env"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -41,21 +40,18 @@ type trireme struct {
 }
 
 // New returns a trireme interface implementation based on configuration provided.
-func New(serverID string, mode constants.ModeType, opts ...Option) TriremeController {
+func New(ctx context.Context, serverID string, mode constants.ModeType, opts ...Option) TriremeController {
 
 	c := &config{
 		serverID:               serverID,
 		collector:              collector.NewDefaultCollector(),
 		mode:                   mode,
-		fq:                     fqconfig.NewFilterQueueWithDefaults(),
 		mutualAuth:             true,
-		validity:               constants.DatapathTokenValidity,
+		validity:               constants.SynTokenValidity,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
 		remoteParameters: &env.RemoteParameters{
-			LogToConsole:   true,
 			LogFormat:      "console",
-			LogLevel:       "info",
 			LogWithID:      false,
 			CompressedTags: claimsheader.CompressionTypeV1,
 		},
@@ -67,7 +63,7 @@ func New(serverID string, mode constants.ModeType, opts ...Option) TriremeContro
 
 	zap.L().Debug("Trireme configuration", zap.String("configuration", fmt.Sprintf("%+v", c)))
 
-	return newTrireme(c)
+	return newTrireme(ctx, c)
 }
 
 // Run starts the supervisor and the enforcer and go routines. It doesn't try to clean
@@ -110,7 +106,7 @@ func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPol
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
-	return t.doHandleCreate(puID, policy, runtime)
+	return t.doHandleCreate(ctx, puID, policy, runtime)
 }
 
 // Enforce asks the controller to enforce policy to a processing unit
@@ -121,7 +117,7 @@ func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUP
 		t.locks.Delete(puID)
 		lock.(*sync.Mutex).Unlock()
 	}()
-	return t.doHandleDelete(puID, policy, runtime)
+	return t.doHandleDelete(ctx, puID, policy, runtime)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
@@ -129,7 +125,7 @@ func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUP
 	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
-	return t.doUpdatePolicy(puID, plc, runtime)
+	return t.doUpdatePolicy(ctx, puID, plc, runtime)
 }
 
 func (t *trireme) EnableDatapathPacketTracing(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, direction packettracing.TracingDirection, interval time.Duration) error {
@@ -152,6 +148,13 @@ func (t *trireme) Ping(ctx context.Context, puID string, policy *policy.PUPolicy
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].Ping(ctx, puID, pingConfig)
+}
+
+func (t *trireme) DebugCollect(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime, debugConfig *policy.DebugConfig) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
+	return t.enforcers[t.modeTypeFromPolicy(policy, runtime)].DebugCollect(ctx, puID, debugConfig)
 }
 
 // UpdateSecrets updates the secrets of the controllers.
@@ -187,7 +190,7 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 
 		err := e.SetTargetNetworks(cfg)
 		if err != nil {
-			zap.L().Error("Failed to update target networks in cotnroller", zap.Error(err))
+			zap.L().Error("Failed to update target networks in controller", zap.Error(err))
 			failure = true
 		}
 	}
@@ -200,7 +203,7 @@ func (t *trireme) UpdateConfiguration(cfg *runtime.Configuration) error {
 }
 
 // doHandleCreate is the detailed implementation of the create event.
-func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
+func (t *trireme) doHandleCreate(ctx context.Context, contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
@@ -223,13 +226,13 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 
 	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
 
-	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
+	if err := t.enforcers[modeType].Enforce(ctx, contextID, containerInfo); err != nil {
 		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
 	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
+		if werr := t.enforcers[modeType].Unenforce(ctx, contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -244,12 +247,12 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 }
 
 // doHandleDelete is the detailed implementation of the delete event.
-func (t *trireme) doHandleDelete(contextID string, policyInfo *policy.PUPolicy, runtime *policy.PURuntime) error {
+func (t *trireme) doHandleDelete(ctx context.Context, contextID string, policyInfo *policy.PUPolicy, runtime *policy.PURuntime) error {
 
 	modeType := t.modeTypeFromPolicy(policyInfo, runtime)
 
 	errS := t.supervisors[modeType].Unsupervise(contextID)
-	errE := t.enforcers[modeType].Unenforce(contextID)
+	errE := t.enforcers[modeType].Unenforce(ctx, contextID)
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
@@ -266,7 +269,7 @@ func (t *trireme) doHandleDelete(contextID string, policyInfo *policy.PUPolicy, 
 }
 
 // doUpdatePolicy is the detailed implementation of the update policy event.
-func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
+func (t *trireme) doUpdatePolicy(ctx context.Context, contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
 
@@ -278,7 +281,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 
 	modeType := t.modeTypeFromPolicy(containerInfo.Policy, containerInfo.Runtime)
 
-	if err := t.enforcers[modeType].Enforce(contextID, containerInfo); err != nil {
+	if err := t.enforcers[modeType].Enforce(ctx, contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		if werr := t.supervisors[modeType].Unsupervise(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
@@ -290,7 +293,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 	}
 
 	if err := t.supervisors[modeType].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[modeType].Unenforce(contextID); werr != nil {
+		if werr := t.enforcers[modeType].Unenforce(ctx, contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -392,15 +395,11 @@ func (t *trireme) modeTypeFromPolicy(policyInfo *policy.PUPolicy, runtime *polic
 			fallthrough
 		case common.ContainerPU:
 			return constants.RemoteContainerEnvoyAuthorizer
-		case common.UIDLoginPU:
-			fallthrough
 		case common.HostPU:
 			fallthrough
 		case common.HostNetworkPU:
 			fallthrough
-		case common.SSHSessionPU:
-			fallthrough
-		case common.LinuxProcessPU:
+		case common.LinuxProcessPU, common.WindowsProcessPU:
 			return constants.LocalEnvoyAuthorizer
 		default:
 			return t.puTypeToEnforcerType[runtime.PUType()]

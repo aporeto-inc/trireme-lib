@@ -15,7 +15,7 @@ func Test_DefaultCounterError(t *testing.T) {
 		So(err, ShouldResemble, errors.New("unknown protocol"))
 		So(defaultCounters.counters[ErrInvalidProtocol], ShouldEqual, 2)
 
-		//Reset the global counters
+		// Reset the global counters
 		GetErrorCounters() // nolint
 	})
 }
@@ -31,7 +31,7 @@ func Test_DefaultGetErrorCounter(t *testing.T) {
 
 		Convey("When I get the error counter", func() {
 			c := GetErrorCounters()
-			So(len(c), ShouldEqual, totalCounters)
+			So(len(c), ShouldEqual, errMax)
 			So(c[ErrInvalidProtocol], ShouldEqual, 3)
 			So(defaultCounters.counters[ErrInvalidProtocol], ShouldEqual, 0)
 		})

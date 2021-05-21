@@ -15,6 +15,8 @@ type iptablesProviderMockedMethods struct {
 	newChainMock      func(table, chain string) error
 	commitMock        func() error
 	retrieveTableMock func() map[string]map[string][]string
+	resetMock         func(subs string) error
+	listRulesMock     func(table, chain string) ([]string, error)
 }
 
 // TestIptablesProvider is a test implementation for IptablesProvider
@@ -28,6 +30,8 @@ type TestIptablesProvider interface {
 	MockDeleteChain(t *testing.T, impl func(table, chain string) error)
 	MockNewChain(t *testing.T, impl func(table, chain string) error)
 	MockCommit(t *testing.T, impl func() error)
+	MockReset(t *testing.T, impl func(subs string) error)
+	MockListRules(t *testing.T, impl func(table, chain string) ([]string, error))
 }
 
 // A testIptablesProvider is an empty TransactionalManipulator that can be easily mocked.
@@ -42,9 +46,16 @@ func NewTestIptablesProvider() TestIptablesProvider {
 	return &testIptablesProvider{lock: &sync.Mutex{}, mocks: map[*testing.T]*iptablesProviderMockedMethods{}}
 }
 
+func (m *testIptablesProvider) MockListRules(t *testing.T, impl func(table, chain string) ([]string, error)) {
+	m.currentMocks(t).listRulesMock = impl
+}
 func (m *testIptablesProvider) MockAppend(t *testing.T, impl func(table, chain string, rulespec ...string) error) {
 
 	m.currentMocks(t).appendMock = impl
+}
+
+func (m *testIptablesProvider) MockReset(t *testing.T, impl func(subs string) error) {
+	m.currentMocks(t).resetMock = impl
 }
 
 func (m *testIptablesProvider) MockInsert(t *testing.T, impl func(table, chain string, pos int, rulespec ...string) error) {
@@ -90,10 +101,26 @@ func (m *testIptablesProvider) Append(table, chain string, rulespec ...string) e
 	return nil
 }
 
-func (m *testIptablesProvider) Insert(table, chain string, pos int, rulespec ...string) error {
+func (m *testIptablesProvider) ListRules(table, chain string) ([]string, error) {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.listRulesMock != nil {
+		return mock.listRulesMock(table, chain)
+	}
+	return []string{}, nil
+}
 
+func (m *testIptablesProvider) Insert(table, chain string, pos int, rulespec ...string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.insertMock != nil {
 		return mock.insertMock(table, chain, pos, rulespec...)
+
+	}
+
+	return nil
+}
+
+func (m *testIptablesProvider) ResetRules(subs string) error {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.resetMock != nil {
+		return mock.resetMock(subs)
 	}
 
 	return nil

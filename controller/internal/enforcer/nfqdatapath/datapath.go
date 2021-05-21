@@ -11,32 +11,32 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
-	enforcerconstants "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/dnsproxy"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/ebpf"
-	"go.aporeto.io/trireme-lib/controller/pkg/flowtracking"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
-	"go.aporeto.io/trireme-lib/controller/pkg/ipsetmanager"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/packettracing"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cache"
-	markconstants "go.aporeto.io/trireme-lib/utils/constants"
-	"go.aporeto.io/trireme-lib/utils/portcache"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/acls"
+	enforcerconstants "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/dnsproxy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/ephemeralkeys"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/counters"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ebpf"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/flowtracking"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	tpacket "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packettracing"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portcache"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +61,7 @@ type debugpacketmessage struct {
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    *fqconfig.FilterQueue
+	filterQueue    fqconfig.FilterQueue
 	collector      collector.EventCollector
 	tokenAccessor  tokenaccessor.TokenAccessor
 	service        packetprocessor.PacketProcessor
@@ -74,26 +74,22 @@ type Datapath struct {
 	// Key=ContextId Value=puContext
 	puFromContextID cache.DataStore
 	puFromMark      cache.DataStore
-	puFromUser      cache.DataStore
 	puFromHash      cache.DataStore
+	// hostPU is the host PU context associated with the datapath.
+	// There can not be more than one host PU.
+	hostPU *pucontext.PUContext
 
 	contextIDFromTCPPort *portcache.PortCache
 	contextIDFromUDPPort *portcache.PortCache
 	// For remotes this is a reverse link to the context
 	puFromIP *pucontext.PUContext
 
-	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
-	// When a new connection is created, we has the source IP/port. A return
-	// poacket might come with a different source IP NAT is done later.
-	// If we don't receife a return SynAck in 20 seconds, it expires
-	sourcePortConnectionCache cache.DataStore
+	//tcpClient and tcpServer is a connection cache with key being the flow hash
+	// and the value being the connection object.
+	tcpClient connection.TCPCache
+	tcpServer connection.TCPCache
 
-	// Hash on full five-tuple and return the connection
-	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker  cache.DataStore
-	appReplyConnectionTracker cache.DataStore
-	netOrigConnectionTracker  cache.DataStore
-	netReplyConnectionTracker cache.DataStore
+	tcpConnectionExpirationNotifier func(*connection.TCPConnection)
 
 	udpSourcePortConnectionCache cache.DataStore
 
@@ -105,7 +101,6 @@ type Datapath struct {
 	udpNetReplyConnectionTracker cache.DataStore
 	udpNatConnectionTracker      cache.DataStore
 	udpFinPacketTracker          cache.DataStore
-
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
@@ -119,9 +114,8 @@ type Datapath struct {
 	ackSize uint32
 
 	// conntrack is the conntrack client
-	conntrack  flowtracking.FlowClient
-	dnsProxy   *dnsproxy.Proxy
-	aclmanager ipsetmanager.ACLManager
+	conntrack flowtracking.FlowClient
+	dnsProxy  dnsproxy.DNSProxy
 
 	mutualAuthorization bool
 	packetLogs          bool
@@ -129,15 +123,18 @@ type Datapath struct {
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
 
-	puToPortsMap      map[string]map[string]bool
-	puCountersChannel chan *pucontext.PUContext
+	puToPortsMap map[string]map[string]bool
 	// bpf module
 	bpf ebpf.BPFModule
 
 	agentVersion semver.Version
 
-	secretsLock  sync.RWMutex
-	logLevelLock sync.RWMutex
+	secretsLock        sync.RWMutex
+	logLevelLock       sync.RWMutex
+	targetNetworksLock sync.RWMutex
+
+	// defines if serviceMesh is enabled and tells which type of serviceMesh is enabled
+	serviceMeshType policy.ServiceMesh
 }
 
 type tracingCacheEntry struct {
@@ -166,29 +163,37 @@ func createPolicy(networks []string) policy.IPRuleList {
 	return rules
 }
 
-func getCacheEntryRemoveCB(d *Datapath) cache.ExpirationNotifier {
-	f := func(cache cache.DataStore, key interface{}, val interface{}) {
-		conn := val.(*connection.TCPConnection)
-		t := conn.TCPtuple
-
-		if d.bpf != nil {
-			d.bpf.RemoveFlow(t)
-		}
-	}
-
-	return f
+func (d *Datapath) cachePut(cache connection.TCPCache, key string, conn *connection.TCPConnection) {
+	cache.Put(key, conn)
+	conn.StartTimer(func() {
+		cache.Remove(key)
+		d.tcpConnectionExpirationNotifier(conn)
+	})
 }
+
+func (d *Datapath) cacheGet(cache connection.TCPCache, key string) (*connection.TCPConnection, bool) {
+	return cache.Get(key)
+}
+
+func (d *Datapath) cacheRemove(cache connection.TCPCache, key string) {
+	conn, exists := cache.Get(key)
+	if exists {
+		conn.StopTimer()
+		cache.Remove(key)
+	}
+}
+
+const waitBeforeRemovingConn = 5 * time.Second
 
 // New will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
 func New(
 	mutualAuth bool,
-	filterQueue *fqconfig.FilterQueue,
+	filterQueue fqconfig.FilterQueue,
 	collector collector.EventCollector,
 	serverID string,
 	validity time.Duration,
-	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
@@ -197,9 +202,9 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 	cfg *runtime.Configuration,
-	aclmanager ipsetmanager.ACLManager,
 	isBPFEnabled bool,
 	agentVersion semver.Version,
+	serviceMeshType policy.ServiceMesh,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -216,14 +221,9 @@ func New(
 		if bpf = ebpf.LoadBPF(); bpf != nil {
 			zap.L().Info("eBPF is Enabled in the system")
 
-			conntrackCmd, err := exec.LookPath("conntrack")
-			if err != nil {
-				zap.L().Error("Failed to find conntrack command", zap.Error(err))
-			} else {
-				cmd := exec.Command(conntrackCmd, "-F")
-				if err := cmd.Run(); err != nil {
-					zap.L().Error("Failed to flush conntrack", zap.Error(err))
-				}
+			cmd := exec.Command("aporeto-conntrack", "-F")
+			if err := cmd.Run(); err != nil {
+				zap.L().Error("Failed to flush conntrack", zap.Error(err))
 			}
 		} else {
 			zap.L().Info("eBPF is disabled as it is not supported")
@@ -246,51 +246,41 @@ func New(
 		zap.L().Error("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
-	d := &Datapath{
-		puFromMark:           cache.NewCache("puFromMark"),
-		puFromUser:           cache.NewCache("puFromUser"),
-		puFromHash:           cache.NewCache("puFromHash"),
-		contextIDFromTCPPort: contextIDFromTCPPort,
-		contextIDFromUDPPort: contextIDFromUDPPort,
+	d := &Datapath{}
+	d.puFromMark = cache.NewCache("puFromMark")
+	d.puFromHash = cache.NewCache("puFromHash")
+	d.contextIDFromTCPPort = contextIDFromTCPPort
+	d.contextIDFromUDPPort = contextIDFromUDPPort
 
-		puFromContextID: puFromContextID,
+	d.puFromContextID = puFromContextID
+	d.tcpClient = connection.NewTCPConnectionCache()
+	d.tcpServer = connection.NewTCPConnectionCache()
+	d.tcpConnectionExpirationNotifier = d.tcpConnectionExpirationFunc
 
-		sourcePortConnectionCache:    cache.NewCacheWithExpirationNotifier("sourcePortConnectionCache", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		appOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		appReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("appReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		netOrigConnectionTracker:     cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		netReplyConnectionTracker:    cache.NewCacheWithExpirationNotifier("netReplyConnectionTracker", time.Second*24, connection.TCPConnectionExpirationNotifier),
-		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
-		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
-		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
-		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
-		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
-		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
-		udpFinPacketTracker:          cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60),
-		packetTracingCache:           cache.NewCache("PacketTracingCache"),
-		targetNetworks:               acls.NewACLCache(),
-		ExternalIPCacheTimeout:       ExternalIPCacheTimeout,
-		filterQueue:                  filterQueue,
-		mutualAuthorization:          mutualAuth,
-		service:                      service,
-		collector:                    collector,
-		tokenAccessor:                tokenaccessor,
-		scrts:                        secrets,
-		ackSize:                      secrets.AckSize(),
-		mode:                         mode,
-		procMountPoint:               procMountPoint,
-		packetLogs:                   packetLogs,
-		udpSocketWriter:              udpSocketWriter,
-		puToPortsMap:                 map[string]map[string]bool{},
-		puCountersChannel:            make(chan *pucontext.PUContext, 220),
-		aclmanager:                   aclmanager,
-		bpf:                          bpf,
-		agentVersion:                 agentVersion,
-	}
-
-	removeEntryCB := getCacheEntryRemoveCB(d)
-	d.appOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("appOrigConnectionTracker", time.Second*24, removeEntryCB)
-	d.netOrigConnectionTracker = cache.NewCacheWithExpirationNotifier("netOrigConnectionTracker", time.Second*24, removeEntryCB)
+	d.udpSourcePortConnectionCache = cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60)
+	d.udpAppOrigConnectionTracker = cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60)
+	d.udpAppReplyConnectionTracker = cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60)
+	d.udpNetOrigConnectionTracker = cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60)
+	d.udpNetReplyConnectionTracker = cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60)
+	d.udpNatConnectionTracker = cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60)
+	d.udpFinPacketTracker = cache.NewCacheWithExpiration("udpFinPacketTracker", time.Second*60)
+	d.packetTracingCache = cache.NewCache("PacketTracingCache")
+	d.targetNetworks = acls.NewACLCache()
+	d.ExternalIPCacheTimeout = ExternalIPCacheTimeout
+	d.filterQueue = filterQueue
+	d.mutualAuthorization = mutualAuth
+	d.collector = collector
+	d.tokenAccessor = tokenaccessor
+	d.scrts = secrets
+	d.ackSize = secrets.AckSize()
+	d.mode = mode
+	d.procMountPoint = procMountPoint
+	d.packetLogs = packetLogs
+	d.udpSocketWriter = udpSocketWriter
+	d.puToPortsMap = map[string]map[string]bool{}
+	d.bpf = bpf
+	d.agentVersion = agentVersion
+	d.serviceMeshType = serviceMeshType
 
 	if err = d.SetTargetNetworks(cfg); err != nil {
 		zap.L().Error("Error adding target networks to the ACLs", zap.Error(err))
@@ -298,74 +288,13 @@ func New(
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puContextDelegate, collector)
 
+	ephemeralkeys.UpdateDatapathSecrets(secrets)
+
 	if mode != constants.RemoteContainer {
 		go d.autoPortDiscovery()
 	}
 
 	return d
-}
-
-// NewWithDefaults create a new data path with most things used by default
-func NewWithDefaults(
-	serverID string,
-	collector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
-	secrets secrets.Secrets,
-	mode constants.ModeType,
-	procMountPoint string,
-	targetNetworks []string,
-	aclmanager ipsetmanager.ACLManager,
-) *Datapath {
-
-	if collector == nil {
-		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
-	}
-
-	defaultMutualAuthorization := false
-	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := constants.DatapathTokenValidity
-	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
-	if err != nil {
-		defaultExternalIPCacheTimeout = time.Second
-	}
-	defaultPacketLogs := false
-
-	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets, false)
-	if err != nil {
-		zap.L().Fatal("Cannot create a token engine", zap.Error(err))
-	}
-
-	puFromContextID := cache.NewCache("puFromContextID")
-
-	e := New(
-		defaultMutualAuthorization,
-		defaultFQConfig,
-		collector,
-		serverID,
-		defaultValidity,
-		service,
-		secrets,
-		mode,
-		procMountPoint,
-		defaultExternalIPCacheTimeout,
-		defaultPacketLogs,
-		tokenAccessor,
-		puFromContextID,
-		&runtime.Configuration{TCPTargetNetworks: targetNetworks},
-		aclmanager,
-		false,
-		semver.Version{},
-	)
-
-	conntrackClient, err := flowtracking.NewClient(context.Background())
-	if err != nil {
-		return nil
-	}
-	e.conntrack = conntrackClient
-
-	e.dnsProxy = dnsproxy.New(puFromContextID, conntrackClient, collector, e.aclmanager)
-
-	return e
 }
 
 func (d *Datapath) collectCounters() {
@@ -397,56 +326,39 @@ func (d *Datapath) collectCounters() {
 func (d *Datapath) counterCollector(ctx context.Context) {
 
 	for {
-		//drain the channel everytime we come here
 		select {
-		case pu := <-d.puCountersChannel:
-			counters := pu.Counters().GetErrorCounters()
-			d.collector.CollectCounterEvent(&collector.CounterReport{
-				PUID:      pu.ManagementID(),
-				Counters:  counters,
-				Namespace: pu.ManagementNamespace(),
-			})
-
 		case <-ctx.Done():
 			d.collectCounters()
 			return
 		case <-time.After(collectCounterInterval):
 			d.collectCounters()
 		}
-
 	}
 }
 
-// Enforce implements the Enforce interface method and configures the data path for a new PU
-func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (d *Datapath) reportErrorCounters(pu *pucontext.PUContext) {
 
+	counters := pu.Counters().GetErrorCounters()
+	d.collector.CollectCounterEvent(&collector.CounterReport{
+		PUID:      pu.ManagementID(),
+		Counters:  counters,
+		Namespace: pu.ManagementNamespace(),
+	})
+}
+
+// Enforce implements the Enforce interface method and configures the data path for a new PU
+func (d *Datapath) Enforce(ctx context.Context, contextID string, puInfo *policy.PUInfo) error {
 	// Always create a new PU context
-	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
+	pu, err := pucontext.NewPU(contextID, puInfo, d.tokenAccessor, d.ExternalIPCacheTimeout)
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
-	// this context pointer is about to get lost. reclaims its counters
-	select {
-	case d.puCountersChannel <- pu:
-	default:
-		zap.L().Debug("Failed to enqueue pu to counters channel")
-		counters := pu.Counters().GetErrorCounters()
-		d.collector.CollectCounterEvent(&collector.CounterReport{
-			PUID:      pu.ManagementID(),
-			Counters:  counters,
-			Namespace: pu.ManagementNamespace(),
-		})
 
-	}
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() != common.ContainerPU {
+
 		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
-
-		if pu.Type() == common.UIDLoginPU {
-			user := puInfo.Runtime.Options().UserID
-			d.puFromUser.AddOrUpdate(user, pu)
-		}
 
 		for _, port := range tcpPorts {
 			if port == "0" {
@@ -475,6 +387,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			// check for host pu and add its ports to the end.
 			if puInfo.Runtime.PUType() == common.HostPU {
 				d.contextIDFromUDPPort.AddPortSpecToEnd(portSpec)
+				d.hostPU = pu
 			} else {
 				d.contextIDFromUDPPort.AddPortSpec(portSpec)
 			}
@@ -484,24 +397,37 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromIP = pu
 	}
 
-	// start the dns proxy server for the first time.
-	if _, err := d.puFromContextID.Get(contextID); err != nil {
-		if err := d.dnsProxy.StartDNSServer(contextID, puInfo.Policy.DNSProxyPort()); err != nil {
+	oldPU, err := d.puFromContextID.Get(contextID)
+	if err != nil {
+		// start the dns proxy server for the first time.
+		if err := d.dnsProxy.StartDNSServer(ctx, contextID, puInfo.Policy.DNSProxyPort()); err != nil {
 			zap.L().Error("could not start dns server for PU", zap.String("contexID", contextID), zap.Error(err))
 		}
+	} else {
+		old := oldPU.(*pucontext.PUContext)
+		old.StopProcessing()
+		d.reportErrorCounters(old)
 	}
-
+	if err := d.dnsProxy.Enforce(ctx, contextID, puInfo); err != nil {
+		zap.L().Error("Unable to update dns proxy config", zap.Error(err))
+	}
 	// Cache PU to its contextID hash.
 	d.puFromHash.AddOrUpdate(pu.HashID(), pu)
 
 	// Cache PU from contextID for management and policy updates
 	d.puFromContextID.AddOrUpdate(contextID, pu)
 
+	if d.dnsProxy != nil {
+		if err := d.dnsProxy.SyncWithPlatformCache(ctx, pu); err != nil {
+			zap.L().Warn("error syncing with DNS cache", zap.Error(err))
+		}
+	}
+
 	return nil
 }
 
 // Unenforce removes the configuration for the given PU
-func (d *Datapath) Unenforce(contextID string) error {
+func (d *Datapath) Unenforce(ctx context.Context, contextID string) error {
 
 	var err error
 
@@ -510,37 +436,20 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
 	// Pu is being unenforcer. Collect its counters
-
-	d.puCountersChannel <- puContext.(*pucontext.PUContext)
-	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
 	// this context pointer is about to get lost. reclaims its counters
-	select {
-	case d.puCountersChannel <- pu:
-	default:
-		zap.L().Debug("Failed to enqueue pu to counters channel")
-		counters := pu.Counters().GetErrorCounters()
-		d.collector.CollectCounterEvent(&collector.CounterReport{
-			PUID:      pu.ManagementID(),
-			Counters:  counters,
-			Namespace: pu.ManagementNamespace(),
-		})
+	d.reportErrorCounters(pu)
 
-	}
 	// Cleanup the mark information
-	if err = d.puFromMark.Remove(pu.Mark()); err != nil {
-		zap.L().Debug("Unable to remove cache entry during unenforcement",
-			zap.String("Mark", pu.Mark()),
-			zap.Error(err),
-		)
-	}
-
-	// Cleanup the username
-	if pu.Type() == common.UIDLoginPU {
-		if err = d.puFromUser.Remove(pu.Username()); err != nil {
-			zap.L().Debug("PU not found for the username", zap.String("username", pu.Username()))
+	if pu.Mark() != "" {
+		if err = d.puFromMark.Remove(pu.Mark()); err != nil {
+			zap.L().Debug("Unable to remove cache entry during unenforcement",
+				zap.String("Mark", pu.Mark()),
+				zap.Error(err),
+			)
 		}
 	}
+
 	// Cleanup the port cache
 	for _, port := range pu.TCPPorts() {
 		if port == "0" {
@@ -556,6 +465,10 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	for _, port := range pu.UDPPorts() {
+		if port == "0" {
+			continue
+		}
+
 		if err := d.contextIDFromUDPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
 				zap.String("UDPPort", port),
@@ -579,8 +492,12 @@ func (d *Datapath) Unenforce(contextID string) error {
 			zap.Error(err),
 		)
 	}
-
-	d.dnsProxy.ShutdownDNS(contextID)
+	if err := d.dnsProxy.Unenforce(ctx, contextID); err != nil {
+		zap.L().Warn("Unable to unenforce dnsproxy",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+	}
 
 	return nil
 }
@@ -588,15 +505,24 @@ func (d *Datapath) Unenforce(contextID string) error {
 // SetTargetNetworks sets new target networks used by datapath
 func (d *Datapath) SetTargetNetworks(cfg *runtime.Configuration) error {
 
+	var err error
 	networks := cfg.TCPTargetNetworks
 
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1", "::/0"}
 	}
 
-	d.targetNetworks = acls.NewACLCache()
+	targetNetworks := acls.NewACLCache()
 	targetacl := createPolicy(networks)
-	return d.targetNetworks.AddRuleList(targetacl)
+
+	if err = targetNetworks.AddRuleList(targetacl); err == nil {
+		d.targetNetworksLock.Lock()
+		d.targetNetworks = targetNetworks
+		d.targetNetworksLock.Unlock()
+		return nil
+	}
+
+	return err
 }
 
 // GetBPFObject returns the bpf object
@@ -605,7 +531,7 @@ func (d *Datapath) GetBPFObject() ebpf.BPFModule {
 }
 
 // GetFilterQueue returns the filter queues used by the data path
-func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
+func (d *Datapath) GetFilterQueue() fqconfig.FilterQueue {
 
 	return d.filterQueue
 }
@@ -613,7 +539,7 @@ func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 // Run starts the application and network interceptors
 func (d *Datapath) Run(ctx context.Context) error {
 
-	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
+	zap.L().Debug("Start datapath tracking and network interceptor", zap.Int("mode", int(d.mode)))
 
 	if d.conntrack == nil {
 		conntrackClient, err := flowtracking.NewClient(ctx)
@@ -624,11 +550,10 @@ func (d *Datapath) Run(ctx context.Context) error {
 	}
 
 	if d.dnsProxy == nil {
-		d.dnsProxy = dnsproxy.New(d.puFromContextID, d.conntrack, d.collector, d.aclmanager)
+		d.dnsProxy = dnsproxy.New(ctx, d.puFromContextID, d.conntrack, d.collector)
 	}
 
 	d.startInterceptors(ctx)
-
 	go d.nflogger.Run(ctx)
 	go d.counterCollector(ctx)
 	return nil
@@ -641,6 +566,7 @@ func (d *Datapath) UpdateSecrets(s secrets.Secrets) error {
 	d.scrts = s
 	d.secretsLock.Unlock()
 
+	ephemeralkeys.UpdateDatapathSecrets(s)
 	return nil
 }
 
@@ -695,24 +621,34 @@ func (d *Datapath) puContextDelegate(hash string) (*pucontext.PUContext, error) 
 	return pu.(*pucontext.PUContext), nil
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, src, dst *collector.EndPoint, context *pucontext.PUContext,
+	mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy,
+	sourceController string, destinationController string) {
 
 	c := &collector.FlowRecord{
 		ContextID:   context.ID(),
-		Source:      src,
-		Destination: dst,
-		Tags:        context.Annotations(),
-		Action:      actual.Action,
-		DropReason:  mode,
-		PolicyID:    actual.PolicyID,
-		L4Protocol:  p.IPProto(),
-		Namespace:   context.ManagementNamespace(),
-		Count:       1,
+		Source:      *src,
+		Destination: *dst,
+		//
+		Action:                actual.Action,
+		DropReason:            mode,
+		PolicyID:              actual.PolicyID,
+		L4Protocol:            p.IPProto(),
+		Namespace:             context.ManagementNamespace(),
+		Count:                 1,
+		SourceController:      sourceController,
+		DestinationController: destinationController,
+		RuleName:              actual.RuleName,
+	}
+
+	if context.Annotations() != nil {
+		c.Tags = context.Annotations().GetSlice()
 	}
 
 	if report.ObserveAction.Observed() {
 		c.ObservedAction = report.Action
 		c.ObservedPolicyID = report.PolicyID
+		c.ObservedActionType = report.ObserveAction
 	}
 
 	d.collector.CollectFlowEvent(c)
@@ -728,14 +664,16 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if d.puFromIP != nil {
 		return d.puFromIP, nil
 	}
+
+	if protocol == packet.IPProtocolICMP {
+		if d.hostPU != nil {
+			return d.hostPU, nil
+		}
+	}
+
 	if app {
-		markIntVal, _ := strconv.Atoi(mark)
-		cgroupMark := strconv.Itoa(markIntVal >> markconstants.MarkShift)
-		pu, err := d.puFromMark.Get(cgroupMark)
-		zap.L().Debug("puFromMark",
-			zap.String("CgroupMark", cgroupMark),
-			zap.Int("MarkIntVal", markIntVal),
-		)
+		pu, err := d.puFromMark.Get(mark)
+
 		if err != nil {
 			zap.L().Error("Unable to find context for application flow with mark",
 				zap.String("mark", mark),
@@ -751,7 +689,7 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 	if protocol == packet.IPProtocolTCP {
 		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
 		if err != nil {
-			zap.L().Debug("Could not find PU context for TCP server port ", zap.Uint16("port", port))
+			zap.L().Debug("Could not find PU context for TCP server port", zap.Uint16("port", port))
 			return nil, counters.CounterError(counters.ErrPortNotFound, fmt.Errorf(" TCP Port Not Found %v", port))
 		}
 
@@ -762,23 +700,19 @@ func (d *Datapath) contextFromIP(app bool, mark string, port uint16, protocol ui
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	if protocol == packet.IPProtocolUDP {
-		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
-		if err != nil {
-			zap.L().Debug("Could not find PU context for UDP server port ", zap.Uint16("port", port))
-			return nil, counters.CounterError(counters.ErrPortNotFound, fmt.Errorf("UDP Port Not Found %v", port))
-		}
-
-		pu, err := d.puFromContextID.Get(contextID)
-		if err != nil {
-			return nil, counters.CounterError(counters.ErrContextIDNotFound, fmt.Errorf("contextID %s not Found", contextID))
-		}
-		return pu.(*pucontext.PUContext), nil
+	// This is the UDP case
+	contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
+	if err != nil {
+		zap.L().Debug("Could not find PU context for UDP server port", zap.Uint16("port", port))
+		return nil, counters.CounterError(counters.ErrPortNotFound, fmt.Errorf("UDP Port Not Found %v", port))
 	}
 
-	zap.L().Error("Invalid protocol ", zap.Uint8("protocol", protocol))
+	pu, err := d.puFromContextID.Get(contextID)
+	if err != nil {
+		return nil, counters.CounterError(counters.ErrContextIDNotFound, fmt.Errorf("contextID %s not Found", contextID))
+	}
 
-	return nil, counters.CounterError(counters.ErrInvalidProtocol, fmt.Errorf("Invalid Protocol %d", int(protocol)))
+	return pu.(*pucontext.PUContext), nil
 }
 
 // EnableDatapathPacketTracing enable nfq datapath packet tracing
@@ -800,6 +734,12 @@ func (d *Datapath) EnableDatapathPacketTracing(ctx context.Context, contextID st
 
 // EnableIPTablesPacketTracing enable iptables -j trace for the particular pu and is much wider packet stream.
 func (d *Datapath) EnableIPTablesPacketTracing(ctx context.Context, contextID string, interval time.Duration) error {
+	return nil
+}
+
+// DebugCollect collects debug information for remote enforcers
+func (d *Datapath) DebugCollect(ctx context.Context, contextID string, debugConfig *policy.DebugConfig) error {
+	// this is handled in remoteenforcer
 	return nil
 }
 
@@ -868,7 +808,7 @@ func (d *Datapath) collectUDPPacket(msg *debugpacketmessage) {
 func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	var value interface{}
 	var err error
-	report := &collector.PacketReport{}
+	var report *collector.PacketReport
 
 	if msg.tcpConn == nil {
 		if d.puFromIP == nil {
@@ -880,6 +820,7 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 			return
 		}
 
+		report = &collector.PacketReport{}
 		report.Claims = d.puFromIP.Identity().GetSlice()
 		report.PUID = d.puFromIP.ManagementID()
 		report.Encrypt = false
@@ -891,7 +832,8 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 			//not being traced return
 			return
 		}
-		//tcpConn is not nil
+
+		report = &collector.PacketReport{}
 		report.Encrypt = msg.tcpConn.ServiceConnection
 		report.Claims = msg.tcpConn.Context.Identity().GetSlice()
 		report.PUID = msg.tcpConn.Context.ManagementID()
@@ -931,10 +873,75 @@ func (d *Datapath) collectTCPPacket(msg *debugpacketmessage) {
 	} else {
 		copy(report.Payload, msg.p.GetBuffer(0))
 	}
+
 	d.collector.CollectPacketEvent(report)
 }
 
 // Ping runs ping to the given config.
 func (d *Datapath) Ping(ctx context.Context, contextID string, pingConfig *policy.PingConfig) error {
-	return d.initiateDiagnostics(ctx, contextID, pingConfig)
+
+	if pingConfig == nil {
+		return nil
+	}
+
+	item, err := d.puFromContextID.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("unable to find context with ID %s in cache: %v", contextID, err)
+	}
+
+	context, ok := item.(*pucontext.PUContext)
+	if !ok {
+		return fmt.Errorf("invalid pu context: %v", contextID)
+	}
+
+	return d.initiatePingHandshake(ctx, context, pingConfig)
+}
+
+// tcpConnectionExpirationNotifier handles processing the expiration of an element
+func (d *Datapath) tcpConnectionExpirationFunc(conn *connection.TCPConnection) {
+
+	if conn.PingEnabled() {
+
+		if !conn.PingConfig.SocketClosed() {
+			if err := close(conn); err != nil {
+				zap.L().Warn("unable to close socket", zap.Reflect("fd", conn.PingConfig.SocketFd()), zap.Error(err))
+			}
+		}
+
+		if d.collector != nil && conn.PingConfig.PingReport() != nil {
+			d.collector.CollectPingEvent(conn.PingConfig.PingReport())
+		}
+
+		return
+	}
+
+	if conn.GetState() == connection.TCPSynSend || conn.GetState() == connection.TCPSynAckSend {
+
+		reason := conn.GetReportReason()
+		if reason == "" {
+			reason = "expired"
+		}
+
+		connectionReport := &collector.ConnectionExceptionReport{
+			Timestamp:       time.Now(),
+			PUID:            conn.Context.ManagementID(),
+			Namespace:       conn.Context.ManagementNamespace(),
+			Protocol:        tpacket.IPProtocolTCP,
+			SourceIP:        conn.TCPtuple.SourceAddress.String(),
+			DestinationIP:   conn.TCPtuple.DestinationAddress.String(),
+			DestinationPort: conn.TCPtuple.DestinationPort,
+			Reason:          reason,
+			Value:           conn.GetCounterAndReset(),
+			State:           conn.GetStateString(),
+		}
+
+		d.collector.CollectConnectionExceptionReport(connectionReport)
+	}
+
+	conn.Cleanup()
+}
+
+// GetServiceMeshType gets the service mesh that is enabled on this datapath
+func (d *Datapath) GetServiceMeshType() policy.ServiceMesh {
+	return d.serviceMeshType
 }

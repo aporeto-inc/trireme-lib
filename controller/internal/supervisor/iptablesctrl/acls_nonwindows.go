@@ -4,15 +4,23 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"strconv"
 
-	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	markconstants "go.aporeto.io/enforcerd/trireme-lib/utils/constants"
 	"go.uber.org/zap"
 )
+
+// discoverCnsAgentBootPID is only used in Windows rules
+var discoverCnsAgentBootPID = func() int {
+	return -1
+}
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
 func (i *iptables) addContainerChain(cfg *ACLInfo) error {
+
 	appChain := cfg.AppChain
 	netChain := cfg.NetChain
 	if err := i.impl.NewChain(appPacketIPTableContext, appChain); err != nil {
@@ -31,7 +39,7 @@ func (i *iptables) addContainerChain(cfg *ACLInfo) error {
 }
 
 // deletePUChains removes all the container specific chains and basic rules
-func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) error {
+func (i *iptables) deletePUChains(cfg *ACLInfo) error {
 
 	if err := i.impl.ClearChain(appPacketIPTableContext, cfg.AppChain); err != nil {
 		zap.L().Warn("Failed to clear the container ack packets chain",
@@ -68,35 +76,6 @@ func (i *iptables) deletePUChains(cfg *ACLInfo, containerInfo *policy.PUInfo) er
 	return nil
 }
 
-// removeGlobalHooksPre is called before we jump into template driven rules.This is best effort
-// no errors if these things fail.
-func (i *iptables) removeGlobalHooksPre() {
-	rules := [][]string{
-		{
-			"nat",
-			"PREROUTING",
-			"-p", "tcp",
-			"-m", "addrtype",
-			"--dst-type", "LOCAL",
-			"-m", "set", "!", "--match-set", "TRI-Excluded", "src",
-			"-j", "TRI-Redir-Net",
-		},
-		{
-			"nat",
-			"OUTPUT",
-			"-m", "set", "!", "--match-set", "TRI-Excluded", "dst",
-			"-j", "TRI-Redir-App",
-		},
-	}
-
-	for _, rule := range rules {
-		if err := i.impl.Delete(rule[0], rule[1], rule[2:]...); err != nil {
-			zap.L().Debug("Error while delete rules", zap.Strings("rule", rule))
-		}
-	}
-
-}
-
 func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo, isAppAcls bool) [][]string {
 	// pass through on linux
 	return aclRules
@@ -104,4 +83,33 @@ func transformACLRules(aclRules [][]string, cfg *ACLInfo, rulesBucket *rulesInfo
 
 func (i *iptables) platformInit() error {
 	return nil
+}
+
+func (i *iptables) cleanACLs() error { // nolint
+	cfg, err := i.newACLInfo(0, "", nil, 0)
+	if err != nil {
+		return err
+	}
+
+	// First clear the nat rules
+	if err := i.removeGlobalHooks(cfg); err != nil {
+		zap.L().Error("unable to remove nat proxy rules")
+	}
+
+	// Clean all rules with TRI- sub
+	i.impl.ResetRules("TRI-") // nolint: errcheck
+	// Always return nil here. No reason to block anything if cleans fail.
+	return nil
+}
+
+func generateUDPACLRule() []string {
+	return []string{"-m", "string", "!", "--string", packet.UDPAuthMarker, "--algo", "bm", "--to", "128"}
+}
+
+func targetUDPNetworkClause(rule *aclIPset, targetUDPName string, ipMatchDirection string) []string {
+	return []string{"-m", "set", "!", "--match-set", targetUDPName, ipMatchDirection}
+}
+
+func connmarkUDPConnmarkClause() []string {
+	return []string{"-j", "CONNMARK", "--set-mark", strconv.Itoa(int(markconstants.DefaultExternalConnMark))}
 }

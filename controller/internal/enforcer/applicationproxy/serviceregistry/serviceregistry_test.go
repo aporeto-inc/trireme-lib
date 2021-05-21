@@ -8,28 +8,24 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	triremecommon "go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/common"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	triremecommon "go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets/testhelper"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 func newBaseApplicationServices(exposedPortValue, publicPortValue, privatePortValue, dependentPortValue uint16) (*policy.ApplicationService, *policy.ApplicationService) {
 
-	_, exposed1, err := net.ParseCIDR("10.1.1.0/24")
-	So(err, ShouldBeNil)
-	_, exposed2, err := net.ParseCIDR("20.1.1.0/24")
-	So(err, ShouldBeNil)
-	_, public1, err := net.ParseCIDR("30.1.1.0/24")
-	So(err, ShouldBeNil)
-	_, public2, err := net.ParseCIDR("40.1.1.0/24")
-	So(err, ShouldBeNil)
-	_, dependent1, err := net.ParseCIDR("50.1.1.0/24")
-	So(err, ShouldBeNil)
-	_, dependent2, err := net.ParseCIDR("60.1.1.0/24")
-	So(err, ShouldBeNil)
+	exposed1 := "10.1.1.0/24"
+	exposed2 := "20.1.1.0/24"
+	public1 := "30.1.1.0/24"
+	public2 := "40.1.1.0/24"
+	dependent1 := "50.1.1.0/24"
+	dependent2 := "60.1.1.0/24"
+
 	exposedPort, err := portspec.NewPortSpec(exposedPortValue, exposedPortValue, nil)
 	So(err, ShouldBeNil)
 	publicPort, err := portspec.NewPortSpec(publicPortValue, publicPortValue, nil)
@@ -42,52 +38,46 @@ func newBaseApplicationServices(exposedPortValue, publicPortValue, privatePortVa
 	return &policy.ApplicationService{
 			ID: "policyExposed",
 			NetworkInfo: &triremecommon.Service{
-				Ports:    exposedPort,
-				Protocol: 6,
-				Addresses: []*net.IPNet{
-					exposed1,
-					exposed2,
-				},
+				Ports:     exposedPort,
+				Protocol:  6,
+				Addresses: map[string]struct{}{exposed1: struct{}{}, exposed2: struct{}{}},
 			},
 			PublicNetworkInfo: &triremecommon.Service{
-				Ports:    publicPort,
-				Protocol: 6,
-				Addresses: []*net.IPNet{
-					public1,
-				},
+				Ports:     publicPort,
+				Protocol:  6,
+				Addresses: map[string]struct{}{public1: struct{}{}},
 			},
 			PrivateNetworkInfo: &triremecommon.Service{
 				Ports:     privatePort,
 				Protocol:  6,
-				Addresses: []*net.IPNet{},
+				Addresses: map[string]struct{}{},
 			},
-			Type:               policy.ServiceHTTP,
-			PublicServiceNoTLS: false,
+			Type:                 policy.ServiceHTTP,
+			PublicServiceTLSType: policy.ServiceTLSTypeAporeto,
 		},
 		&policy.ApplicationService{
 			ID: "policyDepend",
 			NetworkInfo: &triremecommon.Service{
 				Ports:    dependentPort,
 				Protocol: 6,
-				Addresses: []*net.IPNet{
-					dependent1,
-					dependent2,
+				FQDNs:    []string{"www.google.com"},
+				Addresses: map[string]struct{}{
+					dependent1: struct{}{},
+					dependent2: struct{}{},
 				},
 			},
 			PublicNetworkInfo: &triremecommon.Service{
-				Ports:    publicPort,
-				Protocol: 6,
-				Addresses: []*net.IPNet{
-					public2,
-				},
+				Ports:     publicPort,
+				Protocol:  6,
+				Addresses: map[string]struct{}{public2: struct{}{}},
 			},
 			PrivateNetworkInfo: &triremecommon.Service{
 				Ports:     privatePort,
 				Protocol:  6,
-				Addresses: []*net.IPNet{},
+				Addresses: map[string]struct{}{},
 			},
-			Type:               policy.ServiceHTTP,
-			PublicServiceNoTLS: false,
+			Type:                 policy.ServiceHTTP,
+			PublicServiceTLSType: policy.ServiceTLSTypeAporeto,
 		}
 }
 
@@ -122,28 +112,21 @@ func newPU(name string, exposedPort, publicPort, privatePort, dependentPort uint
 		dependentServices,
 		[]string{},
 		policy.EnforcerMapping,
+		policy.Reject|policy.Log,
+		policy.Reject|policy.Log,
 	)
 
 	puInfo := policy.NewPUInfo(name, "/ns1", triremecommon.ContainerPU)
 	puInfo.Policy = plc
-	pctx, err := pucontext.NewPU(name, puInfo, time.Second*1000)
+	pctx, err := pucontext.NewPU(name, puInfo, nil, time.Second*1000)
 	So(err, ShouldBeNil)
-	_, s, _ := secrets.CreateCompactPKITestSecrets()
+	_, s, _ := testhelper.NewTestCompactPKISecrets()
 	return puInfo, pctx, s
-}
-
-func TestNewRegistry(t *testing.T) {
-	Convey("When I create a new registry, it should be properly configured", t, func() {
-		r := NewServiceRegistry()
-		So(r, ShouldNotBeNil)
-		So(r.indexByName, ShouldNotBeNil)
-		So(r.indexByPort, ShouldNotBeNil)
-	})
 }
 
 func TestRegister(t *testing.T) {
 	Convey("Given a new registry", t, func() {
-		r := NewServiceRegistry()
+		r := Instance()
 		Convey("When I register a new PU with no services", func() {
 			puInfo, pctx, s := newPU("pu1", 8080, 443, 80, 8080, false, false)
 			sctx, err := r.Register("pu1", puInfo, pctx, s)
@@ -168,6 +151,17 @@ func TestRegister(t *testing.T) {
 				So(portContext.Service, ShouldResemble, puInfo.Policy.ExposedServices()[0])
 				So(portContext.Type, ShouldEqual, common.HTTPSNetwork)
 
+			})
+			Convey("Update the dependent services by fqdn, and it should be able to find", func() {
+				for _, dependentService := range pctx.DependentServices("www.google.com") {
+					dependentService.NetworkInfo.Addresses["4.4.4.4/32"] = struct{}{}
+				}
+
+				err := r.UpdateDependentServicesByID("pu1")
+				So(err, ShouldBeNil)
+
+				_, _, err = r.RetrieveDependentServiceDataByIDAndNetwork("pu1", net.ParseIP("4.4.4.4").To4(), 8080, "")
+				So(err, ShouldBeNil)
 			})
 			Convey("But I should get errors for non existing ports or services", func() {
 				serviceContext, rerr := r.RetrieveServiceByID("badpu")

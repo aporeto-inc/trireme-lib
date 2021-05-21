@@ -6,11 +6,11 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/config"
-	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	windowsmonitor "go.aporeto.io/enforcerd/trireme-lib/monitor/internal/windows"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/remoteapi/server"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +61,7 @@ func (m *monitors) Resync(ctx context.Context) error {
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
-func NewMonitors(opts ...Options) (Monitor, error) {
+func NewMonitors(ctx context.Context, opts ...Options) (Monitor, error) {
 	var err error
 
 	c := &config.MonitorConfig{
@@ -93,7 +93,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 	for k, v := range c.Monitors {
 		switch k {
 		case config.Windows:
-			mon := windowsmonitor.New()
+			mon := windowsmonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			// TODO(windows): make a real Windows monitor option rather than using LinuxHost
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
@@ -101,14 +101,19 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 			}
 			m.monitors[config.Windows] = mon
 		case config.LinuxHost:
-			mon := windowsmonitor.New()
+			mon := windowsmonitor.New(ctx)
 			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
 			m.monitors[config.LinuxHost] = mon
-			/* default:
-			return nil, nil //fmt.Errorf("Unsupported type %d", k) */
+		case config.LinuxProcess:
+			mon := windowsmonitor.New(ctx)
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
+				return nil, fmt.Errorf("Process: %s", err.Error())
+			}
+			m.monitors[config.LinuxProcess] = mon
 		}
 	}
 	zap.L().Debug("Monitor configuration", zap.String("conf", m.config.String()))

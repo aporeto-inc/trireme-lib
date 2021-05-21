@@ -94,7 +94,7 @@ func (s *PortSpec) Value() interface{} {
 	return s.value
 }
 
-// Overlaps returns true if the provided port spect overlaps with the given one.
+// Overlaps returns true if the provided port spec overlaps with the given one.
 func (s *PortSpec) Overlaps(p *PortSpec) bool {
 	a := p
 	b := s
@@ -106,6 +106,14 @@ func (s *PortSpec) Overlaps(p *PortSpec) bool {
 		return true
 	}
 	return false
+}
+
+// Intersects returns true if the provided port spec intersect with the given one.
+func (s *PortSpec) Intersects(p *PortSpec) bool {
+	if p.Min == p.Max {
+		return s.IsIncluded(int(p.Min))
+	}
+	return s.IsIncluded(int(p.Min)) && s.IsIncluded(int(p.Max))
 }
 
 // IsIncluded returns trues if a port is within the range of the portspec

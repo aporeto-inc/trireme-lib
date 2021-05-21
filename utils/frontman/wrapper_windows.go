@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/windows"
 )
 
@@ -24,14 +25,14 @@ type WrapDriver interface {
 	IpsetAdd(ipsetHandle uintptr, entry string, timeout int) error
 	IpsetAddOption(ipsetHandle uintptr, entry, option string, timeout int) error
 	IpsetDelete(ipsetHandle uintptr, entry string) error
-	IpsetDestroy(ipsetHandle uintptr) error
+	IpsetDestroy(ipsetHandle uintptr, name string) error
 	IpsetFlush(ipsetHandle uintptr) error
 	IpsetTest(ipsetHandle uintptr, entry string) (bool, error)
 	PacketFilterStart(firewallName string, receiveCallback, loggingCallback func(uintptr, uintptr) uintptr) error
 	PacketFilterClose() error
 	PacketFilterForward(info *PacketInfo, packetBytes []byte) error
-	AppendFilter(outbound bool, filterName string) error
-	InsertFilter(outbound bool, priority int, filterName string) error
+	AppendFilter(outbound bool, filterName string, isGotoFilter bool) error
+	InsertFilter(outbound bool, priority int, filterName string, isGotoFilter bool) error
 	DestroyFilter(filterName string) error
 	EmptyFilter(filterName string) error
 	GetFilterList(outbound bool) ([]string, error)
@@ -42,16 +43,22 @@ type WrapDriver interface {
 
 type wrapper struct {
 	driverHandle uintptr
+	ruleCleaner  ruleCleanup
 }
 
 // Wrapper is the driver/dll wrapper implementation
-var Wrapper = WrapDriver(&wrapper{})
+var Wrapper = WrapDriver(&wrapper{
+	driverHandle: uintptr(syscall.InvalidHandle),
+	ruleCleaner:  newRuleCleanup(),
+})
 
 func (w *wrapper) initDriverHandle() {
 	if w.driverHandle == 0 || syscall.Handle(w.driverHandle) == syscall.InvalidHandle {
-		if ret, err := Driver.FrontmanOpenShared(); err == nil {
-			w.driverHandle = ret
+		ret, err := Driver.FrontmanOpenShared()
+		if err != nil {
+			zap.L().Fatal("Unable to initialize Frontman driver. Check Windows Event Viewer System logs for errors, and ensure that no other instances are currently running.", zap.Error(err))
 		}
+		w.driverHandle = ret
 	}
 }
 
@@ -99,10 +106,12 @@ func (w *wrapper) GetIpset(name string) (uintptr, error) {
 
 func (w *wrapper) DestroyAllIpsets(prefix string) error {
 	w.initDriverHandle()
+	// order important: we must call cleaner routine before telling driver to delete the ipsets
+	errCleaner := w.ruleCleaner.deleteRuleForIpsetByPrefix(w, prefix)
 	if ret, err := Driver.DestroyAllIpsets(w.driverHandle, marshalString(prefix)); ret == 0 {
 		return fmt.Errorf("DestroyAllIpsets failed: %v", err)
 	}
-	return nil
+	return errCleaner
 }
 
 func (w *wrapper) ListIpsets() ([]string, error) {
@@ -169,6 +178,10 @@ func (w *wrapper) IpsetAdd(ipsetHandle uintptr, entry string, timeout int) error
 func (w *wrapper) IpsetAddOption(ipsetHandle uintptr, entry, option string, timeout int) error {
 	w.initDriverHandle()
 	if ret, err := Driver.IpsetAddOption(w.driverHandle, ipsetHandle, marshalString(entry), marshalString(option), uintptr(timeout)); ret == 0 {
+		// no error if already exists
+		if err == windows.ERROR_ALREADY_EXISTS {
+			return nil
+		}
 		return fmt.Errorf("IpsetAddOption failed: %v", err)
 	}
 	return nil
@@ -182,12 +195,13 @@ func (w *wrapper) IpsetDelete(ipsetHandle uintptr, entry string) error {
 	return nil
 }
 
-func (w *wrapper) IpsetDestroy(ipsetHandle uintptr) error {
+func (w *wrapper) IpsetDestroy(ipsetHandle uintptr, name string) error {
 	w.initDriverHandle()
+	errCleaner := w.ruleCleaner.deleteRulesForIpset(w, name)
 	if ret, err := Driver.IpsetDestroy(w.driverHandle, ipsetHandle); ret == 0 {
 		return fmt.Errorf("IpsetDestroy failed: %v", err)
 	}
-	return nil
+	return errCleaner
 }
 
 func (w *wrapper) IpsetFlush(ipsetHandle uintptr) error {
@@ -233,9 +247,9 @@ func (w *wrapper) PacketFilterForward(info *PacketInfo, packetBytes []byte) erro
 	return nil
 }
 
-func (w *wrapper) AppendFilter(outbound bool, filterName string) error {
+func (w *wrapper) AppendFilter(outbound bool, filterName string, isGotoFilter bool) error {
 	w.initDriverHandle()
-	if ret, err := Driver.AppendFilter(w.driverHandle, marshalBool(outbound), marshalString(filterName)); ret == 0 {
+	if ret, err := Driver.AppendFilter(w.driverHandle, marshalBool(outbound), marshalString(filterName), marshalBool(isGotoFilter)); ret == 0 {
 		// no error if already exists
 		if err == windows.ERROR_ALREADY_EXISTS {
 			return nil
@@ -245,9 +259,9 @@ func (w *wrapper) AppendFilter(outbound bool, filterName string) error {
 	return nil
 }
 
-func (w *wrapper) InsertFilter(outbound bool, priority int, filterName string) error {
+func (w *wrapper) InsertFilter(outbound bool, priority int, filterName string, isGotoFilter bool) error {
 	w.initDriverHandle()
-	if ret, err := Driver.InsertFilter(w.driverHandle, marshalBool(outbound), uintptr(priority), marshalString(filterName)); ret == 0 {
+	if ret, err := Driver.InsertFilter(w.driverHandle, marshalBool(outbound), uintptr(priority), marshalString(filterName), marshalBool(isGotoFilter)); ret == 0 {
 		return fmt.Errorf("InsertFilter failed: %v", err)
 	}
 	return nil
@@ -285,6 +299,12 @@ func (w *wrapper) GetFilterList(outbound bool) ([]string, error) {
 	}
 	// then allocate buffer for wide string and call again
 	buf := make([]uint16, bytesNeeded/2)
+
+	// Not sure how this happens, but sometimes on shutdown we get a panic because the len(buf) is zero
+	if len(buf) <= 0 {
+		return nil, fmt.Errorf("GetFilterList returned unexpected bytes needed value: %d", bytesNeeded)
+	}
+
 	ret, err = Driver.GetFilterList(w.driverHandle, marshalBool(outbound), uintptr(unsafe.Pointer(&buf[0])), uintptr(bytesNeeded), uintptr(unsafe.Pointer(&ignore)))
 	if ret == 0 {
 		return nil, fmt.Errorf("GetFilterList failed: %v", err)
@@ -304,6 +324,12 @@ func (w *wrapper) AppendFilterCriteria(filterName, criteriaName string, ruleSpec
 			uintptr(len(ipsetRuleSpecs))); ret == 0 {
 			return fmt.Errorf("AppendFilterCriteria failed: %v", err)
 		}
+		for _, ipsrs := range ipsetRuleSpecs {
+			if ipsrs.IpsetName != 0 {
+				ipsetName := WideCharPointerToString((*uint16)(unsafe.Pointer(ipsrs.IpsetName))) // nolint:govet
+				w.ruleCleaner.mapIpsetToRule(ipsetName, filterName, criteriaName)
+			}
+		}
 	} else {
 		if ret, err := Driver.AppendFilterCriteria(w.driverHandle,
 			marshalString(filterName),
@@ -317,6 +343,7 @@ func (w *wrapper) AppendFilterCriteria(filterName, criteriaName string, ruleSpec
 
 func (w *wrapper) DeleteFilterCriteria(filterName, criteriaName string) error {
 	w.initDriverHandle()
+	w.ruleCleaner.deleteRuleFromIpsetMap(filterName, criteriaName)
 	if ret, err := Driver.DeleteFilterCriteria(w.driverHandle, marshalString(filterName), marshalString(criteriaName)); ret == 0 {
 		return fmt.Errorf("DeleteFilterCriteria failed - could not delete %s: %v", criteriaName, err)
 	}
@@ -349,7 +376,7 @@ func (w *wrapper) GetCriteriaList(format int) (string, error) {
 }
 
 func marshalString(str string) uintptr {
-	return uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(str))) //nolint
+	return uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(str))) // nolint
 }
 
 func marshalBool(b bool) uintptr {

@@ -3,9 +3,10 @@
 package controller
 
 import (
-	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 func (t *trireme) setupEnvoyAuthorizer() error {
@@ -15,7 +16,6 @@ func (t *trireme) setupEnvoyAuthorizer() error {
 		t.config.mutualAuth,
 		t.config.fq,
 		t.config.collector,
-		t.config.service,
 		t.config.secret,
 		t.config.serverID,
 		t.config.validity,
@@ -25,10 +25,9 @@ func (t *trireme) setupEnvoyAuthorizer() error {
 		t.config.packetLogs,
 		t.config.runtimeCfg,
 		t.config.tokenIssuer,
-		t.config.binaryTokens,
-		t.config.aclmanager,
 		t.config.isBPFEnabled,
 		t.config.agentVersion,
+		policy.None,
 	)
 	return err
 }

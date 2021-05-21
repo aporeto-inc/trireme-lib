@@ -3,8 +3,9 @@
 package monitor
 
 import (
-	"go.aporeto.io/trireme-lib/monitor/config"
-	windowsmonitor "go.aporeto.io/trireme-lib/monitor/internal/windows"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/config"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/extractors"
+	windowsmonitor "go.aporeto.io/enforcerd/trireme-lib/monitor/internal/windows"
 )
 
 // WindowsMonitorOption is provided using functional arguments
@@ -17,11 +18,25 @@ func OptionMonitorWindows(
 	return optionMonitorWindows(true, opts...)
 }
 
+// OptionMonitorWindowsProcess provides a way to add a linux process monitor and related configuration to be used with New().
+func OptionMonitorWindowsProcess(
+	opts ...WindowsMonitorOption,
+) Options {
+	return optionMonitorWindows(false, opts...)
+}
+
+// SubOptionMonitorWindowsExtractor provides a way to specify metadata extractor for linux monitors.
+func SubOptionMonitorWindowsExtractor(extractor extractors.EventMetadataExtractor) WindowsMonitorOption {
+	return func(cfg *windowsmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
+	}
+}
+
 // optionMonitorWindows provides a way to add a windows monitor and related configuration to be used with New().
 func optionMonitorWindows(host bool,
 	opts ...WindowsMonitorOption,
 ) Options {
-	wc := windowsmonitor.DefaultConfig(true)
+	wc := windowsmonitor.DefaultConfig(host)
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(wc)
@@ -30,7 +45,7 @@ func optionMonitorWindows(host bool,
 		if host {
 			cfg.Monitors[config.LinuxHost] = wc
 		} else {
-			cfg.Monitors[config.Windows] = wc
+			cfg.Monitors[config.LinuxProcess] = wc
 		}
 	}
 }

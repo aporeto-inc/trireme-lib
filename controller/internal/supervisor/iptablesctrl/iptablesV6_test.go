@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,!rhel6
 
 package iptablesctrl
 
@@ -6,29 +6,36 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/magiconair/properties/assert"
 	. "github.com/smartystreets/goconvey/convey"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/constants"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	"go.aporeto.io/trireme-lib/controller/runtime"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/constants"
+	tacls "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/acls"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/ipsetmanager"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
+
+func testICMPAllow() string {
+	return "16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0"
+}
 
 func TestNewInstanceV6(t *testing.T) {
 
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			ipsv4 := provider.NewTestIpsetProvider()
-			ipsv6 := provider.NewTestIpsetProvider()
+			ips := ipsetmanager.NewTestIpsetProvider()
 			iptv4 := provider.NewTestIptablesProvider()
 			iptv6 := provider.NewTestIptablesProvider()
 
-			i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.RemoteContainer)
+			i, err := createTestInstance(ips, iptv4, iptv6, constants.RemoteContainer, policy.None)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -38,12 +45,11 @@ func TestNewInstanceV6(t *testing.T) {
 
 	Convey("When I create a new iptables instance", t, func() {
 		Convey("If I create a Linux server implemenetation and iptables exists", func() {
-			ipsv4 := provider.NewTestIpsetProvider()
-			ipsv6 := provider.NewTestIpsetProvider()
+			ips := ipsetmanager.NewTestIpsetProvider()
 			iptv4 := provider.NewTestIptablesProvider()
 			iptv6 := provider.NewTestIptablesProvider()
 
-			i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+			i, err := createTestInstance(ips, iptv4, iptv6, constants.LocalServer, policy.None)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -55,12 +61,11 @@ func TestNewInstanceV6(t *testing.T) {
 func Test_NegativeConfigureRulesV6(t *testing.T) {
 
 	Convey("Given a valid instance", t, func() {
-		ipsv4 := provider.NewTestIpsetProvider()
-		ipsv6 := provider.NewTestIpsetProvider()
+		ips := ipsetmanager.NewTestIpsetProvider()
 		iptv4 := provider.NewTestIptablesProvider()
 		iptv6 := provider.NewTestIptablesProvider()
 
-		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		i, err := createTestInstance(ips, iptv4, iptv6, constants.LocalServer, policy.None)
 		So(err, ShouldBeNil)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -69,7 +74,7 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		err = i.Run(ctx)
 		So(err, ShouldBeNil)
 		cfg := &runtime.Configuration{}
-		i.SetTargetNetworks(cfg) //nolint
+		i.SetTargetNetworks(cfg) // nolint
 
 		ipl := policy.ExtendedMap{}
 		policyrules := policy.NewPUPolicy(
@@ -91,8 +96,11 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			nil,
 			[]string{},
 			policy.EnforcerMapping,
+			policy.Reject|policy.Log,
+			policy.Reject|policy.Log,
 		)
-		containerinfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
+		containerinfo := policy.NewPUInfo("Context",
+			"/ns1", common.ContainerPU)
 		containerinfo.Policy = policyrules
 		containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 		containerinfo.Runtime.SetOptions(policy.OptionsType{
@@ -100,15 +108,17 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 		})
 
 		Convey("When I configure the rules with no errors, it should succeed", func() {
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1,
+				"ID", containerinfo)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("When I configure the rules and the proxy set fails, it should error", func() {
-			ipsv6.MockNewIpset(t, func(name, hash string, p *ipset.Params) (provider.Ipset, error) {
+			ips.MockNewIpset(t, func(name, hash string, p *ipset.Params) (ipsetmanager.Ipset, error) {
 				return nil, fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1,
+				"ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -116,7 +126,8 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			iptv6.MockAppend(t, func(table, chain string, rulespec ...string) error {
 				return fmt.Errorf("error")
 			})
-			err := i.ConfigureRules(1, "ID", containerinfo)
+			err := i.ConfigureRules(1,
+				"ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -124,7 +135,8 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 			iptv6.MockCommit(t, func() error {
 				return fmt.Errorf("error")
 			})
-			err := i.iptv6.ConfigureRules(1, "ID", containerinfo)
+			err := i.iptv6.ConfigureRules(1,
+				"ID", containerinfo)
 			So(err, ShouldNotBeNil)
 		})
 	})
@@ -132,6 +144,16 @@ func Test_NegativeConfigureRulesV6(t *testing.T) {
 
 var (
 	expectedGlobalMangleChainsV6 = map[string][]string{
+		"TRI-Nfq-IN": {"-j HMARK --hmark-tuple dport,sport --hmark-mod 4 --hmark-offset 67 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 67 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 68 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 69 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 70 -j NFQUEUE --queue-num 3 --queue-bypass"},
+		"TRI-Nfq-OUT": {"-j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 0 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 0 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 1 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 2 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 3 -j NFQUEUE --queue-num 3 --queue-bypass"},
 		"INPUT": {
 			"-m set ! --match-set TRI-v6-Excluded src -j TRI-Net",
 		},
@@ -139,50 +161,13 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-j TRI-Prx-App",
-			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 11 --queue-bypass",
-			"-j TRI-Pid-App",
-			"-j TRI-Svc-App",
-			"-j TRI-Hst-App",
-		},
+			"-m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-p udp --dport 53 -m mark --mark 0x40 -m cgroup --cgroup 1536 -j CONNMARK --set-mark 61167", "-p udp --dport 53 -m mark --mark 0x40 -j CONNMARK --set-mark 61167", "-j TRI-Prx-App", "-m connmark --mark 61167 -j ACCEPT", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m connmark --mark 61166 -p udp -j ACCEPT", "-m mark --mark 1073741922 -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-OUT", "-j TRI-Pid-App", "-j TRI-Svc-App", "-j TRI-Hst-App"},
 		"TRI-Net": {
-			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 3/0x3ff -j NFQUEUE --queue-bypass --queue-num 26",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 4/0x3ff -j NFQUEUE --queue-bypass --queue-num 27",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-
-			"-j TRI-UID-Net",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 25 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 26 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19 --queue-bypass",
-			"-j TRI-Pid-Net",
-			"-j TRI-Svc-Net",
-			"-j TRI-Hst-Net",
-		},
+			"-j TRI-Prx-Net", "-p tcp -m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-m connmark --mark 61167 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-IN",
+			"-p udp -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j TRI-Nfq-IN", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p udp -j ACCEPT", "-j TRI-Pid-Net", "-j TRI-Svc-Net", "-j TRI-Hst-Net"},
 		"TRI-Pid-App": {},
 		"TRI-Pid-Net": {},
 		"TRI-Prx-App": {
@@ -195,8 +180,6 @@ var (
 		"TRI-Hst-Net": {},
 		"TRI-Svc-App": {},
 		"TRI-Svc-Net": {},
-		"TRI-UID-App": {},
-		"TRI-UID-Net": {},
 	}
 
 	expectedGlobalNATChainsV6 = map[string][]string{
@@ -207,20 +190,24 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
-			"-m mark --mark 0x40 -j ACCEPT",
+			"-m mark --mark 0x40 -j RETURN",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
 		},
 	}
 
-	expectedGlobalIPSetsV6 = map[string][]string{
-		"TRI" + "-v6-" + targetTCPNetworkSet: {"::/1", "8000::/1"},
-		"TRI" + "-v6-" + targetUDPNetworkSet: {"1120::/64"},
-		"TRI" + "-v6-" + excludedNetworkSet:  {"::1"},
-	}
-
 	expectedMangleAfterPUInsertV6 = map[string][]string{
+		"TRI-Nfq-IN": {"-j HMARK --hmark-tuple dport,sport --hmark-mod 4 --hmark-offset 67 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 67 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 68 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 69 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 70 -j NFQUEUE --queue-num 3 --queue-bypass"},
+		"TRI-Nfq-OUT": {"-j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 0 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 0 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 1 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 2 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 3 -j NFQUEUE --queue-num 3 --queue-bypass"},
 		"INPUT": {
 			"-m set ! --match-set TRI-v6-Excluded src -j TRI-Net",
 		},
@@ -228,62 +215,26 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-j TRI-Prx-App",
-			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 11 --queue-bypass",
-			"-j TRI-Pid-App",
-			"-j TRI-Svc-App",
-			"-j TRI-Hst-App",
-		},
+			"-m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-p udp --dport 53 -m mark --mark 0x40 -m cgroup --cgroup 1536 -j CONNMARK --set-mark 61167", "-p udp --dport 53 -m mark --mark 0x40 -j CONNMARK --set-mark 61167", "-j TRI-Prx-App", "-m connmark --mark 61167 -j ACCEPT", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP", "-m connmark --mark 61166 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT",
+			"-m connmark --mark 61166 -p udp -j ACCEPT", "-m mark --mark 1073741922 -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-OUT", "-j TRI-Pid-App", "-j TRI-Svc-App", "-j TRI-Hst-App"},
 		"TRI-Net": {
-			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 3/0x3ff -j NFQUEUE --queue-bypass --queue-num 26",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 4/0x3ff -j NFQUEUE --queue-bypass --queue-num 27",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-j TRI-UID-Net",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 25 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 26 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19 --queue-bypass",
-			"-j TRI-Pid-Net",
-			"-j TRI-Svc-Net",
-			"-j TRI-Hst-Net",
-		},
+			"-j TRI-Prx-Net", "-p tcp -m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-m connmark --mark 61167 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-IN",
+			"-p udp -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j TRI-Nfq-IN", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p udp -j ACCEPT", "-j TRI-Pid-Net", "-j TRI-Svc-Net", "-j TRI-Hst-Net"},
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
-			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0",
-		},
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--0"},
 		"TRI-Pid-Net": {
-			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0", "-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+			"-p tcp -m multiport --destination-ports 9000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
+			"-p udp -m multiport --destination-ports 5000 -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--0",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -296,56 +247,25 @@ var (
 		"TRI-Hst-Net": {},
 		"TRI-Svc-App": {},
 		"TRI-Svc-Net": {},
-		"TRI-UID-App": {},
-		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
+			"-p tcp -m tcp --tcp-option 34 -m tcp --tcp-flags FIN,RST,URG,PSH NONE -j TRI-Nfq-IN",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -m connmark --mark 61167 -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 --match multiport --dports 443 -j CONNMARK --set-mark 61167",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 --match multiport --dports 443 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN NONE -j TRI-Nfq-IN",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j TRI-Nfq-IN",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s ::/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
 			"-s ::/0 -j DROP",
 		},
-
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -m set --match-set TRI-v6-ext-w5frVvhsnpU= dst -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 4",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 5",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 6",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
-			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
-			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
-			"-d ::/0 -j DROP",
-		},
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW --match multiport --dports 80 -j DROP", "-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 -m set ! --match-set TRI-v6-TargetUDP dst --match multiport --dports 443 -j CONNMARK --set-mark 61167", "-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 -m set ! --match-set TRI-v6-TargetUDP dst --match multiport --dports 443 -j ACCEPT", "-p icmpv6 -m set --match-set TRI-v6-ext-w5frVvhsnpU= dst -j ACCEPT", "-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -m connmark --mark 61167 -j ACCEPT", "-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -m tcp --tcp-flags FIN FIN -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 40 --hmark-rnd 0xdeadbeef", "-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 40 --hmark-rnd 0xdeadbeef", "-m mark --mark 40 -j NFQUEUE --queue-num 0 --queue-bypass", "-m mark --mark 41 -j NFQUEUE --queue-num 1 --queue-bypass", "-m mark --mark 42 -j NFQUEUE --queue-num 2 --queue-bypass", "-m mark --mark 43 -j NFQUEUE --queue-num 3 --queue-bypass",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT", "-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6", "-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10", "-d ::/0 -j DROP"},
 	}
 
 	expectedNATAfterPUInsertV6 = map[string][]string{
@@ -356,7 +276,7 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
-			"-m mark --mark 0x40 -j ACCEPT",
+			"-m mark --mark 0x40 -j RETURN",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
 			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
@@ -370,20 +290,17 @@ var (
 		},
 	}
 
-	expectedIPSetsAfterPUInsertV6 = map[string][]string{
-		"TRI" + "-v6-" + targetTCPNetworkSet: {"::/1", "8000::/1"},
-		"TRI" + "-v6-" + targetUDPNetworkSet: {"1120::/64"},
-		"TRI" + "-v6-" + excludedNetworkSet:  {"::1"},
-		"TRI-v6-ProcPort-pu19gtV":            {},
-		"TRI-v6-ext-6zlJIvP3B68=":            {"1120::/64"},
-		"TRI-v6-ext-uNdc0vdcFZA=":            {"1120::/64"},
-		"TRI-v6-ext-w5frVvhsnpU=":            {"1122::/64"},
-		"TRI-v6-ext-IuSLsD1R-mE=":            {"1122::/64"},
-		"TRI-v6-Proxy-pu19gtV-dst":           {},
-		"TRI-v6-Proxy-pu19gtV-srv":           {},
-	}
-
 	expectedMangleAfterPUUpdateV6 = map[string][]string{
+		"TRI-Nfq-IN": {"-j HMARK --hmark-tuple dport,sport --hmark-mod 4 --hmark-offset 67 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 67 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 68 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 69 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 70 -j NFQUEUE --queue-num 3 --queue-bypass"},
+		"TRI-Nfq-OUT": {"-j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 0 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 0 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 1 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 2 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 3 -j NFQUEUE --queue-num 3 --queue-bypass"},
 		"INPUT": {
 			"-m set ! --match-set TRI-v6-Excluded src -j TRI-Net",
 		},
@@ -391,62 +308,24 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-j TRI-Prx-App",
-			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-j TRI-UID-App",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 11 --queue-bypass",
-			"-j TRI-Pid-App",
-			"-j TRI-Svc-App",
-			"-j TRI-Hst-App",
-		},
+			"-m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-p udp --dport 53 -m mark --mark 0x40 -m cgroup --cgroup 1536 -j CONNMARK --set-mark 61167", "-p udp --dport 53 -m mark --mark 0x40 -j CONNMARK --set-mark 61167", "-j TRI-Prx-App", "-m connmark --mark 61167 -j ACCEPT", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m connmark --mark 61166 -p udp -j ACCEPT", "-m mark --mark 1073741922 -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-OUT", "-j TRI-Pid-App", "-j TRI-Svc-App", "-j TRI-Hst-App"},
 		"TRI-Net": {
-			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 3/0x3ff -j NFQUEUE --queue-bypass --queue-num 26",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 4/0x3ff -j NFQUEUE --queue-bypass --queue-num 27",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-j TRI-UID-Net",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 25 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 26 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19 --queue-bypass",
-			"-j TRI-Pid-Net",
-			"-j TRI-Svc-Net",
-			"-j TRI-Hst-Net",
-		},
+			"-j TRI-Prx-Net", "-p tcp -m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-m connmark --mark 61167 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-IN", "-p udp -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j TRI-Nfq-IN", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p udp -j ACCEPT", "-j TRI-Pid-Net", "-j TRI-Svc-Net", "-j TRI-Hst-Net"},
 		"TRI-Pid-App": {
-			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 2621440/0xfffc0000",
-			"-m mark --mark 2621440/0xfffc0000 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1",
-		},
+			"-m cgroup --cgroup 10 -m comment --comment PU-Chain -j MARK --set-mark 10",
+			"-m mark --mark 10 -m comment --comment PU-Chain -j TRI-App-pu1N7uS6--1"},
 		"TRI-Pid-Net": {
 			"-p tcp -m set --match-set TRI-v6-ProcPort-pu19gtV dst -m comment --comment PU-Chain -j TRI-Net-pu1N7uS6--1",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -459,51 +338,21 @@ var (
 		"TRI-Hst-Net": {},
 		"TRI-Svc-App": {},
 		"TRI-Svc-Net": {},
-		"TRI-UID-App": {},
-		"TRI-UID-Net": {},
 
 		"TRI-Net-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
+			"-p tcp -m tcp --tcp-option 34 -m tcp --tcp-flags FIN,RST,URG,PSH NONE -j TRI-Nfq-IN",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW --match multiport --dports 80 -j DROP",
+			"-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN NONE -j TRI-Nfq-IN",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j TRI-Nfq-IN",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s ::/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
-			"-s ::/0 -j DROP",
-		},
-
+			"-s ::/0 -j DROP"},
 		"TRI-App-pu1N7uS6--1": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 4",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 5",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 6",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
-			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
-			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
-			"-d ::/0 -j DROP",
-		},
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW --match multiport --dports 80 -j DROP", "-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -m tcp --tcp-flags FIN FIN -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 40 --hmark-rnd 0xdeadbeef", "-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 40 --hmark-rnd 0xdeadbeef", "-m mark --mark 40 -j NFQUEUE --queue-num 0 --queue-bypass", "-m mark --mark 41 -j NFQUEUE --queue-num 1 --queue-bypass", "-m mark --mark 42 -j NFQUEUE --queue-num 2 --queue-bypass", "-m mark --mark 43 -j NFQUEUE --queue-num 3 --queue-bypass",
+			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT", "-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
+			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6", "-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10", "-d ::/0 -j DROP"},
 	}
 )
 
@@ -520,16 +369,16 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 			return nil
 		}
 
-		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
 		So(iptv4, ShouldNotBeNil)
 
-		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
 		So(iptv6, ShouldNotBeNil)
 
-		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-
-		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.LocalServer)
+		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		i, err := createTestInstance(ips, iptv4, iptv6, constants.LocalServer, policy.None)
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
@@ -537,16 +386,9 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			err := i.Run(ctx)
-			i.SetTargetNetworks(cfg) //nolint
+			i.SetTargetNetworks(cfg) // nolint
 
 			So(err, ShouldBeNil)
-
-			for set, targets := range ipsv6.sets {
-				So(expectedGlobalIPSetsV6, ShouldContainKey, set)
-				for target := range targets.set {
-					So(expectedGlobalIPSetsV6[set], ShouldContain, target)
-				}
-			}
 
 			t := i.iptv6.impl.RetrieveTable()
 			So(t, ShouldNotBeNil)
@@ -650,8 +492,11 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					nil,
 					[]string{},
 					policy.EnforcerMapping,
+					policy.Reject|policy.Log,
+					policy.Reject|policy.Log,
 				)
-				puInfo := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+				puInfo := policy.NewPUInfo("Context",
+					"/ns1", common.LinuxProcessPU)
 				puInfo.Policy = policyrules
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
@@ -676,9 +521,10 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv6.ipsetmanager.RegisterExternalNets("pu1", iprules) // nolint
 
-				err = i.ConfigureRules(0, "pu1", puInfo)
+				err = i.ConfigureRules(0,
+					"pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv6.impl.RetrieveTable()
 
@@ -690,14 +536,6 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 				for chain, rules := range t["nat"] {
 					So(expectedNATAfterPUInsertV6, ShouldContainKey, chain)
 					So(rules, ShouldResemble, expectedNATAfterPUInsertV6[chain])
-				}
-
-				for set, targets := range ipsv6.sets {
-
-					So(expectedIPSetsAfterPUInsertV6, ShouldContainKey, set)
-					for target := range targets.set {
-						So(expectedIPSetsAfterPUInsertV6[set], ShouldContain, target)
-					}
 				}
 
 				Convey("When I update the policy, the update must result in correct state", func() {
@@ -745,14 +583,18 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 						nil,
 						[]string{},
 						policy.EnforcerMapping,
+						policy.Reject|policy.Log,
+						policy.Reject|policy.Log,
 					)
-					puInfoUpdated := policy.NewPUInfo("Context", "/ns1", common.LinuxProcessPU)
+					puInfoUpdated := policy.NewPUInfo("Context",
+						"/ns1", common.LinuxProcessPU)
 					puInfoUpdated.Policy = policyrules
 					puInfoUpdated.Runtime.SetOptions(policy.OptionsType{
 						CgroupMark: "10",
 					})
 
-					err := i.UpdateRules(1, "pu1", puInfoUpdated, puInfo)
+					err := i.UpdateRules(1,
+						"pu1", puInfoUpdated, puInfo)
 					So(err, ShouldBeNil)
 
 					t := i.iptv6.impl.RetrieveTable()
@@ -762,7 +604,12 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 					}
 
 					Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-						err := i.DeleteRules(1, "pu1", "0", "5000", "10", "", puInfoUpdated)
+						err := i.DeleteRules(1,
+							"pu1",
+							"0",
+							"5000",
+							"10",
+							"", puInfoUpdated)
 						So(err, ShouldBeNil)
 
 						t := i.iptv6.impl.RetrieveTable()
@@ -788,8 +635,173 @@ func Test_OperationWithLinuxServicesV6(t *testing.T) {
 	})
 }
 
+func Test_OperationNomatchIpsetsV6(t *testing.T) {
+
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"::/0",
+				"!2001:db8:1234::/48"},
+			UDPTargetNetworks: []string{"1120::/64"},
+			ExcludedNetworks:  []string{"::1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		i, err := createTestInstance(ips, iptv4, iptv6, constants.LocalServer, policy.None)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) // nolint
+
+			So(err, ShouldBeNil)
+
+			So(ips.sets, ShouldContainKey,
+				"TRI-v6-TargetTCP")
+			So(ips.sets["TRI-v6-TargetTCP"].set, ShouldContainKey,
+				"2001:db8:1234::/48")
+			So(ips.sets["TRI-v6-TargetTCP"].set["2001:db8:1234::/48"], ShouldBeTrue)
+			So(ips.sets["TRI-v6-TargetTCP"].set, ShouldContainKey,
+				"::/1")
+			So(ips.sets["TRI-v6-TargetTCP"].set["::/1"], ShouldBeFalse)
+			So(ips.sets["TRI-v6-TargetTCP"].set, ShouldContainKey,
+				"8000::/1")
+			So(ips.sets["TRI-v6-TargetTCP"].set["8000::/1"], ShouldBeFalse)
+		})
+	})
+}
+
+func Test_OperationNomatchIpsetsInExternalNetworksV6(t *testing.T) {
+
+	Convey("Given an iptables controller with a memory backend ", t, func() {
+		cfg := &runtime.Configuration{
+			TCPTargetNetworks: []string{"::/0",
+				"!2001:db8:1234::/48"},
+			UDPTargetNetworks: []string{"1120::/64"},
+			ExcludedNetworks:  []string{"::1"},
+		}
+
+		commitFunc := func(buf *bytes.Buffer) error {
+			return nil
+		}
+
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
+		So(iptv4, ShouldNotBeNil)
+
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
+		So(iptv6, ShouldNotBeNil)
+
+		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		i, err := createTestInstance(ips, iptv4, iptv6, constants.LocalServer, policy.None)
+		So(err, ShouldBeNil)
+		So(i, ShouldNotBeNil)
+
+		Convey("When I start the controller, I should get the right global chains and ipsets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := i.Run(ctx)
+			i.SetTargetNetworks(cfg) // nolint
+
+			So(err, ShouldBeNil)
+
+			// Setup external networks
+			appACLs := policy.IPRuleList{
+				policy.IPRule{
+					Addresses: []string{"::/0",
+						"!2001:db8:1234::/48"},
+					Ports:     []string{"80"},
+					Protocols: []string{constants.TCPProtoNum},
+					Policy: &policy.FlowPolicy{
+						Action:    policy.Accept | policy.Log,
+						ServiceID: "a3",
+						PolicyID:  "1234a",
+					},
+				},
+			}
+			netACLs := policy.IPRuleList{}
+
+			policyRules := policy.NewPUPolicy("Context",
+				"/ns1", policy.Police, appACLs, netACLs, nil, nil, nil, nil, nil, nil, nil, 20992, 0, nil, nil, []string{}, policy.EnforcerMapping, policy.Reject|policy.Log, policy.Reject|policy.Log)
+
+			puInfo := policy.NewPUInfo("Context",
+				"/ns1", common.HostPU)
+			puInfo.Policy = policyRules
+			puInfo.Runtime = policy.NewPURuntimeWithDefaults()
+			puInfo.Runtime.SetPUType(common.HostPU)
+			puInfo.Runtime.SetOptions(policy.OptionsType{
+				CgroupMark: "10",
+			})
+
+			// configure rules
+			var iprules policy.IPRuleList
+			iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
+			iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
+			err = i.iptv4.ipsetmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+			err = i.iptv6.ipsetmanager.RegisterExternalNets("pu1", iprules)
+			So(err, ShouldBeNil)
+
+			err = i.ConfigureRules(0,
+				"pu1", puInfo)
+			So(err, ShouldBeNil)
+
+			// Check ipsets
+			setName := i.iptv6.ipsetmanager.GetACLIPsetsNames(appACLs[0:1])[0]
+			So(ips.sets[setName].set, ShouldContainKey,
+				"::/1")
+			So(ips.sets[setName].set, ShouldContainKey,
+				"8000::/1")
+			So(ips.sets[setName].set, ShouldContainKey,
+				"2001:db8:1234::/48")
+			So(ips.sets[setName].set["::/1"], ShouldBeFalse)
+			So(ips.sets[setName].set["8000::/1"], ShouldBeFalse)
+			So(ips.sets[setName].set["2001:db8:1234::/48"], ShouldBeTrue)
+
+			// Configure and check acl cache
+			aclCache := tacls.NewACLCache()
+			err = aclCache.AddRuleList(puInfo.Policy.ApplicationACLs())
+			So(err, ShouldBeNil)
+			defaultFlowPolicy := &policy.FlowPolicy{Action: policy.Reject | policy.Log, PolicyID: "default", ServiceID: "default"}
+
+			report, _, err := aclCache.GetMatchingAction(net.ParseIP("2001:db8:5678::"), 80, packet.IPProtocolTCP, defaultFlowPolicy)
+			So(err, ShouldBeNil)
+			So(report.Action, ShouldEqual, policy.Accept|policy.Log)
+
+			report, _, err = aclCache.GetMatchingAction(net.ParseIP("2001:db8:1234:5678::"), 80, packet.IPProtocolTCP, defaultFlowPolicy)
+			So(err, ShouldNotBeNil)
+			So(report.Action, ShouldEqual, policy.Reject|policy.Log)
+		})
+	})
+}
+
 var (
 	expectedContainerGlobalMangleChainsV6 = map[string][]string{
+		"TRI-Nfq-IN": {"-j HMARK --hmark-tuple dport,sport --hmark-mod 4 --hmark-offset 67 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 67 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 68 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 69 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 70 -j NFQUEUE --queue-num 3 --queue-bypass"},
+		"TRI-Nfq-OUT": {"-j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 0 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 0 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 1 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 2 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 3 -j NFQUEUE --queue-num 3 --queue-bypass"},
 		"INPUT": {
 			"-m set ! --match-set TRI-v6-Excluded src -j TRI-Net",
 		},
@@ -797,40 +809,12 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-j TRI-Prx-App",
-			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 11 --queue-bypass",
-		},
+			"-m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-p udp --dport 53 -m mark --mark 0x40 -m cgroup --cgroup 1536 -j CONNMARK --set-mark 61167", "-p udp --dport 53 -m mark --mark 0x40 -j CONNMARK --set-mark 61167", "-j TRI-Prx-App", "-m connmark --mark 61167 -j ACCEPT", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP",
+			"-m connmark --mark 61166 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m connmark --mark 61166 -p udp -j ACCEPT",
+			"-m mark --mark 1073741922 -j ACCEPT", "-p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-OUT"},
 		"TRI-Net": {
-			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 3/0x3ff -j NFQUEUE --queue-bypass --queue-num 26",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 4/0x3ff -j NFQUEUE --queue-bypass --queue-num 27",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 25 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 26 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19 --queue-bypass",
+			"-j TRI-Prx-Net", "-p tcp -m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-m connmark --mark 61167 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT",
+			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-IN", "-p udp -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j TRI-Nfq-IN", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP", "-m connmark --mark 61166 -p udp -j ACCEPT",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -848,20 +832,24 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
-			"-m mark --mark 0x40 -j ACCEPT",
+			"-m mark --mark 0x40 -j RETURN",
 		},
 		"TRI-Redir-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
 		},
 	}
 
-	expectedContainerGlobalIPSetsV6 = map[string][]string{
-		"TRI" + "-v6-" + targetTCPNetworkSet: {"::/1", "8000::/1"},
-		"TRI" + "-v6-" + targetUDPNetworkSet: {"1120::/64"},
-		"TRI" + "-v6-" + excludedNetworkSet:  {"::1"},
-	}
-
 	expectedContainerMangleAfterPUInsertV6 = map[string][]string{
+		"TRI-Nfq-IN": {"-j HMARK --hmark-tuple dport,sport --hmark-mod 4 --hmark-offset 67 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 67 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 68 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 69 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 70 -j NFQUEUE --queue-num 3 --queue-bypass"},
+		"TRI-Nfq-OUT": {"-j HMARK --hmark-tuple sport,dport --hmark-mod 4 --hmark-offset 0 --hmark-rnd 0xdeadbeef",
+			"-m mark --mark 0 -j NFQUEUE --queue-num 0 --queue-bypass",
+			"-m mark --mark 1 -j NFQUEUE --queue-num 1 --queue-bypass",
+			"-m mark --mark 2 -j NFQUEUE --queue-num 2 --queue-bypass",
+			"-m mark --mark 3 -j NFQUEUE --queue-num 3 --queue-bypass"},
 		"INPUT": {
 			"-m set ! --match-set TRI-v6-Excluded src -j TRI-Net",
 		},
@@ -869,49 +857,19 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-App",
 		},
 		"TRI-App": {
-			"-j TRI-Prx-App",
-			"-m mark --mark 1073741922 -j ACCEPT",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j HMARK --hmark-tuple dst,dport,src,sport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -j MARK --set-mark 25952256/0xfffc0000",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 8 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 9 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 10 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP dst -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 11 --queue-bypass",
-			"-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0",
-		},
+			"-m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-p udp --dport 53 -m mark --mark 0x40 -m cgroup --cgroup 1536 -j CONNMARK --set-mark 61167", "-p udp --dport 53 -m mark --mark 0x40 -j CONNMARK --set-mark 61167", "-j TRI-Prx-App", "-m connmark --mark 61167 -j ACCEPT", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP", "-m connmark --mark 61166 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT",
+			"-m connmark --mark 61166 -p udp -j ACCEPT", "-m mark --mark 1073741922 -j ACCEPT",
+			"-p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-OUT", "-m comment --comment Container-specific-chain -j TRI-App-pu1N7uS6--0"},
 		"TRI-Net": {
-			"-j TRI-Prx-Net",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 1/0x3ff -j NFQUEUE --queue-bypass --queue-num 24",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 2/0x3ff -j NFQUEUE --queue-bypass --queue-num 25",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 3/0x3ff -j NFQUEUE --queue-bypass --queue-num 26",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -m mark --mark 4/0x3ff -j NFQUEUE --queue-bypass --queue-num 27",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -j HMARK --hmark-tuple src,sport,dst,dport --hmark-offset 0x1 --hmark-rnd 0x1313405 --hmark-mod 4",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp --tcp-flags ALL ACK -m tcp --tcp-option 34 -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-m connmark --mark 61167 -j ACCEPT",
-			"-m connmark --mark 61166 -p tcp ! --tcp-flags SYN,ACK SYN,ACK -j ACCEPT",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 24 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 25 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 26 --queue-bypass",
-			"-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 27 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18 --queue-bypass",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-option 34 --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19 --queue-bypass",
-			"-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
+			"-j TRI-Prx-Net", "-p tcp -m mark --mark 66 -j CONNMARK --set-mark 61167", "-p tcp -m mark --mark 66 -j ACCEPT", "-m connmark --mark 61167 -p tcp ! --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP src -p tcp -m tcp --tcp-flags FIN,RST,URG,PSH,SYN,ACK SYN,ACK -j TRI-Nfq-IN",
+			"-p udp -m string --string n30njxq7bmiwr6dtxq --algo bm --to 65535 -j TRI-Nfq-IN", "-p udp -m connmark --mark 61165 -m comment --comment Drop UDP ACL -j DROP", "-m connmark --mark 61166 -p udp -j ACCEPT", "-m comment --comment Container-specific-chain -j TRI-Net-pu1N7uS6--0",
 		},
 		"TRI-Prx-App": {
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m tcp --sport 0 -j ACCEPT",
-			"-p udp -m udp --sport 0 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-srv src -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -j ACCEPT",
+			"-p udp -m udp --sport 0 -j ACCEPT",
 		},
 		"TRI-Prx-Net": {
 			"-m mark --mark 0x40 -j ACCEPT",
@@ -921,51 +879,23 @@ var (
 			"-p udp -m udp --dport 0 -j ACCEPT",
 		},
 		"TRI-Net-pu1N7uS6--0": {
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -j ACCEPT",
-			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP src --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src --match multiport --dports 443 -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 20",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 21",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 22",
-			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 23",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 16",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 17",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 18",
-			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 19",
+			"-p tcp -m tcp --tcp-option 34 -m tcp --tcp-flags FIN,RST,URG,PSH NONE -j TRI-Nfq-IN",
+			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= src -m state --state ESTABLISHED -m connmark --mark 61167 -j ACCEPT",
+			"-p TCP -m set --match-set TRI-v6-ext-w5frVvhsnpU= src -m state --state NEW --match multiport --dports 80 -j DROP",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 --match multiport --dports 443 -j CONNMARK --set-mark 61167",
+			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= src -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 --match multiport --dports 443 -j ACCEPT",
+			"-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT",
+			"-p tcp -m set --match-set TRI-v6-TargetTCP src -m tcp --tcp-flags SYN NONE -j TRI-Nfq-IN",
+			"-p udp -m set --match-set TRI-v6-TargetUDP src --match limit --limit 1000/s -j TRI-Nfq-IN",
 			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
 			"-s ::/0 -m state --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:6",
 			"-s ::/0 -m state ! --state NEW -j NFLOG --nflog-group 11 --nflog-prefix 913787369:default:default:10",
 			"-s ::/0 -j DROP",
 		},
-
 		"TRI-App-pu1N7uS6--0": {
-			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW -m set ! --match-set TRI-v6-TargetTCP dst --match multiport --dports 80 -j DROP",
-			"-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst --match multiport --dports 443 -j ACCEPT",
-			"-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -j ACCEPT",
-			"-p icmpv6 -j ACCEPT",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p tcp -m tcp --tcp-flags SYN,ACK SYN -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 4",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 5",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 6",
-			"-p tcp -m tcp --tcp-flags SYN,ACK ACK -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 7",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 1/0x3ff -j NFQUEUE --queue-num 0",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 2/0x3ff -j NFQUEUE --queue-num 1",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 3/0x3ff -j NFQUEUE --queue-num 2",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m mark --mark 4/0x3ff -j NFQUEUE --queue-num 3",
-			"-p udp -m set --match-set TRI-v6-TargetUDP dst -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT",
-			"-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT",
-			"-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
-			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10",
-			"-d ::/0 -j DROP",
-		},
+			"-p TCP -m set --match-set TRI-v6-ext-uNdc0vdcFZA= dst -m state --state NEW --match multiport --dports 80 -j DROP", "-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 -m set ! --match-set TRI-v6-TargetUDP dst --match multiport --dports 443 -j CONNMARK --set-mark 61167", "-p UDP -m set --match-set TRI-v6-ext-6zlJIvP3B68= dst -m string ! --string n30njxq7bmiwr6dtxq --algo bm --to 128 -m set ! --match-set TRI-v6-TargetUDP dst --match multiport --dports 443 -j ACCEPT", "-p UDP -m set --match-set TRI-v6-ext-IuSLsD1R-mE= dst -m state --state ESTABLISHED -m connmark --mark 61167 -j ACCEPT", "-p icmpv6 -m bpf --bytecode 16,48 0 0 0,84 0 0 240,21 0 12 96,48 0 0 6,21 0 10 58,48 0 0 40,21 5 0 133,21 4 0 134,21 3 0 135,21 2 0 136,21 1 0 141,21 0 3 142,48 0 0 41,21 0 1 0,6 0 0 65535,6 0 0 0 -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -m tcp --tcp-flags FIN FIN -j ACCEPT", "-m set --match-set TRI-v6-TargetTCP dst -p tcp -j TRI-Nfq-OUT",
+			"-p udp -m set --match-set TRI-v6-TargetUDP dst -j TRI-Nfq-OUT", "-p tcp -m state --state ESTABLISHED -m comment --comment TCP-Established-Connections -j ACCEPT", "-p udp -m state --state ESTABLISHED -m comment --comment UDP-Established-Connections -j ACCEPT", "-d ::/0 -m state --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:6",
+			"-d ::/0 -m state ! --state NEW -j NFLOG --nflog-group 10 --nflog-prefix 913787369:default:default:10", "-d ::/0 -j DROP"},
 	}
 
 	expectedContainerNATAfterPUInsertV6 = map[string][]string{
@@ -976,7 +906,7 @@ var (
 			"-m set ! --match-set TRI-v6-Excluded dst -j TRI-Redir-App",
 		},
 		"TRI-Redir-App": {
-			"-m mark --mark 0x40 -j ACCEPT",
+			"-m mark --mark 0x40 -j RETURN",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-dst dst,dst -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
 			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j CONNMARK --save-mark",
 			"-d ::/0 -p udp --dport 53 -m mark ! --mark 0x40 -m cgroup --cgroup 10 -j REDIRECT --to-ports 0",
@@ -985,19 +915,6 @@ var (
 			"-m mark --mark 0x40 -j ACCEPT",
 			"-p tcp -m set --match-set TRI-v6-Proxy-pu19gtV-srv dst -m mark ! --mark 0x40 -j REDIRECT --to-ports 0",
 		},
-	}
-
-	expectedContainerIPSetsAfterPUInsertV6 = map[string][]string{
-		"TRI-v6-" + targetTCPNetworkSet: {"::/1", "8000::/1"},
-		"TRI-v6-" + targetUDPNetworkSet: {"1120::/64"},
-		"TRI-v6-" + excludedNetworkSet:  {"::1"},
-		"TRI-v6-ProcPort-pu19gtV":       {},
-		"TRI-v6-ext-6zlJIvP3B68=":       {"1120::/64"},
-		"TRI-v6-ext-uNdc0vdcFZA=":       {"1120::/64"},
-		"TRI-v6-ext-w5frVvhsnpU=":       {"1122::/64"},
-		"TRI-v6-ext-IuSLsD1R-mE=":       {"1122::/64"},
-		"TRI-v6-Proxy-pu19gtV-dst":      {},
-		"TRI-v6-Proxy-pu19gtV-srv":      {},
 	}
 )
 
@@ -1014,16 +931,16 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			return nil
 		}
 
-		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		iptv4 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
 		So(iptv4, ShouldNotBeNil)
 
-		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat", "mangle"})
+		iptv6 := provider.NewCustomBatchProvider(&baseIpt{}, commitFunc, []string{"nat",
+			"mangle"})
 		So(iptv6, ShouldNotBeNil)
 
-		ipsv4 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-		ipsv6 := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
-
-		i, err := createTestInstance(ipsv4, ipsv6, iptv4, iptv6, constants.RemoteContainer)
+		ips := &memoryIPSetProvider{sets: map[string]*memoryIPSet{}}
+		i, err := createTestInstance(ips, iptv4, iptv6, constants.RemoteContainer, policy.None)
 		So(err, ShouldBeNil)
 		So(i, ShouldNotBeNil)
 
@@ -1032,14 +949,7 @@ func Test_OperationWithContainersV6(t *testing.T) {
 			defer cancel()
 			err := i.Run(ctx)
 			So(err, ShouldBeNil)
-			i.SetTargetNetworks(cfg) //nolint
-
-			for set, targets := range ipsv6.sets {
-				So(expectedContainerGlobalIPSetsV6, ShouldContainKey, set)
-				for target := range targets.set {
-					So(expectedContainerGlobalIPSetsV6[set], ShouldContain, target)
-				}
-			}
+			i.SetTargetNetworks(cfg) // nolint
 
 			t := i.iptv6.impl.RetrieveTable()
 			So(t, ShouldNotBeNil)
@@ -1122,8 +1032,11 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					nil,
 					[]string{},
 					policy.EnforcerMapping,
+					policy.Reject|policy.Log,
+					policy.Reject|policy.Log,
 				)
-				puInfo := policy.NewPUInfo("Context", "/ns1", common.ContainerPU)
+				puInfo := policy.NewPUInfo("Context",
+					"/ns1", common.ContainerPU)
 				puInfo.Policy = policyrules
 				puInfo.Runtime.SetOptions(policy.OptionsType{
 					CgroupMark: "10",
@@ -1132,9 +1045,10 @@ func Test_OperationWithContainersV6(t *testing.T) {
 				var iprules policy.IPRuleList
 				iprules = append(iprules, puInfo.Policy.ApplicationACLs()...)
 				iprules = append(iprules, puInfo.Policy.NetworkACLs()...)
-				i.iptv6.aclmanager.RegisterExternalNets("pu1", iprules) //nolint
+				i.iptv6.ipsetmanager.RegisterExternalNets("pu1", iprules) // nolint
 
-				err := i.ConfigureRules(0, "pu1", puInfo)
+				err := i.ConfigureRules(0,
+					"pu1", puInfo)
 				So(err, ShouldBeNil)
 				t := i.iptv6.impl.RetrieveTable()
 
@@ -1148,35 +1062,34 @@ func Test_OperationWithContainersV6(t *testing.T) {
 					So(rules, ShouldResemble, expectedContainerNATAfterPUInsertV6[chain])
 				}
 
-				for set, targets := range ipsv6.sets {
-					So(expectedContainerIPSetsAfterPUInsertV6, ShouldContainKey, set)
-					for target := range targets.set {
-						So(expectedContainerIPSetsAfterPUInsertV6[set], ShouldContain, target)
-					}
-				}
+				Convey("When I delete the same rule, the chains must be restored in the global state",
+					func() {
+						err := i.iptv6.DeleteRules(0,
+							"pu1",
+							"0",
+							"0",
+							"10",
+							"", puInfo)
+						So(err, ShouldBeNil)
 
-				Convey("When I delete the same rule, the chains must be restored in the global state", func() {
-					err := i.iptv6.DeleteRules(0, "pu1", "0", "0", "10", "", puInfo)
-					So(err, ShouldBeNil)
+						t := i.iptv6.impl.RetrieveTable()
+						if err != nil {
+							printTable(t)
+						}
 
-					t := i.iptv6.impl.RetrieveTable()
-					if err != nil {
-						printTable(t)
-					}
+						So(t["mangle"], ShouldNotBeNil)
+						So(t["nat"], ShouldNotBeNil)
 
-					So(t["mangle"], ShouldNotBeNil)
-					So(t["nat"], ShouldNotBeNil)
+						for chain, rules := range t["mangle"] {
+							So(expectedContainerGlobalMangleChainsV6, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedContainerGlobalMangleChainsV6[chain])
+						}
 
-					for chain, rules := range t["mangle"] {
-						So(expectedContainerGlobalMangleChainsV6, ShouldContainKey, chain)
-						So(rules, ShouldResemble, expectedContainerGlobalMangleChainsV6[chain])
-					}
-
-					for chain, rules := range t["nat"] {
-						So(expectedContainerGlobalNATChainsV6, ShouldContainKey, chain)
-						So(rules, ShouldResemble, expectedContainerGlobalNATChainsV6[chain])
-					}
-				})
+						for chain, rules := range t["nat"] {
+							So(expectedContainerGlobalNATChainsV6, ShouldContainKey, chain)
+							So(rules, ShouldResemble, expectedContainerGlobalNATChainsV6[chain])
+						}
+					})
 
 			})
 		})

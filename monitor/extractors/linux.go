@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls"
-	portspec "go.aporeto.io/trireme-lib/utils/portspec"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cgnetcls"
+	portspec "go.aporeto.io/enforcerd/trireme-lib/utils/portspec"
 )
 
 // LinuxMetadataExtractorType is a type of Linux metadata extractors
@@ -39,7 +39,7 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, policy.None, options), nil
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
@@ -66,11 +66,9 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 	userdata := ProcessInfo(event.PID)
 
 	for _, u := range userdata {
-		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 		runtimeTags.AppendKeyValue("@app:linux:"+u, "true")
 	}
 
-	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
 	runtimeTags.AppendKeyValue("@os:hostname", findFQDN(time.Second))
 
 	options := policy.OptionsType{}
@@ -91,7 +89,7 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, &options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, event.PUType, policy.None, &options), nil
 }
 
 // ProcessInfo returns all metadata captured by a process

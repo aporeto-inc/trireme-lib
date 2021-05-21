@@ -2,6 +2,7 @@ package constants
 
 const (
 	// DefaultDockerSocket is the default socket to use to communicate with docker
+	// it is canonicalized with utils.GetPathOnHostViaProcRoot() at point of use
 	DefaultDockerSocket = "/var/run/docker.sock"
 
 	// DefaultDockerSocketType is unix
@@ -22,4 +23,15 @@ const (
 
 	// DockerHostPUID represents the PUID of the host network container.
 	DockerHostPUID = "HostPUID"
+
+	// UserLabelPrefix is the label prefix for all user defined labels
+	UserLabelPrefix = "@usr:"
+)
+
+const (
+	// K8sMonitorRegistrationName is used as the registration constant with the external sender (gRPC server)
+	K8sMonitorRegistrationName = "k8sMonitor"
+
+	// MonitorExtSenderName is the name of the monitor that registers with the trireme monitors to send events
+	MonitorExtSenderName = "grpcMonitorServer"
 )

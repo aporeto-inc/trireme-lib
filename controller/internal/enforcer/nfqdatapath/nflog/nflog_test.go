@@ -1,4 +1,4 @@
-// +build !windows
+// +build linux
 
 package nflog
 
@@ -9,20 +9,21 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/packetgen"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/counters"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
 	"go.aporeto.io/netlink-go/nflog"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
-	"go.aporeto.io/trireme-lib/controller/pkg/counters"
-	"go.aporeto.io/trireme-lib/controller/pkg/packet"
-	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/policy"
 )
 
 func TestRecordDroppedPacket(t *testing.T) {
 	Convey("I report a dropped packet", t, func() {
 		puID := "SomeProcessingUnitId"
 		puInfo := policy.NewPUInfo(puID, "/ns", common.ContainerPU)
-		pu, err := pucontext.NewPU("contextID", puInfo, 5*time.Second)
+
+		pu, err := pucontext.NewPU("contextID", puInfo, nil, 5*time.Second)
 		So(err, ShouldBeNil)
 
 		Convey("I report a packet with length less than 64 bytes", func() {
@@ -132,7 +133,7 @@ func Test_RecordCounters(t *testing.T) {
 	Convey("I report a dropped packet", t, func() {
 		puID := "SomeProcessingUnitId"
 		puInfo := policy.NewPUInfo(puID, "/ns", common.ContainerPU)
-		pu, err := pucontext.NewPU("contextID", puInfo, 5*time.Second)
+		pu, err := pucontext.NewPU("contextID", puInfo, nil, 5*time.Second)
 		So(err, ShouldBeNil)
 
 		Convey("I call record counters", func() {

@@ -12,7 +12,7 @@ func Test_NewCounters(t *testing.T) {
 	Convey("When I create new error counters", t, func() {
 		ec := NewCounters()
 		So(ec, ShouldNotBeNil)
-		So(len(ec.counters), ShouldEqual, totalCounters)
+		So(len(ec.counters), ShouldEqual, errMax+1)
 	})
 }
 
@@ -21,7 +21,7 @@ func Test_CounterError(t *testing.T) {
 	Convey("When I create new error counters", t, func() {
 		ec := NewCounters()
 		So(ec, ShouldNotBeNil)
-		So(len(ec.counters), ShouldEqual, totalCounters)
+		So(len(ec.counters), ShouldEqual, errMax+1)
 
 		Convey("When I increment counter", func() {
 			err := ec.CounterError(ErrInvalidProtocol, errors.New("unknown protocol"))
@@ -37,7 +37,7 @@ func Test_GetErrorCounter(t *testing.T) {
 	Convey("When I create new error counters", t, func() {
 		ec := NewCounters()
 		So(ec, ShouldNotBeNil)
-		So(len(ec.counters), ShouldEqual, totalCounters)
+		So(len(ec.counters), ShouldEqual, errMax+1)
 
 		Convey("When I increment counter and get error", func() {
 			err := ec.CounterError(ErrInvalidProtocol, errors.New("unknown protocol"))
@@ -49,7 +49,7 @@ func Test_GetErrorCounter(t *testing.T) {
 
 			c := ec.GetErrorCounters()
 
-			So(len(c), ShouldEqual, totalCounters)
+			So(len(c), ShouldEqual, errMax)
 			So(c[ErrInvalidProtocol], ShouldEqual, 3)
 			So(ec.counters[ErrInvalidProtocol], ShouldEqual, 0)
 		})

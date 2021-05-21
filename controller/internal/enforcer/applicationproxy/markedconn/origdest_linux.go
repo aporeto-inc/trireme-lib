@@ -21,9 +21,9 @@ type sockaddr4 struct {
 type sockaddr6 struct {
 	family   uint16
 	port     [2]byte
-	flowInfo [4]byte //nolint
+	flowInfo [4]byte // nolint
 	ip       [16]byte
-	scopeID  [4]byte //nolint
+	scopeID  [4]byte // nolint
 }
 
 type origDest func(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
@@ -41,7 +41,7 @@ func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest)
 	getsockopt4 := func(fd uintptr) {
 		var addr sockaddr4
 		size := uint32(unsafe.Sizeof(addr))
-		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IP), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) // nolint
 
 		if e1 != 0 {
 			err = fmt.Errorf("Failed to get original destination: %s", e1)
@@ -61,7 +61,7 @@ func getOriginalDestInternal(rawConn passFD, v4Proto bool, getOrigDest origDest)
 		var addr sockaddr6
 		size := uint32(unsafe.Sizeof(addr))
 
-		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) //nolint
+		_, _, e1 := getOrigDest(syscall.SYS_GETSOCKOPT, uintptr(fd), uintptr(syscall.SOL_IPV6), uintptr(sockOptOriginalDst), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0) // nolint
 		if e1 != 0 {
 			err = fmt.Errorf("Failed to get original destination: %s", e1)
 			return

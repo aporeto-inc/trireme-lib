@@ -191,7 +191,7 @@ func TestOVerlap(t *testing.T) {
 		})
 	})
 
-	Convey("Given two poit portspecs that overlap", t, func() {
+	Convey("Given two portspecs that overlap", t, func() {
 		a, err1 := NewPortSpecFromString("20", "value")
 		b, err2 := NewPortSpecFromString("20", "value")
 		So(err1, ShouldBeNil)
@@ -201,13 +201,105 @@ func TestOVerlap(t *testing.T) {
 		})
 	})
 
-	Convey("Given two poit portspecs that do not overlap", t, func() {
+	Convey("Given two portspecs that do not overlap", t, func() {
 		a, err1 := NewPortSpecFromString("80", "value")
 		b, err2 := NewPortSpecFromString("443", "value")
 		So(err1, ShouldBeNil)
 		So(err2, ShouldBeNil)
 		Convey("I should get true", func() {
 			So(a.Overlaps(b), ShouldBeFalse)
+		})
+	})
+}
+
+func TestIntersect(t *testing.T) {
+	Convey("Given two portspecs that don't intersect", t, func() {
+		a, err1 := NewPortSpecFromString("10:20", "value")
+		b, err2 := NewPortSpecFromString("30:40", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get false", func() {
+			So(a.Intersects(b), ShouldBeFalse)
+		})
+	})
+
+	Convey("Given two portspecs that intersect", t, func() {
+		a, err1 := NewPortSpecFromString("10:50", "value")
+		b, err2 := NewPortSpecFromString("30:40", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeTrue)
+		})
+	})
+
+	Convey("Given two portspecs that intersect", t, func() {
+		a, err1 := NewPortSpecFromString("10:50", "value")
+		b, err2 := NewPortSpecFromString("45", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeTrue)
+		})
+	})
+
+	Convey("Given two portspecs that partially overlap", t, func() {
+		a, err1 := NewPortSpecFromString("10:35", "value")
+		b, err2 := NewPortSpecFromString("30:40", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeFalse)
+		})
+	})
+
+	Convey("Given two portspecs that partially overlap at the end", t, func() {
+		a, err1 := NewPortSpecFromString("35:45", "value")
+		b, err2 := NewPortSpecFromString("30:40", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeFalse)
+		})
+	})
+
+	Convey("Given two portspecs that partially overlap at a point", t, func() {
+		a, err1 := NewPortSpecFromString("10:20", "value")
+		b, err2 := NewPortSpecFromString("10", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeTrue)
+		})
+	})
+
+	Convey("Given two portspecs that partially overlap at the end point", t, func() {
+		a, err1 := NewPortSpecFromString("10:20", "value")
+		b, err2 := NewPortSpecFromString("20", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeTrue)
+		})
+	})
+
+	Convey("Given two portspecs that overlap", t, func() {
+		a, err1 := NewPortSpecFromString("20", "value")
+		b, err2 := NewPortSpecFromString("20", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeTrue)
+		})
+	})
+
+	Convey("Given two  portspecs that do not overlap", t, func() {
+		a, err1 := NewPortSpecFromString("80", "value")
+		b, err2 := NewPortSpecFromString("443", "value")
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+		Convey("I should get true", func() {
+			So(a.Intersects(b), ShouldBeFalse)
 		})
 	})
 }

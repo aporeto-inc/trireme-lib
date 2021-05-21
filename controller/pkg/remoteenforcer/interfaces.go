@@ -1,7 +1,7 @@
 package remoteenforcer
 
 import (
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 const (
@@ -25,6 +25,8 @@ const (
 	SetLogLevel = "RemoteEnforcer.SetLogLevel"
 	// Ping is the string for invoking ping RPC
 	Ping = "RemoteEnforcer.Ping"
+	// DebugCollect is the string for invoking DebugCollect RPC
+	DebugCollect = "RemoteEnforcer.DebugCollect"
 )
 
 // RemoteIntf is the interface implemented by the remote enforcer

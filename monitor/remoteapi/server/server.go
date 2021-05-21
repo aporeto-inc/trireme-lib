@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/monitor/registerer"
 	"go.uber.org/zap"
 )
 
@@ -131,12 +131,6 @@ func validateTypes(event *common.EventInfo) error {
 
 	if event.PUType > common.TransientPU {
 		return fmt.Errorf("invalid pu type %v", event.PUType)
-	}
-
-	if event.PUType == common.UIDLoginPU {
-		if !regexStrings.Match([]byte(event.Name)) {
-			return fmt.Errorf("Name is not of the right format")
-		}
 	}
 
 	if len(event.Cgroup) > 0 && !regexCgroup.Match([]byte(event.Cgroup)) {

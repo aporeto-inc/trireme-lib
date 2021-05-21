@@ -10,9 +10,9 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
-	runtime "go.aporeto.io/trireme-lib/controller/runtime"
-	policy "go.aporeto.io/trireme-lib/policy"
+	provider "go.aporeto.io/enforcerd/trireme-lib/controller/pkg/aclprovider"
+	runtime "go.aporeto.io/enforcerd/trireme-lib/controller/runtime"
+	policy "go.aporeto.io/enforcerd/trireme-lib/policy"
 )
 
 // MockSupervisor is a mock of Supervisor interface
@@ -275,4 +275,20 @@ func (m *MockImplementor) ACLProvider() []provider.IptablesProvider {
 func (mr *MockImplementorMockRecorder) ACLProvider() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACLProvider", reflect.TypeOf((*MockImplementor)(nil).ACLProvider))
+}
+
+// CreateCustomRulesChain mocks base method
+// nolint
+func (m *MockImplementor) CreateCustomRulesChain() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCustomRulesChain")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCustomRulesChain indicates an expected call of CreateCustomRulesChain
+// nolint
+func (mr *MockImplementorMockRecorder) CreateCustomRulesChain() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCustomRulesChain", reflect.TypeOf((*MockImplementor)(nil).CreateCustomRulesChain))
 }

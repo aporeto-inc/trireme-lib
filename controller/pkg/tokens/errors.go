@@ -2,8 +2,7 @@ package tokens
 
 import (
 	"errors"
-
-	"go.uber.org/zap"
+	"fmt"
 )
 
 // Custom errors used by this package.
@@ -33,7 +32,5 @@ func logError(err error, msg string) error {
 		return nil
 	}
 
-	zap.L().Debug(err.Error(), zap.String("error", msg))
-
-	return err
+	return fmt.Errorf("err = err.Error(), msg = %s", msg)
 }

@@ -3,7 +3,7 @@ package processor
 import (
 	"context"
 
-	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
 )
 
 // Processor is a generic interface that processes monitor events using

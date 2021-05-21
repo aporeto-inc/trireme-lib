@@ -9,8 +9,9 @@ import (
 
 	"github.com/bluele/gcache"
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/enforcerd/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +22,10 @@ var (
 // JWTClaims is the structure of the claims we are sending on the wire.
 type JWTClaims struct {
 	jwt.StandardClaims
-	Scopes  []string
-	Profile []string
-	Data    map[string]string
+	Scopes      []string
+	Profile     []string
+	Data        map[string]string
+	PingPayload *policy.PingPayload `json:",omitempty"`
 }
 
 // Verifier keeps all the structures for processing tokens.
@@ -49,13 +51,13 @@ func NewVerifier(s secrets.Secrets, globalCertificate *x509.Certificate) *Verifi
 // the identity and the subject of the provided token. These tokens are strictly
 // signed with EC.
 // TODO: We can be more flexible with the algorithm selection here.
-func (p *Verifier) ParseToken(token string, publicKey string) (string, []string, []string, error) {
+func (p *Verifier) ParseToken(token string, publicKey string) (string, []string, []string, *policy.PingPayload, error) {
 	p.RLock()
 	defer p.RUnlock()
 
 	if data, _ := p.tokenCache.Get(token); data != nil {
 		claims := data.(*JWTClaims)
-		return claims.Subject, claims.Scopes, claims.Profile, nil
+		return claims.Subject, claims.Scopes, claims.Profile, claims.PingPayload, nil
 	}
 
 	// if a public key is transmitted in the wire, we need to verify its validity and use it.
@@ -68,30 +70,30 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 		// Public keys are cached and verified and they are the compact keys
 		// that we transmit in all other requests signed by the CA. These keys
 		// are not full certificates.
-		gKey, rootClaims, _, err := p.secrets.KeyAndClaims([]byte(publicKey))
+		gKey, rootClaims, _, _, err := p.secrets.KeyAndClaims([]byte(publicKey))
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("Cannot validate public key: %s", err)
+			return "", nil, nil, nil, fmt.Errorf("Cannot validate public key: %s", err)
 		}
 		enforcerclaims = rootClaims
 		key, ok = gKey.(*ecdsa.PublicKey)
 		if !ok {
-			return "", nil, nil, fmt.Errorf("Provided public key not supported")
+			return "", nil, nil, nil, fmt.Errorf("Provided public key not supported")
 		}
 	} else {
 		if p.globalCert == nil {
-			return "", nil, nil, fmt.Errorf("Cannot validate global public key")
+			return "", nil, nil, nil, fmt.Errorf("Cannot validate global public key")
 		}
 		key, ok = p.globalCert.PublicKey.(*ecdsa.PublicKey)
 		if !ok {
-			return "", nil, nil, fmt.Errorf("Global public key is not supported")
+			return "", nil, nil, nil, fmt.Errorf("Global public key is not supported")
 		}
 	}
 
 	claims := &JWTClaims{}
-	if _, err := jwt.ParseWithClaims(token, claims, func(_ *jwt.Token) (interface{}, error) { // nolint
+	if _, err := jwt.ParseWithClaims(token, claims, func(*jwt.Token) (interface{}, error) { // nolint
 		return key, nil
 	}); err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
 	claims.Profile = append(claims.Profile, enforcerclaims...)
 	if err := p.tokenCache.Set(token, claims); err != nil {
@@ -101,7 +103,7 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 	for k, v := range claims.Data {
 		claims.Scopes = append(claims.Scopes, "data:"+k+"="+v)
 	}
-	return claims.Subject, claims.Scopes, claims.Profile, nil
+	return claims.Subject, claims.Scopes, claims.Profile, claims.PingPayload, nil
 }
 
 // UpdateSecrets updates the secrets of the token Verifier.
@@ -114,7 +116,7 @@ func (p *Verifier) UpdateSecrets(s secrets.Secrets, globalCert *x509.Certificate
 }
 
 // CreateAndSign creates a new JWT token based on the Aporeto identities.
-func CreateAndSign(server string, profile, scopes []string, id string, validity time.Duration, gkey interface{}) (string, error) {
+func CreateAndSign(server string, profile, scopes []string, id string, validity time.Duration, gkey interface{}, pingPayload *policy.PingPayload) (string, error) {
 	key, ok := gkey.(*ecdsa.PrivateKey)
 	if !ok {
 		return "", fmt.Errorf("Not a valid private key format")
@@ -128,8 +130,9 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 			ExpiresAt: time.Now().Add(validity).Unix(),
 			Subject:   id,
 		},
-		Profile: profile,
-		Scopes:  scopes,
+		Profile:     profile,
+		Scopes:      scopes,
+		PingPayload: pingPayload,
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
@@ -137,6 +140,10 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 		return "", err
 	}
 
-	localCache.AddOrUpdate(id, token)
+	// pingPayload should be nil for non-ping requests. If pingPayload is not nil,
+	// we disable the token caching.
+	if pingPayload == nil {
+		localCache.AddOrUpdate(id, token)
+	}
 	return token, nil
 }

@@ -15,19 +15,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/oxy/forward"
+	"github.com/blang/semver"
 	jwt "github.com/dgrijalva/jwt-go"
-	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/apiauth"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/flowstats"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/metadata"
-	"go.aporeto.io/trireme-lib/controller/pkg/bufferpool"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
-	"go.aporeto.io/trireme-lib/policy"
+	"github.com/vulcand/oxy/forward"
+	"go.aporeto.io/enforcerd/trireme-lib/collector"
+	"go.aporeto.io/enforcerd/trireme-lib/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/apiauth"
+	pcommon "go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/common"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/serviceregistry"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/applicationproxy/tlshelper"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/flowstats"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/metadata"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/internal/enforcer/utils/ephemeralkeys"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/bufferpool"
+	"go.aporeto.io/enforcerd/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/enforcerd/trireme-lib/policy"
+	"go.aporeto.io/gaia"
+	"go.aporeto.io/gaia/x509extensions"
 	"go.uber.org/zap"
 )
 
@@ -59,13 +65,13 @@ type Config struct {
 	keyPEM           string
 	certPEM          string
 	secrets          secrets.Secrets
+	datapathKeyPair  ephemeralkeys.KeyAccessor
 	collector        collector.EventCollector
 	puContext        string
 	localIPs         map[string]struct{}
 	applicationProxy bool
 	mark             int
 	server           *http.Server
-	registry         *serviceregistry.Registry
 	fwd              *forward.Forwarder
 	fwdTLS           *forward.Forwarder
 	tlsClientConfig  *tls.Config
@@ -73,6 +79,8 @@ type Config struct {
 	metadata         *metadata.Client
 	tokenIssuer      common.ServiceTokenIssuer
 	hooks            map[string]hookFunc
+	agentVersion     semver.Version
+
 	sync.RWMutex
 }
 
@@ -84,8 +92,9 @@ func NewHTTPProxy(
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
-	registry *serviceregistry.Registry,
 	tokenIssuer common.ServiceTokenIssuer,
+	datapathKeyPair ephemeralkeys.KeyAccessor,
+	agentVersion semver.Version,
 ) *Config {
 
 	h := &Config{
@@ -96,13 +105,14 @@ func NewHTTPProxy(
 		mark:             mark,
 		secrets:          secrets,
 		localIPs:         markedconn.GetInterfaces(),
-		registry:         registry,
 		tlsClientConfig: &tls.Config{
 			RootCAs: caPool,
 		},
-		auth:        apiauth.New(puContext, registry, secrets),
-		metadata:    metadata.NewClient(puContext, registry, tokenIssuer),
-		tokenIssuer: tokenIssuer,
+		auth:            apiauth.New(puContext, secrets),
+		metadata:        metadata.NewClient(puContext, tokenIssuer),
+		tokenIssuer:     tokenIssuer,
+		datapathKeyPair: datapathKeyPair,
+		agentVersion:    agentVersion,
 	}
 
 	hooks := map[string]hookFunc{
@@ -124,7 +134,7 @@ func NewHTTPProxy(
 func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Config) (*tls.Config, error) {
 	if mconn, ok := conn.(*markedconn.ProxiedConnection); ok {
 		ip, port := mconn.GetOriginalDestination()
-		portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+		portContext, err := serviceregistry.Instance().RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
 			return nil, fmt.Errorf("Unknown service: %s", err)
 		}
@@ -151,39 +161,24 @@ func (p *Config) clientTLSConfiguration(conn net.Conn, originalConfig *tls.Confi
 
 // newBaseTLSConfig creates the new basic TLS configuration for the server.
 func (p *Config) newBaseTLSConfig() *tls.Config {
-	return &tls.Config{
-		GetCertificate:           p.GetCertificateFunc,
-		NextProtos:               []string{"h2"},
-		PreferServerCipherSuites: true,
-		SessionTicketsDisabled:   true,
-		ClientAuth:               tls.VerifyClientCertIfGiven,
-		ClientCAs:                p.ca,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
-	}
+	c := tlshelper.NewBaseTLSServerConfig()
+	c.NextProtos = []string{"h2"}
+	c.GetCertificate = p.GetCertificateFunc
+	c.ClientCAs = p.ca
+	return c
 }
 
 // newBaseTLSClientConfig creates the new basic TLS configuration for the client.
 func (p *Config) newBaseTLSClientConfig() *tls.Config {
-	return &tls.Config{
-		GetCertificate:           p.GetCertificateFunc,
-		NextProtos:               []string{"h2"},
-		PreferServerCipherSuites: true,
-		SessionTicketsDisabled:   true,
-		GetClientCertificate:     p.GetClientCertificateFunc,
-		// for now lets make it TLS1.2 as supported max Version.
-		// TODO: Need to test before enabling TLS 1.3, currently TLS 1.3 doesn't work with envoy.
-		MaxVersion: tls.VersionTLS12,
-	}
+	c := tlshelper.NewBaseTLSClientConfig()
+	c.NextProtos = []string{"h2"}
+	c.GetCertificate = p.GetCertificateFunc
+	c.GetClientCertificate = p.GetClientCertificateFunc
+	return c
 }
 
 // GetClientCertificateFunc returns the certificate that will be used by the Proxy as a client during the TLS
-func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *Config) GetClientCertificateFunc(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	p.RLock()
 	defer p.RUnlock()
 	if p.cert != nil {
@@ -193,7 +188,7 @@ func (p *Config) GetClientCertificateFunc(_ *tls.CertificateRequestInfo) (*tls.C
 		}
 		if cert != nil {
 			by, _ := x509CertToPem(cert)
-			pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+			pemCert, err := buildCertChain(by, p.secrets.CertAuthority())
 			if err != nil {
 				zap.L().Error("http: Cannot build the cert chain")
 			}
@@ -251,7 +246,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	reportStats := func(ctx context.Context) {
 		if state := ctx.Value(statsContextKey); state != nil {
 			if r, ok := state.(*flowstats.ConnectionState); ok {
-				r.Stats.Action = policy.Reject
+				r.Stats.Action = policy.Reject | policy.Log
 				r.Stats.DropReason = collector.UnableToDial
 				r.Stats.PolicyID = collector.DefaultEndPoint
 				p.collector.CollectFlowEvent(r.Stats)
@@ -283,7 +278,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			reportStats(ctx)
 			return nil, fmt.Errorf("invalid destination address")
 		}
-		pctx, err := p.registry.RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
+		pctx, err := serviceregistry.Instance().RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +299,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	netDial := func(network, addr string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, addr)
 		if err != nil {
-			reportStats(context.Background())
+			reportStats(ctx)
 			return nil, err
 		}
 		var platformData *markedconn.PlatformData
@@ -313,7 +308,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
-			reportStats(context.Background())
+			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
 		}
 		return conn, nil
@@ -322,10 +317,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	appDial := func(network, addr string) (net.Conn, error) {
 		raddr, err := net.ResolveTCPAddr(network, addr)
 		if err != nil {
-			reportStats(context.Background())
+			reportStats(ctx)
 			return nil, err
 		}
-		pctx, err := p.registry.RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
+		pctx, err := serviceregistry.Instance().RetrieveExposedServiceContext(raddr.IP, raddr.Port, "")
 		if err != nil {
 			return nil, err
 		}
@@ -336,7 +331,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 		conn, err := markedconn.DialMarkedWithContext(ctx, "tcp", raddr.String(), platformData, p.mark)
 		if err != nil {
-			reportStats(context.Background())
+			reportStats(ctx)
 			return nil, fmt.Errorf("Failed to dial remote: %s", err)
 		}
 		return conn, nil
@@ -441,7 +436,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 	// enforcer certificate since this is internal access.
 	if mconn, ok := clientHello.Conn.(*markedconn.ProxiedConnection); ok {
 		ip, port := mconn.GetOriginalDestination()
-		portContext, err := p.registry.RetrieveExposedServiceContext(ip, port, "")
+		portContext, err := serviceregistry.Instance().RetrieveExposedServiceContext(ip, port, "")
 		if err != nil {
 			return nil, fmt.Errorf("service not available: %s %d", ip.String(), port)
 		}
@@ -461,7 +456,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 			}
 			if cert != nil {
 				by, _ := x509CertToPem(cert)
-				pemCert, err := buildCertChain(by, p.secrets.PublicSecrets().CertAuthority())
+				pemCert, err := buildCertChain(by, p.secrets.CertAuthority())
 				if err != nil {
 					zap.L().Error("http: Cannot build the cert chain")
 					return nil, fmt.Errorf("Cannot build the cert chain")
@@ -493,7 +488,7 @@ func (p *Config) GetCertificateFunc(clientHello *tls.ClientHelloInfo) (*tls.Cert
 }
 
 func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
-	zap.L().Debug("http:  BEFORE in buildCertChain certPEM: ", zap.String("certPEM:", string(certPEM)), zap.String("caPEM: ", string(caPEM)))
+	zap.L().Debug("http: BEFORE in buildCertChain certPEM", zap.String("certPEM", string(certPEM)), zap.String("caPEM", string(caPEM)))
 	certChain := []*x509.Certificate{}
 	clientPEMBlock := certPEM
 
@@ -526,7 +521,7 @@ func buildCertChain(certPEM, caPEM []byte) ([]byte, error) {
 		}
 	}
 	by, _ := x509CertChainToPem(certChain)
-	zap.L().Debug("http: After building the cert chain: ", zap.String("certChain: ", string(by)))
+	zap.L().Debug("http: After building the cert chain", zap.String("certChain", string(by)))
 	return x509CertChainToPem(certChain)
 }
 
@@ -602,7 +597,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	// Create the new target URL based on the Host parameter that we had.
 	r.URL, err = url.ParseRequestURI(httpScheme + r.Host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
+		http.Error(w, "Invalid destination host name", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -626,11 +621,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 	if err != nil {
 		zap.L().Error("Internal server error - cannot determine source address information", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Invalid network information"), http.StatusForbidden)
+		http.Error(w, "Invalid network information", http.StatusForbidden)
 		return
 	}
 
 	requestCookie, _ := r.Cookie("X-APORETO-AUTH") // nolint errcheck
+
+	pr := &collector.PingReport{}
 
 	request := &apiauth.Request{
 		OriginalDestination: originalDestination,
@@ -656,12 +653,58 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := flowstats.NewNetworkConnectionState(p.puContext, userID, request, response)
-	defer p.collector.CollectFlowEvent(state.Stats)
+	defer func() {
+		if response != nil && response.PingConfig != nil {
+			pr.PingID = response.PingConfig.PingID
+			pr.IterationID = response.PingConfig.IterationID
+			pr.Type = gaia.PingProbeTypeRequest
+			pr.RemotePUID = response.SourcePUID
+			pr.PUID = response.PUContext.ManagementID()
+			pr.Namespace = response.Namespace
+			pr.PayloadSize = response.PingConfig.PayloadSize
+			pr.PayloadSizeType = gaia.PingProbePayloadSizeTypeReceived
+			pr.Protocol = 6
+			pr.ServiceType = "L7"
+			pr.FourTuple = fmt.Sprintf("%s:%s:%d:%d",
+				sourceAddress.IP.String(),
+				originalDestination.IP.String(),
+				sourceAddress.Port,
+				originalDestination.Port)
+			pr.PolicyID = response.NetworkPolicyID
+			pr.PolicyAction = response.Action
+			pr.ServiceID = response.ServiceID
+			pr.AgentVersion = p.agentVersion.String()
+			pr.RemoteEndpointType = collector.EndPointTypePU
+			pr.IsServer = true
+			pr.Claims = response.PingConfig.Claims
+			pr.ClaimsType = gaia.PingProbeClaimsTypeReceived
+			pr.RemoteNamespaceType = gaia.PingProbeRemoteNamespaceTypePlain
+			pr.TargetTCPNetworks = true
+			pr.ExcludedNetworks = false
+
+			if len(r.TLS.PeerCertificates) > 0 {
+				if len(r.TLS.PeerCertificates[0].Subject.Organization) > 0 {
+					pr.RemoteNamespace = r.TLS.PeerCertificates[0].Subject.Organization[0]
+				}
+				pr.PeerCertIssuer = r.TLS.PeerCertificates[0].Issuer.String()
+				pr.PeerCertSubject = r.TLS.PeerCertificates[0].Subject.String()
+				pr.PeerCertExpiry = r.TLS.PeerCertificates[0].NotAfter
+
+				if found, controller := pcommon.ExtractExtension(x509extensions.Controller(), r.TLS.PeerCertificates[0].Extensions); found {
+					pr.RemoteController = string(controller)
+				}
+			}
+
+			p.collector.CollectPingEvent(pr)
+		} else {
+			p.collector.CollectFlowEvent(state.Stats)
+		}
+	}()
 
 	if err != nil {
 
 		zap.L().Debug("Authorization error",
-			zap.Reflect("Error", err),
+			zap.Error(err),
 			zap.String("URI", r.RequestURI),
 			zap.String("Host", r.Host),
 		)
@@ -675,6 +718,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			// Basic errors are captured here.
 			http.Error(w, authError.Message(), authError.Status())
 			return
+		}
+
+		if response.PingConfig != nil {
+			pr.Error = response.DropReason
 		}
 
 		if !response.Redirect {
@@ -717,7 +764,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header = response.Header
 
 	// Update the statistics and forward the request. We always encrypt downstream
-	state.Stats.Action = policy.Accept | policy.Encrypt
+	state.Stats.Action = policy.Accept | policy.Encrypt | policy.Log
 
 	// // Treat the remote proxy scenario where the destination IPs are in a remote
 	// // host. Check of network rules that allow this transfer and report the corresponding
@@ -741,13 +788,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized request for policy"), http.StatusForbidden)
+		http.Error(w, "unauthorized request for policy", http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
 	data, _, err := p.metadata.GetCurrentPolicy()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to retrieve current policy"), http.StatusInternalServerError)
+		http.Error(w, "Unable to retrieve current policy", http.StatusInternalServerError)
 		return true, err
 	}
 	if _, err := w.Write(data); err != nil {
@@ -759,7 +806,7 @@ func (p *Config) policyHook(w http.ResponseWriter, r *http.Request) (bool, error
 
 func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized request for certificate"), http.StatusForbidden)
+		http.Error(w, "unauthorized request for certificate", http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -772,7 +819,7 @@ func (p *Config) certificateHook(w http.ResponseWriter, r *http.Request) (bool, 
 
 func (p *Config) keyHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized request for private key"), http.StatusForbidden)
+		http.Error(w, "unauthorized request for private key", http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -788,7 +835,7 @@ func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error
 	// Health hook will only return ok if the current policy is already populated.
 	plc, _, err := p.metadata.GetCurrentPolicy()
 	if err != nil || plc == nil {
-		http.Error(w, fmt.Sprintf("Unable to retrieve current policy"), http.StatusInternalServerError)
+		http.Error(w, "Unable to retrieve current policy", http.StatusInternalServerError)
 		return true, err
 	}
 
@@ -801,7 +848,7 @@ func (p *Config) healthHook(w http.ResponseWriter, r *http.Request) (bool, error
 func (p *Config) tokenHook(w http.ResponseWriter, r *http.Request) (bool, error) {
 
 	if r.Header.Get(common.MetadataKey) != common.MetadataValue {
-		http.Error(w, fmt.Sprintf("unauthorized request for token"), http.StatusForbidden)
+		http.Error(w, "unauthorized request for token", http.StatusForbidden)
 		return true, fmt.Errorf("unauthorized")
 	}
 
@@ -896,7 +943,7 @@ func (p *Config) awsTokenHook(w http.ResponseWriter, r *http.Request) (bool, err
 	}
 
 	if !strings.HasSuffix(r.RequestURI, "security-credentials/"+awsRoleName) {
-		http.Error(w, fmt.Sprintf("not found"), http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return true, fmt.Errorf("not found")
 	}
 
