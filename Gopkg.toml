@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "release-5.0.0"
+  branch = "release-6.5.0"
   name = "github.com/aporeto-inc/go-ipset"
 
 [[constraint]]
@@ -29,15 +29,15 @@ required = ["github.com/docker/distribution"]
   version = "v0.9.0"
 
 [[constraint]]
-  branch = "release-5.0.0"
+  branch = "release-6.5.0"
   name = "github.com/aporeto-inc/oxy"
 
 [[constraint]]
-  branch = "release-5.0.0"
+  branch = "release-6.5.0"
   name = "go.aporeto.io/netlink-go"
 
 [[constraint]]
-  branch = "release-5.0.0"
+  branch = "release-6.5.0"
   name = "go.aporeto.io/tg"
 
 [[constraint]]
